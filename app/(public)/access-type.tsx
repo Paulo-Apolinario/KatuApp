@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -90,18 +90,48 @@ export default function AccessTypeScreen() {
 
         <EntryButton
           title="GERADOR"
-          onPress={() => router.push("/(public)/choose-profile")}
+          onPress={() => router.replace("/(public)/choose-profile")}
         />
 
         <EntryButton
           title="COOPERATIVA"
-          onPress={() => router.push("/(cooperativa)/login")}
+          onPress={() => router.replace("/(auth)/login?profile=cooperativa")}
         />
 
         <EntryButton
           title="CATADOR"
-          onPress={() => router.push("/(catador)/homecat")}
-        /> {/* 👈 TAG FECHADA CORRETAMENTE */}
+          onPress={() => router.replace("/(auth)/login?profile=catador")}
+        />
+
+        <TouchableOpacity
+          onPress={() => router.replace("/(public)/activate-generator")}
+          style={{
+            marginTop: 8,
+            alignItems: "center",
+            paddingVertical: 10,
+          }}
+        >
+          <Text
+            style={{
+              color: "#028C56",
+              fontSize: 14,
+              fontWeight: "700",
+              textDecorationLine: "underline",
+            }}
+          >
+            Já fui cadastrado pela cooperativa
+          </Text>
+          <Text
+            style={{
+              color: "#6B7280",
+              fontSize: 12,
+              marginTop: 4,
+              textAlign: "center",
+            }}
+          >
+            Clique aqui para liberar seu acesso
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
