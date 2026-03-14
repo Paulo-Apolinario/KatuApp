@@ -1,50 +1,99 @@
-# Welcome to your Expo app 👋
+♻️ KATU — Plataforma Inteligente de Coleta de Recicláveis
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+O KATU é um aplicativo mobile desenvolvido para conectar geradores de resíduos recicláveis, cooperativas e catadores, organizando de forma digital o processo de coleta, registro e acompanhamento de materiais recicláveis.
 
-## Get started
+A proposta da plataforma é facilitar a logística da reciclagem, melhorar a comunicação entre os envolvidos no processo e gerar dados que contribuam para um impacto ambiental positivo.
 
-1. Install dependencies
+O sistema permite que cooperativas gerenciem operações de coleta enquanto geradores acompanham seu histórico ambiental e catadores registram atividades de coleta diretamente pelo aplicativo.
 
-   ```bash
-   npm install
-   ```
+📱 Sobre o Projeto
 
-2. Start the app
+O KATU foi criado com o objetivo de modernizar e digitalizar a gestão de resíduos recicláveis.
 
-   ```bash
-   npx expo start
-   ```
+A plataforma conecta três agentes principais do ecossistema da reciclagem:
 
-In the output, you'll find options to open the app in a
+Cooperativas, responsáveis pela organização das operações
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Geradores de resíduos, como empresas ou estabelecimentos
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Catadores, responsáveis pela execução das coletas
 
-## Get a fresh project
+Com o aplicativo, todo o fluxo de coleta pode ser registrado e acompanhado digitalmente, proporcionando maior organização, rastreabilidade e geração de dados ambientais.
 
-When you're ready, run:
+🚀 Tecnologias Utilizadas
 
-```bash
-npm run reset-project
-```
+O aplicativo foi desenvolvido utilizando tecnologias modernas para garantir performance, escalabilidade e facilidade de manutenção.
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Frontend Mobile
 
-## Learn more
+React Native
 
-To learn more about developing your project with Expo, look at the following resources:
+Expo
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Expo Router
 
-## Join the community
+TypeScript
 
-Join our community of developers creating universal apps.
+Backend / Serviços
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Firebase Authentication
+
+Firebase Firestore
+
+Bibliotecas principais
+
+expo-location
+
+expo-linear-gradient
+
+expo-router
+
+firebase
+
+react-native
+
+⚙️ Funcionalidades do Aplicativo
+
+O sistema oferece funcionalidades específicas para cada tipo de usuário dentro da plataforma.
+
+👨‍🌾 Geradores de Resíduos
+
+Solicitação de coleta de materiais recicláveis
+
+Acompanhamento de histórico de coletas
+
+Visualização de dados ambientais relacionados aos materiais descartados
+
+Gerenciamento de perfil no aplicativo
+
+🏢 Cooperativas
+
+Cadastro e gestão de geradores
+
+Gestão de catadores vinculados
+
+Controle de operações de coleta
+
+Organização de atividades e registros ambientais
+
+🚛 Catadores
+
+Registro de coletas realizadas
+
+Registro de materiais coletados
+
+Acompanhamento de atividades realizadas
+
+Emissão de registros ou recibos de coleta
+
+🌱 Impacto Ambiental
+
+O KATU também tem como objetivo gerar dados ambientais importantes, permitindo acompanhar informações como:
+
+quantidade de materiais reciclados
+
+histórico de coletas realizadas
+
+participação dos geradores no processo de reciclagem
+
+Essas informações podem contribuir para relatórios de sustentabilidade e melhoria da gestão ambiental.
