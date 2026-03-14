@@ -1,9 +1,22 @@
 import { router } from "expo-router";
-import { useState, useEffect } from "react";
-import { Image, Text, View, TouchableOpacity, Alert, Linking, Platform } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Image,
+  Text,
+  View,
+  TouchableOpacity,
+  Alert,
+  Linking,
+  Platform,
+  ActivityIndicator,
+} from "react-native";
 import { Ionicons, MaterialIcons, FontAwesome6 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
+import { doc, getDoc } from "firebase/firestore";
+
+import { db } from "@/src/services/firebaseConfig";
+import { useAuth } from "@/src/contexts/AuthContext";
 
 type ActionButtonProps = {
   title: string;
@@ -53,61 +66,103 @@ function ActionButton({ title, icon, onPress }: ActionButtonProps) {
 }
 
 export default function CatadorHomeScreen() {
+  const { user } = useAuth();
+
   const [currentCity, setCurrentCity] = useState<string>("Carregando localização...");
   const [locationError, setLocationError] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoadingLocation, setIsLoadingLocation] = useState<boolean>(true);
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  const [catadorData, setCatadorData] = useState({
+    nome: "",
+    totalKg: 0,
+    kgMes: 0,
+    coletasHoje: 0,
+  });
+
+  const loadCatador = useCallback(async () => {
+    if (!user?.uid) {
+      setLoadingUser(false);
+      return;
+    }
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const data: any = userSnap.data();
+
+        setCatadorData({
+          nome: data.displayName || user.displayName || "",
+          totalKg: Number(data.totalKg || 0),
+          kgMes: Number(data.kgMes || 0),
+          coletasHoje: Number(data.coletasHoje || 0),
+        });
+      } else {
+        setCatadorData({
+          nome: user.displayName || "",
+          totalKg: 0,
+          kgMes: 0,
+          coletasHoje: 0,
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados do catador:", error);
+    } finally {
+      setLoadingUser(false);
+    }
+  }, [user?.uid, user?.displayName]);
+
+  useEffect(() => {
+    loadCatador();
+  }, [loadCatador]);
 
   useEffect(() => {
     getUserLocation();
   }, []);
 
   async function getUserLocation() {
-    setIsLoading(true);
+    setIsLoadingLocation(true);
+
     try {
-      // Verificar se os serviços de localização estão habilitados
       const servicesEnabled = await Location.hasServicesEnabledAsync();
       if (!servicesEnabled) {
         setCurrentCity("Localização desativada");
         setLocationError(true);
-        setIsLoading(false);
         return;
       }
 
-      // Solicitar permissão
       const { status } = await Location.requestForegroundPermissionsAsync();
-      
+
       if (status !== "granted") {
         setCurrentCity("Permissão negada");
         setLocationError(true);
-        setIsLoading(false);
-        
-        // Alert explicativo sobre permissão
+
         Alert.alert(
           "Permissão necessária",
           "Precisamos da sua localização para mostrar a cidade atual. Deseja abrir as configurações?",
           [
             { text: "Agora não", style: "cancel" },
-            { 
-              text: "Abrir Configurações", 
+            {
+              text: "Abrir Configurações",
               onPress: () => {
-                if (Platform.OS === 'ios') {
-                  Linking.openURL('app-settings:');
+                if (Platform.OS === "ios") {
+                  Linking.openURL("app-settings:");
                 } else {
                   Linking.openSettings();
                 }
-              }
-            }
+              },
+            },
           ]
         );
         return;
       }
 
-      // Obter posição atual
       const position = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
 
-      // Geocodificação reversa
       const addresses = await Location.reverseGeocodeAsync({
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
@@ -115,7 +170,12 @@ export default function CatadorHomeScreen() {
 
       if (addresses.length > 0) {
         const address = addresses[0];
-        const city = address.city || address.subregion || address.region || address.country || "Localização desconhecida";
+        const city =
+          address.city ||
+          address.subregion ||
+          address.region ||
+          address.country ||
+          "Localização desconhecida";
         setCurrentCity(city);
         setLocationError(false);
       } else {
@@ -127,7 +187,7 @@ export default function CatadorHomeScreen() {
       setCurrentCity("Erro ao carregar");
       setLocationError(true);
     } finally {
-      setIsLoading(false);
+      setIsLoadingLocation(false);
     }
   }
 
@@ -135,29 +195,10 @@ export default function CatadorHomeScreen() {
     <View
       style={{
         flex: 1,
-        backgroundColor: "#FFFFFF", // ALTERADO PARA BRANCO
+        backgroundColor: "#FFFFFF",
       }}
     >
-      {/* BOTÃO DE VOLTAR - MESMO ESTILO DOS OUTROS CÓDIGOS */}
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={{
-          position: "absolute",
-          top: 60,
-          left: 20,
-          zIndex: 10,
-          backgroundColor: "rgba(2, 140, 86, 0.1)",
-          borderRadius: 30,
-          padding: 10,
-          flexDirection: "row",
-          alignItems: "center",
-        }}
-      >
-        <Ionicons name="arrow-back" size={28} color="#028C56" />
-        <Text style={{ color: "#028C56", marginLeft: 5, fontWeight: "600" }}>
-          Voltar
-        </Text>
-      </TouchableOpacity>
+    
 
       <View
         style={{
@@ -168,8 +209,7 @@ export default function CatadorHomeScreen() {
         }}
       >
         <View style={{ width: "100%", maxWidth: 430 }}>
-          {/* TOPO COM LOGO E LOCALIZAÇÃO */}
-          <View style={{ alignItems: "center", marginBottom: 46 }}>
+          <View style={{ alignItems: "center", marginBottom: 28 }}>
             <View
               style={{
                 flexDirection: "row",
@@ -191,18 +231,17 @@ export default function CatadorHomeScreen() {
               <Text
                 style={{
                   fontSize: 30,
-                  color: "#111827", // ALTERADO PARA ESCURO
+                  color: "#111827",
                   fontWeight: "400",
                 }}
               >
-                Coletar<Text style={{ fontWeight: "800", color: "#028C56" }}>AI</Text>
+                Katu<Text style={{ fontWeight: "800", color: "#028C56" }}>AI</Text>
               </Text>
             </View>
 
-            {/* LOCALIZAÇÃO ATUAL */}
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={locationError ? getUserLocation : undefined}
-              disabled={isLoading || !locationError}
+              disabled={isLoadingLocation || !locationError}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
@@ -227,20 +266,76 @@ export default function CatadorHomeScreen() {
                   textAlign: "center",
                 }}
               >
-                {isLoading ? "Carregando..." : currentCity}
+                {isLoadingLocation ? "Carregando..." : currentCity}
               </Text>
-              {locationError && !isLoading && (
-                <Ionicons 
-                  name="refresh-outline" 
-                  size={18} 
-                  color="#DC2626" 
+              {locationError && !isLoadingLocation && (
+                <Ionicons
+                  name="refresh-outline"
+                  size={18}
+                  color="#DC2626"
                   style={{ marginLeft: 6 }}
                 />
               )}
             </TouchableOpacity>
           </View>
 
-          {/* BOTÕES DE AÇÃO */}
+          <View
+            style={{
+              backgroundColor: "#F9FAFB",
+              borderRadius: 18,
+              padding: 18,
+              marginBottom: 26,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+            }}
+          >
+            {loadingUser ? (
+              <View style={{ alignItems: "center", paddingVertical: 12 }}>
+                <ActivityIndicator color="#028C56" />
+                <Text style={{ marginTop: 8, color: "#6B7280" }}>
+                  Carregando dados...
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text
+                  style={{
+                    fontSize: 20,
+                    fontWeight: "700",
+                    color: "#111827",
+                    textAlign: "center",
+                    marginBottom: 12,
+                  }}
+                >
+                  {catadorData.nome || "Catador"}
+                </Text>
+
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <View style={{ alignItems: "center", flex: 1 }}>
+                    <Text style={{ fontSize: 12, color: "#6B7280" }}>TOTAL</Text>
+                    <Text style={{ fontSize: 20, fontWeight: "800", color: "#028C56" }}>
+                      {catadorData.totalKg} kg
+                    </Text>
+                  </View>
+
+                  <View style={{ alignItems: "center", flex: 1 }}>
+                    <Text style={{ fontSize: 12, color: "#6B7280" }}>NO MÊS</Text>
+                    <Text style={{ fontSize: 20, fontWeight: "800", color: "#028C56" }}>
+                      {catadorData.kgMes} kg
+                    </Text>
+                  </View>
+
+                  <View style={{ alignItems: "center", flex: 1 }}>
+                    <Text style={{ fontSize: 12, color: "#6B7280" }}>HOJE</Text>
+                    <Text style={{ fontSize: 20, fontWeight: "800", color: "#028C56" }}>
+                      {catadorData.coletasHoje}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
+          </View>
+
           <ActionButton
             title="COLETAR"
             icon={<Ionicons name="reload-circle-outline" size={42} color="#FFFFFF" />}

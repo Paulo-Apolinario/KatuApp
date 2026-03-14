@@ -1,12 +1,22 @@
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
-import { Image, Text, View, TouchableOpacity, Alert, Linking, Platform } from "react-native";
+import {
+  Image,
+  Text,
+  View,
+  TouchableOpacity,
+  Alert,
+  Linking,
+  Platform,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import GradientButton from "@/src/components/GradientButton";
 
 export default function ChooseProfile() {
-  const [currentCity, setCurrentCity] = useState<string>("Carregando localização...");
+  const [currentCity, setCurrentCity] = useState<string>(
+    "Carregando localização..."
+  );
   const [locationError, setLocationError] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -16,51 +26,47 @@ export default function ChooseProfile() {
 
   async function getUserLocation() {
     setIsLoading(true);
+
     try {
-      // Verificar se os serviços de localização estão habilitados
       const servicesEnabled = await Location.hasServicesEnabledAsync();
+
       if (!servicesEnabled) {
         setCurrentCity("Localização desativada");
         setLocationError(true);
-        setIsLoading(false);
         return;
       }
 
-      // Solicitar permissão
       const { status } = await Location.requestForegroundPermissionsAsync();
-      
+
       if (status !== "granted") {
         setCurrentCity("Permissão negada");
         setLocationError(true);
-        setIsLoading(false);
-        
-        // Alert explicativo sobre permissão
+
         Alert.alert(
           "Permissão necessária",
           "Precisamos da sua localização para mostrar a cidade atual. Deseja abrir as configurações?",
           [
             { text: "Agora não", style: "cancel" },
-            { 
-              text: "Abrir Configurações", 
+            {
+              text: "Abrir Configurações",
               onPress: () => {
-                if (Platform.OS === 'ios') {
-                  Linking.openURL('app-settings:');
+                if (Platform.OS === "ios") {
+                  Linking.openURL("app-settings:");
                 } else {
                   Linking.openSettings();
                 }
-              }
-            }
+              },
+            },
           ]
         );
+
         return;
       }
 
-      // Obter posição atual
       const position = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
 
-      // Geocodificação reversa
       const addresses = await Location.reverseGeocodeAsync({
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
@@ -68,7 +74,13 @@ export default function ChooseProfile() {
 
       if (addresses.length > 0) {
         const address = addresses[0];
-        const city = address.city || address.subregion || address.region || address.country || "Localização desconhecida";
+        const city =
+          address.city ||
+          address.subregion ||
+          address.region ||
+          address.country ||
+          "Localização desconhecida";
+
         setCurrentCity(city);
         setLocationError(false);
       } else {
@@ -86,28 +98,33 @@ export default function ChooseProfile() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-      {/* BOTÃO DE VOLTAR - ESTILO DA PRIMEIRA IMAGEM (apenas ícone) */}
       <TouchableOpacity
-        onPress={() => router.push("/(public)/access-type")}
+        onPress={() => router.replace("/(public)/access-type")}
         style={{
           position: "absolute",
-          top: 60,
+          top: 50,
           left: 20,
           zIndex: 10,
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "rgba(2, 140, 86, 0.1)",
           borderRadius: 30,
-          padding: 10,
-          shadowColor: "#000",
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          shadowOffset: { width: 0, height: 2 },
-          elevation: 3,
+          padding: 8,
+          flexDirection: "row",
+          alignItems: "center",
         }}
       >
-        <Ionicons name="arrow-back" size={24} color="#111827" />
+        <Ionicons name="arrow-back" size={24} color="#028C56" />
+        <Text
+          style={{
+            color: "#028C56",
+            marginLeft: 4,
+            fontWeight: "600",
+            fontSize: 14,
+          }}
+        >
+          Voltar
+        </Text>
       </TouchableOpacity>
 
-      {/* CONTEÚDO */}
       <View
         style={{
           flex: 1,
@@ -117,93 +134,119 @@ export default function ChooseProfile() {
         }}
       >
         <View style={{ width: "100%", maxWidth: 400 }}>
-          {/* LOGO E TÍTULO - ESTILO DA PRIMEIRA IMAGEM */}
-          <View style={{ alignItems: "center", marginBottom: 40 }}>
-            <View
+          <View style={{ alignItems: "center", marginBottom: 32 }}>
+            <Image
+              source={require("../../assets/images/logo.png")}
+              resizeMode="contain"
               style={{
-                alignItems: "center",
-                marginBottom: 20,
+                width: 70,
+                height: 70,
+                marginBottom: 12,
+              }}
+            />
+
+            <Text
+              style={{
+                fontSize: 28,
+                fontWeight: "800",
+                color: "#111827",
+                textAlign: "center",
+                marginBottom: 8,
               }}
             >
-              <Image
-                source={require("../../assets/images/logo.png")}
-                resizeMode="contain"
-                style={{
-                  width: 72,
-                  height: 72,
-                  marginBottom: 16,
-                }}
-              />
+              Qual gerador você é?
+            </Text>
 
-              <Text
-                style={{
-                  fontSize: 28,
-                  fontWeight: "800",
-                  color: "#111827",
-                  textAlign: "center",
-                }}
-              >
-                Qual gerador você é?
-              </Text>
-            </View>
-
-            {/* LOCALIZAÇÃO - ESTILO DA PRIMEIRA IMAGEM */}
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={locationError ? getUserLocation : undefined}
               disabled={isLoading || !locationError}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "center",
-                marginTop: 8,
+                backgroundColor: locationError ? "#FEE2E2" : "#F0FDF4",
+                paddingVertical: 6,
+                paddingHorizontal: 12,
+                borderRadius: 20,
+                marginTop: 4,
               }}
             >
-              <Ionicons 
-                name="location-sharp" 
-                size={20} 
-                color="#9CA3AF" 
+              <Ionicons
+                name={locationError ? "alert-circle-outline" : "location-sharp"}
+                size={16}
+                color={locationError ? "#DC2626" : "#028C56"}
               />
               <Text
                 style={{
-                  color: locationError ? "#DC2626" : "#4B5563",
-                  fontSize: 14,
+                  color: locationError ? "#DC2626" : "#028C56",
+                  fontSize: 13,
                   fontWeight: "500",
-                  marginLeft: 6,
+                  marginLeft: 4,
                 }}
               >
                 {isLoading ? "Carregando..." : currentCity}
               </Text>
+
               {locationError && !isLoading && (
-                <Ionicons 
-                  name="refresh-outline" 
-                  size={16} 
-                  color="#DC2626" 
-                  style={{ marginLeft: 6 }}
+                <Ionicons
+                  name="refresh-outline"
+                  size={14}
+                  color="#DC2626"
+                  style={{ marginLeft: 4 }}
                 />
               )}
             </TouchableOpacity>
           </View>
 
-          {/* BOTÕES - ESTILO DA PRIMEIRA IMAGEM */}
           <View style={{ width: "100%" }}>
             <GradientButton
               title="Pessoa Física"
               icon="person"
-              onPress={() => router.push("/(auth)/login?profile=pf")}
+              onPress={() => router.replace("/(auth)/login?profile=pf")}
             />
 
             <GradientButton
               title="Pequeno Gerador Comercial"
               icon="storefront"
-              onPress={() => router.push("/(auth)/login?profile=comercial")}
+              onPress={() => router.replace("/(auth)/login?profile=comercial")}
             />
 
             <GradientButton
               title="Grande Gerador"
               icon="business"
-              onPress={() => router.push("/(auth)/login?profile=grande")}
+              onPress={() => router.replace("/(auth)/login?profile=grande")}
             />
           </View>
+
+          <TouchableOpacity
+            onPress={() => router.replace("/(public)/activate-generator")}
+            style={{
+              marginTop: 12,
+              alignItems: "center",
+              paddingVertical: 10,
+            }}
+          >
+            <Text
+              style={{
+                color: "#028C56",
+                fontSize: 14,
+                fontWeight: "700",
+                textDecorationLine: "underline",
+              }}
+            >
+              Já fui cadastrado pela cooperativa
+            </Text>
+            <Text
+              style={{
+                color: "#6B7280",
+                fontSize: 12,
+                marginTop: 4,
+                textAlign: "center",
+              }}
+            >
+              Clique aqui para liberar seu acesso
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
