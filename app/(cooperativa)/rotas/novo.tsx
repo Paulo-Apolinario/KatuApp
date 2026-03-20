@@ -13,111 +13,60 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  addDoc,
-  collection,
-  getDocs,
-  query,
-  serverTimestamp,
-  where,
-} from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
-
-type RouteStatus = "agendada" | "em_andamento" | "concluida";
-
-interface Driver {
-  id: string;
-  nome: string;
-}
-
-interface Vehicle {
-  id: string;
-  modelo: string;
-  placa: string;
-}
+import { driverService, type Driver } from "@/src/services/driverService";
+import { vehicleService, type Vehicle } from "@/src/services/vehicleService";
+import { routeService } from "@/src/services/routeService";
 
 export default function NovaRotaScreen() {
-  const { user } = useAuth();
-
-  const [nome, setNome] = useState("");
-  const [data, setData] = useState("");
-  const [pontos, setPontos] = useState("");
-  const [status, setStatus] = useState<RouteStatus>("agendada");
+  const [name, setName] = useState("");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [stops, setStops] = useState("");
+  const [description, setDescription] = useState("");
 
   const [motoristas, setMotoristas] = useState<Driver[]>([]);
   const [veiculos, setVeiculos] = useState<Vehicle[]>([]);
-  const [motoristaId, setMotoristaId] = useState("");
-  const [veiculoId, setVeiculoId] = useState("");
+  const [driverId, setDriverId] = useState("");
+  const [vehicleId, setVehicleId] = useState("");
 
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const loadOptions = useCallback(async () => {
-    if (!user?.uid) {
-      setLoadingOptions(false);
-      return;
-    }
-
     try {
       setLoadingOptions(true);
 
-      const [motoristasSnap, veiculosSnap] = await Promise.all([
-        getDocs(
-          query(collection(db, "motoristas"), where("cooperativaId", "==", user.uid))
-        ),
-        getDocs(
-          query(collection(db, "veiculos"), where("cooperativaId", "==", user.uid))
-        ),
+      const [driversData, vehiclesData] = await Promise.all([
+        driverService.list(),
+        vehicleService.list(),
       ]);
 
-      setMotoristas(
-        motoristasSnap.docs.map((docSnap) => ({
-          id: docSnap.id,
-          nome: (docSnap.data() as any).nome || "Sem nome",
-        }))
-      );
-
-      setVeiculos(
-        veiculosSnap.docs.map((docSnap) => {
-          const dataSnap: any = docSnap.data();
-          return {
-            id: docSnap.id,
-            modelo: dataSnap.modelo || "Sem modelo",
-            placa: dataSnap.placa || "Sem placa",
-          };
-        })
-      );
+      setMotoristas(driversData);
+      setVeiculos(vehiclesData);
     } catch (error) {
       console.error("Erro ao carregar opções da rota:", error);
       Alert.alert("Erro", "Não foi possível carregar motoristas e veículos.");
     } finally {
       setLoadingOptions(false);
     }
-  }, [user?.uid]);
+  }, []);
 
   useEffect(() => {
     loadOptions();
   }, [loadOptions]);
 
   async function handleSalvar() {
-    if (!user?.uid) {
-      Alert.alert("Erro", "Cooperativa não identificada.");
-      return;
-    }
-
-    if (!nome.trim() || !data.trim() || !pontos.trim() || !motoristaId || !veiculoId) {
+    if (!name.trim() || !scheduledDate.trim() || !stops.trim() || !driverId || !vehicleId) {
       Alert.alert("Atenção", "Preencha todos os campos obrigatórios.");
       return;
     }
 
-    const pontosArray = pontos
+    const stopsArray = stops
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
 
-    if (pontosArray.length === 0) {
+    if (stopsArray.length === 0) {
       Alert.alert("Atenção", "Informe pelo menos um ponto da rota.");
       return;
     }
@@ -125,15 +74,13 @@ export default function NovaRotaScreen() {
     try {
       setSaving(true);
 
-      await addDoc(collection(db, "rotas"), {
-        nome: nome.trim(),
-        data: data.trim(),
-        pontos: pontosArray,
-        status,
-        motoristaId,
-        veiculoId,
-        cooperativaId: user.uid,
-        createdAt: serverTimestamp(),
+      await routeService.create({
+        name,
+        scheduledDate,
+        driverId,
+        vehicleId,
+        stops: stopsArray,
+        description,
       });
 
       Alert.alert("Sucesso", "Rota cadastrada com sucesso!", [
@@ -142,9 +89,9 @@ export default function NovaRotaScreen() {
           onPress: () => router.replace("/(cooperativa)/rotas"),
         },
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao cadastrar rota:", error);
-      Alert.alert("Erro", "Não foi possível cadastrar a rota.");
+      Alert.alert("Erro", error?.message || "Não foi possível cadastrar a rota.");
     } finally {
       setSaving(false);
     }
@@ -177,10 +124,12 @@ export default function NovaRotaScreen() {
 
       <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>Nome da rota *</Text>
+          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+            Nome da rota *
+          </Text>
           <TextInput
-            value={nome}
-            onChangeText={setNome}
+            value={name}
+            onChangeText={setName}
             placeholder="Ex: Rota Centro Manhã"
             placeholderTextColor="#9CA3AF"
             style={{
@@ -195,11 +144,13 @@ export default function NovaRotaScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>Data *</Text>
+          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+            Data programada *
+          </Text>
           <TextInput
-            value={data}
-            onChangeText={setData}
-            placeholder="DD/MM/AAAA"
+            value={scheduledDate}
+            onChangeText={setScheduledDate}
+            placeholder="2026-03-16T08:00:00.000Z"
             placeholderTextColor="#9CA3AF"
             style={{
               borderWidth: 1,
@@ -229,12 +180,12 @@ export default function NovaRotaScreen() {
               ) : (
                 <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
                   {motoristas.map((item) => {
-                    const selected = motoristaId === item.id;
+                    const selected = driverId === item.id;
 
                     return (
                       <TouchableOpacity
                         key={item.id}
-                        onPress={() => setMotoristaId(item.id)}
+                        onPress={() => setDriverId(item.id)}
                         style={{
                           backgroundColor: selected ? "#028C56" : "#F3F4F6",
                           paddingHorizontal: 14,
@@ -250,7 +201,7 @@ export default function NovaRotaScreen() {
                             fontWeight: "600",
                           }}
                         >
-                          {item.nome}
+                          {item.name}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -269,12 +220,12 @@ export default function NovaRotaScreen() {
               ) : (
                 <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
                   {veiculos.map((item) => {
-                    const selected = veiculoId === item.id;
+                    const selected = vehicleId === item.id;
 
                     return (
                       <TouchableOpacity
                         key={item.id}
-                        onPress={() => setVeiculoId(item.id)}
+                        onPress={() => setVehicleId(item.id)}
                         style={{
                           backgroundColor: selected ? "#028C56" : "#F3F4F6",
                           paddingHorizontal: 14,
@@ -290,7 +241,7 @@ export default function NovaRotaScreen() {
                             fontWeight: "600",
                           }}
                         >
-                          {item.modelo} - {item.placa}
+                          {item.model} - {item.plate}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -306,8 +257,8 @@ export default function NovaRotaScreen() {
             Pontos da rota *
           </Text>
           <TextInput
-            value={pontos}
-            onChangeText={setPontos}
+            value={stops}
+            onChangeText={setStops}
             placeholder="Separe por vírgula. Ex: Centro, Mercado, Praia"
             placeholderTextColor="#9CA3AF"
             multiline
@@ -325,41 +276,26 @@ export default function NovaRotaScreen() {
         </View>
 
         <View style={{ marginBottom: 30 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 10 }}>Status</Text>
-
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            {[
-              { label: "Agendada", value: "agendada" },
-              { label: "Em andamento", value: "em_andamento" },
-              { label: "Concluída", value: "concluida" },
-            ].map((item) => {
-              const selected = status === item.value;
-
-              return (
-                <TouchableOpacity
-                  key={item.value}
-                  onPress={() => setStatus(item.value as RouteStatus)}
-                  style={{
-                    backgroundColor: selected ? "#028C56" : "#F3F4F6",
-                    paddingHorizontal: 14,
-                    paddingVertical: 8,
-                    borderRadius: 20,
-                    marginRight: 10,
-                    marginBottom: 10,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: selected ? "#FFFFFF" : "#4B5563",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+            Descrição
+          </Text>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Observações da rota"
+            placeholderTextColor="#9CA3AF"
+            multiline
+            style={{
+              borderWidth: 1,
+              borderColor: "#D1D5DB",
+              borderRadius: 8,
+              padding: 12,
+              fontSize: 16,
+              color: "#111827",
+              minHeight: 100,
+              textAlignVertical: "top",
+            }}
+          />
         </View>
 
         <TouchableOpacity onPress={handleSalvar} disabled={saving} activeOpacity={0.9}>

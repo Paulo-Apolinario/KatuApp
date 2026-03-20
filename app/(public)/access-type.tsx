@@ -104,33 +104,14 @@ export default function AccessTypeScreen() {
         />
 
         <TouchableOpacity
-          onPress={() => router.replace("/(public)/activate-generator")}
+          onPress={() => router.replace("../(public)/activate-generator")}
           style={{
             marginTop: 8,
             alignItems: "center",
             paddingVertical: 10,
           }}
         >
-          <Text
-            style={{
-              color: "#028C56",
-              fontSize: 14,
-              fontWeight: "700",
-              textDecorationLine: "underline",
-            }}
-          >
-            Já fui cadastrado pela cooperativa
-          </Text>
-          <Text
-            style={{
-              color: "#6B7280",
-              fontSize: 12,
-              marginTop: 4,
-              textAlign: "center",
-            }}
-          >
-            Clique aqui para liberar seu acesso
-          </Text>
+          
         </TouchableOpacity>
       </View>
     </View>

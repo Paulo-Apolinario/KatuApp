@@ -11,24 +11,59 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { addDoc, collection, doc, getDoc, serverTimestamp } from "firebase/firestore";
-
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
+import { generatorService, Generator } from "@/src/services/generatorService";
 
 type MaterialItem = {
   nome: string;
   kg: number;
 };
 
+type GeradorViewModel = {
+  id: string;
+  nome: string;
+  endereco: string;
+  contato: string;
+  telefone: string;
+  email: string;
+  tipo: "pequeno" | "grande";
+  status: "ativo" | "pendente" | "inativo";
+  ultimaColeta: string;
+  kgTotal: number;
+  kgMes: number;
+  coletasRealizadas: number;
+  materiais: MaterialItem[];
+};
+
+function mapGeneratorToViewModel(generator: Generator): GeradorViewModel {
+  return {
+    id: generator.id,
+    nome: generator.companyName || "Sem nome",
+    endereco: generator.address || "Endereço não informado",
+    contato: generator.name || "Não informado",
+    telefone: generator.phone || "Não informado",
+    email: generator.email || "Não informado",
+    tipo: generator.type === "SMALL" ? "pequeno" : "grande",
+    status:
+      generator.accessStatus === "ACTIVE"
+        ? "ativo"
+        : generator.accessStatus === "PENDING_ACTIVATION"
+        ? "pendente"
+        : "inativo",
+    ultimaColeta: "Sem registro",
+    kgTotal: 0,
+    kgMes: 0,
+    coletasRealizadas: 0,
+    materiais: [],
+  };
+}
+
 export default function GeradorDetailScreen() {
-  const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const documentId = Array.isArray(id) ? id[0] : id;
 
   const [loading, setLoading] = useState(true);
   const [agendando, setAgendando] = useState(false);
-  const [gerador, setGerador] = useState<any>(null);
+  const [gerador, setGerador] = useState<GeradorViewModel | null>(null);
 
   const loadGerador = useCallback(async () => {
     if (!documentId) {
@@ -39,36 +74,20 @@ export default function GeradorDetailScreen() {
     try {
       setLoading(true);
 
-      const docRef = doc(db, "geradores", documentId);
-      const docSnap = await getDoc(docRef);
+      const response = await generatorService.getGeneratorById(documentId);
 
-      if (!docSnap.exists()) {
+      if (!response?.generator) {
         Alert.alert("Erro", "Gerador não encontrado.");
         router.back();
         return;
       }
 
-      const data: any = docSnap.data();
-
-      setGerador({
-        id: docSnap.id,
-        nome: data.nome || data.companyName || "Sem nome",
-        endereco: data.endereco || data.address || "Endereço não informado",
-        contato: data.contato || "Não informado",
-        telefone: data.telefone || data.phone || "Não informado",
-        email: data.email || "Não informado",
-        tipo: data.tipo || "pequeno",
-        status: data.status || "ativo",
-        ultimaColeta: data.ultimaColeta || "Sem registro",
-        kgTotal: Number(data.kgTotal || data.kgColetado || 0),
-        kgMes: Number(data.kgMes || 0),
-        coletasRealizadas: Number(data.coletasRealizadas || 0),
-        materiais: Array.isArray(data.materiais) ? data.materiais : [],
-        cooperativaId: data.cooperativaId || "",
-      });
-    } catch (error) {
-      console.error("Erro ao carregar gerador:", error);
-      Alert.alert("Erro", "Não foi possível carregar os dados do gerador.");
+      setGerador(mapGeneratorToViewModel(response.generator));
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error.message || "Não foi possível carregar os dados do gerador."
+      );
     } finally {
       setLoading(false);
     }
@@ -79,33 +98,15 @@ export default function GeradorDetailScreen() {
   }, [loadGerador]);
 
   const handleAgendarColeta = async () => {
-    if (!user?.uid) {
-      Alert.alert("Erro", "Cooperativa não autenticada.");
-      return;
-    }
-
     if (!gerador) return;
 
     try {
       setAgendando(true);
 
-      await addDoc(collection(db, "agendamentos"), {
-        geradorId: gerador.id,
-        geradorNome: gerador.nome,
-        geradorEndereco: gerador.endereco,
-        geradorTelefone: gerador.telefone,
-        geradorEmail: gerador.email,
-        tipoGerador: gerador.tipo,
-        cooperativaId: user.uid,
-        status: "agendado",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-
-      Alert.alert("Sucesso", "Agendamento criado com sucesso!");
-    } catch (error) {
-      console.error("Erro ao agendar coleta:", error);
-      Alert.alert("Erro", "Não foi possível criar o agendamento.");
+      Alert.alert(
+        "Próxima etapa",
+        "A criação de agendamentos será integrada no próximo módulo, usando a API de schedules."
+      );
     } finally {
       setAgendando(false);
     }
@@ -121,11 +122,12 @@ export default function GeradorDetailScreen() {
     const numeroComDdi = numero.startsWith("55") ? numero : `55${numero}`;
 
     const mensagem = encodeURIComponent(
-      `Olá, ${gerador.contato !== "Não informado" ? gerador.contato : gerador.nome}! Somos da cooperativa e estamos entrando em contato sobre a coleta do estabelecimento ${gerador.nome}.`
+      `Olá, ${
+        gerador.contato !== "Não informado" ? gerador.contato : gerador.nome
+      }! Somos da cooperativa e estamos entrando em contato sobre a coleta do estabelecimento ${gerador.nome}.`
     );
 
     const url = `https://wa.me/${numeroComDdi}?text=${mensagem}`;
-
     const canOpen = await Linking.canOpenURL(url);
 
     if (!canOpen) {

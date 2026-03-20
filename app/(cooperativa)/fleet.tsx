@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   Text,
   View,
@@ -10,77 +10,65 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { collection, getDocs, query, where } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
+import { vehicleService, type Vehicle } from "@/src/services/vehicleService";
 
-type VehicleStatus = "ativo" | "manutencao" | "inativo";
+type VehicleStatusCard = "ativo" | "manutencao" | "inativo";
 
-interface Vehicle {
+interface VehicleCard {
   id: string;
   modelo: string;
   placa: string;
-  status: VehicleStatus;
+  status: VehicleStatusCard;
   capacidade?: number;
   totalColetado?: number;
-  cooperativaId: string;
+}
+
+function mapVehicleStatus(status?: string | null): VehicleStatusCard {
+  if (status === "ACTIVE") return "ativo";
+  if (status === "MAINTENANCE") return "manutencao";
+  return "inativo";
 }
 
 export default function FleetScreen() {
-  const { user } = useAuth();
-
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicles, setVehicles] = useState<VehicleCard[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadFleet = useCallback(async () => {
-    if (!user?.uid) {
-      setVehicles([]);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
 
-      const q = query(
-        collection(db, "veiculos"),
-        where("cooperativaId", "==", user.uid)
-      );
+      const data = await vehicleService.list();
 
-      const snapshot = await getDocs(q);
-
-      const list: Vehicle[] = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data() as Omit<Vehicle, "id">;
-
-        return {
-          id: docSnap.id,
-          modelo: data.modelo || "Sem modelo",
-          placa: data.placa || "Sem placa",
-          status: data.status || "inativo",
-          capacidade: Number(data.capacidade || 0),
-          totalColetado: Number((data as any).totalColetado || 0),
-          cooperativaId: data.cooperativaId,
-        };
-      });
+      const list: VehicleCard[] = data.map((item: Vehicle) => ({
+        id: item.id,
+        modelo: item.model || "Sem modelo",
+        placa: item.plate || "Sem placa",
+        status: mapVehicleStatus(item.status),
+        capacidade: Number(item.capacityKg || 0),
+        totalColetado: 0,
+      }));
 
       setVehicles(list);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao carregar frota:", error);
-      Alert.alert("Erro", "Não foi possível carregar a frota.");
+      Alert.alert("Erro", error?.message || "Não foi possível carregar a frota.");
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, []);
 
-  useEffect(() => {
-    loadFleet();
-  }, [loadFleet]);
+  useFocusEffect(
+    useCallback(() => {
+      loadFleet();
+    }, [loadFleet])
+  );
 
   const summary = useMemo(() => {
     const ativos = vehicles.filter((v) => v.status === "ativo").length;
     const manutencao = vehicles.filter((v) => v.status === "manutencao").length;
     const inativos = vehicles.filter((v) => v.status === "inativo").length;
+
     const totalColetado = vehicles.reduce(
       (acc, item) => acc + Number(item.totalColetado || 0),
       0
@@ -94,7 +82,7 @@ export default function FleetScreen() {
     };
   }, [vehicles]);
 
-  const getStatusColor = (status: VehicleStatus) => {
+  const getStatusColor = (status: VehicleStatusCard) => {
     switch (status) {
       case "ativo":
         return "#028C56";
@@ -107,7 +95,7 @@ export default function FleetScreen() {
     }
   };
 
-  const getStatusLabel = (status: VehicleStatus) => {
+  const getStatusLabel = (status: VehicleStatusCard) => {
     switch (status) {
       case "ativo":
         return "ATIVO";
@@ -307,8 +295,12 @@ export default function FleetScreen() {
                     </View>
                   </View>
 
-                  <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 10 }}>
+                  <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 6 }}>
                     Placa: {vehicle.placa}
+                  </Text>
+
+                  <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 10 }}>
+                    Capacidade: {Number(vehicle.capacidade || 0)} kg
                   </Text>
 
                   <View
@@ -333,7 +325,7 @@ export default function FleetScreen() {
 
                     <TouchableOpacity
                       onPress={() =>
-                        router.push(`/(cooperativa)/veiculos/editar/${vehicle.id}` as any)
+                        router.push(`/(cooperativa)/veiculos/${vehicle.id}` as any)
                       }
                       style={{
                         backgroundColor: "#FFFFFF",
@@ -354,7 +346,7 @@ export default function FleetScreen() {
             )}
 
             <TouchableOpacity
-              onPress={() => router.push("../(cooperativa)/veiculos/novo")}
+              onPress={() => router.push("/(cooperativa)/veiculos/novo")}
               style={{
                 backgroundColor: "#F0FDF4",
                 borderRadius: 12,

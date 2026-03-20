@@ -6,7 +6,7 @@ import ProtectedRoute from "@/src/components/ProtectedRoute";
 
 export default function CatadorLayout() {
   return (
-    <ProtectedRoute allowedUserTypes={["catador"]}>
+    <ProtectedRoute allowedUserTypes={["COLLECTOR"]}>
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: "#028C56",
@@ -72,11 +72,11 @@ export default function CatadorLayout() {
         />
 
         <Tabs.Screen
-          name="profile"
+          name="dashboard"
           options={{
-            title: "Perfil",
+            title: "Resumo",
             tabBarIcon: ({ color }) => (
-              <Ionicons name="person-outline" size={24} color={color} />
+              <Ionicons name="grid-outline" size={24} color={color} />
             ),
           }}
         />

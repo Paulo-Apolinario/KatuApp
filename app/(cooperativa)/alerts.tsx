@@ -1,140 +1,121 @@
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   Image,
   Text,
   View,
   TouchableOpacity,
   ScrollView,
-  TextInput,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
+import { scheduleService } from "@/src/services/scheduleService";
+import { generatorService } from "@/src/services/generatorService";
+
 type AlertPoint = {
-  id: number;
+  id: string;
   name: string;
   address: string;
-  status: "Atrasado" | "Acumulado" | "Solicitação";
+  status: "Atrasado" | "Agendado" | "Solicitação";
   days: number;
 };
 
+function parseDate(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getDiffDays(date: Date) {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+}
+
 export default function AlertsScreen() {
-  const [selectedPointId, setSelectedPointId] = useState<number | null>(null);
-  const [editMode, setEditMode] = useState(false);
-  const [currentDriver] = useState("Joãozinho");
-  const [currentPlate] = useState("SBT1234");
-  const [totalLixo] = useState(412);
+  const [loading, setLoading] = useState(true);
+  const [alertPoints, setAlertPoints] = useState<AlertPoint[]>([]);
 
-  const [alertPoints, setAlertPoints] = useState<AlertPoint[]>([
-    {
-      id: 1,
-      name: "ATACADÃO DO VALE",
-      address: "Av. Principal, 123",
-      status: "Atrasado",
-      days: 2,
-    },
-    {
-      id: 2,
-      name: "BAR DO VALMAL",
-      address: "Rua das Flores, 45",
-      status: "Acumulado",
-      days: 3,
-    },
-    {
-      id: 3,
-      name: "MERCADINHO NOVA OPÇÃO",
-      address: "Praça Central, 78",
-      status: "Solicitação",
-      days: 1,
-    },
-    {
-      id: 4,
-      name: "ATACADÃO DO VALE",
-      address: "Filial - Centro",
-      status: "Atrasado",
-      days: 4,
-    },
-    {
-      id: 5,
-      name: "ATACADÃO DO VALE",
-      address: "Filial - Praia",
-      status: "Atrasado",
-      days: 2,
-    },
-  ]);
+  const currentDriver = "Operação da cooperativa";
+  const currentPlate = "Backend ativo";
 
-  const selectedPoint = useMemo(
-    () => alertPoints.find((item) => item.id === selectedPointId) ?? null,
-    [alertPoints, selectedPointId]
-  );
+  const totalLixo = useMemo(() => {
+    return alertPoints.length;
+  }, [alertPoints]);
 
-  const [formName, setFormName] = useState("");
-  const [formAddress, setFormAddress] = useState("");
-  const [formStatus, setFormStatus] = useState<AlertPoint["status"]>("Atrasado");
+  const loadAlerts = useCallback(async () => {
+    try {
+      setLoading(true);
 
-  const handleEdit = (point: AlertPoint) => {
-    setSelectedPointId(point.id);
-    setFormName(point.name);
-    setFormAddress(point.address);
-    setFormStatus(point.status);
-    setEditMode(true);
-  };
+      const [schedules, generators] = await Promise.all([
+        scheduleService.list(),
+        generatorService.list(),
+      ]);
 
-  const handleSaveEdit = () => {
-    if (!selectedPointId) return;
+      const scheduleAlerts: AlertPoint[] = schedules
+        .filter(
+          (item) => item.status === "REQUESTED" || item.status === "SCHEDULED"
+        )
+        .map((item) => {
+          const date =
+            parseDate(item.scheduledDate) ||
+            parseDate(item.preferredDate) ||
+            parseDate(item.createdAt);
 
-    if (!formName.trim() || !formAddress.trim()) {
-      Alert.alert("Atenção", "Preencha o nome e o endereço do ponto.");
-      return;
-    }
+          const days = date ? getDiffDays(date) : 0;
 
-    setAlertPoints((prev) =>
-      prev.map((point) =>
-        point.id === selectedPointId
-          ? {
-              ...point,
-              name: formName.trim(),
-              address: formAddress.trim(),
-              status: formStatus,
-            }
-          : point
+          return {
+            id: `schedule-${item.id}`,
+            name:
+              item.generator?.companyName ||
+              item.generator?.name ||
+              "Gerador sem identificação",
+            address: item.generator?.address || "Endereço não informado",
+            status:
+              item.status === "SCHEDULED"
+                ? "Agendado"
+                : days > 0
+                ? "Atrasado"
+                : "Solicitação",
+            days: days > 0 ? days : 1,
+          };
+        });
+
+      const generatorAlerts: AlertPoint[] = generators
+         .filter(
+         (item) =>
+      item.accessStatus === "ACTIVE" ||
+      item.accessStatus === "PENDING_ACTIVATION" ||
+      item.accessStatus === "INACTIVE"
       )
-    );
+       .map((item) => ({
+         id: `generator-${item.id}`,
+         name: item.companyName || item.name || "Gerador sem nome",
+         address: item.address || "Endereço não informado",
+         status: "Solicitação",
+         days: 1,
+      }));
 
-    Alert.alert("Sucesso", "Ponto atualizado com sucesso!", [
-      {
-        text: "OK",
-        onPress: () => {
-          setEditMode(false);
-          setSelectedPointId(null);
-        },
-      },
-    ]);
-  };
+      setAlertPoints([...scheduleAlerts, ...generatorAlerts]);
+    } catch (error: any) {
+      console.error("Erro ao carregar alertas:", error);
+      Alert.alert(
+        "Erro",
+        error.message || "Não foi possível carregar os alertas."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const handleDeletePoint = (point: AlertPoint) => {
-    Alert.alert(
-      "Confirmar exclusão",
-      `Deseja realmente excluir ${point.name}?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir",
-          style: "destructive",
-          onPress: () => {
-            setAlertPoints((prev) => prev.filter((item) => item.id !== point.id));
-            if (selectedPointId === point.id) {
-              setSelectedPointId(null);
-              setEditMode(false);
-            }
-            Alert.alert("Sucesso", "Ponto excluído com sucesso!");
-          },
-        },
-      ]
-    );
-  };
+  useFocusEffect(
+    useCallback(() => {
+      loadAlerts();
+    }, [loadAlerts])
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
@@ -150,7 +131,13 @@ export default function AlertsScreen() {
           borderBottomRightRadius: 30,
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <TouchableOpacity onPress={() => router.replace("/(cooperativa)/home")}>
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
@@ -166,17 +153,13 @@ export default function AlertsScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity onPress={() => setEditMode((prev) => !prev)}>
-            <Ionicons
-              name={editMode ? "close-outline" : "create-outline"}
-              size={24}
-              color="#FFFFFF"
-            />
+          <TouchableOpacity onPress={loadAlerts}>
+            <Ionicons name="refresh-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
         <Text style={{ fontSize: 24, fontWeight: "700", color: "#FFFFFF", marginTop: 15 }}>
-          EDITAR PONTOS
+          ALERTAS OPERACIONAIS
         </Text>
       </LinearGradient>
 
@@ -198,7 +181,7 @@ export default function AlertsScreen() {
                 {currentDriver}
               </Text>
               <Text style={{ fontSize: 14, color: "#6B7280" }}>
-                PLACA: {currentPlate}
+                STATUS: {currentPlate}
               </Text>
             </View>
           </View>
@@ -212,10 +195,10 @@ export default function AlertsScreen() {
             }}
           >
             <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
-              TOTAL DE LIXO COLETADO
+              TOTAL DE ALERTAS
             </Text>
             <Text style={{ fontSize: 36, fontWeight: "800", color: "#028C56" }}>
-              {totalLixo} kg
+              {totalLixo}
             </Text>
           </View>
         </View>
@@ -231,81 +214,99 @@ export default function AlertsScreen() {
           Pontos de Alerta
         </Text>
 
-        {alertPoints.map((point) => (
+        {loading ? (
+          <View style={{ alignItems: "center", paddingVertical: 40 }}>
+            <ActivityIndicator size="large" color="#028C56" />
+            <Text style={{ marginTop: 12, color: "#6B7280" }}>
+              Carregando alertas...
+            </Text>
+          </View>
+        ) : alertPoints.length === 0 ? (
           <View
-            key={point.id}
             style={{
-              backgroundColor: "#FEF2F2",
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 10,
-              borderWidth: 1,
-              borderColor: "#FECACA",
+              backgroundColor: "#F9FAFB",
+              borderRadius: 16,
+              padding: 24,
+              alignItems: "center",
+              marginBottom: 30,
             }}
           >
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-                  <Ionicons name="alert-circle" size={18} color="#DC2626" />
-                  <Text
-                    style={{
-                      fontSize: 16,
-                      fontWeight: "700",
-                      color: "#DC2626",
-                      marginLeft: 6,
-                    }}
-                  >
-                    {point.name}
-                  </Text>
-                </View>
-
-                <Text style={{ fontSize: 14, color: "#6B7280", marginLeft: 24 }}>
-                  {point.address}
-                </Text>
-
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    marginLeft: 24,
-                    marginTop: 4,
-                  }}
-                >
-                  <View
-                    style={{
-                      backgroundColor: "#DC2626",
-                      borderRadius: 12,
-                      paddingHorizontal: 8,
-                      paddingVertical: 2,
-                    }}
-                  >
-                    <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "600" }}>
-                      {point.status} • {point.days} {point.days === 1 ? "dia" : "dias"}
+            <Ionicons name="checkmark-circle-outline" size={42} color="#10B981" />
+            <Text
+              style={{
+                fontSize: 16,
+                color: "#6B7280",
+                marginTop: 10,
+                textAlign: "center",
+              }}
+            >
+              Nenhum alerta operacional encontrado.
+            </Text>
+          </View>
+        ) : (
+          alertPoints.map((point) => (
+            <View
+              key={point.id}
+              style={{
+                backgroundColor: "#FEF2F2",
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 10,
+                borderWidth: 1,
+                borderColor: "#FECACA",
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+                    <Ionicons name="alert-circle" size={18} color="#DC2626" />
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "700",
+                        color: "#DC2626",
+                        marginLeft: 6,
+                      }}
+                    >
+                      {point.name}
                     </Text>
                   </View>
-                </View>
-              </View>
 
-              <View style={{ flexDirection: "row", marginLeft: 12 }}>
-                <TouchableOpacity
-                  onPress={() => handleEdit(point)}
-                  style={{
-                    backgroundColor: "#FFFFFF",
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 6,
-                    marginRight: 8,
-                    borderWidth: 1,
-                    borderColor: "#028C56",
-                  }}
-                >
-                  <Text style={{ color: "#028C56", fontSize: 12, fontWeight: "600" }}>
-                    EDITAR
+                  <Text style={{ fontSize: 14, color: "#6B7280", marginLeft: 24 }}>
+                    {point.address}
                   </Text>
-                </TouchableOpacity>
+
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginLeft: 24,
+                      marginTop: 4,
+                    }}
+                  >
+                    <View
+                      style={{
+                        backgroundColor: "#DC2626",
+                        borderRadius: 12,
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                      }}
+                    >
+                      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "600" }}>
+                        {point.status} • {point.days} {point.days === 1 ? "dia" : "dias"}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
 
                 <TouchableOpacity
-                  onPress={() => handleDeletePoint(point)}
+                  onPress={() => router.push("/(cooperativa)/schedule")}
                   style={{
                     backgroundColor: "#FFFFFF",
                     paddingHorizontal: 12,
@@ -313,169 +314,17 @@ export default function AlertsScreen() {
                     borderRadius: 6,
                     borderWidth: 1,
                     borderColor: "#DC2626",
+                    marginLeft: 12,
                   }}
                 >
                   <Text style={{ color: "#DC2626", fontSize: 12, fontWeight: "600" }}>
-                    EXCLUIR
+                    ABRIR
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
-        ))}
-
-        {editMode && selectedPoint && (
-          <View
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: 16,
-              padding: 20,
-              marginTop: 20,
-              marginBottom: 30,
-              borderWidth: 2,
-              borderColor: "#028C56",
-              shadowColor: "#000",
-              shadowOpacity: 0.1,
-              shadowRadius: 10,
-              elevation: 5,
-            }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 15 }}>
-              Editar ponto
-            </Text>
-
-            <View style={{ marginBottom: 15 }}>
-              <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
-                Nome do ponto
-              </Text>
-              <TextInput
-                value={formName}
-                onChangeText={setFormName}
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#D1D5DB",
-                  borderRadius: 8,
-                  padding: 12,
-                  fontSize: 16,
-                  color: "#111827",
-                  backgroundColor: "#F9FAFB",
-                }}
-              />
-            </View>
-
-            <View style={{ marginBottom: 15 }}>
-              <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
-                Endereço
-              </Text>
-              <TextInput
-                value={formAddress}
-                onChangeText={setFormAddress}
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#D1D5DB",
-                  borderRadius: 8,
-                  padding: 12,
-                  fontSize: 16,
-                  color: "#111827",
-                  backgroundColor: "#F9FAFB",
-                }}
-              />
-            </View>
-
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
-                Status
-              </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                {(["Atrasado", "Acumulado", "Solicitação"] as AlertPoint["status"][]).map(
-                  (status) => {
-                    const selected = formStatus === status;
-
-                    return (
-                      <TouchableOpacity
-                        key={status}
-                        onPress={() => setFormStatus(status)}
-                        style={{
-                          backgroundColor: selected ? "#DC2626" : "#F3F4F6",
-                          paddingHorizontal: 15,
-                          paddingVertical: 8,
-                          borderRadius: 20,
-                          marginRight: 10,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: selected ? "#FFFFFF" : "#4B5563",
-                            fontWeight: "600",
-                            fontSize: 13,
-                          }}
-                        >
-                          {status}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  }
-                )}
-              </View>
-            </View>
-
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <TouchableOpacity
-                onPress={() => {
-                  setEditMode(false);
-                  setSelectedPointId(null);
-                }}
-                style={{
-                  flex: 1,
-                  backgroundColor: "#F3F4F6",
-                  padding: 15,
-                  borderRadius: 8,
-                  marginRight: 10,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ color: "#4B5563", fontWeight: "600" }}>CANCELAR</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleSaveEdit}
-                style={{
-                  flex: 1,
-                  backgroundColor: "#028C56",
-                  padding: 15,
-                  borderRadius: 8,
-                  marginLeft: 10,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ color: "#FFFFFF", fontWeight: "600" }}>SALVAR</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          ))
         )}
-
-        <TouchableOpacity
-          onPress={() => Alert.alert("Novo ponto", "Funcionalidade em desenvolvimento")}
-          style={{
-            backgroundColor: "#F0FDF4",
-            borderRadius: 12,
-            padding: 16,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            marginTop: 10,
-            marginBottom: 30,
-            borderWidth: 1,
-            borderColor: "#028C56",
-            borderStyle: "dashed",
-          }}
-        >
-          <Ionicons name="add-circle-outline" size={24} color="#028C56" />
-          <Text style={{ fontSize: 16, color: "#028C56", fontWeight: "600", marginLeft: 8 }}>
-            ADICIONAR NOVO PONTO
-          </Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );

@@ -44,7 +44,7 @@ export default function Splash() {
               letterSpacing: 1,
             }}
           >
-            KATU
+            KATUÁ
           </Text>
         </View>
       </LinearGradient>

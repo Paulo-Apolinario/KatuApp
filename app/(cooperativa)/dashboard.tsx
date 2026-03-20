@@ -1,536 +1,667 @@
-import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
-  Image,
-  Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  Linking,
-  Platform,
   ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
-import { collection, getDocs } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
+import { collectionService } from "@/src/services/collectionService";
+import { scheduleService } from "@/src/services/scheduleService";
 
-export default function CooperativaDashboard() {
-  const { user } = useAuth();
+/**
+ * =========================
+ * Tipos locais defensivos
+ * =========================
+ */
 
-  const [currentCity, setCurrentCity] = useState<string>("Carregando localização...");
-  const [locationError, setLocationError] = useState<boolean>(false);
-  const [isLoadingLocation, setIsLoadingLocation] = useState<boolean>(true);
-  const [loadingData, setLoadingData] = useState<boolean>(true);
+type ScheduleStatus =
+  | "REQUESTED"
+  | "SCHEDULED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED";
 
-  const [stats, setStats] = useState({
-    catadores: 0,
-    geradores: 0,
-    totalKg: 0,
-    alertas: 0,
-    percentualReciclado: 0,
-  });
+type CollectionStatus =
+  | "PENDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED";
 
-  useEffect(() => {
-    getUserLocation();
-  }, []);
+type ScheduleItem = {
+  id: string;
+  scheduledDate: string;
+  requestedMaterials?: string[] | string | null;
+  notes?: string | null;
+  status: ScheduleStatus;
+  cooperativeId?: string | null;
+  generatorId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
-  const loadDashboard = useCallback(async () => {
-    if (!user?.uid) {
-      setLoadingData(false);
-      return;
-    }
+type CollectionItem = {
+  id: string;
+  scheduleId?: string | null;
+  generatorId?: string | null;
+  collectorId?: string | null;
+  cooperativeId?: string | null;
+  weightKg?: number | null;
+  totalKg?: number | null;
+  kgCollected?: number | null;
+  status: CollectionStatus;
+  createdAt?: string;
+  updatedAt?: string;
+  schedule?: {
+    id: string;
+    scheduledDate?: string;
+    requestedMaterials?: string[] | string | null;
+  } | null;
+};
 
-    try {
-      setLoadingData(true);
+type DashboardMetrics = {
+  totalKg: number;
+  totalCollectionsCompleted: number;
+  pendingSchedules: number;
+  nextSchedules: ScheduleItem[];
+  recentCollections: CollectionItem[];
+};
 
-      const [catadoresSnap, geradoresSnap] = await Promise.all([
-        getDocs(collection(db, "catadores")),
-        getDocs(collection(db, "users")),
-      ]);
+/**
+ * =========================
+ * Helpers
+ * =========================
+ */
 
-      const geradores = geradoresSnap.docs.filter((docSnap) => {
-        const data: any = docSnap.data();
-        return data?.userType === "comercial" || data?.userType === "grande";
-      }).length;
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
 
-      setStats({
-        catadores: catadoresSnap.size,
-        geradores,
-        totalKg: 0,
-        alertas: 0,
-        percentualReciclado: 0,
-      });
-    } catch (error) {
-      console.error("Erro ao carregar dashboard:", error);
-    } finally {
-      setLoadingData(false);
-    }
-  }, [user?.uid]);
+function extractArray<T = unknown>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
 
-  useEffect(() => {
-    loadDashboard();
-  }, [loadDashboard]);
-
-  async function getUserLocation() {
-    setIsLoadingLocation(true);
-
-    try {
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
-
-      if (!servicesEnabled) {
-        setCurrentCity("Localização desativada");
-        setLocationError(true);
-        return;
-      }
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") {
-        setCurrentCity("Permissão negada");
-        setLocationError(true);
-
-        Alert.alert(
-          "Permissão necessária",
-          "Precisamos da sua localização para mostrar a cidade atual. Deseja abrir as configurações?",
-          [
-            { text: "Agora não", style: "cancel" },
-            {
-              text: "Abrir Configurações",
-              onPress: () => {
-                if (Platform.OS === "ios") {
-                  Linking.openURL("app-settings:");
-                } else {
-                  Linking.openSettings();
-                }
-              },
-            },
-          ]
-        );
-
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const addresses = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-
-      if (addresses.length > 0) {
-        const address = addresses[0];
-        const city =
-          address.city ||
-          address.subregion ||
-          address.region ||
-          address.country ||
-          "Localização desconhecida";
-
-        setCurrentCity(city);
-        setLocationError(false);
-      } else {
-        setCurrentCity("Localização não encontrada");
-        setLocationError(true);
-      }
-    } catch (error) {
-      console.error("Erro ao obter localização:", error);
-      setCurrentCity("Erro ao carregar");
-      setLocationError(true);
-    } finally {
-      setIsLoadingLocation(false);
-    }
+  if (isObject(payload)) {
+    if (Array.isArray(payload.data)) return payload.data as T[];
+    if (Array.isArray(payload.items)) return payload.items as T[];
+    if (Array.isArray(payload.results)) return payload.results as T[];
   }
 
-  const coletasHoje: string[] = [];
-  const alertas: { name: string; desc: string }[] = [];
+  return [];
+}
+
+function parseNumber(value: unknown): number {
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+}
+
+function getCollectionKg(collection: CollectionItem): number {
+  return (
+    parseNumber(collection.weightKg) ||
+    parseNumber(collection.totalKg) ||
+    parseNumber(collection.kgCollected) ||
+    0
+  );
+}
+
+function formatDate(dateString?: string | null): string {
+  if (!dateString) return "Data não informada";
+
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) return "Data inválida";
+
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatDateTime(dateString?: string | null): string {
+  if (!dateString) return "Data não informada";
+
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) return "Data inválida";
+
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function translateScheduleStatus(status: ScheduleStatus): string {
+  switch (status) {
+    case "REQUESTED":
+      return "Solicitado";
+    case "SCHEDULED":
+      return "Agendado";
+    case "IN_PROGRESS":
+      return "Em andamento";
+    case "COMPLETED":
+      return "Concluído";
+    case "CANCELLED":
+      return "Cancelado";
+    default:
+      return status;
+  }
+}
+
+function translateCollectionStatus(status: CollectionStatus): string {
+  switch (status) {
+    case "PENDING":
+      return "Pendente";
+    case "IN_PROGRESS":
+      return "Em andamento";
+    case "COMPLETED":
+      return "Concluído";
+    case "CANCELLED":
+      return "Cancelado";
+    default:
+      return status;
+  }
+}
+
+function normalizeRequestedMaterials(
+  value?: string[] | string | null
+): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+/**
+ * =========================
+ * Componente
+ * =========================
+ */
+
+export default function GeneratorDashboard() {
+  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
+  const [collections, setCollections] = useState<CollectionItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const loadDashboard = useCallback(async (showLoader = true) => {
+    try {
+      if (showLoader) setIsLoading(true);
+      setErrorMessage(null);
+
+      const [schedulesResponse, collectionsResponse] = await Promise.all([
+        scheduleService.list(),
+        collectionService.list(),
+      ]);
+
+      const scheduleItems = extractArray<ScheduleItem>(schedulesResponse);
+      const collectionItems = extractArray<CollectionItem>(collectionsResponse);
+
+      setSchedules(scheduleItems);
+      setCollections(collectionItems);
+    } catch (error) {
+      console.error("Erro ao carregar dashboard do gerador:", error);
+      setErrorMessage("Não foi possível carregar os dados do dashboard.");
+    } finally {
+      if (showLoader) setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboard(true);
+    }, [loadDashboard])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadDashboard(false);
+  }, [loadDashboard]);
+
+  const metrics: DashboardMetrics = useMemo(() => {
+    const totalKg = collections
+      .filter((item) => item.status === "COMPLETED")
+      .reduce((sum, item) => sum + getCollectionKg(item), 0);
+
+    const totalCollectionsCompleted = collections.filter(
+      (item) => item.status === "COMPLETED"
+    ).length;
+
+    const pendingSchedules = schedules.filter(
+      (item) => item.status === "REQUESTED" || item.status === "SCHEDULED"
+    ).length;
+
+    const now = new Date();
+
+    const nextSchedules = [...schedules]
+      .filter(
+        (item) =>
+          item.status !== "COMPLETED" &&
+          item.status !== "CANCELLED" &&
+          new Date(item.scheduledDate).getTime() >=
+            new Date(now.setHours(0, 0, 0, 0)).getTime()
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.scheduledDate).getTime() -
+          new Date(b.scheduledDate).getTime()
+      )
+      .slice(0, 5);
+
+    const recentCollections = [...collections]
+      .sort((a, b) => {
+        const aDate = new Date(a.createdAt ?? 0).getTime();
+        const bDate = new Date(b.createdAt ?? 0).getTime();
+        return bDate - aDate;
+      })
+      .slice(0, 5);
+
+    return {
+      totalKg,
+      totalCollectionsCompleted,
+      pendingSchedules,
+      nextSchedules,
+      recentCollections,
+    };
+  }, [collections, schedules]);
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white px-6">
+        <ActivityIndicator size="large" color="#16a34a" />
+        <Text className="mt-4 text-base text-gray-600">
+          Carregando dashboard...
+        </Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+    <ScrollView
+      className="flex-1 bg-slate-50"
+      refreshControl={
+        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+      }
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#16a34a", "#22c55e"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
-          paddingBottom: 20,
+          paddingTop: 28,
+          paddingBottom: 24,
           paddingHorizontal: 20,
-          borderBottomLeftRadius: 30,
-          borderBottomRightRadius: 30,
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
         }}
       >
-        <View
-          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
-        >
-          <TouchableOpacity onPress={() => router.replace("/(cooperativa)/home")}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Image
-              source={require("../../assets/images/logo.png")}
-              resizeMode="contain"
-              style={{ width: 36, height: 36, marginRight: 8 }}
-            />
-            <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
-              KATU
-            </Text>
-          </View>
-
-          <Text style={{ fontSize: 16, color: "#FFFFFF" }}>Cooperativa</Text>
-        </View>
-
-        <TouchableOpacity
-          onPress={locationError ? getUserLocation : undefined}
-          disabled={isLoadingLocation || !locationError}
+        <Text style={{ color: "#fff", fontSize: 14, opacity: 0.9 }}>
+          Dashboard do Gerador
+        </Text>
+        <Text
           style={{
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: "rgba(255,255,255,0.2)",
-            paddingVertical: 6,
-            paddingHorizontal: 12,
-            borderRadius: 20,
-            marginTop: 12,
-            alignSelf: "flex-start",
+            color: "#fff",
+            fontSize: 28,
+            fontWeight: "700",
+            marginTop: 4,
           }}
         >
-          <Ionicons
-            name={locationError ? "alert-circle-outline" : "location-sharp"}
-            size={16}
-            color="#FFFFFF"
-          />
-          <Text
+          Acompanhe suas coletas
+        </Text>
+
+        <View
+          style={{
+            flexDirection: "row",
+            gap: 12,
+            marginTop: 18,
+          }}
+        >
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push("/(gerador)/schedule")}
             style={{
-              color: "#FFFFFF",
-              fontSize: 14,
-              fontWeight: "500",
-              marginLeft: 4,
+              backgroundColor: "rgba(255,255,255,0.18)",
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              borderRadius: 14,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
             }}
           >
-            {isLoadingLocation ? "Carregando..." : currentCity}
-          </Text>
-        </TouchableOpacity>
+            <Ionicons name="calendar-outline" size={18} color="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "600" }}>
+              Novo agendamento
+            </Text>
+          </TouchableOpacity>
 
-        <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF", marginTop: 15 }}>
-          Painel de Controle
-        </Text>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={onRefresh}
+            style={{
+              backgroundColor: "rgba(255,255,255,0.18)",
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              borderRadius: 14,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <Ionicons name="refresh-outline" size={18} color="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "600" }}>
+              Atualizar
+            </Text>
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
-        {loadingData ? (
-          <View style={{ alignItems: "center", paddingVertical: 40 }}>
-            <ActivityIndicator size="large" color="#028C56" />
-            <Text style={{ marginTop: 12, color: "#6B7280" }}>
-              Carregando dashboard...
-            </Text>
-          </View>
-        ) : (
-          <>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
-              <View
-                style={{
-                  width: "48%",
-                  backgroundColor: "#F0FDF4",
-                  borderRadius: 16,
-                  padding: 20,
-                  marginBottom: 15,
-                }}
-              >
-                <Ionicons name="people-outline" size={30} color="#028C56" />
-                <Text
-                  style={{
-                    fontSize: 24,
-                    fontWeight: "800",
-                    color: "#028C56",
-                    marginTop: 10,
-                  }}
-                >
-                  {stats.catadores}
-                </Text>
-                <Text style={{ fontSize: 14, color: "#4B5563" }}>Catadores</Text>
-              </View>
+      <View className="px-4 pt-5">
+        {errorMessage ? (
+          <View className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4">
+            <Text className="font-semibold text-red-700">Erro</Text>
+            <Text className="mt-1 text-red-600">{errorMessage}</Text>
 
-              <View
-                style={{
-                  width: "48%",
-                  backgroundColor: "#EFF6FF",
-                  borderRadius: 16,
-                  padding: 20,
-                  marginBottom: 15,
-                }}
-              >
-                <Ionicons name="business-outline" size={30} color="#2563EB" />
-                <Text
-                  style={{
-                    fontSize: 24,
-                    fontWeight: "800",
-                    color: "#2563EB",
-                    marginTop: 10,
-                  }}
-                >
-                  {stats.geradores}
-                </Text>
-                <Text style={{ fontSize: 14, color: "#4B5563" }}>Geradores</Text>
-              </View>
-
-              <View
-                style={{
-                  width: "48%",
-                  backgroundColor: "#FEFCE8",
-                  borderRadius: 16,
-                  padding: 20,
-                  marginBottom: 15,
-                }}
-              >
-                <Ionicons name="trash-outline" size={30} color="#CA8A04" />
-                <Text
-                  style={{
-                    fontSize: 24,
-                    fontWeight: "800",
-                    color: "#CA8A04",
-                    marginTop: 10,
-                  }}
-                >
-                  {stats.totalKg}
-                </Text>
-                <Text style={{ fontSize: 14, color: "#4B5563" }}>Kg Coletados</Text>
-              </View>
-
-              <View
-                style={{
-                  width: "48%",
-                  backgroundColor: "#FEF2F2",
-                  borderRadius: 16,
-                  padding: 20,
-                  marginBottom: 15,
-                }}
-              >
-                <Ionicons name="alert-circle-outline" size={30} color="#DC2626" />
-                <Text
-                  style={{
-                    fontSize: 24,
-                    fontWeight: "800",
-                    color: "#DC2626",
-                    marginTop: 10,
-                  }}
-                >
-                  {stats.alertas}
-                </Text>
-                <Text style={{ fontSize: 14, color: "#4B5563" }}>Alertas</Text>
-              </View>
-            </View>
-
-            <View
-              style={{
-                backgroundColor: "#F9FAFB",
-                borderRadius: 16,
-                padding: 20,
-                marginBottom: 25,
-              }}
+            <TouchableOpacity
+              onPress={() => loadDashboard(true)}
+              className="mt-3 self-start rounded-xl bg-red-600 px-4 py-2"
             >
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 15,
-                }}
-              >
-                <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
-                  Reciclados esse mês
-                </Text>
+              <Text className="font-semibold text-white">Tentar novamente</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        <View className="flex-row flex-wrap justify-between">
+          <MetricCard
+            title="Total coletado"
+            value={`${metrics.totalKg.toFixed(1)} kg`}
+            icon="leaf-outline"
+          />
+          <MetricCard
+            title="Coletas concluídas"
+            value={`${metrics.totalCollectionsCompleted}`}
+            icon="checkmark-done-outline"
+          />
+          <MetricCard
+            title="Agendamentos pendentes"
+            value={`${metrics.pendingSchedules}`}
+            icon="time-outline"
+          />
+        </View>
+
+        <SectionHeader
+          title="Próximos agendamentos"
+          actionLabel="Ver agenda"
+          onPress={() => router.push("/(gerador)/schedule")}
+        />
+
+        <View className="rounded-2xl bg-white p-4 shadow-sm">
+          {metrics.nextSchedules.length === 0 ? (
+            <EmptyState
+              icon="calendar-clear-outline"
+              title="Nenhum agendamento próximo"
+              subtitle="Quando você criar um novo agendamento, ele aparecerá aqui."
+            />
+          ) : (
+            metrics.nextSchedules.map((schedule) => {
+              const materials = normalizeRequestedMaterials(
+                schedule.requestedMaterials
+              );
+
+              return (
                 <View
-                  style={{
-                    backgroundColor: "#028C56",
-                    borderRadius: 20,
-                    paddingHorizontal: 12,
-                    paddingVertical: 4,
-                  }}
+                  key={schedule.id}
+                  className="mb-3 rounded-2xl border border-slate-100 bg-slate-50 p-4"
                 >
-                  <Text style={{ color: "#FFFFFF", fontWeight: "600" }}>
-                    {stats.percentualReciclado}%
-                  </Text>
-                </View>
-              </View>
-
-              <View style={{ height: 12, backgroundColor: "#E5E7EB", borderRadius: 6 }}>
-                <View
-                  style={{
-                    width: `${stats.percentualReciclado}%`,
-                    height: 12,
-                    backgroundColor: "#028C56",
-                    borderRadius: 6,
-                  }}
-                />
-              </View>
-
-              <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 8 }}>
-                de resíduos reciclados
-              </Text>
-            </View>
-
-            <View style={{ marginBottom: 25 }}>
-              <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 15 }}>
-                Coletas de Hoje
-              </Text>
-
-              {coletasHoje.length === 0 ? (
-                <View
-                  style={{
-                    backgroundColor: "#F9FAFB",
-                    borderRadius: 12,
-                    padding: 18,
-                  }}
-                >
-                  <Text style={{ color: "#6B7280" }}>Nenhuma coleta registrada hoje.</Text>
-                </View>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {coletasHoje.map((time, index) => (
-                    <View
-                      key={index}
-                      style={{
-                        backgroundColor: index % 2 === 0 ? "#028C56" : "#F0FDF4",
-                        borderRadius: 12,
-                        padding: 12,
-                        marginRight: 10,
-                        alignItems: "center",
-                        minWidth: 70,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontWeight: "600",
-                          color: index % 2 === 0 ? "#FFFFFF" : "#028C56",
-                        }}
-                      >
-                        {time}
+                  <View className="flex-row items-start justify-between">
+                    <View className="flex-1 pr-3">
+                      <Text className="text-base font-bold text-slate-800">
+                        {formatDateTime(schedule.scheduledDate)}
                       </Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
 
-            <View style={{ marginBottom: 30 }}>
-              <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 15 }}>
-                Pontos de Alerta
-              </Text>
+                      <Text className="mt-1 text-sm text-slate-500">
+                        Status: {translateScheduleStatus(schedule.status)}
+                      </Text>
 
-              {alertas.length === 0 ? (
-                <View
-                  style={{
-                    backgroundColor: "#F9FAFB",
-                    borderRadius: 12,
-                    padding: 18,
-                  }}
-                >
-                  <Text style={{ color: "#6B7280" }}>Nenhum alerta registrado.</Text>
-                </View>
-              ) : (
-                alertas.map((item, index) => (
-                  <View
-                    key={index}
-                    style={{
-                      backgroundColor: "#FEF2F2",
-                      borderRadius: 12,
-                      padding: 15,
-                      marginBottom: 10,
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <View>
-                      <Text style={{ fontSize: 16, fontWeight: "600", color: "#DC2626" }}>
-                        {item.name}
-                      </Text>
-                      <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 2 }}>
-                        {item.desc}
-                      </Text>
+                      {materials.length > 0 ? (
+                        <Text className="mt-2 text-sm text-slate-700">
+                          Materiais: {materials.join(", ")}
+                        </Text>
+                      ) : null}
+
+                      {schedule.notes ? (
+                        <Text className="mt-2 text-sm text-slate-600">
+                          Observações: {schedule.notes}
+                        </Text>
+                      ) : null}
                     </View>
 
-                    <TouchableOpacity
-                      onPress={() => router.push("/(cooperativa)/alerts")}
-                      style={{
-                        backgroundColor: "#FFFFFF",
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        borderColor: "#DC2626",
-                      }}
-                    >
-                      <Text style={{ color: "#DC2626", fontWeight: "600", fontSize: 12 }}>
-                        ABRIR
+                    <View className="rounded-full bg-green-100 px-3 py-1">
+                      <Text className="text-xs font-bold text-green-700">
+                        {translateScheduleStatus(schedule.status)}
                       </Text>
-                    </TouchableOpacity>
+                    </View>
                   </View>
-                ))
-              )}
-            </View>
+                </View>
+              );
+            })
+          )}
+        </View>
 
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 30 }}>
-              <TouchableOpacity
-                onPress={() => router.push("/(cooperativa)/fleet")}
-                style={{
-                  flex: 1,
-                  backgroundColor: "#F0FDF4",
-                  borderRadius: 12,
-                  padding: 15,
-                  marginRight: 10,
-                  alignItems: "center",
-                }}
-              >
-                <Ionicons name="car-outline" size={28} color="#028C56" />
-                <Text style={{ fontSize: 14, color: "#028C56", fontWeight: "600", marginTop: 5 }}>
-                  Frota
-                </Text>
-              </TouchableOpacity>
+        <SectionHeader
+          title="Coletas recentes"
+          actionLabel="Atualizar"
+          onPress={onRefresh}
+        />
 
-              <TouchableOpacity
-                onPress={() => router.push("/(cooperativa)/alerts")}
-                style={{
-                  flex: 1,
-                  backgroundColor: "#FEF2F2",
-                  borderRadius: 12,
-                  padding: 15,
-                  marginRight: 10,
-                  alignItems: "center",
-                }}
-              >
-                <Ionicons name="alert-circle-outline" size={28} color="#DC2626" />
-                <Text style={{ fontSize: 14, color: "#DC2626", fontWeight: "600", marginTop: 5 }}>
-                  Alertas
-                </Text>
-              </TouchableOpacity>
+        <View className="rounded-2xl bg-white p-4 shadow-sm">
+          {metrics.recentCollections.length === 0 ? (
+            <EmptyState
+              icon="cube-outline"
+              title="Nenhuma coleta encontrada"
+              subtitle="As coletas executadas aparecerão aqui assim que forem registradas."
+            />
+          ) : (
+            metrics.recentCollections.map((collection) => {
+              const kg = getCollectionKg(collection);
+              const materials = normalizeRequestedMaterials(
+                collection.schedule?.requestedMaterials
+              );
 
-              <TouchableOpacity
-                onPress={() => router.push("/(cooperativa)/ranking")}
-                style={{
-                  flex: 1,
-                  backgroundColor: "#FEFCE8",
-                  borderRadius: 12,
-                  padding: 15,
-                  alignItems: "center",
-                }}
-              >
-                <Ionicons name="trophy-outline" size={28} color="#CA8A04" />
-                <Text style={{ fontSize: 14, color: "#CA8A04", fontWeight: "600", marginTop: 5 }}>
-                  Ranking
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-      </ScrollView>
+              return (
+                <View
+                  key={collection.id}
+                  className="mb-3 rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                >
+                  <View className="flex-row items-start justify-between">
+                    <View className="flex-1 pr-3">
+                      <Text className="text-base font-bold text-slate-800">
+                        {collection.schedule?.scheduledDate
+                          ? formatDateTime(collection.schedule.scheduledDate)
+                          : formatDate(collection.createdAt)}
+                      </Text>
+
+                      <Text className="mt-1 text-sm text-slate-500">
+                        Status: {translateCollectionStatus(collection.status)}
+                      </Text>
+
+                      <Text className="mt-2 text-sm font-semibold text-slate-700">
+                        Total coletado: {kg.toFixed(1)} kg
+                      </Text>
+
+                      {materials.length > 0 ? (
+                        <Text className="mt-2 text-sm text-slate-600">
+                          Materiais: {materials.join(", ")}
+                        </Text>
+                      ) : null}
+                    </View>
+
+                    <View className="rounded-full bg-emerald-100 px-3 py-1">
+                      <Text className="text-xs font-bold text-emerald-700">
+                        {translateCollectionStatus(collection.status)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        <View className="mt-5 rounded-2xl bg-white p-4 shadow-sm">
+          <Text className="text-lg font-bold text-slate-800">
+            Resumo rápido
+          </Text>
+
+          <View className="mt-4 gap-3">
+            <QuickAction
+              icon="calendar-outline"
+              title="Solicitar nova coleta"
+              subtitle="Crie um novo agendamento para materiais recicláveis"
+              onPress={() => router.push("/(gerador)/schedule")}
+            />
+
+            <QuickAction
+              icon="stats-chart-outline"
+              title="Atualizar dashboard"
+              subtitle="Recarregar seus agendamentos e coletas"
+              onPress={onRefresh}
+            />
+
+            <QuickAction
+              icon="information-circle-outline"
+              title="Ver histórico"
+              subtitle="Acompanhe suas coletas e evolução ambiental"
+              onPress={() => {
+                Alert.alert(
+                  "Histórico",
+                  "A próxima etapa pode ligar este botão à tela de histórico do gerador."
+                );
+              }}
+            />
+          </View>
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+/**
+ * =========================
+ * Componentes auxiliares
+ * =========================
+ */
+
+function MetricCard({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View className="mb-3 w-[48.5%] rounded-2xl bg-white p-4 shadow-sm">
+      <View className="mb-3 h-11 w-11 items-center justify-center rounded-full bg-green-100">
+        <Ionicons name={icon} size={22} color="#15803d" />
+      </View>
+
+      <Text className="text-sm text-slate-500">{title}</Text>
+      <Text className="mt-1 text-xl font-bold text-slate-800">{value}</Text>
     </View>
+  );
+}
+
+function SectionHeader({
+  title,
+  actionLabel,
+  onPress,
+}: {
+  title: string;
+  actionLabel?: string;
+  onPress?: () => void;
+}) {
+  return (
+    <View className="mb-3 mt-5 flex-row items-center justify-between">
+      <Text className="text-lg font-bold text-slate-800">{title}</Text>
+
+      {actionLabel && onPress ? (
+        <TouchableOpacity onPress={onPress}>
+          <Text className="font-semibold text-green-700">{actionLabel}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View className="items-center justify-center rounded-2xl py-8">
+      <View className="h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+        <Ionicons name={icon} size={28} color="#64748b" />
+      </View>
+      <Text className="mt-3 text-base font-bold text-slate-700">{title}</Text>
+      <Text className="mt-1 px-6 text-center text-sm text-slate-500">
+        {subtitle}
+      </Text>
+    </View>
+  );
+}
+
+function QuickAction({
+  icon,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={onPress}
+      className="flex-row items-center rounded-2xl border border-slate-100 bg-slate-50 p-4"
+    >
+      <View className="mr-4 h-12 w-12 items-center justify-center rounded-full bg-green-100">
+        <Ionicons name={icon} size={22} color="#15803d" />
+      </View>
+
+      <View className="flex-1">
+        <Text className="text-base font-bold text-slate-800">{title}</Text>
+        <Text className="mt-1 text-sm text-slate-500">{subtitle}</Text>
+      </View>
+
+      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+    </TouchableOpacity>
   );
 }

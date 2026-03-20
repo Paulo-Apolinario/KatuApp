@@ -13,41 +13,24 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  addDoc,
-  collection,
-  serverTimestamp,
-  query,
-  where,
-  getDocs,
-  limit,
-} from "firebase/firestore";
-
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
-
-type GeradorStatus = "ativo" | "pendente" | "inativo";
+import { generatorService } from "@/src/services/generatorService";
 
 export default function NovoGrandeGeradorScreen() {
-  const { user } = useAuth();
-
   const [nome, setNome] = useState("");
   const [endereco, setEndereco] = useState("");
   const [contato, setContato] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<GeradorStatus>("ativo");
   const [saving, setSaving] = useState(false);
 
   async function handleSalvar() {
-    if (!user?.uid) {
-      Alert.alert("Erro", "Cooperativa não autenticada.");
-      return;
-    }
-
+    const companyName = nome.trim();
+    const responsibleName = contato.trim();
     const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = telefone.trim();
+    const normalizedAddress = endereco.trim();
 
-    if (!nome.trim() || !endereco.trim() || !contato.trim() || !telefone.trim() || !normalizedEmail) {
+    if (!companyName || !normalizedAddress || !responsibleName || !normalizedPhone || !normalizedEmail) {
       Alert.alert("Atenção", "Preencha nome, endereço, contato, telefone e email.");
       return;
     }
@@ -55,77 +38,20 @@ export default function NovoGrandeGeradorScreen() {
     try {
       setSaving(true);
 
-      const existingGeradorQuery = query(
-        collection(db, "geradores"),
-        where("email", "==", normalizedEmail),
-        limit(1)
-      );
-
-      const existingGeradorSnap = await getDocs(existingGeradorQuery);
-
-      if (!existingGeradorSnap.empty) {
-        Alert.alert("Atenção", "Já existe um gerador cadastrado com este e-mail.");
-        return;
-      }
-
-      const existingUserQuery = query(
-        collection(db, "users"),
-        where("email", "==", normalizedEmail),
-        limit(1)
-      );
-
-      const existingUserSnap = await getDocs(existingUserQuery);
-
-      if (!existingUserSnap.empty) {
-        Alert.alert("Atenção", "Já existe um acesso pendente ou ativo com este e-mail.");
-        return;
-      }
-
-      const geradorRef = await addDoc(collection(db, "geradores"), {
-        nome: nome.trim(),
-        endereco: endereco.trim(),
-        contato: contato.trim(),
-        telefone: telefone.trim(),
+      const response = await generatorService.createGenerator({
+        name: responsibleName,
+        companyName,
         email: normalizedEmail,
-        tipo: "grande",
-        status,
-        ultimaColeta: null,
-        kgColetado: 0,
-        kgTotal: 0,
-        kgMes: 0,
-        coletasRealizadas: 0,
-        sequenciaVerde: 0,
-        cooperativaId: user.uid,
-        materiais: [],
-        hasAccess: false,
-        accessReleased: false,
-        accessStatus: "pendente",
-        uid: "",
-        userId: "",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-
-      await addDoc(collection(db, "users"), {
-        uid: "",
-        email: normalizedEmail,
-        displayName: nome.trim(),
-        userType: "grande",
-        geradorId: geradorRef.id,
-        cooperativaId: user.uid,
-        phone: telefone.trim(),
-        address: endereco.trim(),
-        companyName: nome.trim(),
-        accessReleased: false,
-        accessStatus: "pendente",
-        rememberMe: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        phone: normalizedPhone,
+        address: normalizedAddress,
+        type: "LARGE",
       });
 
       Alert.alert(
         "Gerador salvo com sucesso",
-        "O grande gerador foi cadastrado. Agora ele precisa clicar em 'Já fui cadastrado pela cooperativa' para liberar o acesso com o e-mail informado.",
+        response.temporaryPassword
+          ? `O grande gerador foi cadastrado.\n\nSenha provisória: ${response.temporaryPassword}\n\nAgora ele pode ativar o acesso na tela de liberação.`
+          : "O grande gerador foi cadastrado com sucesso.",
         [
           {
             text: "OK",
@@ -133,9 +59,11 @@ export default function NovoGrandeGeradorScreen() {
           },
         ]
       );
-    } catch (error) {
-      console.error("Erro ao salvar grande gerador:", error);
-      Alert.alert("Erro", "Não foi possível cadastrar o grande gerador.");
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error.message || "Não foi possível cadastrar o grande gerador."
+      );
     } finally {
       setSaving(false);
     }
@@ -278,12 +206,12 @@ export default function NovoGrandeGeradorScreen() {
               { label: "PENDENTE", value: "pendente" },
               { label: "INATIVO", value: "inativo" },
             ].map((item) => {
-              const selected = status === item.value;
+              const selected = false;
 
               return (
                 <TouchableOpacity
                   key={item.value}
-                  onPress={() => setStatus(item.value as GeradorStatus)}
+                  disabled
                   style={{
                     backgroundColor: selected ? "#028C56" : "#F3F4F6",
                     paddingHorizontal: 16,
@@ -291,6 +219,7 @@ export default function NovoGrandeGeradorScreen() {
                     borderRadius: 20,
                     marginRight: 10,
                     marginBottom: 10,
+                    opacity: 0.7,
                   }}
                 >
                   <Text
@@ -305,6 +234,10 @@ export default function NovoGrandeGeradorScreen() {
               );
             })}
           </View>
+
+          <Text style={{ color: "#6B7280", fontSize: 12, marginTop: 8 }}>
+            Nesta etapa, o backend controla o status operacional real do acesso e a ativação inicial.
+          </Text>
         </View>
 
         <TouchableOpacity onPress={handleSalvar} disabled={saving} activeOpacity={0.9}>

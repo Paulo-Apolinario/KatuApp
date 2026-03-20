@@ -13,67 +13,29 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { collection, getDocs } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
-
-interface Catador {
-  id: string;
-  nome: string;
-  telefone: string;
-  email: string;
-  status: "disponivel" | "em_coleta" | "inativo";
-  kgMes: number;
-  coletasHoje: number;
-  totalKg?: number;
-  cooperativaId?: string;
-}
+import {
+  collectorService,
+  type Collector,
+} from "@/src/services/collectorService";
 
 export default function CatadoresScreen() {
-  const { user } = useAuth();
-
   const [searchText, setSearchText] = useState("");
-  const [catadores, setCatadores] = useState<Catador[]>([]);
+  const [catadores, setCatadores] = useState<Collector[]>([]);
   const [loading, setLoading] = useState(true);
 
   const carregarCatadores = useCallback(async () => {
-    if (!user?.uid) {
-      setCatadores([]);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-
-      const catadoresRef = collection(db, "catadores");
-      const querySnapshot = await getDocs(catadoresRef);
-
-      const lista: Catador[] = querySnapshot.docs.map((docSnap) => {
-        const data: any = docSnap.data();
-
-        return {
-          id: docSnap.id,
-          nome: data.nome || "Sem nome",
-          telefone: data.telefone || "",
-          email: data.email || "",
-          status: data.status || "disponivel",
-          kgMes: Number(data.kgMes || 0),
-          coletasHoje: Number(data.coletasHoje || 0),
-          totalKg: Number(data.totalKg || 0),
-          cooperativaId: data.cooperativaId || "",
-        };
-      });
-
-      setCatadores(lista);
+      const data = await collectorService.list();
+      setCatadores(data);
     } catch (error) {
       console.error("Erro ao carregar catadores:", error);
       Alert.alert("Erro", "Não foi possível carregar os catadores.");
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,26 +43,26 @@ export default function CatadoresScreen() {
     }, [carregarCatadores])
   );
 
-  const getStatusColor = (status: Catador["status"]) => {
+  const getStatusColor = (status: Collector["status"]) => {
     switch (status) {
-      case "disponivel":
+      case "AVAILABLE":
         return "#10B981";
-      case "em_coleta":
+      case "ON_ROUTE":
         return "#F59E0B";
-      case "inativo":
+      case "INACTIVE":
         return "#6B7280";
       default:
         return "#6B7280";
     }
   };
 
-  const getStatusText = (status: Catador["status"]) => {
+  const getStatusText = (status: Collector["status"]) => {
     switch (status) {
-      case "disponivel":
+      case "AVAILABLE":
         return "DISPONÍVEL";
-      case "em_coleta":
+      case "ON_ROUTE":
         return "EM COLETA";
-      case "inativo":
+      case "INACTIVE":
         return "INATIVO";
       default:
         return status;
@@ -114,9 +76,9 @@ export default function CatadoresScreen() {
 
     return catadores.filter(
       (c) =>
-        c.nome.toLowerCase().includes(term) ||
+        c.name.toLowerCase().includes(term) ||
         c.email.toLowerCase().includes(term) ||
-        c.telefone.includes(searchText)
+        (c.phone || "").includes(searchText)
     );
   }, [catadores, searchText]);
 
@@ -135,7 +97,11 @@ export default function CatadoresScreen() {
         }}
       >
         <View
-          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
         >
           <TouchableOpacity onPress={() => router.replace("/(cooperativa)/home")}>
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
@@ -157,11 +123,25 @@ export default function CatadoresScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={{ fontSize: 24, fontWeight: "700", color: "#FFFFFF", marginTop: 15 }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: "700",
+            color: "#FFFFFF",
+            marginTop: 15,
+          }}
+        >
           CATADORES
         </Text>
 
-        <Text style={{ fontSize: 14, color: "#FFFFFF", opacity: 0.9, marginTop: 5 }}>
+        <Text
+          style={{
+            fontSize: 14,
+            color: "#FFFFFF",
+            opacity: 0.9,
+            marginTop: 5,
+          }}
+        >
           {filteredCatadores.length} catadores cadastrados
         </Text>
       </LinearGradient>
@@ -235,10 +215,14 @@ export default function CatadoresScreen() {
 
                   <View style={{ flex: 1 }}>
                     <View
-                      style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
                     >
                       <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827" }}>
-                        {catador.nome}
+                        {catador.name}
                       </Text>
 
                       <View
@@ -265,7 +249,7 @@ export default function CatadoresScreen() {
                           marginRight: 10,
                         }}
                       >
-                        {catador.telefone}
+                        {catador.phone || "-"}
                       </Text>
 
                       <Ionicons name="mail-outline" size={12} color="#6B7280" />
@@ -285,7 +269,7 @@ export default function CatadoresScreen() {
                     >
                       <View style={{ flex: 1, alignItems: "center" }}>
                         <Text style={{ fontSize: 16, fontWeight: "700", color: "#028C56" }}>
-                          {catador.kgMes} kg
+                          {Number(catador.kgMonth || 0)} kg
                         </Text>
                         <Text style={{ fontSize: 10, color: "#6B7280" }}>NO MÊS</Text>
                       </View>
@@ -294,7 +278,7 @@ export default function CatadoresScreen() {
 
                       <View style={{ flex: 1, alignItems: "center" }}>
                         <Text style={{ fontSize: 16, fontWeight: "700", color: "#028C56" }}>
-                          {catador.coletasHoje}
+                          {Number(catador.collectionsToday || 0)}
                         </Text>
                         <Text style={{ fontSize: 10, color: "#6B7280" }}>COLETAS HOJE</Text>
                       </View>

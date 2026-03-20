@@ -1,49 +1,123 @@
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   Text,
   View,
   TouchableOpacity,
   ScrollView,
-  TextInput,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
-type MaterialType = "ALUMÍNIO" | "PLÁSTICO" | "PAPEL" | "VIDRO" | "METAL" | "OUTRO";
+import { scheduleService, Schedule } from "@/src/services/scheduleService";
+
+type ScheduleCard = {
+  id: string;
+  title: string;
+  address: string;
+  dateLabel: string;
+  status: string;
+};
+
+function formatDate(value?: string | null) {
+  if (!value) return "Sem data";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sem data";
+
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function mapStatusLabel(status?: string) {
+  switch (status) {
+    case "REQUESTED":
+      return "SOLICITADO";
+    case "SCHEDULED":
+      return "AGENDADO";
+    case "IN_PROGRESS":
+      return "EM ANDAMENTO";
+    case "COMPLETED":
+      return "CONCLUÍDO";
+    case "CANCELLED":
+      return "CANCELADO";
+    default:
+      return "SEM STATUS";
+  }
+}
+
+function mapStatusColor(status?: string) {
+  switch (status) {
+    case "REQUESTED":
+      return "#F59E0B";
+    case "SCHEDULED":
+      return "#2563EB";
+    case "IN_PROGRESS":
+      return "#8B5CF6";
+    case "COMPLETED":
+      return "#028C56";
+    case "CANCELLED":
+      return "#DC2626";
+    default:
+      return "#6B7280";
+  }
+}
+
+function mapScheduleToCard(item: Schedule): ScheduleCard {
+  return {
+    id: item.id,
+    title:
+      item.generator?.companyName ||
+      item.generator?.name ||
+      "Gerador não identificado",
+    address: item.generator?.address || "Endereço não informado",
+    dateLabel: formatDate(item.scheduledDate || item.preferredDate || item.createdAt),
+    status: item.status || "REQUESTED",
+  };
+}
 
 export default function ScheduleScreen() {
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
-  const [selectedMaterials, setSelectedMaterials] = useState<MaterialType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [schedules, setSchedules] = useState<ScheduleCard[]>([]);
 
-  const materials: MaterialType[] = ["ALUMÍNIO", "PLÁSTICO", "PAPEL", "VIDRO", "METAL", "OUTRO"];
+  const loadSchedules = useCallback(async () => {
+    try {
+      setLoading(true);
 
-  const toggleMaterial = (material: MaterialType) => {
-    if (selectedMaterials.includes(material)) {
-      setSelectedMaterials(selectedMaterials.filter(m => m !== material));
-    } else {
-      setSelectedMaterials([...selectedMaterials, material]);
+      const response = await scheduleService.list();
+      const list = response.map(mapScheduleToCard);
+
+      setSchedules(list);
+    } catch (error: any) {
+      Alert.alert("Erro", error.message || "Não foi possível carregar os agendamentos.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const handleSchedule = () => {
-    if (!selectedDate || !selectedTime || selectedMaterials.length === 0) {
-      Alert.alert("Atenção", "Preencha todos os campos e selecione pelo menos um material");
-      return;
-    }
+  useFocusEffect(
+    useCallback(() => {
+      loadSchedules();
+    }, [loadSchedules])
+  );
 
-    Alert.alert(
-      "Sucesso!",
-      "Coleta agendada com sucesso!",
-      [{ text: "OK", onPress: () => router.back() }]
-    );
-  };
+  const summary = useMemo(() => {
+    return {
+      total: schedules.length,
+      pendentes: schedules.filter((item) => item.status === "REQUESTED").length,
+      concluidos: schedules.filter((item) => item.status === "COMPLETED").length,
+    };
+  }, [schedules]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-      {/* Header com Gradiente */}
       <LinearGradient
         colors={["#10F35D", "#028C56"]}
         start={{ x: 0, y: 0 }}
@@ -61,160 +135,202 @@ export default function ScheduleScreen() {
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>
-            AGENDE SUA COLETA
+            AGENDAMENTOS
           </Text>
         </View>
       </LinearGradient>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
-        style={{ flex: 1, padding: 20 }}
-      >
-        {/* Card de Data */}
-        <View style={{ 
-          backgroundColor: "#F9FAFB", 
-          borderRadius: 16, 
-          padding: 20, 
-          marginBottom: 20 
-        }}>
-          <Text style={{ 
-            fontSize: 16, 
-            fontWeight: "600", 
-            color: "#111827", 
-            marginBottom: 15 
-          }}>
-            📅 Data da Coleta
-          </Text>
-          
-          <TextInput
-            value={selectedDate}
-            onChangeText={setSelectedDate}
-            placeholder="Dia / Mês / Ano"
-            placeholderTextColor="#9CA3AF"
-            style={{
-              borderWidth: 1,
-              borderColor: "#D1D5DB",
-              borderRadius: 12,
-              padding: 15,
-              fontSize: 16,
-              color: "#111827",
-              backgroundColor: "#FFFFFF",
-            }}
-          />
-        </View>
-
-        {/* Card de Horário */}
-        <View style={{ 
-          backgroundColor: "#F9FAFB", 
-          borderRadius: 16, 
-          padding: 20, 
-          marginBottom: 20 
-        }}>
-          <Text style={{ 
-            fontSize: 16, 
-            fontWeight: "600", 
-            color: "#111827", 
-            marginBottom: 15 
-          }}>
-            ⏰ Horário da Coleta
-          </Text>
-          
-          <TextInput
-            value={selectedTime}
-            onChangeText={setSelectedTime}
-            placeholder="Preencha o horário da coleta"
-            placeholderTextColor="#9CA3AF"
-            style={{
-              borderWidth: 1,
-              borderColor: "#D1D5DB",
-              borderRadius: 12,
-              padding: 15,
-              fontSize: 16,
-              color: "#111827",
-              backgroundColor: "#FFFFFF",
-            }}
-          />
-        </View>
-
-        {/* Card de Materiais */}
-        <View style={{ 
-          backgroundColor: "#F9FAFB", 
-          borderRadius: 16, 
-          padding: 20, 
-          marginBottom: 30 
-        }}>
-          <Text style={{ 
-            fontSize: 16, 
-            fontWeight: "600", 
-            color: "#111827", 
-            marginBottom: 15 
-          }}>
-            ♻️ Tipos de Resíduos
-          </Text>
-          
-          <View style={{ 
-            flexDirection: "row", 
-            flexWrap: "wrap", 
-            gap: 10 
-          }}>
-            {materials.map((material) => (
-              <TouchableOpacity
-                key={material}
-                onPress={() => toggleMaterial(material)}
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+        {loading ? (
+          <View style={{ alignItems: "center", paddingVertical: 50 }}>
+            <ActivityIndicator size="large" color="#028C56" />
+            <Text style={{ marginTop: 12, color: "#6B7280" }}>
+              Carregando agendamentos...
+            </Text>
+          </View>
+        ) : (
+          <>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 25 }}>
+              <View
                 style={{
-                  backgroundColor: selectedMaterials.includes(material) ? "#028C56" : "#FFFFFF",
-                  paddingHorizontal: 20,
-                  paddingVertical: 12,
-                  borderRadius: 25,
+                  flex: 1,
+                  backgroundColor: "#F0FDF4",
+                  borderRadius: 16,
+                  padding: 16,
                   marginRight: 10,
-                  marginBottom: 10,
-                  borderWidth: 1,
-                  borderColor: selectedMaterials.includes(material) ? "#028C56" : "#D1D5DB",
+                  alignItems: "center",
                 }}
               >
+                <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
+                  Total
+                </Text>
+                <Text style={{ fontSize: 24, fontWeight: "800", color: "#028C56" }}>
+                  {summary.total}
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: "#FEFCE8",
+                  borderRadius: 16,
+                  padding: 16,
+                  marginRight: 10,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
+                  Solicitados
+                </Text>
+                <Text style={{ fontSize: 24, fontWeight: "800", color: "#F59E0B" }}>
+                  {summary.pendentes}
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: "#ECFDF5",
+                  borderRadius: 16,
+                  padding: 16,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
+                  Concluídos
+                </Text>
+                <Text style={{ fontSize: 24, fontWeight: "800", color: "#028C56" }}>
+                  {summary.concluidos}
+                </Text>
+              </View>
+            </View>
+
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: "#111827",
+                marginBottom: 15,
+              }}
+            >
+              Lista de Agendamentos
+            </Text>
+
+            {schedules.length === 0 ? (
+              <View
+                style={{
+                  backgroundColor: "#F9FAFB",
+                  borderRadius: 16,
+                  padding: 24,
+                  alignItems: "center",
+                  marginBottom: 20,
+                }}
+              >
+                <Ionicons name="calendar-outline" size={42} color="#9CA3AF" />
                 <Text
                   style={{
-                    color: selectedMaterials.includes(material) ? "#FFFFFF" : "#4B5563",
-                    fontWeight: "600",
-                    fontSize: 14,
+                    fontSize: 16,
+                    color: "#6B7280",
+                    marginTop: 10,
+                    textAlign: "center",
                   }}
                 >
-                  {material}
+                  Nenhum agendamento encontrado.
                 </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+              </View>
+            ) : (
+              schedules.map((item) => (
+                <View
+                  key={item.id}
+                  style={{
+                    backgroundColor: "#F9FAFB",
+                    borderRadius: 16,
+                    padding: 16,
+                    marginBottom: 12,
+                    borderLeftWidth: 4,
+                    borderLeftColor: mapStatusColor(item.status),
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "700",
+                        color: "#111827",
+                        flex: 1,
+                        paddingRight: 12,
+                      }}
+                    >
+                      {item.title}
+                    </Text>
 
-        {/* Botão Agendar */}
-        <TouchableOpacity 
-          activeOpacity={0.9} 
-          onPress={handleSchedule} 
-          style={{ marginBottom: 30 }}
-        >
-          <LinearGradient
-            colors={["#10F35D", "#028C56"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{
-              height: 56,
-              borderRadius: 12,
-              alignItems: "center",
-              justifyContent: "center",
-              flexDirection: "row",
-            }}
-          >
-            <Text style={{ 
-              color: "#FFFFFF", 
-              fontSize: 18, 
-              fontWeight: "800",
-              marginRight: 8 
-            }}>
-              AGENDAR
-            </Text>
-            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-          </LinearGradient>
-        </TouchableOpacity>
+                    <View
+                      style={{
+                        backgroundColor: mapStatusColor(item.status),
+                        paddingHorizontal: 12,
+                        paddingVertical: 5,
+                        borderRadius: 999,
+                      }}
+                    >
+                      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}>
+                        {mapStatusLabel(item.status)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 6 }}>
+                    {item.address}
+                  </Text>
+
+                  <Text style={{ fontSize: 14, color: "#4B5563" }}>
+                    Data: {item.dateLabel}
+                  </Text>
+                </View>
+              ))
+            )}
+
+            <TouchableOpacity
+              onPress={() =>
+                Alert.alert(
+                  "Próxima etapa",
+                  "A criação manual de agendamentos será integrada na próxima etapa operacional da cooperativa."
+                )
+              }
+              style={{
+                backgroundColor: "#F0FDF4",
+                borderRadius: 12,
+                padding: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: 10,
+                marginBottom: 30,
+                borderWidth: 1,
+                borderColor: "#028C56",
+                borderStyle: "dashed",
+              }}
+            >
+              <Ionicons name="add-circle-outline" size={24} color="#028C56" />
+              <Text
+                style={{
+                  fontSize: 16,
+                  color: "#028C56",
+                  fontWeight: "600",
+                  marginLeft: 8,
+                }}
+              >
+                NOVO AGENDAMENTO
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
     </View>
   );

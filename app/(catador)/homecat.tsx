@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Image,
   Text,
@@ -13,15 +13,26 @@ import {
 import { Ionicons, MaterialIcons, FontAwesome6 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
-import { doc, getDoc } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
 import { useAuth } from "@/src/contexts/AuthContext";
+import {
+  collectionService,
+  type Collection,
+} from "@/src/services/collectionService";
 
 type ActionButtonProps = {
   title: string;
   icon: React.ReactNode;
   onPress?: () => void;
+};
+
+type AuthUser = {
+  id?: string;
+  uid?: string;
+  displayName?: string;
+  name?: string;
+  email?: string;
+  role?: string;
 };
 
 function ActionButton({ title, icon, onPress }: ActionButtonProps) {
@@ -67,59 +78,33 @@ function ActionButton({ title, icon, onPress }: ActionButtonProps) {
 
 export default function CatadorHomeScreen() {
   const { user } = useAuth();
+  const currentUser = user as AuthUser | null;
 
   const [currentCity, setCurrentCity] = useState<string>("Carregando localização...");
   const [locationError, setLocationError] = useState<boolean>(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState<boolean>(true);
   const [loadingUser, setLoadingUser] = useState(true);
-
-  const [catadorData, setCatadorData] = useState({
-    nome: "",
-    totalKg: 0,
-    kgMes: 0,
-    coletasHoje: 0,
-  });
-
-  const loadCatador = useCallback(async () => {
-    if (!user?.uid) {
-      setLoadingUser(false);
-      return;
-    }
-
-    try {
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const data: any = userSnap.data();
-
-        setCatadorData({
-          nome: data.displayName || user.displayName || "",
-          totalKg: Number(data.totalKg || 0),
-          kgMes: Number(data.kgMes || 0),
-          coletasHoje: Number(data.coletasHoje || 0),
-        });
-      } else {
-        setCatadorData({
-          nome: user.displayName || "",
-          totalKg: 0,
-          kgMes: 0,
-          coletasHoje: 0,
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao carregar dados do catador:", error);
-    } finally {
-      setLoadingUser(false);
-    }
-  }, [user?.uid, user?.displayName]);
-
-  useEffect(() => {
-    loadCatador();
-  }, [loadCatador]);
+  const [collections, setCollections] = useState<Collection[]>([]);
 
   useEffect(() => {
     getUserLocation();
+  }, []);
+
+  useEffect(() => {
+    const loadCollectorData = async () => {
+      try {
+        setLoadingUser(true);
+        const response = await collectionService.list();
+        setCollections(response);
+      } catch (error) {
+        console.error("Erro ao carregar dados do catador:", error);
+        setCollections([]);
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    loadCollectorData();
   }, []);
 
   async function getUserLocation() {
@@ -191,15 +176,51 @@ export default function CatadorHomeScreen() {
     }
   }
 
-  return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: "#FFFFFF",
-      }}
-    >
-    
+  const completedCollections = useMemo(() => {
+    return collections.filter((item) => item.status === "COMPLETED");
+  }, [collections]);
 
+  const totalKg = useMemo(() => {
+    return completedCollections.reduce(
+      (acc, item) => acc + Number(item.totalWeightKg || 0),
+      0
+    );
+  }, [completedCollections]);
+
+  const kgMes = useMemo(() => {
+    const now = new Date();
+    const month = now.getMonth();
+    const year = now.getFullYear();
+
+    return completedCollections.reduce((acc, item) => {
+      if (!item.createdAt) return acc;
+
+      const createdAt = new Date(item.createdAt);
+      if (
+        createdAt.getMonth() === month &&
+        createdAt.getFullYear() === year
+      ) {
+        return acc + Number(item.totalWeightKg || 0);
+      }
+
+      return acc;
+    }, 0);
+  }, [completedCollections]);
+
+  const coletasHoje = useMemo(() => {
+    const today = new Date().toLocaleDateString("pt-BR");
+
+    return completedCollections.filter((item) => {
+      if (!item.createdAt) return false;
+      return new Date(item.createdAt).toLocaleDateString("pt-BR") === today;
+    }).length;
+  }, [completedCollections]);
+
+  const collectorName =
+    currentUser?.displayName || currentUser?.name || "Catador";
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <View
         style={{
           flex: 1,
@@ -235,7 +256,7 @@ export default function CatadorHomeScreen() {
                   fontWeight: "400",
                 }}
               >
-                Katu<Text style={{ fontWeight: "800", color: "#028C56" }}>AI</Text>
+                KATUÁ<Text style={{ fontWeight: "800", color: "#028C56" }}></Text>
               </Text>
             </View>
 
@@ -307,28 +328,28 @@ export default function CatadorHomeScreen() {
                     marginBottom: 12,
                   }}
                 >
-                  {catadorData.nome || "Catador"}
+                  {collectorName}
                 </Text>
 
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                   <View style={{ alignItems: "center", flex: 1 }}>
                     <Text style={{ fontSize: 12, color: "#6B7280" }}>TOTAL</Text>
                     <Text style={{ fontSize: 20, fontWeight: "800", color: "#028C56" }}>
-                      {catadorData.totalKg} kg
+                      {totalKg} kg
                     </Text>
                   </View>
 
                   <View style={{ alignItems: "center", flex: 1 }}>
                     <Text style={{ fontSize: 12, color: "#6B7280" }}>NO MÊS</Text>
                     <Text style={{ fontSize: 20, fontWeight: "800", color: "#028C56" }}>
-                      {catadorData.kgMes} kg
+                      {kgMes} kg
                     </Text>
                   </View>
 
                   <View style={{ alignItems: "center", flex: 1 }}>
                     <Text style={{ fontSize: 12, color: "#6B7280" }}>HOJE</Text>
                     <Text style={{ fontSize: 20, fontWeight: "800", color: "#028C56" }}>
-                      {catadorData.coletasHoje}
+                      {coletasHoje}
                     </Text>
                   </View>
                 </View>

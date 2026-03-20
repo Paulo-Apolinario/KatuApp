@@ -13,20 +13,15 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
-
-type VehicleStatus = "ativo" | "manutencao" | "inativo";
+import { vehicleService } from "@/src/services/vehicleService";
 
 export default function NovoVeiculoScreen() {
-  const { user } = useAuth();
-
-  const [modelo, setModelo] = useState("");
-  const [placa, setPlaca] = useState("");
-  const [capacidade, setCapacidade] = useState("");
-  const [status, setStatus] = useState<VehicleStatus>("ativo");
+  const [model, setModel] = useState("");
+  const [plate, setPlate] = useState("");
+  const [brand, setBrand] = useState("");
+  const [year, setYear] = useState("");
+  const [capacityKg, setCapacityKg] = useState("");
   const [loading, setLoading] = useState(false);
 
   function formatPlate(value: string) {
@@ -34,34 +29,36 @@ export default function NovoVeiculoScreen() {
   }
 
   async function handleSalvar() {
-    if (!user?.uid) {
-      Alert.alert("Erro", "Cooperativa não identificada.");
+    if (!model.trim() || !plate.trim()) {
+      Alert.alert("Atenção", "Preencha modelo e placa do veículo.");
       return;
     }
 
-    if (!modelo.trim() || !placa.trim() || !capacidade.trim()) {
-      Alert.alert("Atenção", "Preencha todos os campos obrigatórios.");
-      return;
+    if (year.trim()) {
+      const parsedYear = Number(year);
+      if (Number.isNaN(parsedYear) || parsedYear < 1900) {
+        Alert.alert("Atenção", "Informe um ano válido.");
+        return;
+      }
     }
 
-    const capacidadeNumber = Number(capacidade.replace(",", "."));
-
-    if (Number.isNaN(capacidadeNumber) || capacidadeNumber <= 0) {
-      Alert.alert("Atenção", "Informe uma capacidade válida.");
-      return;
+    if (capacityKg.trim()) {
+      const parsedCapacity = Number(capacityKg.replace(",", "."));
+      if (Number.isNaN(parsedCapacity) || parsedCapacity <= 0) {
+        Alert.alert("Atenção", "Informe uma capacidade válida.");
+        return;
+      }
     }
 
     try {
       setLoading(true);
 
-      await addDoc(collection(db, "veiculos"), {
-        modelo: modelo.trim(),
-        placa: formatPlate(placa),
-        capacidade: capacidadeNumber,
-        status,
-        cooperativaId: user.uid,
-        totalColetado: 0,
-        createdAt: serverTimestamp(),
+      await vehicleService.create({
+        model,
+        plate,
+        brand,
+        year,
+        capacityKg,
       });
 
       Alert.alert("Sucesso", "Veículo cadastrado com sucesso!", [
@@ -70,9 +67,12 @@ export default function NovoVeiculoScreen() {
           onPress: () => router.replace("/(cooperativa)/veiculos"),
         },
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao cadastrar veículo:", error);
-      Alert.alert("Erro", "Não foi possível cadastrar o veículo.");
+      Alert.alert(
+        "Erro",
+        error?.message || "Não foi possível cadastrar o veículo."
+      );
     } finally {
       setLoading(false);
     }
@@ -113,8 +113,8 @@ export default function NovoVeiculoScreen() {
             Modelo *
           </Text>
           <TextInput
-            value={modelo}
-            onChangeText={setModelo}
+            value={model}
+            onChangeText={setModel}
             placeholder="Ex: Fiat Fiorino"
             placeholderTextColor="#9CA3AF"
             style={{
@@ -133,8 +133,8 @@ export default function NovoVeiculoScreen() {
             Placa *
           </Text>
           <TextInput
-            value={placa}
-            onChangeText={(text) => setPlaca(formatPlate(text))}
+            value={plate}
+            onChangeText={(text) => setPlate(formatPlate(text))}
             placeholder="ABC1234"
             placeholderTextColor="#9CA3AF"
             autoCapitalize="characters"
@@ -152,12 +152,32 @@ export default function NovoVeiculoScreen() {
 
         <View style={{ marginBottom: 20 }}>
           <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
-            Capacidade (kg) *
+            Marca
           </Text>
           <TextInput
-            value={capacidade}
-            onChangeText={setCapacidade}
-            placeholder="Ex: 1200"
+            value={brand}
+            onChangeText={setBrand}
+            placeholder="Ex: Fiat"
+            placeholderTextColor="#9CA3AF"
+            style={{
+              borderWidth: 1,
+              borderColor: "#D1D5DB",
+              borderRadius: 8,
+              padding: 12,
+              fontSize: 16,
+              color: "#111827",
+            }}
+          />
+        </View>
+
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+            Ano
+          </Text>
+          <TextInput
+            value={year}
+            onChangeText={setYear}
+            placeholder="Ex: 2022"
             placeholderTextColor="#9CA3AF"
             keyboardType="numeric"
             style={{
@@ -172,43 +192,24 @@ export default function NovoVeiculoScreen() {
         </View>
 
         <View style={{ marginBottom: 30 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 10 }}>
-            Status
+          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+            Capacidade (kg)
           </Text>
-
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            {[
-              { label: "Ativo", value: "ativo" },
-              { label: "Manutenção", value: "manutencao" },
-              { label: "Inativo", value: "inativo" },
-            ].map((item) => {
-              const selected = status === item.value;
-
-              return (
-                <TouchableOpacity
-                  key={item.value}
-                  onPress={() => setStatus(item.value as VehicleStatus)}
-                  style={{
-                    backgroundColor: selected ? "#028C56" : "#F3F4F6",
-                    paddingHorizontal: 14,
-                    paddingVertical: 8,
-                    borderRadius: 20,
-                    marginRight: 10,
-                    marginBottom: 10,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: selected ? "#FFFFFF" : "#4B5563",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <TextInput
+            value={capacityKg}
+            onChangeText={setCapacityKg}
+            placeholder="Ex: 1200"
+            placeholderTextColor="#9CA3AF"
+            keyboardType="numeric"
+            style={{
+              borderWidth: 1,
+              borderColor: "#D1D5DB",
+              borderRadius: 8,
+              padding: 12,
+              fontSize: 16,
+              color: "#111827",
+            }}
+          />
         </View>
 
         <TouchableOpacity onPress={handleSalvar} disabled={loading} activeOpacity={0.9}>

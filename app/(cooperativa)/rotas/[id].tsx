@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -10,76 +10,56 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
-
-type RouteStatus = "agendada" | "em_andamento" | "concluida";
+import {
+  routeService,
+  type RouteItem,
+  type RouteStatus,
+} from "@/src/services/routeService";
 
 export default function RotaDetalheScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useAuth();
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const routeId = Array.isArray(params.id) ? params.id[0] : params.id;
 
-  const [rota, setRota] = useState<any>(null);
+  const [rota, setRota] = useState<RouteItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingStatus, setSavingStatus] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    loadRota();
-  }, [id]);
-
-  async function loadRota() {
-    if (!id || !user?.uid) {
+  const loadRota = useCallback(async () => {
+    if (!routeId) {
       setLoading(false);
       return;
     }
 
     try {
-      const docRef = doc(db, "rotas", id);
-      const docSnap = await getDoc(docRef);
-
-      if (!docSnap.exists()) {
-        Alert.alert("Erro", "Rota não encontrada.");
-        router.replace("/(cooperativa)/rotas");
-        return;
-      }
-
-      const data: any = docSnap.data();
-
-      if (data.cooperativaId !== user.uid) {
-        Alert.alert("Erro", "Você não tem permissão para esta rota.");
-        router.replace("/(cooperativa)/rotas");
-        return;
-      }
-
-      setRota({
-        id: docSnap.id,
-        ...data,
-      });
+      setLoading(true);
+      const data = await routeService.getById(routeId);
+      setRota(data);
     } catch (error) {
       console.error("Erro ao carregar rota:", error);
-      Alert.alert("Erro", "Não foi possível carregar a rota.");
+      Alert.alert("Erro", "Não foi possível carregar a rota.", [
+        {
+          text: "OK",
+          onPress: () => router.replace("/(cooperativa)/rotas"),
+        },
+      ]);
     } finally {
       setLoading(false);
     }
-  }
+  }, [routeId]);
+
+  useEffect(() => {
+    loadRota();
+  }, [loadRota]);
 
   async function updateStatus(newStatus: RouteStatus) {
-    if (!id) return;
+    if (!routeId) return;
 
     try {
       setSavingStatus(true);
-
-      await updateDoc(doc(db, "rotas", id), {
-        status: newStatus,
-      });
-
-      setRota((prev: any) => ({
-        ...prev,
-        status: newStatus,
-      }));
+      const updated = await routeService.updateStatus(routeId, newStatus);
+      setRota(updated);
+      Alert.alert("Sucesso", "Status da rota atualizado com sucesso.");
     } catch (error) {
       console.error("Erro ao atualizar status da rota:", error);
       Alert.alert("Erro", "Não foi possível atualizar o status.");
@@ -88,58 +68,39 @@ export default function RotaDetalheScreen() {
     }
   }
 
-  function handleExcluir() {
-    if (!id) return;
-
-    Alert.alert("Excluir rota", "Deseja realmente excluir esta rota?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Excluir",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            setDeleting(true);
-            await deleteDoc(doc(db, "rotas", id));
-            Alert.alert("Sucesso", "Rota excluída com sucesso!", [
-              {
-                text: "OK",
-                onPress: () => router.replace("/(cooperativa)/rotas"),
-              },
-            ]);
-          } catch (error) {
-            console.error("Erro ao excluir rota:", error);
-            Alert.alert("Erro", "Não foi possível excluir a rota.");
-          } finally {
-            setDeleting(false);
-          }
-        },
-      },
-    ]);
-  }
-
-  const getStatusColor = (status: RouteStatus) => {
+  const getStatusColor = (status?: string) => {
     switch (status) {
-      case "agendada":
+      case "SCHEDULED":
         return "#F59E0B";
-      case "em_andamento":
+      case "IN_PROGRESS":
         return "#10B981";
-      case "concluida":
+      case "COMPLETED":
         return "#6B7280";
       default:
         return "#6B7280";
     }
   };
 
-  const getStatusLabel = (status: RouteStatus) => {
+  const getStatusLabel = (status?: string) => {
     switch (status) {
-      case "agendada":
+      case "SCHEDULED":
         return "AGENDADA";
-      case "em_andamento":
+      case "IN_PROGRESS":
         return "EM ANDAMENTO";
-      case "concluida":
+      case "COMPLETED":
         return "CONCLUÍDA";
       default:
         return "SEM STATUS";
+    }
+  };
+
+  const formatarData = (data?: string | null) => {
+    if (!data) return "Não informada";
+
+    try {
+      return new Date(data).toLocaleString("pt-BR");
+    } catch {
+      return data;
     }
   };
 
@@ -152,7 +113,16 @@ export default function RotaDetalheScreen() {
     );
   }
 
-  if (!rota) return null;
+  if (!rota) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#FFFFFF", justifyContent: "center", alignItems: "center", padding: 24 }}>
+        <Ionicons name="alert-circle-outline" size={48} color="#9CA3AF" />
+        <Text style={{ marginTop: 10, color: "#6B7280", textAlign: "center", fontSize: 16 }}>
+          Rota não encontrada.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
@@ -188,7 +158,7 @@ export default function RotaDetalheScreen() {
           }}
         >
           <Text style={{ fontSize: 20, fontWeight: "800", color: "#111827", marginBottom: 10 }}>
-            {rota.nome}
+            {rota.name}
           </Text>
 
           <View
@@ -207,13 +177,19 @@ export default function RotaDetalheScreen() {
           </View>
 
           <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
-            Data: {rota.data || "Não informada"}
+            Data: {formatarData(rota.scheduledDate)}
           </Text>
+
           <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
-            Motorista ID: {rota.motoristaId || "Não informado"}
+            Motorista ID: {rota.driverId || "Não informado"}
           </Text>
+
+          <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
+            Veículo ID: {rota.vehicleId || "Não informado"}
+          </Text>
+
           <Text style={{ fontSize: 14, color: "#4B5563" }}>
-            Veículo ID: {rota.veiculoId || "Não informado"}
+            Descrição: {rota.description || "Não informada"}
           </Text>
         </View>
 
@@ -231,8 +207,8 @@ export default function RotaDetalheScreen() {
             Pontos da rota
           </Text>
 
-          {Array.isArray(rota.pontos) && rota.pontos.length > 0 ? (
-            rota.pontos.map((ponto: string, index: number) => (
+          {Array.isArray(rota.stops) && rota.stops.length > 0 ? (
+            rota.stops.map((ponto: string, index: number) => (
               <View
                 key={`${ponto}-${index}`}
                 style={{
@@ -268,9 +244,9 @@ export default function RotaDetalheScreen() {
 
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
             {[
-              { label: "Agendada", value: "agendada" },
-              { label: "Em andamento", value: "em_andamento" },
-              { label: "Concluída", value: "concluida" },
+              { label: "Agendada", value: "SCHEDULED" },
+              { label: "Em andamento", value: "IN_PROGRESS" },
+              { label: "Concluída", value: "COMPLETED" },
             ].map((item) => {
               const selected = rota.status === item.value;
 
@@ -302,29 +278,6 @@ export default function RotaDetalheScreen() {
             })}
           </View>
         </View>
-
-        <TouchableOpacity
-          onPress={handleExcluir}
-          disabled={deleting || savingStatus}
-          style={{
-            height: 52,
-            borderRadius: 8,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "#FEF2F2",
-            borderWidth: 1,
-            borderColor: "#DC2626",
-            marginBottom: 30,
-          }}
-        >
-          {deleting ? (
-            <ActivityIndicator color="#DC2626" />
-          ) : (
-            <Text style={{ color: "#DC2626", fontSize: 16, fontWeight: "800" }}>
-              EXCLUIR ROTA
-            </Text>
-          )}
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );

@@ -13,18 +13,17 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
+import { driverService } from "@/src/services/driverService";
 
 export default function NovoMotoristaScreen() {
-  const { user } = useAuth();
-
   const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
   const [cpf, setCpf] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [email, setEmail] = useState("");
+  const [cnh, setCnh] = useState("");
+  const [cnhCategoria, setCnhCategoria] = useState("");
+  const [observacoes, setObservacoes] = useState("");
   const [loading, setLoading] = useState(false);
 
   function formatCpf(value: string) {
@@ -45,27 +44,22 @@ export default function NovoMotoristaScreen() {
   }
 
   async function handleSalvar() {
-    if (!user?.uid) {
-      Alert.alert("Erro", "Usuário da cooperativa não encontrado.");
-      return;
-    }
-
-    if (!nome.trim() || !cpf.trim() || !telefone.trim() || !email.trim()) {
-      Alert.alert("Atenção", "Preencha todos os campos.");
+    if (!nome.trim() || !email.trim()) {
+      Alert.alert("Atenção", "Preencha nome e email do motorista.");
       return;
     }
 
     try {
       setLoading(true);
 
-      await addDoc(collection(db, "motoristas"), {
-        nome: nome.trim(),
-        cpf: cpf.replace(/\D/g, ""),
-        telefone: telefone.trim(),
-        email: email.trim().toLowerCase(),
-        status: "disponivel",
-        cooperativaId: user.uid,
-        createdAt: serverTimestamp(),
+      await driverService.create({
+        name: nome,
+        email,
+        cpf,
+        phone: telefone,
+        cnh,
+        cnhCategory: cnhCategoria,
+        notes: observacoes,
       });
 
       Alert.alert("Sucesso", "Motorista cadastrado com sucesso!", [
@@ -74,9 +68,12 @@ export default function NovoMotoristaScreen() {
           onPress: () => router.replace("/(cooperativa)/motoristas"),
         },
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao cadastrar motorista:", error);
-      Alert.alert("Erro", "Não foi possível cadastrar o motorista.");
+      Alert.alert(
+        "Erro",
+        error?.message || "Não foi possível cadastrar o motorista."
+      );
     } finally {
       setLoading(false);
     }
@@ -111,7 +108,10 @@ export default function NovoMotoristaScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+      >
         <View style={{ marginBottom: 20 }}>
           <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
             Nome Completo *
@@ -134,7 +134,29 @@ export default function NovoMotoristaScreen() {
 
         <View style={{ marginBottom: 20 }}>
           <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
-            CPF *
+            Email *
+          </Text>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="motorista@email.com"
+            placeholderTextColor="#9CA3AF"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            style={{
+              borderWidth: 1,
+              borderColor: "#D1D5DB",
+              borderRadius: 8,
+              padding: 12,
+              fontSize: 16,
+              color: "#111827",
+            }}
+          />
+        </View>
+
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+            CPF
           </Text>
           <TextInput
             value={cpf}
@@ -156,7 +178,7 @@ export default function NovoMotoristaScreen() {
 
         <View style={{ marginBottom: 20 }}>
           <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
-            Telefone *
+            Telefone
           </Text>
           <TextInput
             value={telefone}
@@ -175,17 +197,15 @@ export default function NovoMotoristaScreen() {
           />
         </View>
 
-        <View style={{ marginBottom: 30 }}>
+        <View style={{ marginBottom: 20 }}>
           <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
-            Email *
+            CNH
           </Text>
           <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="motorista@email.com"
+            value={cnh}
+            onChangeText={setCnh}
+            placeholder="Número da CNH"
             placeholderTextColor="#9CA3AF"
-            keyboardType="email-address"
-            autoCapitalize="none"
             style={{
               borderWidth: 1,
               borderColor: "#D1D5DB",
@@ -193,6 +213,52 @@ export default function NovoMotoristaScreen() {
               padding: 12,
               fontSize: 16,
               color: "#111827",
+            }}
+          />
+        </View>
+
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+            Categoria da CNH
+          </Text>
+          <TextInput
+            value={cnhCategoria}
+            onChangeText={setCnhCategoria}
+            placeholder="Ex: A, B, C, D, E"
+            placeholderTextColor="#9CA3AF"
+            autoCapitalize="characters"
+            maxLength={2}
+            style={{
+              borderWidth: 1,
+              borderColor: "#D1D5DB",
+              borderRadius: 8,
+              padding: 12,
+              fontSize: 16,
+              color: "#111827",
+            }}
+          />
+        </View>
+
+        <View style={{ marginBottom: 30 }}>
+          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+            Observações
+          </Text>
+          <TextInput
+            value={observacoes}
+            onChangeText={setObservacoes}
+            placeholder="Informações adicionais sobre o motorista"
+            placeholderTextColor="#9CA3AF"
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+            style={{
+              borderWidth: 1,
+              borderColor: "#D1D5DB",
+              borderRadius: 8,
+              padding: 12,
+              fontSize: 16,
+              color: "#111827",
+              minHeight: 100,
             }}
           />
         </View>

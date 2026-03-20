@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { router } from "expo-router";
+import { useCallback, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
 import {
   View,
   Text,
@@ -10,14 +10,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  collection,
-  getDocs,
-  orderBy,
-  query,
-} from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
+import { collectionService } from "@/src/services/collectionService";
 
 type CooperativaHistoryItem = {
   id: string;
@@ -25,21 +19,12 @@ type CooperativaHistoryItem = {
   peso: number;
   status: string;
   dateLabel: string;
+  sortDate: number;
 };
 
-function formatDate(value: any) {
+function formatDate(value?: string | null) {
   try {
     if (!value) return "Sem data";
-
-    if (typeof value?.toDate === "function") {
-      return value.toDate().toLocaleString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
 
     return new Date(value).toLocaleString("pt-BR", {
       day: "2-digit",
@@ -53,6 +38,12 @@ function formatDate(value: any) {
   }
 }
 
+function getSortDate(value?: string | null) {
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
 export default function CooperativaHistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<CooperativaHistoryItem[]>([]);
@@ -62,40 +53,44 @@ export default function CooperativaHistoryScreen() {
     try {
       setLoading(true);
 
-      const q = query(collection(db, "coletas"), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
+      const collections = await collectionService.list();
 
-      const items: CooperativaHistoryItem[] = snapshot.docs.map((docSnap) => {
-        const data: any = docSnap.data();
+      const items: CooperativaHistoryItem[] = collections.map((item) => {
+        const rawDate = item.collectedAt || item.createdAt || null;
 
         return {
-          id: docSnap.id,
+          id: item.id,
           geradorNome:
-            data.geradorNome ||
-            data.userName ||
-            data.nome ||
+            item.generator?.companyName ||
+            item.generator?.name ||
             "Gerador não identificado",
-          peso: Number(data.peso ?? data.kg ?? 0),
-          status: data.status || "concluído",
-          dateLabel: formatDate(data.createdAt || data.dataColeta || null),
+          peso: Number(item.totalWeightKg ?? 0),
+          status: item.status || "COMPLETED",
+          dateLabel: formatDate(rawDate),
+          sortDate: getSortDate(rawDate),
         };
       });
 
-      const total = items.reduce((acc, item) => acc + item.peso, 0);
+      const orderedItems = items.sort((a, b) => b.sortDate - a.sortDate);
+      const total = orderedItems.reduce((acc, item) => acc + item.peso, 0);
 
-      setHistory(items);
+      setHistory(orderedItems);
       setTotalKg(total);
-    } catch (error) {
-      console.error("Erro ao carregar histórico da cooperativa:", error);
-      Alert.alert("Erro", "Não foi possível carregar o histórico.");
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error.message || "Não foi possível carregar o histórico."
+      );
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+  useFocusEffect(
+    useCallback(() => {
+      loadHistory();
+    }, [loadHistory])
+  );
 
   if (loading) {
     return (

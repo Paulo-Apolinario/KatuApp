@@ -11,15 +11,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  addDoc,
-  collection,
-  serverTimestamp,
-  doc,
-  getDoc,
-} from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
+import { scheduleService } from "@/src/services/scheduleService";
 import { useAuth } from "@/src/contexts/AuthContext";
 
 type MaterialType =
@@ -30,7 +23,7 @@ type MaterialType =
   | "METAL"
   | "OUTRO";
 
-function parseDateTime(date: string, time: string): Date | null {
+function parseDateTimeToIso(date: string, time: string): string | null {
   try {
     const [day, month, year] = date.split("/");
     const [hour, minute] = time.split(":");
@@ -45,9 +38,9 @@ function parseDateTime(date: string, time: string): Date | null {
       Number(minute)
     );
 
-    if (isNaN(parsed.getTime())) return null;
+    if (Number.isNaN(parsed.getTime())) return null;
 
-    return parsed;
+    return parsed.toISOString();
   } catch {
     return null;
   }
@@ -85,7 +78,7 @@ export default function ScheduleScreen() {
   };
 
   const handleSchedule = async () => {
-    if (!user?.uid) {
+    if (!user?.id && !user?.id) {
       Alert.alert("Erro", "Usuário não autenticado.");
       return;
     }
@@ -98,9 +91,9 @@ export default function ScheduleScreen() {
       return;
     }
 
-    const dataAgendada = parseDateTime(selectedDate, selectedTime);
+    const scheduledDate = parseDateTimeToIso(selectedDate, selectedTime);
 
-    if (!dataAgendada) {
+    if (!scheduledDate) {
       Alert.alert(
         "Data inválida",
         "Informe uma data e horário válidos. Ex: 12/03/2026 e 13:00"
@@ -111,48 +104,9 @@ export default function ScheduleScreen() {
     try {
       setLoading(true);
 
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (!userSnap.exists()) {
-        throw new Error("Usuário não encontrado no Firestore.");
-      }
-
-      const userData: any = userSnap.data();
-      const geradorId = userData.geradorId || "";
-      const cooperativaId = userData.cooperativaId || "";
-
-      if (!geradorId) {
-        throw new Error("Usuário sem geradorId vinculado.");
-      }
-
-      const geradorRef = doc(db, "geradores", geradorId);
-      const geradorSnap = await getDoc(geradorRef);
-
-      if (!geradorSnap.exists()) {
-        throw new Error("Gerador não encontrado.");
-      }
-
-      const geradorData: any = geradorSnap.data();
-
-      await addDoc(collection(db, "agendamentos"), {
-        userId: user.uid,
-        cooperativaId: cooperativaId || geradorData.cooperativaId || "",
-        geradorId,
-        geradorNome:
-          geradorData.nome || geradorData.companyName || user.displayName || "",
-        geradorEmail: geradorData.email || user.email || "",
-        geradorEndereco:
-          geradorData.endereco || geradorData.address || user.address || "",
-        geradorTelefone: geradorData.telefone || user.phone || "",
-        tipoGerador: geradorData.tipo || user.userType || "pf",
-        materiais: selectedMaterials,
-        dataColeta: selectedDate.trim(),
-        horarioColeta: selectedTime.trim(),
-        dataAgendada,
-        status: "agendado",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+      await scheduleService.create({
+        scheduledDate,
+        requestedMaterials: selectedMaterials,
       });
 
       Alert.alert("Sucesso!", "Coleta agendada com sucesso!", [
@@ -160,7 +114,7 @@ export default function ScheduleScreen() {
           text: "OK",
           onPress: () => {
             resetForm();
-            router.replace("../(gerador)/history");
+            router.replace("/(gerador)/dashboard");
           },
         },
       ]);

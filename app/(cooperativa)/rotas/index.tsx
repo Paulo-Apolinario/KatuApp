@@ -11,56 +11,25 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { collection, query, where, getDocs } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
-
-interface Rota {
-  id: string;
-  nome: string;
-  motoristaId?: string;
-  veiculoId?: string;
-  data: any;
-  status: "agendada" | "em_andamento" | "concluida";
-  pontos: string[];
-}
+import { routeService, type RouteItem } from "@/src/services/routeService";
 
 export default function RotasScreen() {
-  const { user } = useAuth();
-  const [rotas, setRotas] = useState<Rota[]>([]);
+  const [rotas, setRotas] = useState<RouteItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const carregarRotas = useCallback(async () => {
-    if (!user?.uid) {
-      setRotas([]);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-
-      const q = query(
-        collection(db, "rotas"),
-        where("cooperativaId", "==", user.uid)
-      );
-
-      const querySnapshot = await getDocs(q);
-
-      const lista: Rota[] = querySnapshot.docs.map((item) => ({
-        id: item.id,
-        ...(item.data() as Omit<Rota, "id">),
-      }));
-
-      setRotas(lista);
+      const data = await routeService.list();
+      setRotas(data);
     } catch (error) {
       console.error("Erro ao carregar rotas:", error);
       Alert.alert("Erro", "Não foi possível carregar as rotas.");
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -70,11 +39,11 @@ export default function RotasScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "agendada":
+      case "SCHEDULED":
         return "#F59E0B";
-      case "em_andamento":
+      case "IN_PROGRESS":
         return "#10B981";
-      case "concluida":
+      case "COMPLETED":
         return "#6B7280";
       default:
         return "#6B7280";
@@ -83,25 +52,21 @@ export default function RotasScreen() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "agendada":
+      case "SCHEDULED":
         return "AGENDADA";
-      case "em_andamento":
+      case "IN_PROGRESS":
         return "EM ANDAMENTO";
-      case "concluida":
+      case "COMPLETED":
         return "CONCLUÍDA";
       default:
         return status.toUpperCase();
     }
   };
 
-  const formatarData = (data: any) => {
+  const formatarData = (data?: string | null) => {
     if (!data) return "Sem data";
 
     try {
-      if (typeof data?.toDate === "function") {
-        return data.toDate().toLocaleDateString("pt-BR");
-      }
-
       return new Date(data).toLocaleDateString("pt-BR");
     } catch {
       return String(data);
@@ -140,11 +105,11 @@ export default function RotasScreen() {
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
             <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
-              KATU
+              KATUÁ
             </Text>
           </View>
 
-          <TouchableOpacity onPress={() => router.push("../(cooperativa)/rotas/nova")}>
+          <TouchableOpacity onPress={() => router.push("/(cooperativa)/rotas/novo")}>
             <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -172,7 +137,10 @@ export default function RotasScreen() {
         </Text>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+      >
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 40 }}>
             <ActivityIndicator size="large" color="#028C56" />
@@ -210,15 +178,15 @@ export default function RotasScreen() {
                       color: "#111827",
                     }}
                   >
-                    {rota.nome}
+                    {rota.name}
                   </Text>
 
                   <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
-                    {formatarData(rota.data)}
+                    {formatarData(rota.scheduledDate)}
                   </Text>
 
                   <Text style={{ fontSize: 13, color: "#6B7280" }}>
-                    {rota.pontos?.length || 0} pontos na rota
+                    {rota.stops?.length || 0} pontos na rota
                   </Text>
                 </View>
 

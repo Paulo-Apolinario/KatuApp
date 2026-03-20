@@ -10,16 +10,20 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { doc, getDoc } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
+import {
+  collectorService,
+  type Collector,
+  type CollectorStatus,
+} from "@/src/services/collectorService";
 
 export default function CatadorDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const routeId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [loading, setLoading] = useState(true);
-  const [catador, setCatador] = useState<any>(null);
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [catador, setCatador] = useState<Collector | null>(null);
 
   const loadCatador = useCallback(async () => {
     if (!routeId) {
@@ -28,24 +32,17 @@ export default function CatadorDetailScreen() {
     }
 
     try {
-      const docRef = doc(db, "catadores", routeId);
-      const docSnap = await getDoc(docRef);
-
-      if (!docSnap.exists()) {
-        Alert.alert("Erro", "Catador não encontrado.");
-        router.replace("/(cooperativa)/catadores");
-        return;
-      }
-
-      const data = docSnap.data();
-
-      setCatador({
-        id: docSnap.id,
-        ...data,
-      });
+      setLoading(true);
+      const data = await collectorService.getById(routeId);
+      setCatador(data);
     } catch (error) {
       console.error("Erro ao carregar catador:", error);
-      Alert.alert("Erro", "Não foi possível carregar os dados do catador.");
+      Alert.alert("Erro", "Não foi possível carregar os dados do catador.", [
+        {
+          text: "OK",
+          onPress: () => router.replace("/(cooperativa)/catadores"),
+        },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -54,6 +51,51 @@ export default function CatadorDetailScreen() {
   useEffect(() => {
     loadCatador();
   }, [loadCatador]);
+
+  async function handleChangeStatus(status: CollectorStatus) {
+    if (!routeId || savingStatus) return;
+
+    try {
+      setSavingStatus(true);
+      const updated = await collectorService.updateStatus(routeId, status);
+      setCatador(updated);
+      Alert.alert("Sucesso", "Status do catador atualizado com sucesso.");
+    } catch (error: any) {
+      console.error("Erro ao atualizar status do catador:", error);
+      Alert.alert(
+        "Erro",
+        error?.message || "Não foi possível atualizar o status."
+      );
+    } finally {
+      setSavingStatus(false);
+    }
+  }
+
+  const getStatusColor = (status?: CollectorStatus) => {
+    switch (status) {
+      case "AVAILABLE":
+        return "#10B981";
+      case "ON_ROUTE":
+        return "#F59E0B";
+      case "INACTIVE":
+        return "#6B7280";
+      default:
+        return "#6B7280";
+    }
+  };
+
+  const getStatusText = (status?: CollectorStatus) => {
+    switch (status) {
+      case "AVAILABLE":
+        return "DISPONÍVEL";
+      case "ON_ROUTE":
+        return "EM COLETA";
+      case "INACTIVE":
+        return "INATIVO";
+      default:
+        return "SEM STATUS";
+    }
+  };
 
   const handleAtribuirRota = () => {
     Alert.alert(
@@ -80,20 +122,6 @@ export default function CatadorDetailScreen() {
 
   if (!catador) return null;
 
-  const statusColor =
-    catador.status === "disponivel"
-      ? "#10B981"
-      : catador.status === "em_coleta"
-      ? "#F59E0B"
-      : "#6B7280";
-
-  const statusText =
-    catador.status === "disponivel"
-      ? "DISPONÍVEL"
-      : catador.status === "em_coleta"
-      ? "EM COLETA"
-      : "INATIVO";
-
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
@@ -107,9 +135,15 @@ export default function CatadorDetailScreen() {
         }}
       >
         <View
-          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
         >
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity
+            onPress={() => router.replace("/(cooperativa)/catadores")}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -117,15 +151,14 @@ export default function CatadorDetailScreen() {
             Detalhes do Catador
           </Text>
 
-          <TouchableOpacity
-            onPress={() => Alert.alert("Opções", "Funcionalidade em desenvolvimento")}
-          >
-            <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={{ width: 24 }} />
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+      >
         <View style={{ alignItems: "center", marginBottom: 25 }}>
           <View
             style={{
@@ -142,12 +175,12 @@ export default function CatadorDetailScreen() {
           </View>
 
           <Text style={{ fontSize: 22, fontWeight: "700", color: "#111827" }}>
-            {catador.nome || "Sem nome"}
+            {catador.name || "Sem nome"}
           </Text>
 
           <View
             style={{
-              backgroundColor: statusColor,
+              backgroundColor: getStatusColor(catador.status),
               paddingHorizontal: 12,
               paddingVertical: 4,
               borderRadius: 20,
@@ -155,7 +188,7 @@ export default function CatadorDetailScreen() {
             }}
           >
             <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "600" }}>
-              {statusText}
+              {getStatusText(catador.status)}
             </Text>
           </View>
         </View>
@@ -168,21 +201,28 @@ export default function CatadorDetailScreen() {
             marginBottom: 20,
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 12 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "600",
+              color: "#111827",
+              marginBottom: 12,
+            }}
+          >
             Informações Pessoais
           </Text>
 
           <View style={{ marginBottom: 8 }}>
             <Text style={{ fontSize: 12, color: "#6B7280" }}>CPF</Text>
             <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-              {catador.cpf || "-"}
+              {catador.document || "-"}
             </Text>
           </View>
 
           <View style={{ marginBottom: 8 }}>
             <Text style={{ fontSize: 12, color: "#6B7280" }}>Telefone</Text>
             <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-              {catador.telefone || "-"}
+              {catador.phone || "-"}
             </Text>
           </View>
 
@@ -196,7 +236,7 @@ export default function CatadorDetailScreen() {
           <View>
             <Text style={{ fontSize: 12, color: "#6B7280" }}>Endereço</Text>
             <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-              {catador.endereco || "-"}
+              {catador.address || "-"}
             </Text>
           </View>
         </View>
@@ -209,7 +249,14 @@ export default function CatadorDetailScreen() {
             marginBottom: 20,
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 12 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "600",
+              color: "#111827",
+              marginBottom: 12,
+            }}
+          >
             Estatísticas
           </Text>
 
@@ -223,14 +270,14 @@ export default function CatadorDetailScreen() {
 
             <View style={{ alignItems: "center" }}>
               <Text style={{ fontSize: 24, fontWeight: "700", color: "#028C56" }}>
-                {Number(catador.kgMes || 0)} kg
+                {Number(catador.kgMonth || 0)} kg
               </Text>
               <Text style={{ fontSize: 12, color: "#6B7280" }}>Este mês</Text>
             </View>
 
             <View style={{ alignItems: "center" }}>
               <Text style={{ fontSize: 24, fontWeight: "700", color: "#028C56" }}>
-                {Number(catador.coletasHoje || 0)}
+                {Number(catador.collectionsToday || 0)}
               </Text>
               <Text style={{ fontSize: 12, color: "#6B7280" }}>Hoje</Text>
             </View>
@@ -245,12 +292,87 @@ export default function CatadorDetailScreen() {
             marginBottom: 20,
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 12 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "600",
+              color: "#111827",
+              marginBottom: 12,
+            }}
+          >
+            Alterar status
+          </Text>
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+            {[
+              { label: "Disponível", value: "AVAILABLE" as CollectorStatus },
+              { label: "Em coleta", value: "ON_ROUTE" as CollectorStatus },
+              { label: "Inativo", value: "INACTIVE" as CollectorStatus },
+            ].map((item) => {
+              const selected = catador.status === item.value;
+
+              return (
+                <TouchableOpacity
+                  key={item.value}
+                  disabled={savingStatus}
+                  onPress={() => handleChangeStatus(item.value)}
+                  style={{
+                    backgroundColor: selected ? "#028C56" : "#F3F4F6",
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    marginRight: 10,
+                    marginBottom: 10,
+                    opacity: savingStatus ? 0.7 : 1,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: selected ? "#FFFFFF" : "#4B5563",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {savingStatus && (
+            <View
+              style={{ marginTop: 8, flexDirection: "row", alignItems: "center" }}
+            >
+              <ActivityIndicator size="small" color="#028C56" />
+              <Text style={{ marginLeft: 8, color: "#6B7280" }}>
+                Atualizando status...
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View
+          style={{
+            backgroundColor: "#F9FAFB",
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 20,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "600",
+              color: "#111827",
+              marginBottom: 12,
+            }}
+          >
             Histórico
           </Text>
 
           <Text style={{ fontSize: 14, color: "#6B7280" }}>
-            O histórico detalhado de coletas deste catador será integrado na próxima etapa.
+            O histórico detalhado de coletas deste catador será integrado na
+            próxima etapa.
           </Text>
         </View>
 

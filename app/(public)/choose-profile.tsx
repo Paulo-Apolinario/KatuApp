@@ -219,7 +219,7 @@ export default function ChooseProfile() {
           </View>
 
           <TouchableOpacity
-            onPress={() => router.replace("/(public)/activate-generator")}
+            onPress={() => router.replace("/(public)/activate-access")}
             style={{
               marginTop: 12,
               alignItems: "center",

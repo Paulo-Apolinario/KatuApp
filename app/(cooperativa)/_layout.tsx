@@ -1,17 +1,10 @@
 import { Stack } from "expo-router";
-import { AuthProvider } from "@/src/contexts/AuthContext";
+import ProtectedRoute from "@/src/components/ProtectedRoute";
 
-export default function RootLayout() {
+export default function CooperativaLayout() {
   return (
-    <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(public)" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(pf-tabs)" />
-        <Stack.Screen name="(catador)" />
-        <Stack.Screen name="(gerador)" />
-        <Stack.Screen name="(cooperativa)" />
-      </Stack>
-    </AuthProvider>
+    <ProtectedRoute allowedUserTypes={["COOPERATIVE"]}>
+      <Stack screenOptions={{ headerShown: false }} />
+    </ProtectedRoute>
   );
 }

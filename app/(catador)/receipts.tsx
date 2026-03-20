@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Image,
   Text,
@@ -11,100 +11,90 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 
-import { generateReceiptPDF } from "../../src/services/pdfGenerator";
-import { db } from "@/src/services/firebaseConfig";
+import { generateReceiptPDF } from "@/src/services/pdfGenerator";
 import { useAuth } from "@/src/contexts/AuthContext";
+import {
+  collectionService,
+  type Collection,
+} from "@/src/services/collectionService";
 
-type ReceiptItem = {
-  id: string;
-  date: string;
-  kg: number;
-  materials: string[];
-  local: string;
+type AuthUser = {
+  id?: string;
+  uid?: string;
+  displayName?: string;
+  name?: string;
+  email?: string;
 };
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "-";
+
+  return parsed.toLocaleDateString("pt-BR");
+}
 
 export default function ReceiptsScreen() {
   const { user } = useAuth();
+  const currentUser = user as AuthUser | null;
 
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingReceipt, setLoadingReceipt] = useState<string | null>(null);
+  const [receipts, setReceipts] = useState<Collection[]>([]);
 
-  const [userData, setUserData] = useState<any>(null);
-  const [receipts, setReceipts] = useState<ReceiptItem[]>([]);
-
-  const loadData = useCallback(async () => {
-    if (!user?.uid) {
-      setLoading(false);
-      return;
-    }
-
+  const loadData = async () => {
     try {
       setLoading(true);
 
-      const [userSnap, coletasSnap] = await Promise.all([
-        getDoc(doc(db, "users", user.uid)),
-        getDocs(query(collection(db, "coletas"), where("catadorId", "==", user.uid))),
-      ]);
+      const response = await collectionService.list();
 
-      const userDocData: any = userSnap.exists() ? userSnap.data() : {};
-
-      setUserData({
-        name: userDocData.displayName || user.displayName || "",
-        age: userDocData.age || "",
-        location: userDocData.address || "",
-        cpf: userDocData.cpf || "",
-        phone: userDocData.phone || "",
-        totalKg: Number(userDocData.totalKg || 0),
-        since: userDocData.createdAt?.toDate
-          ? userDocData.createdAt.toDate().toLocaleDateString("pt-BR")
-          : "-",
-        code: userDocData.code || user.uid,
-        topMaterials: [],
-      });
-
-      const lista: ReceiptItem[] = coletasSnap.docs.map((docSnap) => {
-        const data: any = docSnap.data();
-
-        let formattedDate = "-";
-        if (data.createdAt?.toDate) {
-          formattedDate = data.createdAt.toDate().toLocaleDateString("pt-BR");
-        }
-
-        return {
-          id: docSnap.id,
-          date: formattedDate,
-          kg: Number(data.pesoKg || 0),
-          materials: Array.isArray(data.materiais) ? data.materiais : [],
-          local: data.local || "-",
-        };
-      });
-
-      setReceipts(lista);
+      const completed = response.filter((item) => item.status === "COMPLETED");
+      setReceipts(completed);
     } catch (error) {
       console.error("Erro ao carregar comprovantes:", error);
       Alert.alert("Erro", "Não foi possível carregar os comprovantes.");
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, user?.displayName]);
+  };
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, []);
 
   const receiptsOrdenados = useMemo(() => {
-    return [...receipts].reverse();
+    return [...receipts].sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
   }, [receipts]);
 
-  const handleGenerateFullReceipt = async () => {
-    if (!userData) {
-      Alert.alert("Erro", "Dados do usuário não carregados.");
-      return;
-    }
+  const userData = useMemo(() => {
+  return {
+    name: currentUser?.displayName || currentUser?.name || "Catador",
+    age: 0,                      // ← coloque 0 ou pegue de algum lugar real (perfil?)
+    location: "Fortaleza",       // ← ou deixe vazio / pegue do contexto
+    cpf: "",                     // ← idealmente vir do perfil do usuário
+    phone: "",
+    email: currentUser?.email || "",
+    code: currentUser?.id || currentUser?.uid || "",
+    totalKg: receiptsOrdenados.reduce(
+      (acc, item) => acc + Number(item.totalWeightKg || 0),
+      0
+    ),
+    since:
+      receiptsOrdenados.length > 0
+        ? formatDate(receiptsOrdenados[receiptsOrdenados.length - 1]?.createdAt)
+        : "-",
+    topMaterials: [],            // ← pode calcular os mais frequentes depois
+  };
+}, [currentUser, receiptsOrdenados]);
 
+  const handleGenerateFullReceipt = async () => {
     setLoadingReceipt("full");
 
     try {
@@ -123,21 +113,22 @@ export default function ReceiptsScreen() {
     }
   };
 
-  const handleGenerateReceipt = async (receipt: ReceiptItem) => {
-    if (!userData) {
-      Alert.alert("Erro", "Dados do usuário não carregados.");
-      return;
-    }
-
+  const handleGenerateReceipt = async (receipt: Collection) => {
     setLoadingReceipt(receipt.id);
 
     try {
-      const result = await generateReceiptPDF(userData, receipt);
+      const result = await generateReceiptPDF(userData, {
+        id: receipt.id,
+        date: formatDate(receipt.createdAt),
+        kg: receipt.totalWeightKg,
+        materials: receipt.materials || [],
+        local: receipt.notes || "-",
+      });
 
       if (result.success) {
         Alert.alert(
           "Sucesso",
-          `Comprovante da coleta de ${receipt.date} gerado com sucesso!`
+          `Comprovante da coleta de ${formatDate(receipt.createdAt)} gerado com sucesso!`
         );
       } else {
         Alert.alert("Erro", "Não foi possível gerar o comprovante.");
@@ -210,11 +201,23 @@ export default function ReceiptsScreen() {
               }}
             >
               <View
-                style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 15,
+                }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                   <Ionicons name="document-text" size={24} color="#028C56" />
-                  <Text style={{ fontSize: 18, fontWeight: "700", color: "#028C56", marginLeft: 10 }}>
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: "700",
+                      color: "#028C56",
+                      marginLeft: 10,
+                    }}
+                  >
                     Comprovante de Serviço
                   </Text>
                 </View>
@@ -259,19 +262,19 @@ export default function ReceiptsScreen() {
                     >
                       <View style={{ flex: 1, paddingRight: 12 }}>
                         <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
-                          {receipt.date}
+                          {formatDate(receipt.createdAt)}
                         </Text>
                         <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 2 }}>
-                          {receipt.materials.join(", ")}
+                          {(receipt.materials || []).join(", ") || "-"}
                         </Text>
                         <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
-                          {receipt.local}
+                          {receipt.notes || "-"}
                         </Text>
                       </View>
 
                       <View style={{ alignItems: "flex-end" }}>
                         <Text style={{ fontSize: 16, fontWeight: "700", color: "#028C56" }}>
-                          {receipt.kg}kg
+                          {receipt.totalWeightKg}kg
                         </Text>
                       </View>
                     </View>
@@ -290,13 +293,13 @@ export default function ReceiptsScreen() {
                         Detalhes da coleta:
                       </Text>
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
-                        • Peso: {receipt.kg}kg
+                        • Peso: {receipt.totalWeightKg}kg
                       </Text>
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
-                        • Materiais: {receipt.materials.join(", ")}
+                        • Materiais: {(receipt.materials || []).join(", ") || "-"}
                       </Text>
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
-                        • Local: {receipt.local}
+                        • Observações: {receipt.notes || "-"}
                       </Text>
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 15 }}>
                         • Catador: {userData?.name || "-"}
@@ -360,7 +363,7 @@ export default function ReceiptsScreen() {
               >
                 <Ionicons name="document-text-outline" size={42} color="#9CA3AF" />
                 <Text style={{ color: "#6B7280", marginTop: 10, textAlign: "center" }}>
-                  Nenhuma coleta registrada ainda.
+                  Nenhuma coleta concluída ainda.
                 </Text>
               </View>
             )}

@@ -1,255 +1,303 @@
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  User as FirebaseUser,
-} from "firebase/auth";
-import {
-  doc,
-  setDoc,
-  getDoc,
-  serverTimestamp,
-  Timestamp,
-} from "firebase/firestore";
-import { auth, db } from "./firebaseConfig";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { api, STORAGE_KEYS } from "./api";
+import { UserDoc } from "../types/user";
 
-export type UserType =
-  | "pf"
-  | "comercial"
-  | "grande"
-  | "cooperativa"
-  | "catador";
-
-export interface UserData {
-  address: string;
-  totalKg: number;
-  uid: string;
-  email: string;
-  displayName: string;
-  userType: UserType;
-  createdAt?: Timestamp | Date | null;
-  phone?: string;
-  cpf?: string;
-  cnpj?: string;
-  companyName?: string;
-  cooperativeName?: string;
-  registrationNumber?: string;
-  profileCompleted?: boolean;
-  rememberMe?: boolean;
-}
-
-
-interface AuthSuccess {
+export type AuthSuccess = {
   success: true;
-  user: UserData;
-}
+  user: UserDoc;
+  token?: string;
+  requiresActivation?: boolean;
+  firstAccess?: boolean;
+  mustChangePassword?: boolean;
+};
 
-interface AuthError {
+export type AuthError = {
   success: false;
   error: string;
-}
+};
 
-type AuthResult = AuthSuccess | AuthError;
+export type AuthResult = AuthSuccess | AuthError;
+
+type LoginResponse = {
+  token?: string;
+  user?: UserDoc;
+  requiresActivation?: boolean;
+  firstAccess?: boolean;
+  mustChangePassword?: boolean;
+};
+
+type MeResponse = {
+  user?: UserDoc;
+};
+
+type ActivateAccessResponse = {
+  message?: string;
+  token?: string;
+  user?: UserDoc;
+};
 
 class AuthService {
-  async register(
-    email: string,
-    password: string,
-    userData: Omit<UserData, "uid" | "createdAt">
-  ): Promise<AuthResult> {
+  async saveSession(token: string, user?: UserDoc): Promise<void> {
+    await AsyncStorage.setItem(STORAGE_KEYS.token, token);
+
+    if (user) {
+      await AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    }
+  }
+
+  async saveToken(token: string): Promise<void> {
+    await AsyncStorage.setItem(STORAGE_KEYS.token, token);
+  }
+
+  async getToken(): Promise<string | null> {
+    return AsyncStorage.getItem(STORAGE_KEYS.token);
+  }
+
+  async removeToken(): Promise<void> {
+    await AsyncStorage.removeItem(STORAGE_KEYS.token);
+  }
+
+  async saveUser(user: UserDoc): Promise<void> {
+    await AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+  }
+
+  async getStoredUser(): Promise<UserDoc | null> {
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.user);
+
+    if (!raw) return null;
+
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password
-      );
+      return JSON.parse(raw) as UserDoc;
+    } catch {
+      return null;
+    }
+  }
 
-      const firebaseUser = userCredential.user;
+  async removeUser(): Promise<void> {
+    await AsyncStorage.removeItem(STORAGE_KEYS.user);
+  }
 
-      const fullUserData: UserData = {
-        uid: firebaseUser.uid,
-        email: firebaseUser.email ?? email.trim(),
-        displayName: userData.displayName?.trim() || "",
-        userType: userData.userType,
-        createdAt: null,
-        phone: userData.phone?.trim() || "",
-        address: userData.address?.trim() || "",
-        cpf: userData.cpf || "",
-        cnpj: userData.cnpj || "",
-        companyName: userData.companyName?.trim() || "",
-        cooperativeName: userData.cooperativeName?.trim() || "",
-        registrationNumber: userData.registrationNumber || "",
-        profileCompleted: true,
-        rememberMe: userData.rememberMe ?? false,
-        totalKg: 0
-      };
+  async clearSession(): Promise<void> {
+    await AsyncStorage.multiRemove([STORAGE_KEYS.token, STORAGE_KEYS.user]);
+  }
 
-      const firestorePayload = {
-        ...fullUserData,
-        createdAt: serverTimestamp(),
-      };
+  async registerPf(data: {
+    displayName: string;
+    email: string;
+    password: string;
+    phone: string;
+    cpf: string;
+    address?: string;
+    rememberMe?: boolean;
+  }): Promise<AuthResult> {
+    try {
+      const response = await api.post<LoginResponse>("/auth/register/pf", data);
 
-      await setDoc(doc(db, "users", firebaseUser.uid), firestorePayload);
-
-      const savedUserDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-
-      if (!savedUserDoc.exists()) {
+      if (!response.user) {
         return {
           success: false,
-          error: "Usuário criado, mas não foi possível confirmar os dados.",
+          error: "Usuário não retornado no cadastro.",
         };
       }
 
-      const savedUser = savedUserDoc.data() as UserData;
+      if (!response.token) {
+        return {
+          success: false,
+          error: "Token não retornado no cadastro.",
+        };
+      }
+
+      await this.saveSession(response.token, response.user);
 
       return {
         success: true,
-        user: savedUser,
+        user: response.user,
+        token: response.token,
+        requiresActivation: response.requiresActivation,
+        firstAccess: response.firstAccess,
+        mustChangePassword: response.mustChangePassword,
       };
-    } catch (error: any) {
-      console.error("Erro no registro:", error);
-
-      let errorMessage = "Erro ao registrar usuário";
-
-      if (error?.code === "auth/email-already-in-use") {
-        errorMessage = "Este e-mail já está em uso";
-      } else if (error?.code === "auth/invalid-email") {
-        errorMessage = "E-mail inválido";
-      } else if (error?.code === "auth/weak-password") {
-        errorMessage = "Senha muito fraca";
-      } else if (error?.code === "auth/network-request-failed") {
-        errorMessage = "Falha de rede. Verifique sua conexão";
-      }
-
+    } catch (error: unknown) {
       return {
         success: false,
-        error: errorMessage,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao registrar pessoa física.",
+      };
+    }
+  }
+
+  async registerCooperative(data: {
+    displayName: string;
+    email: string;
+    password: string;
+    phone: string;
+    cooperativeName: string;
+    registrationNumber: string;
+    address?: string;
+    rememberMe?: boolean;
+  }): Promise<AuthResult> {
+    try {
+      const response = await api.post<LoginResponse>(
+        "/auth/register/cooperative",
+        data
+      );
+
+      if (!response.user) {
+        return {
+          success: false,
+          error: "Usuário não retornado no cadastro da cooperativa.",
+        };
+      }
+
+      if (!response.token) {
+        return {
+          success: false,
+          error: "Token não retornado no cadastro da cooperativa.",
+        };
+      }
+
+      await this.saveSession(response.token, response.user);
+
+      return {
+        success: true,
+        user: response.user,
+        token: response.token,
+        requiresActivation: response.requiresActivation,
+        firstAccess: response.firstAccess,
+        mustChangePassword: response.mustChangePassword,
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao registrar cooperativa.",
       };
     }
   }
 
   async login(email: string, password: string): Promise<AuthResult> {
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password
-      );
+      const response = await api.post<LoginResponse>("/auth/login", {
+        email: email.trim(),
+        password,
+      });
 
-      const firebaseUser = userCredential.user;
-      const userRef = doc(db, "users", firebaseUser.uid);
-      const userDoc = await getDoc(userRef);
-
-      if (!userDoc.exists()) {
-        await signOut(auth);
+      if (!response.user) {
         return {
           success: false,
-          error:
-            "Usuário autenticado, mas sem cadastro completo no sistema.",
+          error: "Usuário não retornado no login.",
         };
       }
 
-      const userData = userDoc.data() as UserData;
-
-      if (!userData?.userType) {
-        await signOut(auth);
+      if (!response.token) {
         return {
           success: false,
-          error: "Tipo de usuário inválido ou não encontrado.",
+          error: "Token não retornado no login.",
         };
       }
+
+      await this.saveSession(response.token, response.user);
 
       return {
         success: true,
-        user: userData,
+        user: response.user,
+        token: response.token,
+        requiresActivation: response.requiresActivation,
+        firstAccess: response.firstAccess,
+        mustChangePassword: response.mustChangePassword,
       };
-    } catch (error: any) {
-      console.error("Erro no login:", error);
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Erro ao fazer login.",
+      };
+    }
+  }
 
-      let errorMessage = "Erro ao fazer login";
+  async activateGeneratorAccess(
+    email: string,
+    password: string
+  ): Promise<AuthResult> {
+    try {
+      const response = await api.post<ActivateAccessResponse>(
+        "/auth/activate-generator-access",
+        {
+          email: email.trim(),
+          password,
+        }
+      );
 
-      if (error?.code === "auth/user-not-found") {
-        errorMessage = "Usuário não encontrado";
-      } else if (error?.code === "auth/wrong-password") {
-        errorMessage = "Senha incorreta";
-      } else if (error?.code === "auth/invalid-credential") {
-        errorMessage = "E-mail ou senha inválidos";
-      } else if (error?.code === "auth/invalid-email") {
-        errorMessage = "E-mail inválido";
-      } else if (error?.code === "auth/too-many-requests") {
-        errorMessage = "Muitas tentativas. Tente novamente mais tarde";
-      } else if (error?.code === "auth/network-request-failed") {
-        errorMessage = "Falha de rede. Verifique sua conexão";
+      if (!response.user) {
+        return {
+          success: false,
+          error: "Usuário não retornado na liberação de acesso.",
+        };
       }
 
-      return {
-        success: false,
-        error: errorMessage,
-      };
-    }
-  }
-
-  async logout(): Promise<{ success: boolean; error?: string }> {
-    try {
-      await signOut(auth);
-      return { success: true };
-    } catch (error) {
-      console.error("Erro no logout:", error);
-      return {
-        success: false,
-        error: "Erro ao fazer logout",
-      };
-    }
-  }
-
-  async resetPassword(
-    email: string
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      await sendPasswordResetEmail(auth, email.trim());
-      return { success: true };
-    } catch (error: any) {
-      console.error("Erro ao resetar senha:", error);
-
-      let errorMessage = "Erro ao enviar e-mail de recuperação";
-
-      if (error?.code === "auth/user-not-found") {
-        errorMessage = "Usuário não encontrado";
-      } else if (error?.code === "auth/invalid-email") {
-        errorMessage = "E-mail inválido";
+      if (!response.token) {
+        return {
+          success: false,
+          error: "Token não retornado na liberação de acesso.",
+        };
       }
 
+      await this.saveSession(response.token, response.user);
+
+      return {
+        success: true,
+        user: response.user,
+        token: response.token,
+      };
+    } catch (error: unknown) {
       return {
         success: false,
-        error: errorMessage,
+        error:
+          error instanceof Error ? error.message : "Erro ao liberar acesso.",
       };
     }
   }
 
-  async getCurrentUserData(): Promise<UserData | null> {
+  async getCurrentUserData(): Promise<UserDoc | null> {
     try {
-      const currentUser = auth.currentUser;
+      const token = await this.getToken();
+      if (!token) return null;
 
-      if (!currentUser) return null;
+      const response = await api.get<MeResponse>("/auth/me", true);
+      const user = response?.user;
 
-      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+      if (!user) {
+        const storedUser = await this.getStoredUser();
+        return storedUser;
+      }
 
-      if (!userDoc.exists()) return null;
-
-      return userDoc.data() as UserData;
+      await this.saveUser(user);
+      return user;
     } catch (error) {
       console.error("Erro ao buscar usuário atual:", error);
+
+      const storedUser = await this.getStoredUser();
+      if (storedUser) {
+        return storedUser;
+      }
+
+      await this.clearSession();
       return null;
     }
   }
 
-  getCurrentUser(): FirebaseUser | null {
-    return auth.currentUser;
+  async logout(): Promise<{ success: true }> {
+    await this.clearSession();
+    return { success: true };
   }
 
-  isAuthenticated(): boolean {
-    return auth.currentUser !== null;
+  async isAuthenticated(): Promise<boolean> {
+    const token = await this.getToken();
+    return !!token;
   }
 }
 

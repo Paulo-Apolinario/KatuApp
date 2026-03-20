@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  displayName   String
+  role          UserRole
+  accountStatus AccountStatus  @default(ACTIVE)
+  isActive      Boolean        @default(true)
+  phone         String?
+  rememberMe    Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  collector     Collector?
+  cooperative   Cooperative?
+  driver        Driver?
+  generator     Generator?
+  personProfile PersonProfile?
+
+  @@index([role])
+}
+
+model Cooperative {
+  id                 String       @id @default(cuid())
+  name               String
+  registrationNumber String?      @unique
+  email              String?      @unique
+  phone              String?
+  address            String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  userId             String       @unique
+  collections        Collection[]
+  collectors         Collector[]
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drivers            Driver[]
+  generators         Generator[]
+  routes             Route[]
+  schedules          Schedule[]
+  vehicles           Vehicle[]
+
+  @@index([name])
+}
+
+model PersonProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  cpf         String   @unique
+  address     String?
+  totalKg     Float    @default(0)
+  greenStreak Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Generator {
+  id             String                @id @default(cuid())
+  cooperativeId  String
+  userId         String?               @unique
+  type           GeneratorType
+  name           String
+  companyName    String?
+  email          String                @unique
+  phone          String?
+  address        String?
+  status         String?
+  accessReleased Boolean               @default(false)
+  accessStatus   GeneratorAccessStatus @default(PENDING_ACTIVATION)
+  totalKg        Float                 @default(0)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  activatedAt    DateTime?
+  collections    Collection[]
+  cooperative    Cooperative           @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  user           User?                 @relation(fields: [userId], references: [id])
+  schedules      Schedule[]
+
+  @@index([cooperativeId])
+  @@index([type])
+  @@index([accessStatus])
+  @@index([name])
+}
+
+model Schedule {
+  id                String         @id @default(cuid())
+  cooperativeId     String
+  generatorId       String
+  requestedByUserId String?
+  preferredDate     DateTime?
+  scheduledDate     DateTime?
+  status            ScheduleStatus @default(REQUESTED)
+  notes             String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  collections       Collection[]
+  cooperative       Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  generator         Generator      @relation(fields: [generatorId], references: [id], onDelete: Cascade)
+
+  @@index([cooperativeId])
+  @@index([generatorId])
+  @@index([status])
+  @@index([scheduledDate])
+}
+
+model Collector {
+  id               String          @id @default(cuid())
+  cooperativeId    String?
+  userId           String?         @unique
+  name             String
+  email            String          @unique
+  phone            String?
+  rg               String?
+  birthDate        String?
+  status           CollectorStatus @default(AVAILABLE)
+  kgMonth          Float           @default(0)
+  collectionsToday Int             @default(0)
+  totalKg          Float           @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  collections      Collection[]
+  cooperative      Cooperative?    @relation(fields: [cooperativeId], references: [id])
+  user             User?           @relation(fields: [userId], references: [id])
+
+  @@index([cooperativeId])
+  @@index([status])
+  @@index([name])
+}
+
+model Collection {
+  id            String           @id @default(cuid())
+  cooperativeId String
+  generatorId   String
+  collectorId   String?
+  scheduleId    String?
+  collectedAt   DateTime         @default(now())
+  totalWeightKg Float            @default(0)
+  materials     String[]
+  notes         String?
+  status        CollectionStatus @default(PENDING)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  collector     Collector?       @relation(fields: [collectorId], references: [id])
+  cooperative   Cooperative      @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  generator     Generator        @relation(fields: [generatorId], references: [id], onDelete: Cascade)
+  schedule      Schedule?        @relation(fields: [scheduleId], references: [id])
+
+  @@index([cooperativeId])
+  @@index([generatorId])
+  @@index([collectorId])
+  @@index([scheduleId])
+  @@index([status])
+  @@index([collectedAt])
+}
+
+model Driver {
+  id            String       @id @default(cuid())
+  cooperativeId String
+  userId        String?      @unique
+  name          String
+  email         String       @unique
+  phone         String?
+  cpf           String?
+  cnh           String?
+  cnhCategory   String?
+  status        DriverStatus @default(AVAILABLE)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  cooperative   Cooperative  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  user          User?        @relation(fields: [userId], references: [id])
+  routes        Route[]
+  vehicles      Vehicle[]
+
+  @@index([cooperativeId])
+  @@index([status])
+  @@index([name])
+}
+
+model Vehicle {
+  id            String        @id @default(cuid())
+  cooperativeId String
+  driverId      String?
+  plate         String        @unique
+  model         String?
+  capacityKg    Float         @default(0)
+  status        VehicleStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  routes        Route[]
+  cooperative   Cooperative   @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  driver        Driver?       @relation(fields: [driverId], references: [id])
+
+  @@index([cooperativeId])
+  @@index([driverId])
+  @@index([status])
+}
+
+model Route {
+  id            String      @id @default(cuid())
+  cooperativeId String
+  driverId      String?
+  vehicleId     String?
+  name          String
+  routeDate     DateTime?
+  points        String[]
+  status        RouteStatus @default(SCHEDULED)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  cooperative   Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  driver        Driver?     @relation(fields: [driverId], references: [id])
+  vehicle       Vehicle?    @relation(fields: [vehicleId], references: [id])
+
+  @@index([cooperativeId])
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([routeDate])
+}
+
+enum UserRole {
+  PF
+  GENERATOR_SMALL
+  GENERATOR_LARGE
+  COOPERATIVE
+  COLLECTOR
+  ADMIN
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum GeneratorType {
+  SMALL
+  LARGE
+}
+
+enum GeneratorAccessStatus {
+  PENDING_ACTIVATION
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum CollectorStatus {
+  AVAILABLE
+  ON_ROUTE
+  INACTIVE
+}
+
+enum ScheduleStatus {
+  REQUESTED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CollectionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DriverStatus {
+  AVAILABLE
+  ON_ROUTE
+  INACTIVE
+}
+
+enum VehicleStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+}
+
+enum RouteStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}

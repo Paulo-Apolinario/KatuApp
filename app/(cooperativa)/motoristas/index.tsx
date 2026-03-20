@@ -13,64 +13,26 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  deleteDoc,
-  doc,
-} from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
-
-interface Motorista {
-  id: string;
-  nome: string;
-  cpf: string;
-  telefone: string;
-  email: string;
-  status: "disponivel" | "em_rota" | "indisponivel";
-}
+import { driverService, type Driver } from "@/src/services/driverService";
 
 export default function MotoristasScreen() {
-  const { user } = useAuth();
-
-  const [motoristas, setMotoristas] = useState<Motorista[]>([]);
+  const [motoristas, setMotoristas] = useState<Driver[]>([]);
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(true);
 
   const carregarMotoristas = useCallback(async () => {
-    if (!user?.uid) {
-      setMotoristas([]);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-
-      const q = query(
-        collection(db, "motoristas"),
-        where("cooperativaId", "==", user.uid)
-      );
-
-      const querySnapshot = await getDocs(q);
-
-      const lista: Motorista[] = querySnapshot.docs.map((item) => ({
-        id: item.id,
-        ...(item.data() as Omit<Motorista, "id">),
-      }));
-
-      setMotoristas(lista);
+      const data = await driverService.list();
+      setMotoristas(data);
     } catch (error) {
       console.error("Erro ao carregar motoristas:", error);
       Alert.alert("Erro", "Não foi possível carregar os motoristas.");
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -78,75 +40,55 @@ export default function MotoristasScreen() {
     }, [carregarMotoristas])
   );
 
-  const handleExcluir = (motorista: Motorista) => {
-    Alert.alert(
-      "Confirmar exclusão",
-      `Deseja realmente excluir ${motorista.nome}?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteDoc(doc(db, "motoristas", motorista.id));
-              setMotoristas((prev) => prev.filter((m) => m.id !== motorista.id));
-              Alert.alert("Sucesso", "Motorista excluído com sucesso!");
-            } catch (error) {
-              console.error("Erro ao excluir motorista:", error);
-              Alert.alert("Erro", "Não foi possível excluir o motorista.");
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "disponivel":
-        return "#10B981";
-      case "em_rota":
-        return "#F59E0B";
-      case "indisponivel":
-        return "#6B7280";
-      default:
-        return "#6B7280";
-    }
-  };
+  switch (status) {
+    case "AVAILABLE":
+      return "#10B981";
+    case "ON_ROUTE":
+      return "#F59E0B";
+    case "INACTIVE":
+      return "#6B7280";
+    default:
+      return "#6B7280";
+  }
+};
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "disponivel":
-        return "DISPONÍVEL";
-      case "em_rota":
-        return "EM ROTA";
-      case "indisponivel":
-        return "INDISPONÍVEL";
-      default:
-        return status.toUpperCase();
-    }
-  };
+const getStatusText = (status: string) => {
+  switch (status) {
+    case "AVAILABLE":
+      return "DISPONÍVEL";
+    case "ON_ROUTE":
+      return "EM ROTA";
+    case "INACTIVE":
+      return "INATIVO";
+    default:
+      return status.toUpperCase();
+  }
+};
 
-  function formatCpf(cpf: string) {
+  function formatCpf(cpf?: string | null) {
     const only = (cpf || "").replace(/\D/g, "");
-    if (only.length !== 11) return cpf || "";
+    if (only.length !== 11) return cpf || "Não informado";
     return only.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
   }
 
   const filteredMotoristas = useMemo(() => {
-    const term = searchText.trim().toLowerCase();
+  const term = searchText.trim().toLowerCase();
 
-    if (!term) return motoristas;
+  if (!term) return motoristas;
 
-    return motoristas.filter(
-      (m) =>
-        m.nome.toLowerCase().includes(term) ||
-        m.email.toLowerCase().includes(term) ||
-        (m.cpf || "").includes(searchText.replace(/\D/g, ""))
+  return motoristas.filter((m) => {
+    const normalizedCpf = (m.cpf || "").replace(/\D/g, "");
+    const rawSearchCpf = searchText.replace(/\D/g, "");
+
+    return (
+      m.name.toLowerCase().includes(term) ||
+      (m.email || "").toLowerCase().includes(term) ||
+      (m.phone || "").toLowerCase().includes(term) ||
+      normalizedCpf.includes(rawSearchCpf)
     );
-  }, [motoristas, searchText]);
-
+  });
+}, [motoristas, searchText]);
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
@@ -231,7 +173,7 @@ export default function MotoristasScreen() {
             <TextInput
               value={searchText}
               onChangeText={setSearchText}
-              placeholder="Buscar por nome, email ou CPF"
+              placeholder="Buscar por nome, email, telefone ou CPF"
               placeholderTextColor="#9CA3AF"
               style={{
                 flex: 1,
@@ -256,8 +198,12 @@ export default function MotoristasScreen() {
             </View>
           ) : (
             filteredMotoristas.map((motorista) => (
-              <View
+              <TouchableOpacity
                 key={motorista.id}
+                activeOpacity={0.9}
+                onPress={() =>
+                  router.push(`/(cooperativa)/motoristas/${motorista.id}` as any)
+                }
                 style={{
                   backgroundColor: "#F9FAFB",
                   borderRadius: 16,
@@ -291,32 +237,44 @@ export default function MotoristasScreen() {
                           marginLeft: 8,
                         }}
                       >
-                        {motorista.nome}
+                        {motorista.name}
                       </Text>
                     </View>
 
                     <Text
-                      style={{
-                        fontSize: 13,
-                        color: "#6B7280",
-                        marginLeft: 28,
-                      }}
-                    >
-                      CPF: {formatCpf(motorista.cpf)}
-                    </Text>
+  style={{
+    fontSize: 13,
+    color: "#6B7280",
+    marginLeft: 28,
+  }}
+>
+  CPF: {formatCpf(motorista.cpf)}
+</Text>
 
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        color: "#6B7280",
-                        marginLeft: 28,
-                      }}
-                    >
-                      {motorista.telefone} • {motorista.email}
-                    </Text>
+<Text
+  style={{
+    fontSize: 13,
+    color: "#6B7280",
+    marginLeft: 28,
+  }}
+>
+  {motorista.phone || "Telefone não informado"} • {motorista.email}
+                </Text>
+                      {!!motorista.cnh && (
+                     <Text
+                            style={{
+                               fontSize: 13,
+                          color: "#6B7280",
+                            marginLeft: 28,
+                              }}
+                        >
+                         CNH: {motorista.cnh}
+                        {motorista.cnhCategory ? ` • Categoria ${motorista.cnhCategory}` : ""}
+                      </Text>
+               )}
                   </View>
 
-                  <View style={{ alignItems: "flex-end" }}>
+                  <View style={{ alignItems: "flex-end", marginLeft: 12 }}>
                     <View
                       style={{
                         backgroundColor: getStatusColor(motorista.status),
@@ -337,33 +295,14 @@ export default function MotoristasScreen() {
                       </Text>
                     </View>
 
-                    <View style={{ flexDirection: "row" }}>
-                      <TouchableOpacity
-                        onPress={() =>
-                          router.push(
-                            `/(cooperativa)/motoristas/editar/${motorista.id}` as any
-                          )
-                        }
-                        style={{ marginRight: 15 }}
-                      >
-                        <Ionicons
-                          name="create-outline"
-                          size={20}
-                          color="#028C56"
-                        />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity onPress={() => handleExcluir(motorista)}>
-                        <Ionicons
-                          name="trash-outline"
-                          size={20}
-                          color="#DC2626"
-                        />
-                      </TouchableOpacity>
-                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color="#9CA3AF"
+                    />
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
 
