@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Text,
   View,
@@ -46,22 +46,37 @@ function parseDateTimeToIso(date: string, time: string): string | null {
   }
 }
 
+function buildNotes(materials: string[], extraNotes: string) {
+  const materialsText =
+    materials.length > 0
+      ? `Materiais solicitados: ${materials.join(", ")}`
+      : "";
+
+  const trimmedExtraNotes = extraNotes.trim();
+
+  if (materialsText && trimmedExtraNotes) {
+    return `${materialsText}\nObservações: ${trimmedExtraNotes}`;
+  }
+
+  if (materialsText) return materialsText;
+  if (trimmedExtraNotes) return trimmedExtraNotes;
+
+  return undefined;
+}
+
 export default function ScheduleScreen() {
   const { user } = useAuth();
 
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
   const [selectedMaterials, setSelectedMaterials] = useState<MaterialType[]>([]);
+  const [extraNotes, setExtraNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const materials: MaterialType[] = [
-    "ALUMÍNIO",
-    "PLÁSTICO",
-    "PAPEL",
-    "VIDRO",
-    "METAL",
-    "OUTRO",
-  ];
+  const materials: MaterialType[] = useMemo(
+    () => ["ALUMÍNIO", "PLÁSTICO", "PAPEL", "VIDRO", "METAL", "OUTRO"],
+    []
+  );
 
   const toggleMaterial = (material: MaterialType) => {
     if (selectedMaterials.includes(material)) {
@@ -75,6 +90,7 @@ export default function ScheduleScreen() {
     setSelectedDate("");
     setSelectedTime("");
     setSelectedMaterials([]);
+    setExtraNotes("");
   };
 
   const handleSchedule = async () => {
@@ -86,7 +102,7 @@ export default function ScheduleScreen() {
     if (!selectedDate || !selectedTime || selectedMaterials.length === 0) {
       Alert.alert(
         "Atenção",
-        "Preencha todos os campos e selecione pelo menos um material."
+        "Preencha data, horário e selecione pelo menos um material."
       );
       return;
     }
@@ -96,28 +112,34 @@ export default function ScheduleScreen() {
     if (!scheduledDate) {
       Alert.alert(
         "Data inválida",
-        "Informe uma data e horário válidos. Ex: 12/03/2026 e 13:00"
+        "Informe uma data e horário válidos. Ex.: 12/03/2026 e 13:00"
       );
       return;
     }
+
+    const notes = buildNotes(selectedMaterials, extraNotes);
 
     try {
       setLoading(true);
 
       await scheduleService.create({
         scheduledDate,
-        requestedMaterials: selectedMaterials,
+        notes,
       });
 
-      Alert.alert("Sucesso!", "Coleta agendada com sucesso!", [
-        {
-          text: "OK",
-          onPress: () => {
-            resetForm();
-            router.replace("/(gerador)/dashboard");
+      Alert.alert(
+        "Sucesso!",
+        "Solicitação de coleta registrada com sucesso. A cooperativa poderá organizar esse agendamento.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              resetForm();
+              router.replace("/(gerador)/dashboard");
+            },
           },
-        },
-      ]);
+        ]
+      );
     } catch (error: any) {
       console.error("Erro ao agendar coleta:", error);
       Alert.alert(
@@ -143,14 +165,34 @@ export default function ScheduleScreen() {
           borderBottomRightRadius: 30,
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+          }}
+        >
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 15 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
+
           <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>
-            AGENDE SUA COLETA
+            SOLICITAR COLETA
           </Text>
         </View>
+
+        <Text
+          style={{
+            fontSize: 14,
+            color: "#FFFFFF",
+            opacity: 0.9,
+            marginTop: 10,
+          }}
+        >
+          Informe data, horário e materiais para que a cooperativa organize a coleta.
+        </Text>
       </LinearGradient>
 
       <ScrollView
@@ -173,7 +215,7 @@ export default function ScheduleScreen() {
               marginBottom: 15,
             }}
           >
-            📅 Data da Coleta
+            📅 Data da coleta
           </Text>
 
           <TextInput
@@ -209,7 +251,7 @@ export default function ScheduleScreen() {
               marginBottom: 15,
             }}
           >
-            ⏰ Horário da Coleta
+            ⏰ Horário da coleta
           </Text>
 
           <TextInput
@@ -234,7 +276,7 @@ export default function ScheduleScreen() {
             backgroundColor: "#F9FAFB",
             borderRadius: 16,
             padding: 20,
-            marginBottom: 30,
+            marginBottom: 20,
           }}
         >
           <Text
@@ -245,7 +287,7 @@ export default function ScheduleScreen() {
               marginBottom: 15,
             }}
           >
-            ♻️ Tipos de Resíduos
+            ♻️ Tipos de resíduos
           </Text>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
@@ -280,6 +322,46 @@ export default function ScheduleScreen() {
               );
             })}
           </View>
+        </View>
+
+        <View
+          style={{
+            backgroundColor: "#F9FAFB",
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 30,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "600",
+              color: "#111827",
+              marginBottom: 15,
+            }}
+          >
+            📝 Observações adicionais
+          </Text>
+
+          <TextInput
+            value={extraNotes}
+            onChangeText={setExtraNotes}
+            placeholder="Ex: materiais estarão separados, acesso lateral, retirar até 17h"
+            placeholderTextColor="#9CA3AF"
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+            style={{
+              borderWidth: 1,
+              borderColor: "#D1D5DB",
+              borderRadius: 12,
+              padding: 15,
+              fontSize: 16,
+              color: "#111827",
+              backgroundColor: "#FFFFFF",
+              minHeight: 110,
+            }}
+          />
         </View>
 
         <TouchableOpacity
@@ -325,7 +407,7 @@ export default function ScheduleScreen() {
                     marginRight: 8,
                   }}
                 >
-                  AGENDAR
+                  SOLICITAR COLETA
                 </Text>
                 <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
               </>
