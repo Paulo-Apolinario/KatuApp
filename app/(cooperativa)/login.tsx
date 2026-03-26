@@ -105,7 +105,7 @@ export default function CooperativaLoginScreen() {
               style={{ width: 50, height: 50, marginRight: 8 }}
             />
             <Text style={{ fontSize: 28, fontWeight: "800", color: "#FFFFFF" }}>
-              KATU
+              KATUÁ
             </Text>
           </View>
 

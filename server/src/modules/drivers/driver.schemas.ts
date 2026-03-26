@@ -6,7 +6,8 @@ export const createDriverSchema = z.object({
   phone: z.string().optional(),
   cpf: z.string().optional(),
   cnh: z.string().optional(),
-  cnhCategory: z.string().optional(),
+  cnhCategory: z.string().max(5).optional(),
+  notes: z.string().optional(),
   status: z.enum(["AVAILABLE", "ON_ROUTE", "INACTIVE"]).optional(),
 });
 

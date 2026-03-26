@@ -15,8 +15,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { scheduleService } from "@/src/services/scheduleService";
 import { generatorService } from "@/src/services/generatorService";
 
+type AlertPointType = "schedule" | "generator";
+
 type AlertPoint = {
   id: string;
+  refId: string;
+  type: AlertPointType;
   name: string;
   address: string;
   status: "Atrasado" | "Agendado" | "Solicitação";
@@ -42,9 +46,7 @@ export default function AlertsScreen() {
   const currentDriver = "Operação da cooperativa";
   const currentPlate = "Backend ativo";
 
-  const totalLixo = useMemo(() => {
-    return alertPoints.length;
-  }, [alertPoints]);
+  const totalLixo = useMemo(() => alertPoints.length, [alertPoints]);
 
   const loadAlerts = useCallback(async () => {
     try {
@@ -69,6 +71,8 @@ export default function AlertsScreen() {
 
           return {
             id: `schedule-${item.id}`,
+            refId: item.id,
+            type: "schedule",
             name:
               item.generator?.companyName ||
               item.generator?.name ||
@@ -85,19 +89,20 @@ export default function AlertsScreen() {
         });
 
       const generatorAlerts: AlertPoint[] = generators
-         .filter(
-         (item) =>
-      item.accessStatus === "ACTIVE" ||
-      item.accessStatus === "PENDING_ACTIVATION" ||
-      item.accessStatus === "INACTIVE"
-      )
-       .map((item) => ({
-         id: `generator-${item.id}`,
-         name: item.companyName || item.name || "Gerador sem nome",
-         address: item.address || "Endereço não informado",
-         status: "Solicitação",
-         days: 1,
-      }));
+        .filter(
+          (item) =>
+            item.accessStatus === "PENDING_ACTIVATION" ||
+            item.accessStatus === "INACTIVE"
+        )
+        .map((item) => ({
+          id: `generator-${item.id}`,
+          refId: item.id,
+          type: "generator" as const,
+          name: item.companyName || item.name || "Gerador sem nome",
+          address: item.address || "Endereço não informado",
+          status: "Solicitação" as const,
+          days: 1,
+        }));
 
       setAlertPoints([...scheduleAlerts, ...generatorAlerts]);
     } catch (error: any) {
@@ -116,6 +121,18 @@ export default function AlertsScreen() {
       loadAlerts();
     }, [loadAlerts])
   );
+
+  function handleOpen(point: AlertPoint) {
+    if (point.type === "schedule") {
+      router.push({
+        pathname: "/(cooperativa)/schedule/[id]",
+        params: { id: point.refId },
+      });
+      return;
+    }
+
+    router.push(`/(cooperativa)/geradores/${point.refId}` as any);
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
@@ -149,7 +166,7 @@ export default function AlertsScreen() {
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
             <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
-              KATU
+              KATUÁ
             </Text>
           </View>
 
@@ -158,7 +175,14 @@ export default function AlertsScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={{ fontSize: 24, fontWeight: "700", color: "#FFFFFF", marginTop: 15 }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: "700",
+            color: "#FFFFFF",
+            marginTop: 15,
+          }}
+        >
           ALERTAS OPERACIONAIS
         </Text>
       </LinearGradient>
@@ -306,7 +330,7 @@ export default function AlertsScreen() {
                 </View>
 
                 <TouchableOpacity
-                  onPress={() => router.push("/(cooperativa)/schedule")}
+                  onPress={() => handleOpen(point)}
                   style={{
                     backgroundColor: "#FFFFFF",
                     paddingHorizontal: 12,

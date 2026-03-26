@@ -76,6 +76,8 @@ export default function RotaDetalheScreen() {
         return "#10B981";
       case "COMPLETED":
         return "#6B7280";
+      case "CANCELLED":
+        return "#DC2626";
       default:
         return "#6B7280";
     }
@@ -89,6 +91,8 @@ export default function RotaDetalheScreen() {
         return "EM ANDAMENTO";
       case "COMPLETED":
         return "CONCLUÍDA";
+      case "CANCELLED":
+        return "CANCELADA";
       default:
         return "SEM STATUS";
     }
@@ -98,7 +102,9 @@ export default function RotaDetalheScreen() {
     if (!data) return "Não informada";
 
     try {
-      return new Date(data).toLocaleString("pt-BR");
+      const parsed = new Date(data);
+      if (Number.isNaN(parsed.getTime())) return data;
+      return parsed.toLocaleDateString("pt-BR");
     } catch {
       return data;
     }
@@ -106,18 +112,42 @@ export default function RotaDetalheScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#FFFFFF", justifyContent: "center", alignItems: "center" }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#FFFFFF",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <ActivityIndicator size="large" color="#028C56" />
-        <Text style={{ marginTop: 10, color: "#6B7280" }}>Carregando rota...</Text>
+        <Text style={{ marginTop: 10, color: "#6B7280" }}>
+          Carregando rota...
+        </Text>
       </View>
     );
   }
 
   if (!rota) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#FFFFFF", justifyContent: "center", alignItems: "center", padding: 24 }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#FFFFFF",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: 24,
+        }}
+      >
         <Ionicons name="alert-circle-outline" size={48} color="#9CA3AF" />
-        <Text style={{ marginTop: 10, color: "#6B7280", textAlign: "center", fontSize: 16 }}>
+        <Text
+          style={{
+            marginTop: 10,
+            color: "#6B7280",
+            textAlign: "center",
+            fontSize: 16,
+          }}
+        >
           Rota não encontrada.
         </Text>
       </View>
@@ -146,7 +176,10 @@ export default function RotaDetalheScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1, padding: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View
           style={{
             backgroundColor: "#F9FAFB",
@@ -157,7 +190,14 @@ export default function RotaDetalheScreen() {
             borderColor: "#E5E7EB",
           }}
         >
-          <Text style={{ fontSize: 20, fontWeight: "800", color: "#111827", marginBottom: 10 }}>
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: "800",
+              color: "#111827",
+              marginBottom: 10,
+            }}
+          >
             {rota.name}
           </Text>
 
@@ -181,11 +221,18 @@ export default function RotaDetalheScreen() {
           </Text>
 
           <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
-            Motorista ID: {rota.driverId || "Não informado"}
+            Motorista: {rota.driver?.name || "Não informado"}
           </Text>
 
           <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
-            Veículo ID: {rota.vehicleId || "Não informado"}
+            Veículo:{" "}
+            {rota.vehicle?.model
+              ? `${rota.vehicle.model}${rota.vehicle.plate ? ` - ${rota.vehicle.plate}` : ""}`
+              : "Não informado"}
+          </Text>
+
+          <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
+            Marca do veículo: {rota.vehicle?.brand || "Não informada"}
           </Text>
 
           <Text style={{ fontSize: 14, color: "#4B5563" }}>
@@ -203,7 +250,14 @@ export default function RotaDetalheScreen() {
             borderColor: "#E5E7EB",
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827", marginBottom: 12 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "700",
+              color: "#111827",
+              marginBottom: 12,
+            }}
+          >
             Pontos da rota
           </Text>
 
@@ -238,7 +292,14 @@ export default function RotaDetalheScreen() {
             borderColor: "#E5E7EB",
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827", marginBottom: 12 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "700",
+              color: "#111827",
+              marginBottom: 12,
+            }}
+          >
             Alterar status
           </Text>
 

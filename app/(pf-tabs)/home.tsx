@@ -1,125 +1,142 @@
-import { router } from "expo-router";
-import { useEffect, useState, useCallback } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
-  Image,
-  Text,
-  View,
-  TouchableOpacity,
+  Alert,
+  Linking,
+  Platform,
+  RefreshControl,
   ScrollView,
-  ActivityIndicator,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/src/services/firebaseConfig";
+import * as Location from "expo-location";
+
 import { useAuth } from "@/src/contexts/AuthContext";
 
-interface UserHomeData {
-  uid: string;
+type AuthUserLike = {
+  id?: string;
+  name?: string;
   displayName?: string;
-  address?: string;
-  totalKg?: number;
-  greenStreak?: number;
+  email?: string;
+};
+
+function getUserDisplayName(user: AuthUserLike | null) {
+  return user?.displayName || user?.name || "Usuário";
 }
 
-interface HistoricoItem {
-  nome: string;
-  kg: number;
-}
-
-export default function PFHome() {
+export default function PFHomeScreen() {
   const { user } = useAuth();
+  const currentUser = user as AuthUserLike | null;
 
-  const [profile, setProfile] = useState<UserHomeData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentCity, setCurrentCity] = useState("Carregando localização...");
+  const [locationError, setLocationError] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
-  const [historico] = useState<HistoricoItem[]>([
-    { nome: "NILTON BRAZ", kg: 17 },
-    { nome: "SALATYEL", kg: 15 },
-    { nome: "JADE", kg: 14 },
-    { nome: "GABRIEL", kg: 34 },
-  ]);
+  const displayName = getUserDisplayName(currentUser);
 
-  const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul"];
-  const valores = [40, 60, 45, 70, 55, 80, 65];
-
-  const carregarHome = useCallback(async () => {
-    if (!user?.uid) {
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
+  const getUserLocation = useCallback(async () => {
+    setIsLoadingLocation(true);
 
     try {
-      setLoading(true);
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
 
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
+      if (!servicesEnabled) {
+        setCurrentCity("Localização desativada");
+        setLocationError(true);
+        return;
+      }
 
-      if (userSnap.exists()) {
-        const data = userSnap.data();
+      const { status } = await Location.requestForegroundPermissionsAsync();
 
-        setProfile({
-          uid: user.uid,
-          displayName: data.displayName || user.displayName || "Usuário",
-          address: data.address || "Endereço não informado",
-          totalKg: data.totalKg || 0,
-          greenStreak: data.greenStreak || 0,
-        });
+      if (status !== "granted") {
+        setCurrentCity("Permissão negada");
+        setLocationError(true);
+
+        Alert.alert(
+          "Permissão necessária",
+          "Precisamos da sua localização para mostrar a cidade atual. Deseja abrir as configurações?",
+          [
+            { text: "Agora não", style: "cancel" },
+            {
+              text: "Abrir Configurações",
+              onPress: () => {
+                if (Platform.OS === "ios") {
+                  Linking.openURL("app-settings:");
+                } else {
+                  Linking.openSettings();
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const addresses = await Location.reverseGeocodeAsync({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+
+      if (addresses.length > 0) {
+        const address = addresses[0];
+        const city =
+          address.city ||
+          address.subregion ||
+          address.region ||
+          address.country ||
+          "Localização desconhecida";
+
+        setCurrentCity(city);
+        setLocationError(false);
       } else {
-        setProfile({
-          uid: user.uid,
-          displayName: user.displayName || "Usuário",
-          address: "Endereço não informado",
-          totalKg: 0,
-          greenStreak: 0,
-        });
+        setCurrentCity("Localização não encontrada");
+        setLocationError(true);
       }
     } catch (error) {
-      console.error("Erro ao carregar dados da home:", error);
-      setProfile({
-        uid: user.uid,
-        displayName: user.displayName || "Usuário",
-        address: "Endereço não informado",
-        totalKg: 0,
-        greenStreak: 0,
-      });
+      console.error("Erro ao obter localização da PF:", error);
+      setCurrentCity("Erro ao carregar");
+      setLocationError(true);
     } finally {
-      setLoading(false);
+      setIsLoadingLocation(false);
+      setRefreshing(false);
     }
-  }, [user?.uid, user?.displayName]);
+  }, []);
 
-  useEffect(() => {
-    carregarHome();
-  }, [carregarHome]);
+  useFocusEffect(
+    useCallback(() => {
+      getUserLocation();
+    }, [getUserLocation])
+  );
 
-  if (loading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#FFFFFF",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <ActivityIndicator size="large" color="#028C56" />
-        <Text style={{ marginTop: 12, color: "#6B7280" }}>
-          Carregando dados...
-        </Text>
-      </View>
-    );
-  }
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await getUserLocation();
+  }, [getUserLocation]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#F3F4F6" }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 28 }}
+    >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#16a34a", "#22c55e"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
-          paddingBottom: 30,
+          paddingTop: 28,
+          paddingBottom: 26,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
           borderBottomRightRadius: 30,
@@ -128,252 +145,342 @@ export default function PFHome() {
         <View
           style={{
             flexDirection: "row",
-            alignItems: "center",
             justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Image
-              source={require("../../assets/images/logo.png")}
-              resizeMode="contain"
-              style={{ width: 40, height: 40, marginRight: 10 }}
-            />
-            <Text style={{ fontSize: 24, fontWeight: "800", color: "#FFFFFF" }}>
-              KATU
+          <View>
+            <Text style={{ color: "#E8FFF1", fontSize: 14 }}>
+              Painel da Pessoa Física
+            </Text>
+            <Text
+              style={{
+                color: "#FFFFFF",
+                fontSize: 30,
+                fontWeight: "800",
+                marginTop: 6,
+              }}
+            >
+              Olá, {displayName}
             </Text>
           </View>
 
           <TouchableOpacity onPress={() => router.push("/(pf-tabs)/profile")}>
-            <Ionicons name="person-circle-outline" size={40} color="#FFFFFF" />
+            <Ionicons name="person-circle-outline" size={42} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        <Text
+        <TouchableOpacity
+          onPress={locationError ? getUserLocation : undefined}
+          disabled={isLoadingLocation || !locationError}
           style={{
-            fontSize: 22,
-            fontWeight: "700",
-            color: "#FFFFFF",
-            marginTop: 15,
+            marginTop: 14,
+            alignSelf: "flex-start",
+            backgroundColor: locationError
+              ? "rgba(220,38,38,0.18)"
+              : "rgba(255,255,255,0.18)",
+            paddingHorizontal: 14,
+            paddingVertical: 8,
+            borderRadius: 20,
+            flexDirection: "row",
+            alignItems: "center",
           }}
         >
-          Olá, {profile?.displayName || "Usuário"}
-        </Text>
+          <Ionicons
+            name={locationError ? "alert-circle-outline" : "location-sharp"}
+            size={18}
+            color={locationError ? "#FEE2E2" : "#FFFFFF"}
+          />
+          <Text
+            style={{
+              color: "#FFFFFF",
+              marginLeft: 8,
+              fontWeight: "600",
+            }}
+          >
+            {isLoadingLocation ? "Carregando..." : currentCity}
+          </Text>
+        </TouchableOpacity>
 
         <Text
           style={{
-            fontSize: 14,
-            color: "#FFFFFF",
-            opacity: 0.9,
+            color: "#E8FFF1",
+            fontSize: 15,
+            marginTop: 12,
+            lineHeight: 22,
           }}
         >
-          {profile?.address || "Endereço não informado"}
+          Solicite sua coleta, acompanhe seu histórico e participe da rede de reciclagem do KATUÁ.
         </Text>
+
+        <View style={{ flexDirection: "row", marginTop: 18 }}>
+          <ActionButton
+            icon="calendar-outline"
+            label="Agendar coleta"
+            onPress={() => router.push("/(pf-tabs)/schedule")}
+            style={{ flex: 1, marginRight: 10 }}
+          />
+          <ActionButton
+            icon="person-outline"
+            label="Meu perfil"
+            onPress={() => router.push("/(pf-tabs)/profile")}
+            style={{ flex: 1 }}
+          />
+        </View>
       </LinearGradient>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        style={{ flex: 1, paddingHorizontal: 20, paddingTop: 20 }}
+      <View style={{ paddingHorizontal: 16, paddingTop: 18 }}>
+        <SectionHeader title="Como funciona" />
+
+        <View style={sectionCard}>
+          <InfoCard
+            icon="location-outline"
+            title="1. Informe sua necessidade"
+            subtitle="Use a localização e acesse o agendamento para solicitar uma coleta."
+          />
+          <InfoCard
+            icon="business-outline"
+            title="2. A cooperativa recebe a solicitação"
+            subtitle="Sua solicitação entra no fluxo operacional do sistema."
+          />
+          <InfoCard
+            icon="checkmark-done-outline"
+            title="3. A coleta é organizada"
+            subtitle="A cooperativa agenda e direciona a execução conforme a operação."
+            isLast
+          />
+        </View>
+
+        <SectionHeader title="Ações rápidas" />
+
+        <View style={sectionCard}>
+          <QuickAction
+            icon="calendar-outline"
+            title="Agendar coleta"
+            subtitle="Solicitar um novo serviço"
+            onPress={() => router.push("/(pf-tabs)/schedule")}
+          />
+          <QuickAction
+            icon="time-outline"
+            title="Ver histórico"
+            subtitle="Consultar solicitações e movimentações"
+            onPress={() => router.push("/(pf-tabs)/history")}
+          />
+          <QuickAction
+            icon="trophy-outline"
+            title="Ranking"
+            subtitle="Acompanhar posições e evolução"
+            onPress={() => router.push("/(pf-tabs)/ranking")}
+          />
+          <QuickAction
+            icon="person-outline"
+            title="Meu perfil"
+            subtitle="Ver e editar informações da conta"
+            onPress={() => router.push("/(pf-tabs)/profile")}
+            isLast
+          />
+        </View>
+
+        <SectionHeader title="Recursos adicionais" />
+
+        <View style={sectionCard}>
+          <QuickAction
+            icon="calculator-outline"
+            title="Calculadora"
+            subtitle="Acessar recursos complementares"
+            onPress={() => router.push("/(pf-tabs)/calculator")}
+          />
+          <QuickAction
+            icon="scan-outline"
+            title="NFC"
+            subtitle="Explorar integração futura"
+            onPress={() => router.push("/(pf-tabs)/nfc")}
+          />
+          <QuickAction
+            icon="storefront-outline"
+            title="Loja"
+            subtitle="Ver benefícios e itens disponíveis"
+            onPress={() => router.push("/(pf-tabs)/store")}
+          />
+          <QuickAction
+            icon="chatbubble-outline"
+            title="Chat"
+            subtitle="Abrir comunicação da conta"
+            onPress={() => router.push("/(pf-tabs)/chat")}
+            isLast
+          />
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+function ActionButton({
+  icon,
+  label,
+  onPress,
+  style,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  style?: object;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={[
+        {
+          backgroundColor: "rgba(255,255,255,0.18)",
+          borderRadius: 16,
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        style,
+      ]}
+    >
+      <Ionicons name={icon} size={18} color="#FFFFFF" />
+      <Text
+        style={{
+          color: "#FFFFFF",
+          fontWeight: "700",
+          fontSize: 15,
+          marginLeft: 8,
+        }}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            marginBottom: 25,
-          }}
-        >
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "#F0FDF4",
-              borderRadius: 16,
-              padding: 16,
-              marginRight: 10,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 8 }}>
-              Kg Coletados
-            </Text>
-            <Text
-              style={{
-                fontSize: 28,
-                fontWeight: "800",
-                color: "#028C56",
-              }}
-            >
-              {profile?.totalKg || 0}kg
-            </Text>
-          </View>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "#FEFCE8",
-              borderRadius: 16,
-              padding: 16,
-              marginLeft: 10,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 8 }}>
-              Sequência Verde
-            </Text>
-            <Text
-              style={{
-                fontSize: 28,
-                fontWeight: "800",
-                color: "#CA8A04",
-              }}
-            >
-              {profile?.greenStreak || 0}%
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={{
-            backgroundColor: "#F9FAFB",
-            borderRadius: 16,
-            padding: 16,
-            marginBottom: 25,
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "600",
-              color: "#111827",
-              marginBottom: 15,
-            }}
-          >
-            Coletas Mensais
-          </Text>
-
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-around",
-              alignItems: "flex-end",
-              height: 120,
-            }}
-          >
-            {meses.map((mes, index) => (
-              <View key={index} style={{ alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 20,
-                    height: valores[index],
-                    backgroundColor: "#028C56",
-                    borderRadius: 10,
-                    marginBottom: 5,
-                  }}
-                />
-                <Text style={{ fontSize: 12, color: "#6B7280" }}>{mes}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={{ marginBottom: 25 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 15,
-            }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
-              Histórico de Coletas
-            </Text>
-            <TouchableOpacity onPress={() => router.push("/(pf-tabs)/history")}>
-              <Text
-                style={{
-                  fontSize: 14,
-                  color: "#028C56",
-                  fontWeight: "600",
-                }}
-              >
-                VER MAIS
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {historico.map((item, index) => (
-            <View
-              key={index}
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                paddingVertical: 12,
-                borderBottomWidth: index < historico.length - 1 ? 1 : 0,
-                borderBottomColor: "#F3F4F6",
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 16,
-                  color: "#111827",
-                  fontWeight: "500",
-                }}
-              >
-                {item.nome}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 16,
-                  color: "#028C56",
-                  fontWeight: "700",
-                }}
-              >
-                {item.kg}kg
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={{ marginBottom: 30 }}>
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "700",
-              color: "#111827",
-              marginBottom: 15,
-            }}
-          >
-            Conquistas
-          </Text>
-
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-around",
-            }}
-          >
-            {[1, 2, 3].map((item) => (
-              <View key={item} style={{ alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: 30,
-                    backgroundColor: "#F0FDF4",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: 5,
-                  }}
-                >
-                  <Ionicons name="trophy" size={30} color="#028C56" />
-                </View>
-                <Text style={{ fontSize: 12, color: "#6B7280" }}>
-                  Conquista {item}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </ScrollView>
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <View style={{ marginTop: 18, marginBottom: 10 }}>
+      <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>
+        {title}
+      </Text>
     </View>
   );
 }
+
+function InfoCard({
+  icon,
+  title,
+  subtitle,
+  isLast = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  isLast?: boolean;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "flex-start",
+        paddingBottom: isLast ? 0 : 14,
+        marginBottom: isLast ? 0 : 14,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: "#E5E7EB",
+      }}
+    >
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: "#DCFCE7",
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 12,
+        }}
+      >
+        <Ionicons name={icon} size={20} color="#15803D" />
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: "700", color: "#111827" }}>
+          {title}
+        </Text>
+        <Text
+          style={{
+            fontSize: 13,
+            color: "#6B7280",
+            marginTop: 4,
+            lineHeight: 20,
+          }}
+        >
+          {subtitle}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function QuickAction({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  isLast = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  isLast?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingBottom: isLast ? 0 : 14,
+        marginBottom: isLast ? 0 : 14,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: "#E5E7EB",
+      }}
+    >
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: "#DCFCE7",
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 12,
+        }}
+      >
+        <Ionicons name={icon} size={20} color="#15803D" />
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: "700", color: "#111827" }}>
+          {title}
+        </Text>
+        <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>
+          {subtitle}
+        </Text>
+      </View>
+
+      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+    </TouchableOpacity>
+  );
+}
+
+const sectionCard = {
+  backgroundColor: "#FFFFFF",
+  borderRadius: 18,
+  padding: 16,
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+} as const;

@@ -1,132 +1,398 @@
-import { router } from "expo-router";
-import { Text, View, TouchableOpacity, ScrollView } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
+import { scheduleService, type Schedule } from "@/src/services/scheduleService";
+import { useAuth } from "@/src/contexts/AuthContext";
+
+type AuthUserLike = {
+  id?: string;
+  name?: string;
+  displayName?: string;
+};
+
+function extractRequestedMaterials(notes?: string | null) {
+  if (!notes) return [];
+
+  const match = notes.match(/Materiais solicitados:\s*([^|]+)/i);
+  if (!match) return [];
+
+  return match[1]
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export default function RankingScreen() {
-  const rankingData = [
-    { name: "GABRIEL", kg: 34, position: 1 },
-    { name: "NILTON BRAZ", kg: 17, position: 2 },
-    { name: "SALATYEL", kg: 15, position: 3 },
-    { name: "JADE", kg: 14, position: 4 },
-    { name: "MARIA", kg: 12, position: 5 },
-    { name: "JOÃO", kg: 10, position: 6 },
-    { name: "ANA", kg: 9, position: 7 },
-    { name: "PEDRO", kg: 8, position: 8 },
-  ];
+  const { user } = useAuth();
+  const currentUser = user as AuthUserLike | null;
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+
+  const loadData = useCallback(async (showLoader = true) => {
+    try {
+      if (showLoader) setLoading(true);
+
+      const data = await scheduleService.list();
+      setSchedules(data);
+    } catch (error) {
+      console.error("Erro ao carregar ranking:", error);
+      setSchedules([]);
+    } finally {
+      if (showLoader) setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData(true);
+    }, [loadData])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData(false);
+  }, [loadData]);
+
+  const stats = useMemo(() => {
+    const completed = schedules.filter((item) => item.status === "COMPLETED");
+    const requested = schedules.filter((item) => item.status === "REQUESTED");
+    const scheduled = schedules.filter((item) => item.status === "SCHEDULED");
+
+    const materialMap: Record<string, number> = {};
+
+    schedules.forEach((item) => {
+      const materials = extractRequestedMaterials(item.notes);
+      materials.forEach((material) => {
+        const key = material.toUpperCase();
+        materialMap[key] = (materialMap[key] || 0) + 1;
+      });
+    });
+
+    const topMaterials = Object.entries(materialMap)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const engagementScore =
+      completed.length * 3 + scheduled.length * 2 + requested.length;
+
+    return {
+      completed: completed.length,
+      requested: requested.length,
+      scheduled: scheduled.length,
+      topMaterials,
+      engagementScore,
+    };
+  }, [schedules]);
+
+  const displayName =
+    currentUser?.displayName || currentUser?.name || "Usuário";
+
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#F3F4F6",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color="#028C56" />
+        <Text style={{ marginTop: 10, color: "#6B7280" }}>
+          Carregando ranking...
+        </Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-      {/* Header */}
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#F3F4F6" }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      contentContainerStyle={{ paddingBottom: 28 }}
+      showsVerticalScrollIndicator={false}
+    >
       <LinearGradient
         colors={["#10F35D", "#028C56"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
         style={{
           paddingTop: 50,
-          paddingBottom: 30,
+          paddingBottom: 24,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
           borderBottomRightRadius: 30,
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
-              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>
-              RANKING
-            </Text>
-          </View>
-          <Ionicons name="trophy" size={30} color="#FFFFFF" />
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>
+            RANKING
+          </Text>
+
+          <Ionicons name="trophy-outline" size={24} color="#FFFFFF" />
         </View>
 
-        {/* Pódio */}
-        <View style={{ flexDirection: "row", justifyContent: "space-around", marginTop: 20 }}>
-          <View style={{ alignItems: "center" }}>
-            <View style={{
-              width: 50,
-              height: 50,
-              borderRadius: 25,
+        <View style={{ marginTop: 24, alignItems: "center" }}>
+          <View
+            style={{
+              width: 84,
+              height: 84,
+              borderRadius: 42,
               backgroundColor: "#FFFFFF",
               alignItems: "center",
               justifyContent: "center",
-              marginBottom: 5,
-            }}>
-              <Text style={{ fontSize: 20, fontWeight: "800", color: "#C0C0C0" }}>2</Text>
-            </View>
-            <Text style={{ fontSize: 14, color: "#FFFFFF", fontWeight: "600" }}>{rankingData[1].name}</Text>
-            <Text style={{ fontSize: 12, color: "#FFFFFF", opacity: 0.9 }}>{rankingData[1].kg}kg</Text>
+              marginBottom: 12,
+            }}
+          >
+            <Ionicons name="person" size={48} color="#028C56" />
           </View>
 
-          <View style={{ alignItems: "center", marginTop: -20 }}>
-            <View style={{
-              width: 60,
-              height: 60,
-              borderRadius: 30,
-              backgroundColor: "#FFFFFF",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 5,
-              borderWidth: 2,
-              borderColor: "#FFD700",
-            }}>
-              <Text style={{ fontSize: 24, fontWeight: "800", color: "#FFD700" }}>1</Text>
-            </View>
-            <Text style={{ fontSize: 16, color: "#FFFFFF", fontWeight: "700" }}>{rankingData[0].name}</Text>
-            <Text style={{ fontSize: 14, color: "#FFFFFF", opacity: 0.9 }}>{rankingData[0].kg}kg</Text>
-          </View>
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "800",
+              color: "#FFFFFF",
+              textAlign: "center",
+            }}
+          >
+            {displayName}
+          </Text>
 
-          <View style={{ alignItems: "center" }}>
-            <View style={{
-              width: 50,
-              height: 50,
-              borderRadius: 25,
-              backgroundColor: "#FFFFFF",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 5,
-            }}>
-              <Text style={{ fontSize: 20, fontWeight: "800", color: "#CD7F32" }}>3</Text>
-            </View>
-            <Text style={{ fontSize: 14, color: "#FFFFFF", fontWeight: "600" }}>{rankingData[2].name}</Text>
-            <Text style={{ fontSize: 12, color: "#FFFFFF", opacity: 0.9 }}>{rankingData[2].kg}kg</Text>
-          </View>
+          <Text
+            style={{
+              marginTop: 8,
+              color: "#E8FFF1",
+              fontSize: 14,
+              textAlign: "center",
+            }}
+          >
+            O ranking global será exibido quando o endpoint oficial estiver ativo.
+          </Text>
         </View>
       </LinearGradient>
 
-      {/* Lista */}
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
-        {rankingData.slice(3).map((item, index) => (
-          <View
-            key={index}
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              paddingVertical: 15,
-              borderBottomWidth: 1,
-              borderBottomColor: "#F3F4F6",
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Text style={{
-                width: 30,
-                fontSize: 16,
-                fontWeight: "600",
-                color: index + 4 <= 3 ? "#028C56" : "#6B7280",
-              }}>
-                {index + 4}º
-              </Text>
-              <Text style={{ fontSize: 16, color: "#111827", fontWeight: "500", marginLeft: 10 }}>
-                {item.name}
-              </Text>
-            </View>
-            <Text style={{ fontSize: 16, color: "#028C56", fontWeight: "700" }}>{item.kg}kg</Text>
+      <View style={{ paddingHorizontal: 16, paddingTop: 18 }}>
+        <SectionCard>
+          <Text style={sectionTitle}>Minha participação</Text>
+
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <MetricCard
+              title="Concluídas"
+              value={String(stats.completed)}
+              icon="checkmark-done-outline"
+            />
+            <MetricCard
+              title="Agendadas"
+              value={String(stats.scheduled)}
+              icon="calendar-outline"
+            />
           </View>
-        ))}
-      </ScrollView>
+
+          <View style={{ marginTop: 12 }}>
+            <MetricCardFull
+              title="Pontuação de engajamento"
+              value={String(stats.engagementScore)}
+              icon="flash-outline"
+            />
+          </View>
+        </SectionCard>
+
+        <SectionCard>
+          <Text style={sectionTitle}>Materiais mais recorrentes</Text>
+
+          {stats.topMaterials.length > 0 ? (
+            stats.topMaterials.map((item, index) => (
+              <View
+                key={item.name}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingBottom: index === stats.topMaterials.length - 1 ? 0 : 12,
+                  marginBottom: index === stats.topMaterials.length - 1 ? 0 : 12,
+                  borderBottomWidth:
+                    index === stats.topMaterials.length - 1 ? 0 : 1,
+                  borderBottomColor: "#E5E7EB",
+                }}
+              >
+                <Text style={{ fontSize: 15, color: "#111827", fontWeight: "600" }}>
+                  {item.name}
+                </Text>
+                <Text style={{ fontSize: 15, color: "#028C56", fontWeight: "800" }}>
+                  {item.count}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <EmptyState
+              icon="albums-outline"
+              title="Sem dados suficientes"
+              subtitle="Os materiais mais recorrentes aparecerão aqui conforme você usar o sistema."
+            />
+          )}
+        </SectionCard>
+      </View>
+    </ScrollView>
+  );
+}
+
+function SectionCard({ children }: { children: React.ReactNode }) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#FFFFFF",
+        borderRadius: 18,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        marginBottom: 14,
+      }}
+    >
+      {children}
     </View>
   );
 }
+
+function MetricCard({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View
+      style={{
+        width: "48.5%",
+        backgroundColor: "#F9FAFB",
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+      }}
+    >
+      <View
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 21,
+          backgroundColor: "#DCFCE7",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 10,
+        }}
+      >
+        <Ionicons name={icon} size={20} color="#15803D" />
+      </View>
+
+      <Text style={{ fontSize: 13, color: "#6B7280" }}>{title}</Text>
+      <Text style={{ marginTop: 4, fontSize: 21, fontWeight: "800", color: "#111827" }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function MetricCardFull({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#F9FAFB",
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+      }}
+    >
+      <View
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 21,
+          backgroundColor: "#DCFCE7",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 10,
+        }}
+      >
+        <Ionicons name={icon} size={20} color="#15803D" />
+      </View>
+
+      <Text style={{ fontSize: 13, color: "#6B7280" }}>{title}</Text>
+      <Text style={{ marginTop: 4, fontSize: 21, fontWeight: "800", color: "#111827" }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View style={{ alignItems: "center", paddingVertical: 20 }}>
+      <Ionicons name={icon} size={40} color="#9CA3AF" />
+      <Text style={{ marginTop: 10, fontSize: 16, fontWeight: "700", color: "#374151" }}>
+        {title}
+      </Text>
+      <Text
+        style={{
+          marginTop: 6,
+          fontSize: 14,
+          color: "#6B7280",
+          textAlign: "center",
+          lineHeight: 20,
+        }}
+      >
+        {subtitle}
+      </Text>
+    </View>
+  );
+}
+
+const sectionTitle = {
+  fontSize: 18,
+  fontWeight: "700" as const,
+  color: "#111827",
+  marginBottom: 14,
+} as const;

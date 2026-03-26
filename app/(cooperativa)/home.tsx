@@ -1,144 +1,191 @@
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
-  Image,
-  Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
   Alert,
+  Linking,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import {
+  scheduleService,
+  type Schedule,
+} from "@/src/services/scheduleService";
 
-import { driverService } from "@/src/services/driverService";
-import { vehicleService } from "@/src/services/vehicleService";
-import { routeService } from "@/src/services/routeService";
-import { collectionService } from "@/src/services/collectionService";
-import { scheduleService } from "@/src/services/scheduleService";
-
-type HomeStats = {
-  coletasHoje: number;
-  totalKg: number;
-  alertas: number;
-  motoristas: number;
-  veiculos: number;
-  rotasAtivas: number;
+type AuthUserLike = {
+  id?: string;
+  name?: string;
+  displayName?: string;
+  email?: string;
 };
 
-function parseDate(value?: string | null) {
-  if (!value) return null;
+function formatDate(value?: string | null) {
+  if (!value) return "Sem data";
 
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
+  if (Number.isNaN(date.getTime())) return "Sem data";
 
-function isToday(date: Date) {
-  const now = new Date();
-
-  return (
-    date.getDate() === now.getDate() &&
-    date.getMonth() === now.getMonth() &&
-    date.getFullYear() === now.getFullYear()
-  );
-}
-
-function getSettledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
-  return result.status === "fulfilled" ? result.value : fallback;
-}
-
-export default function CooperativaHomeScreen() {
-  const { user, signOut } = useAuth();
-
-  const [currentCity, setCurrentCity] = useState<string>("Carregando localização...");
-  const [loadingLocation, setLoadingLocation] = useState(true);
-  const [loadingStats, setLoadingStats] = useState(true);
-
-  const [stats, setStats] = useState<HomeStats>({
-    coletasHoje: 0,
-    totalKg: 0,
-    alertas: 0,
-    motoristas: 0,
-    veiculos: 0,
-    rotasAtivas: 0,
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
+}
 
-  useEffect(() => {
-    getUserLocation();
-  }, []);
+function extractRequestedMaterials(notes?: string | null) {
+  if (!notes) return [];
 
-  const loadHomeStats = useCallback(async () => {
-    try {
-      setLoadingStats(true);
+  const match = notes.match(/Materiais solicitados:\s*([^|]+)/i);
+  if (!match) return [];
 
-      const results = await Promise.allSettled([
-        driverService.list(),
-        vehicleService.list(),
-        routeService.list(),
-        collectionService.list(),
-        scheduleService.list(),
-      ]);
+  return match[1]
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
-      const drivers = getSettledValue(results[0], []);
-      const vehicles = getSettledValue(results[1], []);
-      const routes = getSettledValue(results[2], []);
-      const collections = getSettledValue(results[3], []);
-      const schedules = getSettledValue(results[4], []);
+function getScheduleOrigin(item: Schedule) {
+  if (item.generatorId) return "GERADOR";
+  if (item.requestedByUserId) return "PESSOA FÍSICA";
+  return "SOLICITAÇÃO";
+}
 
-      const totalKg = collections.reduce((acc, item: any) => {
-        const value = Number(item.totalWeightKg ?? 0);
-        return acc + (Number.isFinite(value) ? value : 0);
-      }, 0);
+function getStatusLabel(status?: string) {
+  switch (status) {
+    case "REQUESTED":
+      return "SOLICITADO";
+    case "SCHEDULED":
+      return "AGENDADO";
+    case "IN_PROGRESS":
+      return "EM ANDAMENTO";
+    case "COMPLETED":
+      return "CONCLUÍDO";
+    case "CANCELLED":
+      return "CANCELADO";
+    default:
+      return "SEM STATUS";
+  }
+}
 
-      const coletasHoje = schedules.filter((item: any) => {
-        const date =
-          parseDate(item.scheduledDate) ||
-          parseDate(item.preferredDate) ||
-          parseDate(item.createdAt);
+function getStatusColor(status?: string) {
+  switch (status) {
+    case "REQUESTED":
+      return "#F59E0B";
+    case "SCHEDULED":
+      return "#2563EB";
+    case "IN_PROGRESS":
+      return "#8B5CF6";
+    case "COMPLETED":
+      return "#10B981";
+    case "CANCELLED":
+      return "#DC2626";
+    default:
+      return "#6B7280";
+  }
+}
 
-        return date ? isToday(date) : false;
-      }).length;
+function getUserDisplayName(user: AuthUserLike | null) {
+  return user?.displayName || user?.name || "Cooperativa";
+}
 
-      const alertas = schedules.filter(
-        (item: any) => item.status === "REQUESTED" || item.status === "SCHEDULED"
-      ).length;
+type MenuCardProps = {
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  color: string;
+  backgroundColor: string;
+  borderColor: string;
+};
 
-      const rotasAtivas = routes.filter(
-        (item: any) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS"
-      ).length;
+function MenuCard({
+  title,
+  icon,
+  onPress,
+  color,
+  backgroundColor,
+  borderColor,
+}: MenuCardProps) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      style={{
+        width: "48%",
+        backgroundColor,
+        borderRadius: 30,
+        borderWidth: 1,
+        borderColor,
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 14,
+        minHeight: 140,
+      }}
+    >
+      <View
+        style={{
+          width: 74,
+          height: 74,
+          borderRadius: 37,
+          backgroundColor: "rgba(255,255,255,0.35)",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 12,
+        }}
+      >
+        <Ionicons name={icon} size={40} color={color} />
+      </View>
 
-      setStats({
-        coletasHoje,
-        totalKg,
-        alertas,
-        motoristas: drivers.length,
-        veiculos: vehicles.length,
-        rotasAtivas,
-      });
-    } catch (error) {
-      console.error("Erro ao carregar resumo da cooperativa:", error);
-      Alert.alert("Erro", "Não foi possível carregar os dados da cooperativa.");
-    } finally {
-      setLoadingStats(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadHomeStats();
-    }, [loadHomeStats])
+      <Text
+        style={{
+          color,
+          fontSize: 14,
+          fontWeight: "800",
+          textAlign: "center",
+        }}
+      >
+        {title}
+      </Text>
+    </TouchableOpacity>
   );
+}
 
-  async function getUserLocation() {
+export default function CooperativeHomeScreen() {
+  const { user } = useAuth();
+  const currentUser = user as AuthUserLike | null;
+
+  const [currentCity, setCurrentCity] = useState("Carregando localização...");
+  const [locationError, setLocationError] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+
+  const [loadingSchedules, setLoadingSchedules] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+
+  const displayName = getUserDisplayName(currentUser);
+
+  const getUserLocation = useCallback(async () => {
+    setIsLoadingLocation(true);
+
     try {
-      const enabled = await Location.hasServicesEnabledAsync();
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
 
-      if (!enabled) {
+      if (!servicesEnabled) {
         setCurrentCity("Localização desativada");
+        setLocationError(true);
         return;
       }
 
@@ -146,133 +193,127 @@ export default function CooperativaHomeScreen() {
 
       if (status !== "granted") {
         setCurrentCity("Permissão negada");
+        setLocationError(true);
+
+        Alert.alert(
+          "Permissão necessária",
+          "Precisamos da sua localização para mostrar a cidade atual. Deseja abrir as configurações?",
+          [
+            { text: "Agora não", style: "cancel" },
+            {
+              text: "Abrir Configurações",
+              onPress: () => {
+                if (Platform.OS === "ios") {
+                  Linking.openURL("app-settings:");
+                } else {
+                  Linking.openSettings();
+                }
+              },
+            },
+          ]
+        );
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({
+      const position = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
 
       const addresses = await Location.reverseGeocodeAsync({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
       });
 
       if (addresses.length > 0) {
         const address = addresses[0];
-
         const city =
           address.city ||
           address.subregion ||
           address.region ||
+          address.country ||
           "Localização desconhecida";
 
         setCurrentCity(city);
+        setLocationError(false);
       } else {
         setCurrentCity("Localização não encontrada");
+        setLocationError(true);
       }
     } catch (error) {
       console.error("Erro ao obter localização:", error);
       setCurrentCity("Erro ao carregar");
+      setLocationError(true);
     } finally {
-      setLoadingLocation(false);
+      setIsLoadingLocation(false);
     }
-  }
+  }, []);
 
-  async function handleSignOut() {
-    Alert.alert("Sair", "Deseja encerrar a sessão da cooperativa?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Sair",
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-        },
-      },
-    ]);
-  }
+  const loadSchedules = useCallback(async (showLoader = true) => {
+    try {
+      if (showLoader) setLoadingSchedules(true);
 
-  const menuItems = useMemo(
-    () => [
-      {
-        title: "PEQUENO GERADOR",
-        icon: "storefront-outline",
-        color: "#028C56",
-        bgColor: "#F0FDF4",
-        route: "/(cooperativa)/geradores/pequeno",
-      },
-      {
-        title: "GRANDE GERADOR",
-        icon: "business-outline",
-        color: "#2563EB",
-        bgColor: "#EFF6FF",
-        route: "/(cooperativa)/geradores/grande",
-      },
-      {
-        title: "MOTORISTAS",
-        icon: "people-outline",
-        color: "#10B981",
-        bgColor: "#F0FDF4",
-        route: "/(cooperativa)/motoristas",
-      },
-      {
-        title: "VEÍCULOS",
-        icon: "car-outline",
-        color: "#F59E0B",
-        bgColor: "#FEFCE8",
-        route: "/(cooperativa)/veiculos",
-      },
-      {
-        title: "ROTAS",
-        icon: "map-outline",
-        color: "#8B5CF6",
-        bgColor: "#F3E8FF",
-        route: "/(cooperativa)/rotas",
-      },
-      {
-        title: "DASHBOARD",
-        icon: "speedometer-outline",
-        color: "#8B5CF6",
-        bgColor: "#F3E8FF",
-        route: "/(cooperativa)/dashboard",
-      },
-      {
-        title: "PAINEL DA FROTA",
-        icon: "car-sport-outline",
-        color: "#CA8A04",
-        bgColor: "#FEFCE8",
-        route: "/(cooperativa)/fleet",
-      },
-      {
-        title: "PONTOS DE ALERTA",
-        icon: "alert-circle-outline",
-        color: "#DC2626",
-        bgColor: "#FEF2F2",
-        route: "/(cooperativa)/alerts",
-      },
-      {
-        title: "CATADORES",
-        icon: "people-outline",
-        color: "#EC4899",
-        bgColor: "#FCE7F3",
-        route: "/(cooperativa)/catadores",
-      },
-    ],
-    []
+      const data = await scheduleService.list();
+      setSchedules(data);
+    } catch (error: any) {
+      console.error("Erro ao carregar agendamentos da home:", error);
+      setSchedules([]);
+    } finally {
+      if (showLoader) setLoadingSchedules(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      getUserLocation();
+      loadSchedules(true);
+    }, [getUserLocation, loadSchedules])
   );
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([getUserLocation(), loadSchedules(false)]);
+  }, [getUserLocation, loadSchedules]);
+
+  const highlightedSchedules = useMemo(() => {
+    return [...schedules]
+      .filter(
+        (item) =>
+          item.status === "REQUESTED" ||
+          item.status === "SCHEDULED" ||
+          item.status === "IN_PROGRESS"
+      )
+      .sort((a, b) => {
+        const aTime = new Date(
+          a.scheduledDate || a.preferredDate || a.createdAt || 0
+        ).getTime();
+        const bTime = new Date(
+          b.scheduledDate || b.preferredDate || b.createdAt || 0
+        ).getTime();
+        return bTime - aTime;
+      })
+      .slice(0, 4);
+  }, [schedules]);
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#F3F4F6" }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 28 }}
+    >
       <LinearGradient
         colors={["#10F35D", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
-          paddingBottom: 30,
+          paddingTop: 34,
+          paddingBottom: 26,
           paddingHorizontal: 20,
-          borderBottomLeftRadius: 30,
-          borderBottomRightRadius: 30,
+          borderBottomLeftRadius: 34,
+          borderBottomRightRadius: 34,
         }}
       >
         <View
@@ -286,75 +327,76 @@ export default function CooperativaHomeScreen() {
             <Image
               source={require("../../assets/images/logo.png")}
               resizeMode="contain"
-              style={{ width: 40, height: 40, marginRight: 10 }}
+              style={{ width: 44, height: 44, marginRight: 10 }}
             />
-            <Text style={{ fontSize: 24, fontWeight: "800", color: "#FFFFFF" }}>
+            <Text style={{ fontSize: 28, fontWeight: "900", color: "#FFFFFF" }}>
               KATUÁ
             </Text>
           </View>
 
-          <TouchableOpacity activeOpacity={0.8} onPress={handleSignOut}>
+          <TouchableOpacity onPress={() => router.replace("/(public)/access-type")}>
             <Ionicons name="log-out-outline" size={28} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        <Text
-          style={{
-            fontSize: 26,
-            fontWeight: "700",
-            color: "#FFFFFF",
-            marginTop: 20,
-            textAlign: "center",
-          }}
-        >
-          {user?.displayName || "Cooperativa"}
-        </Text>
+        <View style={{ alignItems: "center", marginTop: 20 }}>
+          <Text
+            style={{
+              fontSize: 32,
+              fontWeight: "900",
+              color: "#FFFFFF",
+              textAlign: "center",
+            }}
+          >
+            {displayName}
+          </Text>
 
-        <Text
-          style={{
-            fontSize: 14,
-            color: "#FFFFFF",
-            opacity: 0.9,
-            marginTop: 6,
-            textAlign: "center",
-          }}
-        >
-          Painel da cooperativa
-        </Text>
-
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            marginTop: 8,
-          }}
-        >
-          <Ionicons name="location-sharp" size={18} color="#FFFFFF" />
           <Text
             style={{
               fontSize: 16,
-              color: "#FFFFFF",
-              marginLeft: 5,
-              opacity: 0.9,
-              fontWeight: "500",
+              fontWeight: "700",
+              color: "#E8FFF1",
+              marginTop: 6,
             }}
           >
-            {loadingLocation ? "Carregando..." : currentCity}
+            Painel da cooperativa
           </Text>
+
+          <TouchableOpacity
+            onPress={locationError ? getUserLocation : undefined}
+            disabled={isLoadingLocation || !locationError}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginTop: 14,
+            }}
+          >
+            <Ionicons
+              name={locationError ? "alert-circle-outline" : "location"}
+              size={22}
+              color="#FFFFFF"
+            />
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "800",
+                color: "#FFFFFF",
+                marginLeft: 8,
+              }}
+            >
+              {isLoadingLocation ? "Carregando..." : currentCity}
+            </Text>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        style={{ flex: 1, paddingHorizontal: 20, paddingTop: 25 }}
-      >
+      <View style={{ paddingHorizontal: 20, paddingTop: 18 }}>
         <Text
           style={{
-            fontSize: 22,
-            fontWeight: "700",
-            color: "#111827",
-            marginBottom: 20,
+            fontSize: 20,
+            fontWeight: "900",
+            color: "#0F172A",
+            marginBottom: 16,
           }}
         >
           Gestão da Cooperativa
@@ -363,140 +405,281 @@ export default function CooperativaHomeScreen() {
         <View
           style={{
             flexDirection: "row",
-            flexWrap: "wrap",
             justifyContent: "space-between",
+            flexWrap: "wrap",
           }}
         >
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              onPress={() => router.push(item.route as any)}
-              style={{
-                width: "48%",
-                backgroundColor: item.bgColor,
-                borderRadius: 20,
-                padding: 16,
-                marginBottom: 15,
-                alignItems: "center",
-                borderWidth: 1,
-                borderColor: item.color + "20",
-              }}
-            >
-              <View
-                style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 25,
-                  backgroundColor: item.color + "20",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 10,
-                }}
-              >
-                <Ionicons name={item.icon as any} size={26} color={item.color} />
-              </View>
+          <MenuCard
+            title="PEQUENO GERADOR"
+            icon="storefront-outline"
+             onPress={() =>
+             router.push({
+             pathname: "/(cooperativa)/geradores",
+             params: { type: "SMALL" },
+              })
+               }
+             color="#0B8F4D"
+             backgroundColor="#E9F7F0"
+              borderColor="#BFE6CF"
+           />
 
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: "700",
-                  color: item.color,
-                  textAlign: "center",
-                }}
-              >
-                {item.title}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          <MenuCard
+           title="GRANDE GERADOR"
+           icon="business-outline"
+           onPress={() =>
+           router.push({
+           pathname: "/(cooperativa)/geradores",
+           params: { type: "LARGE" },
+           })
+            }
+           color="#2E63E6"
+           backgroundColor="#EEF4FF"
+           borderColor="#C7D8FF"
+            />
+
+          <MenuCard
+            title="MOTORISTAS"
+            icon="people-outline"
+            onPress={() => router.push("/(cooperativa)/motoristas")}
+            color="#11B27C"
+            backgroundColor="#EAF8F3"
+            borderColor="#BDE8D7"
+          />
+
+          <MenuCard
+            title="VEÍCULOS"
+            icon="car-outline"
+            onPress={() => router.push("/(cooperativa)/veiculos")}
+            color="#E59200"
+            backgroundColor="#FFF8E8"
+            borderColor="#F7E1A8"
+          />
+
+          <MenuCard
+            title="ROTAS"
+            icon="map-outline"
+            onPress={() => router.push("/(cooperativa)/rotas")}
+            color="#875CF6"
+            backgroundColor="#F4ECFF"
+            borderColor="#DEC8FF"
+          />
+
+          <MenuCard
+            title="DASHBOARD"
+            icon="speedometer-outline"
+            onPress={() => router.push("/(cooperativa)/dashboard")}
+            color="#875CF6"
+            backgroundColor="#F4ECFF"
+            borderColor="#DEC8FF"
+          />
+
+          <MenuCard
+            title="PAINEL DA FROTA"
+            icon="car-sport-outline"
+            onPress={() => router.push("/(cooperativa)/fleet")}
+            color="#C88700"
+            backgroundColor="#FBF7E4"
+            borderColor="#EAD9A1"
+          />
+
+          <MenuCard
+            title="AGENDAMENTOS"
+            icon="calendar-outline"
+            onPress={() => router.push("/(cooperativa)/schedule")}
+            color="#DC2626"
+            backgroundColor="#FEF2F2"
+            borderColor="#F6C7C7"
+          />
+
+          <MenuCard
+            title="CATADORES"
+            icon="people-circle-outline"
+            onPress={() => router.push("/(cooperativa)/catadores")}
+            color="#E5489B"
+            backgroundColor="#FDECF5"
+            borderColor="#F6C6DE"
+          />
         </View>
 
-        <View
+        <Text
           style={{
-            backgroundColor: "#F9FAFB",
-            borderRadius: 16,
-            padding: 20,
+            fontSize: 20,
+            fontWeight: "900",
+            color: "#0F172A",
             marginTop: 10,
-            marginBottom: 30,
+            marginBottom: 14,
           }}
         >
-          <Text
+          Agendamentos recentes
+        </Text>
+
+        {loadingSchedules ? (
+          <View
             style={{
-              fontSize: 16,
-              fontWeight: "600",
-              color: "#028C56",
-              marginBottom: 10,
+              backgroundColor: "#FFFFFF",
+              borderRadius: 18,
+              padding: 24,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+              alignItems: "center",
             }}
           >
-            Resumo do dia
-          </Text>
+            <ActivityIndicator size="large" color="#028C56" />
+            <Text style={{ marginTop: 12, color: "#6B7280" }}>
+              Carregando agendamentos...
+            </Text>
+          </View>
+        ) : highlightedSchedules.length === 0 ? (
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 18,
+              padding: 24,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+              alignItems: "center",
+            }}
+          >
+            <Ionicons name="calendar-outline" size={42} color="#9CA3AF" />
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "700",
+                color: "#111827",
+                marginTop: 10,
+              }}
+            >
+              Nenhum agendamento ativo
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: "#6B7280",
+                marginTop: 6,
+                textAlign: "center",
+              }}
+            >
+              Os agendamentos de geradores e PF aparecerão aqui.
+            </Text>
+          </View>
+        ) : (
+          highlightedSchedules.map((item) => {
+            const materials = extractRequestedMaterials(item.notes);
 
-          {loadingStats ? (
-            <View style={{ alignItems: "center", paddingVertical: 20 }}>
-              <ActivityIndicator size="small" color="#028C56" />
-              <Text style={{ marginTop: 10, color: "#6B7280" }}>
-                Carregando resumo...
-              </Text>
-            </View>
-          ) : (
-            <>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <View>
-                  <Text style={{ fontSize: 12, color: "#6B7280" }}>Coletas hoje</Text>
-                  <Text style={{ fontSize: 20, fontWeight: "700", color: "#111827" }}>
-                    {stats.coletasHoje}
-                  </Text>
-                </View>
-
-                <View>
-                  <Text style={{ fontSize: 12, color: "#6B7280" }}>Kg coletados</Text>
-                  <Text style={{ fontSize: 20, fontWeight: "700", color: "#111827" }}>
-                    {stats.totalKg} kg
-                  </Text>
-                </View>
-
-                <View>
-                  <Text style={{ fontSize: 12, color: "#6B7280" }}>Alertas</Text>
-                  <Text style={{ fontSize: 20, fontWeight: "700", color: "#DC2626" }}>
-                    {stats.alertas}
-                  </Text>
-                </View>
-              </View>
-
+            return (
               <View
+                key={item.id}
                 style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  marginTop: 15,
-                  paddingTop: 15,
-                  borderTopWidth: 1,
-                  borderTopColor: "#E5E7EB",
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 18,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  marginBottom: 12,
                 }}
               >
-                <View>
-                  <Text style={{ fontSize: 12, color: "#6B7280" }}>Motoristas</Text>
-                  <Text style={{ fontSize: 16, fontWeight: "600", color: "#10B981" }}>
-                    {stats.motoristas}
-                  </Text>
-                </View>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text
+                      style={{
+                        fontSize: 18,
+                        fontWeight: "900",
+                        color: "#0F172A",
+                      }}
+                    >
+                      {item.generator?.companyName ||
+                        item.generator?.name ||
+                        "Solicitação sem gerador vinculado"}
+                    </Text>
 
-                <View>
-                  <Text style={{ fontSize: 12, color: "#6B7280" }}>Veículos</Text>
-                  <Text style={{ fontSize: 16, fontWeight: "600", color: "#F59E0B" }}>
-                    {stats.veiculos}
-                  </Text>
-                </View>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "800",
+                        color: "#0B8F4D",
+                        marginTop: 10,
+                      }}
+                    >
+                      Origem: {getScheduleOrigin(item)}
+                    </Text>
 
-                <View>
-                  <Text style={{ fontSize: 12, color: "#6B7280" }}>Rotas ativas</Text>
-                  <Text style={{ fontSize: 16, fontWeight: "600", color: "#8B5CF6" }}>
-                    {stats.rotasAtivas}
-                  </Text>
+                    <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 8 }}>
+                      Endereço: {item.generator?.address || "Não informado"}
+                    </Text>
+
+                    <Text style={{ fontSize: 14, color: "#4B5563", marginTop: 6 }}>
+                      Data:{" "}
+                      {formatDate(
+                        item.scheduledDate || item.preferredDate || item.createdAt
+                      )}
+                    </Text>
+
+                    <Text style={{ fontSize: 14, color: "#4B5563", marginTop: 6 }}>
+                      Materiais:{" "}
+                      {materials.length > 0 ? materials.join(", ") : "Não informado"}
+                    </Text>
+                  </View>
+
+                  <View style={{ alignItems: "flex-end" }}>
+                    <View
+                      style={{
+                        backgroundColor: getStatusColor(item.status),
+                        borderRadius: 999,
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "#FFFFFF",
+                          fontWeight: "900",
+                          fontSize: 12,
+                        }}
+                      >
+                        {getStatusLabel(item.status)}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(cooperativa)/schedule/[id]",
+                          params: { id: item.id },
+                        })
+                      }
+                      style={{
+                        marginTop: 16,
+                        backgroundColor: "#FFFFFF",
+                        borderColor: "#DC2626",
+                        borderWidth: 1.5,
+                        borderRadius: 12,
+                        paddingHorizontal: 18,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "#DC2626",
+                          fontWeight: "900",
+                          fontSize: 14,
+                        }}
+                      >
+                        ABRIR
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
-            </>
-          )}
-        </View>
-      </ScrollView>
-    </View>
+            );
+          })
+        )}
+      </View>
+    </ScrollView>
   );
 }

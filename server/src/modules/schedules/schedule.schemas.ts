@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const createScheduleSchema = z.object({
   generatorId: z.string().optional(),
+  cooperativeId: z.string().min(1, "Cooperativa é obrigatória."),
   preferredDate: z.string().datetime().optional(),
   scheduledDate: z.string().datetime().optional(),
   requestedMaterials: z

@@ -136,7 +136,7 @@ export default function ActivateAccessScreen() {
                 textAlign: "center",
               }}
             >
-              KATU
+              KATUÁ
             </Text>
 
             <Text

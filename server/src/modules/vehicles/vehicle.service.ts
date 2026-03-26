@@ -5,6 +5,10 @@ import {
   UpdateVehicleStatusInput,
 } from "./vehicle.schemas";
 
+function sanitizePlate(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 export class VehicleService {
   async create(cooperativeUserId: string, data: CreateVehicleInput) {
     const cooperative = await prisma.cooperative.findUnique({
@@ -15,8 +19,10 @@ export class VehicleService {
       throw new Error("Cooperativa do usuário autenticado não encontrada.");
     }
 
+    const plate = sanitizePlate(data.plate);
+
     const existingVehicle = await prisma.vehicle.findUnique({
-      where: { plate: data.plate.trim().toUpperCase() },
+      where: { plate },
     });
 
     if (existingVehicle) {
@@ -40,15 +46,14 @@ export class VehicleService {
       data: {
         cooperativeId: cooperative.id,
         driverId: data.driverId || null,
-        plate: data.plate.trim().toUpperCase(),
-        model: data.model?.trim() || null,
+        plate,
+        model: data.model.trim(),
+        brand: data.brand?.trim() || null,
+        year: data.year ?? null,
         capacityKg: data.capacityKg ?? 0,
         status: data.status
           ? VehicleStatus[data.status]
           : VehicleStatus.ACTIVE,
-      },
-      include: {
-        driver: true,
       },
     });
   }
@@ -64,7 +69,6 @@ export class VehicleService {
 
     return prisma.vehicle.findMany({
       where: { cooperativeId: cooperative.id },
-      include: { driver: true },
       orderBy: { createdAt: "desc" },
     });
   }
@@ -83,7 +87,6 @@ export class VehicleService {
         id: vehicleId,
         cooperativeId: cooperative.id,
       },
-      include: { driver: true },
     });
 
     if (!vehicle) {
@@ -105,7 +108,6 @@ export class VehicleService {
       data: {
         status: VehicleStatus[data.status],
       },
-      include: { driver: true },
     });
   }
 }

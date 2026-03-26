@@ -20,26 +20,26 @@ type BackendDriver = {
   id: string;
   name: string;
   email?: string | null;
-  document?: string | null;
+  cpf?: string | null;
   phone?: string | null;
   cnh?: string | null;
   cnhCategory?: string | null;
   notes?: string | null;
-  status?: string | null;
-  isActive?: boolean | null;
+  status?: DriverStatus | null;
   createdAt?: string;
   updatedAt?: string;
 };
 
-type ListDriversResponse =
-  | BackendDriver[]
-  | {
-      drivers?: BackendDriver[];
-    };
+type DriverEnvelope = {
+  success?: boolean;
+  driver?: BackendDriver;
+  drivers?: BackendDriver[];
+  error?: string;
+};
 
 export interface CreateDriverPayload {
   name: string;
-  email?: string;
+  email: string;
   cpf?: string;
   phone?: string;
   cnh?: string;
@@ -47,27 +47,17 @@ export interface CreateDriverPayload {
   notes?: string;
 }
 
-function normalizeStatus(driver: BackendDriver): DriverStatus {
-  if (driver.status === "AVAILABLE") return "AVAILABLE";
-  if (driver.status === "ON_ROUTE") return "ON_ROUTE";
-  if (driver.status === "INACTIVE") return "INACTIVE";
-
-  if (driver.isActive === false) return "INACTIVE";
-
-  return "AVAILABLE";
-}
-
 function normalizeDriver(driver: BackendDriver): Driver {
   return {
     id: driver.id,
     name: driver.name,
     email: driver.email ?? null,
-    cpf: driver.document ?? null,
+    cpf: driver.cpf ?? null,
     phone: driver.phone ?? null,
     cnh: driver.cnh ?? null,
     cnhCategory: driver.cnhCategory ?? null,
     notes: driver.notes ?? null,
-    status: normalizeStatus(driver),
+    status: driver.status ?? "AVAILABLE",
     createdAt: driver.createdAt,
     updatedAt: driver.updatedAt,
   };
@@ -75,42 +65,55 @@ function normalizeDriver(driver: BackendDriver): Driver {
 
 export const driverService = {
   async create(payload: CreateDriverPayload): Promise<Driver> {
-    const data = await api.post<BackendDriver>(
+    const response = await api.post<DriverEnvelope>(
       "/drivers",
       {
         name: payload.name.trim(),
-        email: payload.email?.trim().toLowerCase() || undefined,
-        document: payload.cpf?.replace(/\D/g, "") || undefined,
+        email: payload.email.trim().toLowerCase(),
+        cpf: payload.cpf?.replace(/\D/g, "") || undefined,
         phone: payload.phone?.trim() || undefined,
         cnh: payload.cnh?.trim() || undefined,
-        cnhCategory: payload.cnhCategory?.trim() || undefined,
+        cnhCategory: payload.cnhCategory?.trim().toUpperCase() || undefined,
         notes: payload.notes?.trim() || undefined,
       },
       true
     );
 
-    return normalizeDriver(data);
+    if (!response?.driver) {
+      throw new Error("Resposta inválida ao criar motorista.");
+    }
+
+    return normalizeDriver(response.driver);
   },
 
   async list(): Promise<Driver[]> {
-    const data = await api.get<ListDriversResponse>("/drivers", true);
-    const items = Array.isArray(data) ? data : data.drivers ?? [];
+    const response = await api.get<DriverEnvelope>("/drivers", true);
+    const items = Array.isArray(response?.drivers) ? response.drivers : [];
     return items.map(normalizeDriver);
   },
 
   async getById(id: string): Promise<Driver> {
-    const data = await api.get<BackendDriver>(`/drivers/${id}`, true);
-    return normalizeDriver(data);
+    const response = await api.get<DriverEnvelope>(`/drivers/${id}`, true);
+
+    if (!response?.driver) {
+      throw new Error("Motorista não encontrado.");
+    }
+
+    return normalizeDriver(response.driver);
   },
 
   async updateStatus(id: string, status: DriverStatus): Promise<Driver> {
-    const data = await api.patch<BackendDriver>(
+    const response = await api.patch<DriverEnvelope>(
       `/drivers/${id}/status`,
       { status },
       true
     );
 
-    return normalizeDriver(data);
+    if (!response?.driver) {
+      throw new Error("Resposta inválida ao atualizar motorista.");
+    }
+
+    return normalizeDriver(response.driver);
   },
 };
 

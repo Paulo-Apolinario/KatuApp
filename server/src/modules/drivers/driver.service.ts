@@ -9,6 +9,10 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function sanitizeDigits(value?: string) {
+  return value ? value.replace(/\D/g, "") : undefined;
+}
+
 export class DriverService {
   async create(cooperativeUserId: string, data: CreateDriverInput) {
     const cooperative = await prisma.cooperative.findUnique({
@@ -20,6 +24,7 @@ export class DriverService {
     }
 
     const email = normalizeEmail(data.email);
+    const cpf = sanitizeDigits(data.cpf);
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -29,12 +34,25 @@ export class DriverService {
       throw new Error("Já existe um usuário com este e-mail.");
     }
 
-    const existingDriver = await prisma.driver.findUnique({
+    const existingDriverByEmail = await prisma.driver.findUnique({
       where: { email },
     });
 
-    if (existingDriver) {
+    if (existingDriverByEmail) {
       throw new Error("Já existe um motorista com este e-mail.");
+    }
+
+    if (cpf) {
+      const existingDriverByCpf = await prisma.driver.findFirst({
+        where: {
+          cpf,
+          cooperativeId: cooperative.id,
+        },
+      });
+
+      if (existingDriverByCpf) {
+        throw new Error("Já existe um motorista com este CPF nesta cooperativa.");
+      }
     }
 
     return prisma.driver.create({
@@ -43,9 +61,10 @@ export class DriverService {
         name: data.name.trim(),
         email,
         phone: data.phone?.trim() || null,
-        cpf: data.cpf?.trim() || null,
+        cpf: cpf || null,
         cnh: data.cnh?.trim() || null,
-        cnhCategory: data.cnhCategory?.trim() || null,
+        cnhCategory: data.cnhCategory?.trim().toUpperCase() || null,
+        notes: data.notes?.trim() || null,
         status: data.status
           ? DriverStatus[data.status]
           : DriverStatus.AVAILABLE,

@@ -1,4 +1,4 @@
-import {api} from "./api";
+import { api } from "./api";
 
 export type VehicleStatus = "ACTIVE" | "MAINTENANCE" | "INACTIVE";
 
@@ -10,6 +10,7 @@ export interface Vehicle {
   year?: number | null;
   capacityKg?: number | null;
   status: VehicleStatus;
+  driverId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -21,17 +22,17 @@ type BackendVehicle = {
   brand?: string | null;
   year?: number | null;
   capacityKg?: number | null;
-  status?: VehicleStatus;
+  status?: VehicleStatus | null;
+  driverId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
 
-type GetVehiclesResponse = {
-  vehicles?: BackendVehicle[];
-};
-
-type GetVehicleByIdResponse = {
+type VehicleEnvelope = {
+  success?: boolean;
   vehicle?: BackendVehicle;
+  vehicles?: BackendVehicle[];
+  error?: string;
 };
 
 export interface CreateVehiclePayload {
@@ -40,9 +41,10 @@ export interface CreateVehiclePayload {
   brand?: string;
   year?: string | number;
   capacityKg?: string | number;
+  driverId?: string;
 }
 
-function normalizeStatus(status?: string): VehicleStatus {
+function normalizeStatus(status?: string | null): VehicleStatus {
   if (status === "MAINTENANCE") return "MAINTENANCE";
   if (status === "INACTIVE") return "INACTIVE";
   return "ACTIVE";
@@ -56,6 +58,7 @@ function normalizeVehicle(vehicle: BackendVehicle): Vehicle {
     brand: vehicle.brand ?? null,
     year: vehicle.year ?? null,
     capacityKg: vehicle.capacityKg ?? null,
+    driverId: vehicle.driverId ?? null,
     status: normalizeStatus(vehicle.status),
     createdAt: vehicle.createdAt,
     updatedAt: vehicle.updatedAt,
@@ -78,7 +81,7 @@ export const vehicleService = {
         ? Number(String(payload.capacityKg).replace(",", "."))
         : undefined;
 
-    const data = await api.post<BackendVehicle>(
+    const response = await api.post<VehicleEnvelope>(
       "/vehicles",
       {
         plate: sanitizePlate(payload.plate),
@@ -92,52 +95,46 @@ export const vehicleService = {
           parsedCapacityKg !== undefined && !Number.isNaN(parsedCapacityKg)
             ? parsedCapacityKg
             : undefined,
+        driverId: payload.driverId || undefined,
       },
       true
     );
 
-    return normalizeVehicle(data);
+    if (!response?.vehicle) {
+      throw new Error("Resposta inválida ao criar veículo.");
+    }
+
+    return normalizeVehicle(response.vehicle);
   },
 
   async list(): Promise<Vehicle[]> {
-    const data = await api.get<GetVehiclesResponse | BackendVehicle[]>(
-      "/vehicles",
-      true
-    );
-
-    if (Array.isArray(data)) {
-      return data.map(normalizeVehicle);
-    }
-
-    const items = Array.isArray(data?.vehicles) ? data.vehicles : [];
+    const response = await api.get<VehicleEnvelope>("/vehicles", true);
+    const items = Array.isArray(response?.vehicles) ? response.vehicles : [];
     return items.map(normalizeVehicle);
   },
 
   async getById(id: string): Promise<Vehicle> {
-    const data = await api.get<GetVehicleByIdResponse | BackendVehicle>(
-      `/vehicles/${id}`,
-      true
-    );
+    const response = await api.get<VehicleEnvelope>(`/vehicles/${id}`, true);
 
-    if ("vehicle" in (data as GetVehicleByIdResponse)) {
-      const vehicle = (data as GetVehicleByIdResponse).vehicle;
-      if (!vehicle) {
-        throw new Error("Veículo não encontrado.");
-      }
-      return normalizeVehicle(vehicle);
+    if (!response?.vehicle) {
+      throw new Error("Veículo não encontrado.");
     }
 
-    return normalizeVehicle(data as BackendVehicle);
+    return normalizeVehicle(response.vehicle);
   },
 
   async updateStatus(id: string, status: VehicleStatus): Promise<Vehicle> {
-    const data = await api.patch<BackendVehicle>(
+    const response = await api.patch<VehicleEnvelope>(
       `/vehicles/${id}/status`,
       { status },
       true
     );
 
-    return normalizeVehicle(data);
+    if (!response?.vehicle) {
+      throw new Error("Resposta inválida ao atualizar veículo.");
+    }
+
+    return normalizeVehicle(response.vehicle);
   },
 };
 

@@ -84,7 +84,7 @@ export default function AccessTypeScreen() {
               fontWeight: "700",
             }}
           >
-            KATU
+            KATUÁ
           </Text>
         </View>
 

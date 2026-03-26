@@ -6,7 +6,7 @@ import ProtectedRoute from "@/src/components/ProtectedRoute";
 
 export default function GeradorLayout() {
   return (
-    <ProtectedRoute allowedUserTypes={["comercial", "grande"]}>
+    <ProtectedRoute allowedUserTypes={["GENERATOR_SMALL", "GENERATOR_LARGE"]}>
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: "#028C56",
@@ -52,11 +52,11 @@ export default function GeradorLayout() {
         />
 
         <Tabs.Screen
-          name="history"
+          name="percentual"
           options={{
-            title: "Histórico",
+            title: "Impacto",
             tabBarIcon: ({ color }) => (
-              <Ionicons name="time-outline" size={24} color={color} />
+              <Ionicons name="pie-chart-outline" size={24} color={color} />
             ),
           }}
         />
@@ -78,6 +78,13 @@ export default function GeradorLayout() {
             tabBarIcon: ({ color }) => (
               <Ionicons name="person-outline" size={24} color={color} />
             ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="edit-profile"
+          options={{
+            href: null,
           }}
         />
       </Tabs>

@@ -114,7 +114,7 @@ export default function CatadoresScreen() {
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
             <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
-              KATU
+              KATUÁ
             </Text>
           </View>
 
@@ -176,7 +176,10 @@ export default function CatadoresScreen() {
           </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} style={{ paddingHorizontal: 20 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          style={{ paddingHorizontal: 20 }}
+        >
           {loading ? (
             <View style={{ alignItems: "center", paddingVertical: 40 }}>
               <ActivityIndicator size="large" color="#028C56" />
@@ -283,6 +286,35 @@ export default function CatadoresScreen() {
                         <Text style={{ fontSize: 10, color: "#6B7280" }}>COLETAS HOJE</Text>
                       </View>
                     </View>
+
+                    <TouchableOpacity
+                      onPress={() =>
+                        Alert.alert(
+                          "Próxima etapa",
+                          `A delegação operacional para ${catador.name} será conectada diretamente com os agendamentos da cooperativa.`
+                        )
+                      }
+                      style={{
+                        marginTop: 12,
+                        alignSelf: "flex-start",
+                        backgroundColor: "#ECFDF5",
+                        borderWidth: 1,
+                        borderColor: "#028C56",
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "#028C56",
+                          fontSize: 12,
+                          fontWeight: "700",
+                        }}
+                      >
+                        PREPARAR DELEGAÇÃO
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </TouchableOpacity>

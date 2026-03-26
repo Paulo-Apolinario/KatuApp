@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Alert,
   ActivityIndicator,
@@ -11,52 +11,33 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { updateProfile } from "firebase/auth";
 
-import { auth, db } from "@/src/services/firebaseConfig";
+import { useAuth } from "@/src/contexts/AuthContext";
+
+type AuthUserLike = {
+  id?: string;
+  name?: string;
+  displayName?: string;
+  email?: string;
+  cpf?: string;
+  phone?: string;
+  address?: string;
+};
 
 export default function EditProfileScreen() {
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const currentUser = user as AuthUserLike | null;
+
   const [saving, setSaving] = useState(false);
 
-  const [displayName, setDisplayName] = useState("");
-  const [cpf, setCpf] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+  const [displayName, setDisplayName] = useState(
+    currentUser?.displayName || currentUser?.name || ""
+  );
+  const [cpf, setCpf] = useState(currentUser?.cpf || "");
+  const [phone, setPhone] = useState(currentUser?.phone || "");
+  const [address, setAddress] = useState(currentUser?.address || "");
 
-  useEffect(() => {
-    loadUserData();
-  }, []);
-
-  async function loadUserData() {
-    try {
-      const user = auth.currentUser;
-
-      if (!user) {
-        Alert.alert("Sessão expirada", "Faça login novamente.");
-        router.replace("/(auth)/login");
-        return;
-      }
-
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-
-        setDisplayName(data.displayName || "");
-        setCpf(data.cpf || "");
-        setPhone(data.phone || "");
-        setAddress(data.address || "");
-      }
-    } catch (error) {
-      console.error("Erro ao carregar dados do usuário:", error);
-      Alert.alert("Erro", "Não foi possível carregar suas informações.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const email = useMemo(() => currentUser?.email || "", [currentUser?.email]);
 
   function formatCpf(value: string) {
     return value
@@ -76,14 +57,6 @@ export default function EditProfileScreen() {
   }
 
   async function handleSave() {
-    const user = auth.currentUser;
-
-    if (!user) {
-      Alert.alert("Sessão expirada", "Faça login novamente.");
-      router.replace("/(auth)/login");
-      return;
-    }
-
     if (!displayName.trim()) {
       Alert.alert("Campo obrigatório", "Informe seu nome.");
       return;
@@ -92,20 +65,11 @@ export default function EditProfileScreen() {
     try {
       setSaving(true);
 
-      const userRef = doc(db, "users", user.uid);
+      Alert.alert(
+        "Próxima etapa",
+        "A tela já está pronta no frontend. A atualização real do perfil será conectada ao endpoint definitivo na próxima etapa."
+      );
 
-      await updateDoc(userRef, {
-        displayName: displayName.trim(),
-        cpf: cpf.trim(),
-        phone: phone.trim(),
-        address: address.trim(),
-      });
-
-      await updateProfile(user, {
-        displayName: displayName.trim(),
-      });
-
-      Alert.alert("Sucesso", "Suas informações foram atualizadas com sucesso.");
       router.back();
     } catch (error) {
       console.error("Erro ao salvar dados:", error);
@@ -115,21 +79,10 @@ export default function EditProfileScreen() {
     }
   }
 
-  if (loading) {
-    return (
-      <View className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#028C56" />
-        <Text className="mt-4 text-slate-600">Carregando informações...</Text>
-      </View>
-    );
-  }
-
   return (
-    <View className="flex-1 bg-white">
+    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
         colors={["#10F35D", "#028C56"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
         style={{
           paddingTop: 60,
           paddingBottom: 24,
@@ -138,35 +91,54 @@ export default function EditProfileScreen() {
           borderBottomRightRadius: 28,
         }}
       >
-        <View className="flex-row items-center justify-between">
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <TouchableOpacity
             onPress={() => router.back()}
-            className="w-11 h-11 bg-white/20 rounded-full items-center justify-center"
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: "rgba(255,255,255,0.2)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
             activeOpacity={0.8}
           >
-            <Ionicons name="arrow-back" size={22} color="#fff" />
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <Text className="text-white text-xl font-bold">
+          <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "700" }}>
             Editar informações
           </Text>
 
-          <View className="w-11 h-11" />
+          <View style={{ width: 44, height: 44 }} />
         </View>
 
-        <Text className="text-white/90 mt-3 text-sm">
+        <Text
+          style={{
+            color: "#FFFFFFE6",
+            marginTop: 12,
+            fontSize: 14,
+            lineHeight: 20,
+          }}
+        >
           Atualize seus dados pessoais e mantenha seu perfil completo.
         </Text>
       </LinearGradient>
 
       <ScrollView
-        className="flex-1"
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
         <View
           style={{
-            backgroundColor: "#fff",
+            backgroundColor: "#FFFFFF",
             borderRadius: 22,
             padding: 18,
             shadowColor: "#000",
@@ -177,45 +149,48 @@ export default function EditProfileScreen() {
             marginTop: 6,
           }}
         >
-          <View className="mb-4">
-            <Text className="text-slate-700 font-semibold mb-2">
-              Nome completo
-            </Text>
+          <Field label="Nome completo">
             <TextInput
               value={displayName}
               onChangeText={setDisplayName}
               placeholder="Digite seu nome"
               placeholderTextColor="#94A3B8"
-              className="border border-slate-200 rounded-2xl px-4 py-4 text-slate-800 bg-slate-50"
+              style={inputStyle}
             />
-          </View>
+          </Field>
 
-          <View className="mb-4">
-            <Text className="text-slate-700 font-semibold mb-2">CPF</Text>
+          <Field label="CPF">
             <TextInput
               value={cpf}
               onChangeText={(text) => setCpf(formatCpf(text))}
               placeholder="000.000.000-00"
               placeholderTextColor="#94A3B8"
               keyboardType="numeric"
-              className="border border-slate-200 rounded-2xl px-4 py-4 text-slate-800 bg-slate-50"
+              style={inputStyle}
             />
-          </View>
+          </Field>
 
-          <View className="mb-4">
-            <Text className="text-slate-700 font-semibold mb-2">Telefone</Text>
+          <Field label="Telefone">
             <TextInput
               value={phone}
               onChangeText={(text) => setPhone(formatPhone(text))}
               placeholder="(00) 00000-0000"
               placeholderTextColor="#94A3B8"
               keyboardType="phone-pad"
-              className="border border-slate-200 rounded-2xl px-4 py-4 text-slate-800 bg-slate-50"
+              style={inputStyle}
             />
-          </View>
+          </Field>
 
-          <View className="mb-2">
-            <Text className="text-slate-700 font-semibold mb-2">Endereço</Text>
+          <Field label="Email">
+            <TextInput
+              value={email}
+              editable={false}
+              placeholderTextColor="#94A3B8"
+              style={[inputStyle, { backgroundColor: "#F3F4F6", color: "#6B7280" }]}
+            />
+          </Field>
+
+          <Field label="Endereço">
             <TextInput
               value={address}
               onChangeText={setAddress}
@@ -223,22 +198,19 @@ export default function EditProfileScreen() {
               placeholderTextColor="#94A3B8"
               multiline
               textAlignVertical="top"
-              style={{ minHeight: 110 }}
-              className="border border-slate-200 rounded-2xl px-4 py-4 text-slate-800 bg-slate-50"
+              style={[inputStyle, { minHeight: 110 }]}
             />
-          </View>
+          </Field>
         </View>
 
         <TouchableOpacity
           onPress={handleSave}
           disabled={saving}
           activeOpacity={0.85}
-          className="mt-6 rounded-full overflow-hidden"
+          style={{ marginTop: 24, borderRadius: 999, overflow: "hidden" }}
         >
           <LinearGradient
             colors={["#10F35D", "#028C56"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
             style={{
               minHeight: 58,
               alignItems: "center",
@@ -248,11 +220,18 @@ export default function EditProfileScreen() {
             }}
           >
             {saving ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
               <>
-                <Ionicons name="save-outline" size={20} color="#fff" />
-                <Text className="text-white font-bold text-base ml-2">
+                <Ionicons name="save-outline" size={20} color="#FFFFFF" />
+                <Text
+                  style={{
+                    color: "#FFFFFF",
+                    fontWeight: "700",
+                    fontSize: 16,
+                    marginLeft: 8,
+                  }}
+                >
                   Salvar alterações
                 </Text>
               </>
@@ -263,3 +242,38 @@ export default function EditProfileScreen() {
     </View>
   );
 }
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <Text
+        style={{
+          color: "#334155",
+          fontWeight: "600",
+          marginBottom: 8,
+          fontSize: 14,
+        }}
+      >
+        {label}
+      </Text>
+      {children}
+    </View>
+  );
+}
+
+const inputStyle = {
+  borderWidth: 1,
+  borderColor: "#E2E8F0",
+  borderRadius: 16,
+  paddingHorizontal: 16,
+  paddingVertical: 14,
+  fontSize: 16,
+  color: "#0F172A",
+  backgroundColor: "#F8FAFC",
+} as const;

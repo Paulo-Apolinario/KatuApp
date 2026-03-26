@@ -2,7 +2,6 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -12,129 +11,32 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { collectionService } from "@/src/services/collectionService";
-import { scheduleService } from "@/src/services/scheduleService";
+import { useAuth } from "@/src/contexts/AuthContext";
+import {
+  scheduleService,
+  type Schedule,
+} from "@/src/services/scheduleService";
+import {
+  collectionService,
+  type Collection,
+} from "@/src/services/collectionService";
 
-/**
- * =========================
- * Tipos locais defensivos
- * =========================
- */
-
-type ScheduleStatus =
-  | "REQUESTED"
-  | "SCHEDULED"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "CANCELLED";
-
-type CollectionStatus =
-  | "PENDING"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "CANCELLED";
-
-type ScheduleItem = {
-  id: string;
-  scheduledDate: string;
-  requestedMaterials?: string[] | string | null;
-  notes?: string | null;
-  status: ScheduleStatus;
-  cooperativeId?: string | null;
-  generatorId?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-type CollectionItem = {
-  id: string;
-  scheduleId?: string | null;
-  generatorId?: string | null;
-  collectorId?: string | null;
-  cooperativeId?: string | null;
-  weightKg?: number | null;
-  totalKg?: number | null;
-  kgCollected?: number | null;
-  status: CollectionStatus;
-  createdAt?: string;
-  updatedAt?: string;
-  schedule?: {
-    id: string;
-    scheduledDate?: string;
-    requestedMaterials?: string[] | string | null;
+type AuthUserLike = {
+  name?: string;
+  displayName?: string;
+  generator?: {
+    name?: string | null;
+    companyName?: string | null;
   } | null;
 };
 
-type DashboardMetrics = {
-  totalKg: number;
-  totalCollectionsCompleted: number;
-  pendingSchedules: number;
-  nextSchedules: ScheduleItem[];
-  recentCollections: CollectionItem[];
-};
+function formatDateTime(dateString?: string | null) {
+  if (!dateString) return "-";
 
-/**
- * =========================
- * Helpers
- * =========================
- */
+  const parsed = new Date(dateString);
+  if (Number.isNaN(parsed.getTime())) return "-";
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function extractArray<T = unknown>(payload: unknown): T[] {
-  if (Array.isArray(payload)) return payload as T[];
-
-  if (isObject(payload)) {
-    if (Array.isArray(payload.data)) return payload.data as T[];
-    if (Array.isArray(payload.items)) return payload.items as T[];
-    if (Array.isArray(payload.results)) return payload.results as T[];
-  }
-
-  return [];
-}
-
-function parseNumber(value: unknown): number {
-  if (typeof value === "number" && !Number.isNaN(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isNaN(parsed) ? 0 : parsed;
-  }
-  return 0;
-}
-
-function getCollectionKg(collection: CollectionItem): number {
-  return (
-    parseNumber(collection.weightKg) ||
-    parseNumber(collection.totalKg) ||
-    parseNumber(collection.kgCollected) ||
-    0
-  );
-}
-
-function formatDate(dateString?: string | null): string {
-  if (!dateString) return "Data não informada";
-
-  const date = new Date(dateString);
-
-  if (Number.isNaN(date.getTime())) return "Data inválida";
-
-  return date.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(dateString?: string | null): string {
-  if (!dateString) return "Data não informada";
-
-  const date = new Date(dateString);
-
-  if (Number.isNaN(date.getTime())) return "Data inválida";
-
-  return date.toLocaleString("pt-BR", {
+  return parsed.toLocaleString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -143,7 +45,16 @@ function formatDateTime(dateString?: string | null): string {
   });
 }
 
-function translateScheduleStatus(status: ScheduleStatus): string {
+function formatDate(dateString?: string | null) {
+  if (!dateString) return "-";
+
+  const parsed = new Date(dateString);
+  if (Number.isNaN(parsed.getTime())) return "-";
+
+  return parsed.toLocaleDateString("pt-BR");
+}
+
+function translateScheduleStatus(status: Schedule["status"]) {
   switch (status) {
     case "REQUESTED":
       return "Solicitado";
@@ -160,7 +71,7 @@ function translateScheduleStatus(status: ScheduleStatus): string {
   }
 }
 
-function translateCollectionStatus(status: CollectionStatus): string {
+function translateCollectionStatus(status: Collection["status"]) {
   switch (status) {
     case "PENDING":
       return "Pendente";
@@ -175,52 +86,85 @@ function translateCollectionStatus(status: CollectionStatus): string {
   }
 }
 
-function normalizeRequestedMaterials(
-  value?: string[] | string | null
-): string[] {
-  if (!value) return [];
-  if (Array.isArray(value)) return value.filter(Boolean);
+function extractMaterials(notes?: string | null) {
+  if (!notes) return [];
 
-  return value
+  const match = notes.match(/materiais solicitados:\s*(.*)/i);
+  const raw = match ? match[1] : "";
+
+  return raw
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
 }
 
-/**
- * =========================
- * Componente
- * =========================
- */
+function getScheduleBadgeColor(status: Schedule["status"]) {
+  switch (status) {
+    case "REQUESTED":
+      return "#64748B";
+    case "SCHEDULED":
+      return "#2563EB";
+    case "IN_PROGRESS":
+      return "#F59E0B";
+    case "COMPLETED":
+      return "#10B981";
+    case "CANCELLED":
+      return "#DC2626";
+    default:
+      return "#64748B";
+  }
+}
 
-export default function GeneratorDashboard() {
-  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
-  const [collections, setCollections] = useState<CollectionItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+function getCollectionBadgeColor(status: Collection["status"]) {
+  switch (status) {
+    case "PENDING":
+      return "#64748B";
+    case "IN_PROGRESS":
+      return "#F59E0B";
+    case "COMPLETED":
+      return "#10B981";
+    case "CANCELLED":
+      return "#DC2626";
+    default:
+      return "#64748B";
+  }
+}
+
+export default function GeneratorDashboardScreen() {
+  const { user } = useAuth();
+  const currentUser = user as AuthUserLike | null;
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+
+  const displayName =
+    currentUser?.generator?.companyName ||
+    currentUser?.generator?.name ||
+    currentUser?.displayName ||
+    currentUser?.name ||
+    "Gerador";
 
   const loadDashboard = useCallback(async (showLoader = true) => {
     try {
-      if (showLoader) setIsLoading(true);
-      setErrorMessage(null);
+      if (showLoader) setLoading(true);
 
-      const [schedulesResponse, collectionsResponse] = await Promise.all([
+      const [scheduleResponse, collectionResponse] = await Promise.all([
         scheduleService.list(),
         collectionService.list(),
       ]);
 
-      const scheduleItems = extractArray<ScheduleItem>(schedulesResponse);
-      const collectionItems = extractArray<CollectionItem>(collectionsResponse);
-
-      setSchedules(scheduleItems);
-      setCollections(collectionItems);
+      setSchedules(Array.isArray(scheduleResponse) ? scheduleResponse : []);
+      setCollections(Array.isArray(collectionResponse) ? collectionResponse : []);
     } catch (error) {
       console.error("Erro ao carregar dashboard do gerador:", error);
-      setErrorMessage("Não foi possível carregar os dados do dashboard.");
+      setSchedules([]);
+      setCollections([]);
     } finally {
-      if (showLoader) setIsLoading(false);
-      setIsRefreshing(false);
+      if (showLoader) setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -231,62 +175,62 @@ export default function GeneratorDashboard() {
   );
 
   const onRefresh = useCallback(async () => {
-    setIsRefreshing(true);
+    setRefreshing(true);
     await loadDashboard(false);
   }, [loadDashboard]);
 
-  const metrics: DashboardMetrics = useMemo(() => {
-    const totalKg = collections
-      .filter((item) => item.status === "COMPLETED")
-      .reduce((sum, item) => sum + getCollectionKg(item), 0);
-
-    const totalCollectionsCompleted = collections.filter(
-      (item) => item.status === "COMPLETED"
-    ).length;
-
-    const pendingSchedules = schedules.filter(
+  const metrics = useMemo(() => {
+    const openSchedules = schedules.filter(
       (item) => item.status === "REQUESTED" || item.status === "SCHEDULED"
-    ).length;
+    );
 
-    const now = new Date();
+    const completedCollections = collections.filter(
+      (item) => item.status === "COMPLETED"
+    );
 
-    const nextSchedules = [...schedules]
-      .filter(
-        (item) =>
-          item.status !== "COMPLETED" &&
-          item.status !== "CANCELLED" &&
-          new Date(item.scheduledDate).getTime() >=
-            new Date(now.setHours(0, 0, 0, 0)).getTime()
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.scheduledDate).getTime() -
-          new Date(b.scheduledDate).getTime()
-      )
-      .slice(0, 5);
+    const totalKg = completedCollections.reduce(
+      (sum, item) => sum + Number(item.totalWeightKg || 0),
+      0
+    );
+
+    const nextSchedules = [...openSchedules]
+      .sort((a, b) => {
+        const aTime = new Date(a.scheduledDate || a.preferredDate || 0).getTime();
+        const bTime = new Date(b.scheduledDate || b.preferredDate || 0).getTime();
+        return aTime - bTime;
+      })
+      .slice(0, 4);
 
     const recentCollections = [...collections]
       .sort((a, b) => {
-        const aDate = new Date(a.createdAt ?? 0).getTime();
-        const bDate = new Date(b.createdAt ?? 0).getTime();
-        return bDate - aDate;
+        const aTime = new Date(a.createdAt || 0).getTime();
+        const bTime = new Date(b.createdAt || 0).getTime();
+        return bTime - aTime;
       })
-      .slice(0, 5);
+      .slice(0, 4);
 
     return {
       totalKg,
-      totalCollectionsCompleted,
-      pendingSchedules,
+      totalSchedules: schedules.length,
+      openSchedules: openSchedules.length,
+      completedCollections: completedCollections.length,
       nextSchedules,
       recentCollections,
     };
-  }, [collections, schedules]);
+  }, [schedules, collections]);
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white px-6">
-        <ActivityIndicator size="large" color="#16a34a" />
-        <Text className="mt-4 text-base text-gray-600">
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#F8FAFC",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color="#028C56" />
+        <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando dashboard...
         </Text>
       </View>
@@ -295,11 +239,12 @@ export default function GeneratorDashboard() {
 
   return (
     <ScrollView
-      className="flex-1 bg-slate-50"
+      style={{ flex: 1, backgroundColor: "#F3F4F6" }}
       refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
-      contentContainerStyle={{ paddingBottom: 32 }}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
         colors={["#16a34a", "#22c55e"]}
@@ -307,89 +252,62 @@ export default function GeneratorDashboard() {
         end={{ x: 1, y: 0 }}
         style={{
           paddingTop: 28,
-          paddingBottom: 24,
+          paddingBottom: 26,
           paddingHorizontal: 20,
-          borderBottomLeftRadius: 24,
-          borderBottomRightRadius: 24,
+          borderBottomLeftRadius: 30,
+          borderBottomRightRadius: 30,
         }}
       >
-        <Text style={{ color: "#fff", fontSize: 14, opacity: 0.9 }}>
+        <Text style={{ color: "#E8FFF1", fontSize: 14 }}>
           Dashboard do Gerador
         </Text>
+
         <Text
           style={{
-            color: "#fff",
-            fontSize: 28,
-            fontWeight: "700",
-            marginTop: 4,
+            color: "#FFFFFF",
+            fontSize: 30,
+            fontWeight: "800",
+            marginTop: 6,
           }}
         >
-          Acompanhe suas coletas
+          Olá, {displayName}
+        </Text>
+
+        <Text
+          style={{
+            color: "#E8FFF1",
+            fontSize: 15,
+            marginTop: 8,
+            lineHeight: 22,
+          }}
+        >
+          Acompanhe agendamentos, coletas concluídas e o impacto gerado pela sua operação.
         </Text>
 
         <View
           style={{
             flexDirection: "row",
-            gap: 12,
             marginTop: 18,
           }}
         >
-          <TouchableOpacity
-            activeOpacity={0.8}
+          <ActionButton
+            icon="calendar-outline"
+            label="Novo agendamento"
             onPress={() => router.push("/(gerador)/schedule")}
-            style={{
-              backgroundColor: "rgba(255,255,255,0.18)",
-              paddingVertical: 12,
-              paddingHorizontal: 16,
-              borderRadius: 14,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <Ionicons name="calendar-outline" size={18} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "600" }}>
-              Novo agendamento
-            </Text>
-          </TouchableOpacity>
+            style={{ marginRight: 10, flex: 1 }}
+          />
 
-          <TouchableOpacity
-            activeOpacity={0.8}
+          <ActionButton
+            icon="refresh-outline"
+            label="Atualizar"
             onPress={onRefresh}
-            style={{
-              backgroundColor: "rgba(255,255,255,0.18)",
-              paddingVertical: 12,
-              paddingHorizontal: 16,
-              borderRadius: 14,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <Ionicons name="refresh-outline" size={18} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "600" }}>
-              Atualizar
-            </Text>
-          </TouchableOpacity>
+            style={{ flex: 1 }}
+          />
         </View>
       </LinearGradient>
 
-      <View className="px-4 pt-5">
-        {errorMessage ? (
-          <View className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4">
-            <Text className="font-semibold text-red-700">Erro</Text>
-            <Text className="mt-1 text-red-600">{errorMessage}</Text>
-
-            <TouchableOpacity
-              onPress={() => loadDashboard(true)}
-              className="mt-3 self-start rounded-xl bg-red-600 px-4 py-2"
-            >
-              <Text className="font-semibold text-white">Tentar novamente</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        <View className="flex-row flex-wrap justify-between">
+      <View style={{ paddingHorizontal: 16, paddingTop: 18 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
           <MetricCard
             title="Total coletado"
             value={`${metrics.totalKg.toFixed(1)} kg`}
@@ -397,12 +315,26 @@ export default function GeneratorDashboard() {
           />
           <MetricCard
             title="Coletas concluídas"
-            value={`${metrics.totalCollectionsCompleted}`}
+            value={String(metrics.completedCollections)}
             icon="checkmark-done-outline"
           />
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginTop: 12,
+          }}
+        >
           <MetricCard
-            title="Agendamentos pendentes"
-            value={`${metrics.pendingSchedules}`}
+            title="Agendamentos"
+            value={String(metrics.totalSchedules)}
+            icon="calendar-outline"
+          />
+          <MetricCard
+            title="Em aberto"
+            value={String(metrics.openSchedules)}
             icon="time-outline"
           />
         </View>
@@ -413,162 +345,190 @@ export default function GeneratorDashboard() {
           onPress={() => router.push("/(gerador)/schedule")}
         />
 
-        <View className="rounded-2xl bg-white p-4 shadow-sm">
-          {metrics.nextSchedules.length === 0 ? (
-            <EmptyState
-              icon="calendar-clear-outline"
-              title="Nenhum agendamento próximo"
-              subtitle="Quando você criar um novo agendamento, ele aparecerá aqui."
-            />
-          ) : (
-            metrics.nextSchedules.map((schedule) => {
-              const materials = normalizeRequestedMaterials(
-                schedule.requestedMaterials
-              );
+        <View style={sectionCard}>
+          {metrics.nextSchedules.length > 0 ? (
+            metrics.nextSchedules.map((item) => {
+              const materials = extractMaterials(item.notes);
 
               return (
-                <View
-                  key={schedule.id}
-                  className="mb-3 rounded-2xl border border-slate-100 bg-slate-50 p-4"
-                >
-                  <View className="flex-row items-start justify-between">
-                    <View className="flex-1 pr-3">
-                      <Text className="text-base font-bold text-slate-800">
-                        {formatDateTime(schedule.scheduledDate)}
+                <View key={item.id} style={listItemCard}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={itemTitle}>
+                        {formatDateTime(item.scheduledDate || item.preferredDate)}
                       </Text>
 
-                      <Text className="mt-1 text-sm text-slate-500">
-                        Status: {translateScheduleStatus(schedule.status)}
+                      <Text style={itemText}>
+                        Status: {translateScheduleStatus(item.status)}
                       </Text>
 
-                      {materials.length > 0 ? (
-                        <Text className="mt-2 text-sm text-slate-700">
+                      {materials.length > 0 && (
+                        <Text style={itemText}>
                           Materiais: {materials.join(", ")}
                         </Text>
-                      ) : null}
+                      )}
 
-                      {schedule.notes ? (
-                        <Text className="mt-2 text-sm text-slate-600">
-                          Observações: {schedule.notes}
+                      {!!item.notes && (
+                        <Text style={itemSubtext}>
+                          Observações: {item.notes}
                         </Text>
-                      ) : null}
+                      )}
                     </View>
 
-                    <View className="rounded-full bg-green-100 px-3 py-1">
-                      <Text className="text-xs font-bold text-green-700">
-                        {translateScheduleStatus(schedule.status)}
-                      </Text>
-                    </View>
+                    <Badge
+                      label={translateScheduleStatus(item.status)}
+                      color={getScheduleBadgeColor(item.status)}
+                    />
                   </View>
                 </View>
               );
             })
+          ) : (
+            <EmptyState
+              icon="calendar-clear-outline"
+              title="Nenhum agendamento próximo"
+              subtitle="Quando você solicitar uma nova coleta, ela aparecerá aqui."
+            />
           )}
         </View>
 
         <SectionHeader
           title="Coletas recentes"
-          actionLabel="Atualizar"
-          onPress={onRefresh}
+          actionLabel="Ver impacto"
+          onPress={() => router.push("/(gerador)/percentual")}
         />
 
-        <View className="rounded-2xl bg-white p-4 shadow-sm">
-          {metrics.recentCollections.length === 0 ? (
+        <View style={sectionCard}>
+          {metrics.recentCollections.length > 0 ? (
+            metrics.recentCollections.map((item) => (
+              <View key={item.id} style={listItemCard}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={itemTitle}>
+                      {item.schedule?.scheduledDate
+                        ? formatDateTime(item.schedule.scheduledDate)
+                        : formatDate(item.createdAt)}
+                    </Text>
+
+                    <Text style={itemText}>
+                      Status: {translateCollectionStatus(item.status)}
+                    </Text>
+
+                    <Text style={itemText}>
+                      Total coletado: {Number(item.totalWeightKg || 0).toFixed(1)} kg
+                    </Text>
+
+                    {(item.materials || []).length > 0 && (
+                      <Text style={itemSubtext}>
+                        Materiais: {item.materials.join(", ")}
+                      </Text>
+                    )}
+                  </View>
+
+                  <Badge
+                    label={translateCollectionStatus(item.status)}
+                    color={getCollectionBadgeColor(item.status)}
+                  />
+                </View>
+              </View>
+            ))
+          ) : (
             <EmptyState
               icon="cube-outline"
-              title="Nenhuma coleta encontrada"
-              subtitle="As coletas executadas aparecerão aqui assim que forem registradas."
+              title="Nenhuma coleta registrada"
+              subtitle="As coletas concluídas aparecerão aqui assim que forem executadas."
             />
-          ) : (
-            metrics.recentCollections.map((collection) => {
-              const kg = getCollectionKg(collection);
-              const materials = normalizeRequestedMaterials(
-                collection.schedule?.requestedMaterials
-              );
-
-              return (
-                <View
-                  key={collection.id}
-                  className="mb-3 rounded-2xl border border-slate-100 bg-slate-50 p-4"
-                >
-                  <View className="flex-row items-start justify-between">
-                    <View className="flex-1 pr-3">
-                      <Text className="text-base font-bold text-slate-800">
-                        {collection.schedule?.scheduledDate
-                          ? formatDateTime(collection.schedule.scheduledDate)
-                          : formatDate(collection.createdAt)}
-                      </Text>
-
-                      <Text className="mt-1 text-sm text-slate-500">
-                        Status: {translateCollectionStatus(collection.status)}
-                      </Text>
-
-                      <Text className="mt-2 text-sm font-semibold text-slate-700">
-                        Total coletado: {kg.toFixed(1)} kg
-                      </Text>
-
-                      {materials.length > 0 ? (
-                        <Text className="mt-2 text-sm text-slate-600">
-                          Materiais: {materials.join(", ")}
-                        </Text>
-                      ) : null}
-                    </View>
-
-                    <View className="rounded-full bg-emerald-100 px-3 py-1">
-                      <Text className="text-xs font-bold text-emerald-700">
-                        {translateCollectionStatus(collection.status)}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            })
           )}
         </View>
 
-        <View className="mt-5 rounded-2xl bg-white p-4 shadow-sm">
-          <Text className="text-lg font-bold text-slate-800">
-            Resumo rápido
-          </Text>
+        <SectionHeader title="Ações rápidas" />
 
-          <View className="mt-4 gap-3">
-            <QuickAction
-              icon="calendar-outline"
-              title="Solicitar nova coleta"
-              subtitle="Crie um novo agendamento para materiais recicláveis"
-              onPress={() => router.push("/(gerador)/schedule")}
-            />
-
-            <QuickAction
-              icon="stats-chart-outline"
-              title="Atualizar dashboard"
-              subtitle="Recarregar seus agendamentos e coletas"
-              onPress={onRefresh}
-            />
-
-            <QuickAction
-              icon="information-circle-outline"
-              title="Ver histórico"
-              subtitle="Acompanhe suas coletas e evolução ambiental"
-              onPress={() => {
-                Alert.alert(
-                  "Histórico",
-                  "A próxima etapa pode ligar este botão à tela de histórico do gerador."
-                );
-              }}
-            />
-          </View>
+        <View style={sectionCard}>
+          <QuickAction
+            icon="calendar-outline"
+            title="Solicitar coleta"
+            subtitle="Criar um novo agendamento"
+            onPress={() => router.push("/(gerador)/schedule")}
+          />
+          <QuickAction
+            icon="pie-chart-outline"
+            title="Impacto ambiental"
+            subtitle="Acompanhar o percentual da coleta"
+            onPress={() => router.push("/(gerador)/percentual")}
+          />
+          <QuickAction
+            icon="chatbubble-outline"
+            title="Enviar feedback"
+            subtitle="Compartilhar sua experiência"
+            onPress={() => router.push("/(gerador)/feedback")}
+          />
+          <QuickAction
+            icon="person-outline"
+            title="Meu perfil"
+            subtitle="Ver e editar dados da conta"
+            onPress={() => router.push("/(gerador)/profile")}
+            isLast
+          />
         </View>
       </View>
     </ScrollView>
   );
 }
 
-/**
- * =========================
- * Componentes auxiliares
- * =========================
- */
+function ActionButton({
+  icon,
+  label,
+  onPress,
+  style,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  style?: object;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={[
+        {
+          backgroundColor: "rgba(255,255,255,0.18)",
+          borderRadius: 16,
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        style,
+      ]}
+    >
+      <Ionicons name={icon} size={18} color="#FFFFFF" />
+      <Text
+        style={{
+          color: "#FFFFFF",
+          fontWeight: "700",
+          fontSize: 15,
+          marginLeft: 8,
+        }}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
 function MetricCard({
   title,
@@ -580,13 +540,41 @@ function MetricCard({
   icon: keyof typeof Ionicons.glyphMap;
 }) {
   return (
-    <View className="mb-3 w-[48.5%] rounded-2xl bg-white p-4 shadow-sm">
-      <View className="mb-3 h-11 w-11 items-center justify-center rounded-full bg-green-100">
-        <Ionicons name={icon} size={22} color="#15803d" />
+    <View
+      style={{
+        width: "48.5%",
+        backgroundColor: "#FFFFFF",
+        borderRadius: 18,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+      }}
+    >
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: "#DCFCE7",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 10,
+        }}
+      >
+        <Ionicons name={icon} size={20} color="#15803D" />
       </View>
 
-      <Text className="text-sm text-slate-500">{title}</Text>
-      <Text className="mt-1 text-xl font-bold text-slate-800">{value}</Text>
+      <Text style={{ fontSize: 13, color: "#6B7280" }}>{title}</Text>
+      <Text
+        style={{
+          marginTop: 4,
+          fontSize: 22,
+          fontWeight: "800",
+          color: "#111827",
+        }}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
@@ -601,14 +589,43 @@ function SectionHeader({
   onPress?: () => void;
 }) {
   return (
-    <View className="mb-3 mt-5 flex-row items-center justify-between">
-      <Text className="text-lg font-bold text-slate-800">{title}</Text>
+    <View
+      style={{
+        marginTop: 18,
+        marginBottom: 10,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}
+    >
+      <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>
+        {title}
+      </Text>
 
       {actionLabel && onPress ? (
         <TouchableOpacity onPress={onPress}>
-          <Text className="font-semibold text-green-700">{actionLabel}</Text>
+          <Text style={{ color: "#028C56", fontWeight: "700" }}>
+            {actionLabel}
+          </Text>
         </TouchableOpacity>
       ) : null}
+    </View>
+  );
+}
+
+function Badge({ label, color }: { label: string; color: string }) {
+  return (
+    <View
+      style={{
+        backgroundColor: color,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 14,
+      }}
+    >
+      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -623,12 +640,27 @@ function EmptyState({
   subtitle: string;
 }) {
   return (
-    <View className="items-center justify-center rounded-2xl py-8">
-      <View className="h-14 w-14 items-center justify-center rounded-full bg-slate-100">
-        <Ionicons name={icon} size={28} color="#64748b" />
-      </View>
-      <Text className="mt-3 text-base font-bold text-slate-700">{title}</Text>
-      <Text className="mt-1 px-6 text-center text-sm text-slate-500">
+    <View style={{ alignItems: "center", paddingVertical: 28 }}>
+      <Ionicons name={icon} size={42} color="#9CA3AF" />
+      <Text
+        style={{
+          fontSize: 16,
+          fontWeight: "700",
+          color: "#374151",
+          marginTop: 10,
+        }}
+      >
+        {title}
+      </Text>
+      <Text
+        style={{
+          fontSize: 14,
+          color: "#6B7280",
+          textAlign: "center",
+          marginTop: 6,
+          lineHeight: 20,
+        }}
+      >
         {subtitle}
       </Text>
     </View>
@@ -640,28 +672,86 @@ function QuickAction({
   title,
   subtitle,
   onPress,
+  isLast = false,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle: string;
   onPress: () => void;
+  isLast?: boolean;
 }) {
   return (
     <TouchableOpacity
-      activeOpacity={0.8}
+      activeOpacity={0.85}
       onPress={onPress}
-      className="flex-row items-center rounded-2xl border border-slate-100 bg-slate-50 p-4"
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingBottom: isLast ? 0 : 14,
+        marginBottom: isLast ? 0 : 14,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: "#E5E7EB",
+      }}
     >
-      <View className="mr-4 h-12 w-12 items-center justify-center rounded-full bg-green-100">
-        <Ionicons name={icon} size={22} color="#15803d" />
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: "#DCFCE7",
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 12,
+        }}
+      >
+        <Ionicons name={icon} size={20} color="#15803D" />
       </View>
 
-      <View className="flex-1">
-        <Text className="text-base font-bold text-slate-800">{title}</Text>
-        <Text className="mt-1 text-sm text-slate-500">{subtitle}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: "700", color: "#111827" }}>
+          {title}
+        </Text>
+        <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>
+          {subtitle}
+        </Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={20} color="#64748b" />
+      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
     </TouchableOpacity>
   );
 }
+
+const sectionCard = {
+  backgroundColor: "#FFFFFF",
+  borderRadius: 18,
+  padding: 16,
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+} as const;
+
+const listItemCard = {
+  backgroundColor: "#F9FAFB",
+  borderRadius: 14,
+  padding: 14,
+  marginBottom: 10,
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+} as const;
+
+const itemTitle = {
+  fontSize: 15,
+  fontWeight: "700" as const,
+  color: "#111827",
+} as const;
+
+const itemText = {
+  marginTop: 5,
+  fontSize: 14,
+  color: "#4B5563",
+} as const;
+
+const itemSubtext = {
+  marginTop: 6,
+  fontSize: 13,
+  color: "#6B7280",
+} as const;

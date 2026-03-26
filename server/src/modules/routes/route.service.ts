@@ -41,14 +41,28 @@ export class RouteService {
       }
     }
 
+    if (data.driverId && data.vehicleId) {
+      const vehicle = await prisma.vehicle.findFirst({
+        where: {
+          id: data.vehicleId,
+          cooperativeId: cooperative.id,
+        },
+      });
+
+      if (vehicle?.driverId && vehicle.driverId !== data.driverId) {
+        throw new Error("Este veículo já está vinculado a outro motorista.");
+      }
+    }
+
     return prisma.route.create({
       data: {
         cooperativeId: cooperative.id,
         driverId: data.driverId || null,
         vehicleId: data.vehicleId || null,
         name: data.name.trim(),
-        routeDate: data.routeDate ? new Date(data.routeDate) : null,
-        points: data.points ?? [],
+        description: data.description?.trim() || null,
+        scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
+        stops: data.stops ?? [],
         status: data.status
           ? RouteStatus[data.status]
           : RouteStatus.SCHEDULED,

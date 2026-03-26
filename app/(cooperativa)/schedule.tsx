@@ -7,19 +7,16 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { scheduleService, Schedule } from "@/src/services/scheduleService";
-
-type ScheduleCard = {
-  id: string;
-  title: string;
-  address: string;
-  dateLabel: string;
-  status: string;
-};
+import {
+  scheduleService,
+  type Schedule,
+  type ScheduleStatus,
+} from "@/src/services/scheduleService";
 
 function formatDate(value?: string | null) {
   if (!value) return "Sem data";
@@ -70,51 +67,133 @@ function mapStatusColor(status?: string) {
   }
 }
 
-function mapScheduleToCard(item: Schedule): ScheduleCard {
-  return {
-    id: item.id,
-    title:
-      item.generator?.companyName ||
-      item.generator?.name ||
-      "Gerador não identificado",
-    address: item.generator?.address || "Endereço não informado",
-    dateLabel: formatDate(item.scheduledDate || item.preferredDate || item.createdAt),
-    status: item.status || "REQUESTED",
-  };
+function extractRequestedMaterials(notes?: string | null) {
+  if (!notes) return [];
+
+  const match = notes.match(/Materiais solicitados:\s*([^|]+)/i);
+  if (!match) return [];
+
+  return match[1]
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function getScheduleOrigin(item: Schedule) {
+  if (item.generatorId) return "GERADOR";
+  if (item.requestedByUserId) return "PESSOA FÍSICA";
+  return "SOLICITAÇÃO";
+}
+
+function getScheduleTitle(item: Schedule) {
+  if (item.generator?.companyName) return item.generator.companyName;
+  if (item.generator?.name) return item.generator.name;
+
+  if (item.requestedBy?.displayName) {
+    return item.requestedBy.displayName;
+  }
+
+  if (item.requestedBy?.email) {
+    return item.requestedBy.email;
+  }
+
+  return "Solicitação sem identificação";
+}
+
+function getScheduleSubtitle(item: Schedule) {
+  if (item.generatorId) {
+    return "Solicitante: gerador vinculado";
+  }
+
+  if (item.requestedBy?.displayName) {
+    return `Solicitante: ${item.requestedBy.displayName}`;
+  }
+
+  if (item.requestedBy?.email) {
+    return `Solicitante: ${item.requestedBy.email}`;
+  }
+
+  return "Solicitante não identificado";
+}
+
+function getScheduleAddress(item: Schedule) {
+  if (item.generator?.address) return item.generator.address;
+  if (item.cooperative?.address) return item.cooperative.address;
+  return "Não informado";
 }
 
 export default function ScheduleScreen() {
   const [loading, setLoading] = useState(true);
-  const [schedules, setSchedules] = useState<ScheduleCard[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
 
-  const loadSchedules = useCallback(async () => {
+  const loadSchedules = useCallback(async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
 
       const response = await scheduleService.list();
-      const list = response.map(mapScheduleToCard);
-
-      setSchedules(list);
+      setSchedules(response);
     } catch (error: any) {
-      Alert.alert("Erro", error.message || "Não foi possível carregar os agendamentos.");
+      Alert.alert(
+        "Erro",
+        error?.message || "Não foi possível carregar os agendamentos."
+      );
+      setSchedules([]);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadSchedules();
+      loadSchedules(true);
     }, [loadSchedules])
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadSchedules(false);
+  }, [loadSchedules]);
 
   const summary = useMemo(() => {
     return {
       total: schedules.length,
-      pendentes: schedules.filter((item) => item.status === "REQUESTED").length,
+      solicitados: schedules.filter((item) => item.status === "REQUESTED")
+        .length,
+      agendados: schedules.filter((item) => item.status === "SCHEDULED").length,
       concluidos: schedules.filter((item) => item.status === "COMPLETED").length,
     };
   }, [schedules]);
+
+  const handleUpdateStatus = async (
+    scheduleId: string,
+    status: ScheduleStatus
+  ) => {
+    try {
+      setUpdatingId(scheduleId);
+
+      await scheduleService.updateStatus(scheduleId, { status });
+      await loadSchedules(false);
+
+      Alert.alert("Sucesso", "Status do agendamento atualizado.");
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error?.message || "Não foi possível atualizar o status."
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleDelegate = (schedule: Schedule) => {
+    Alert.alert(
+      "Próxima etapa",
+      `Vamos conectar a delegação do agendamento ${schedule.id} para um catador na próxima fase operacional.`
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
@@ -131,7 +210,10 @@ export default function ScheduleScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 15 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>
@@ -140,113 +222,97 @@ export default function ScheduleScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
-        {loading ? (
-          <View style={{ alignItems: "center", paddingVertical: 50 }}>
-            <ActivityIndicator size="large" color="#028C56" />
-            <Text style={{ marginTop: 12, color: "#6B7280" }}>
-              Carregando agendamentos...
-            </Text>
+      {loading ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator size="large" color="#028C56" />
+          <Text style={{ marginTop: 12, color: "#6B7280" }}>
+            Carregando agendamentos...
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          style={{ flex: 1, padding: 20 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              marginBottom: 25,
+            }}
+          >
+            <SummaryCard label="Total" value={summary.total} color="#028C56" bg="#F0FDF4" />
+            <SummaryCard
+              label="Solicitados"
+              value={summary.solicitados}
+              color="#F59E0B"
+              bg="#FEFCE8"
+            />
+            <SummaryCard
+              label="Agendados"
+              value={summary.agendados}
+              color="#2563EB"
+              bg="#EFF6FF"
+            />
           </View>
-        ) : (
-          <>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 25 }}>
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: "#F0FDF4",
-                  borderRadius: 16,
-                  padding: 16,
-                  marginRight: 10,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
-                  Total
-                </Text>
-                <Text style={{ fontSize: 24, fontWeight: "800", color: "#028C56" }}>
-                  {summary.total}
-                </Text>
-              </View>
 
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: "#FEFCE8",
-                  borderRadius: 16,
-                  padding: 16,
-                  marginRight: 10,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
-                  Solicitados
-                </Text>
-                <Text style={{ fontSize: 24, fontWeight: "800", color: "#F59E0B" }}>
-                  {summary.pendentes}
-                </Text>
-              </View>
-
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: "#ECFDF5",
-                  borderRadius: 16,
-                  padding: 16,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
-                  Concluídos
-                </Text>
-                <Text style={{ fontSize: 24, fontWeight: "800", color: "#028C56" }}>
-                  {summary.concluidos}
-                </Text>
-              </View>
-            </View>
-
-            <Text
+          <View style={{ marginBottom: 18 }}>
+            <View
               style={{
-                fontSize: 18,
-                fontWeight: "700",
-                color: "#111827",
-                marginBottom: 15,
+                backgroundColor: "#ECFDF5",
+                borderRadius: 16,
+                padding: 16,
+                alignItems: "center",
               }}
             >
-              Lista de Agendamentos
-            </Text>
+              <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
+                Concluídos
+              </Text>
+              <Text style={{ fontSize: 28, fontWeight: "800", color: "#028C56" }}>
+                {summary.concluidos}
+              </Text>
+            </View>
+          </View>
 
-            {schedules.length === 0 ? (
-              <View
-                style={{
-                  backgroundColor: "#F9FAFB",
-                  borderRadius: 16,
-                  padding: 24,
-                  alignItems: "center",
-                  marginBottom: 20,
-                }}
-              >
-                <Ionicons name="calendar-outline" size={42} color="#9CA3AF" />
-                <Text
-                  style={{
-                    fontSize: 16,
-                    color: "#6B7280",
-                    marginTop: 10,
-                    textAlign: "center",
-                  }}
-                >
-                  Nenhum agendamento encontrado.
-                </Text>
-              </View>
-            ) : (
-              schedules.map((item) => (
-                <View
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "700",
+              color: "#111827",
+              marginBottom: 15,
+            }}
+          >
+            Lista de Agendamentos
+          </Text>
+
+          {schedules.length === 0 ? (
+            <EmptyState
+              icon="calendar-outline"
+              title="Nenhum agendamento encontrado"
+              subtitle="As solicitações de geradores e PF aparecerão aqui."
+            />
+          ) : (
+            schedules.map((item) => {
+              const materials = extractRequestedMaterials(item.notes);
+
+              return (
+                <TouchableOpacity
                   key={item.id}
+                  activeOpacity={0.9}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(cooperativa)/schedule/[id]",
+                      params: { id: item.id },
+                    })
+                  }
                   style={{
                     backgroundColor: "#F9FAFB",
                     borderRadius: 16,
                     padding: 16,
-                    marginBottom: 12,
+                    marginBottom: 14,
                     borderLeftWidth: 4,
                     borderLeftColor: mapStatusColor(item.status),
                   }}
@@ -259,79 +325,266 @@ export default function ScheduleScreen() {
                       marginBottom: 10,
                     }}
                   >
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        fontWeight: "700",
-                        color: "#111827",
-                        flex: 1,
-                        paddingRight: 12,
-                      }}
-                    >
-                      {item.title}
-                    </Text>
-
-                    <View
-                      style={{
-                        backgroundColor: mapStatusColor(item.status),
-                        paddingHorizontal: 12,
-                        paddingVertical: 5,
-                        borderRadius: 999,
-                      }}
-                    >
-                      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}>
-                        {mapStatusLabel(item.status)}
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          fontWeight: "700",
+                          color: "#111827",
+                        }}
+                      >
+                        {getScheduleTitle(item)}
                       </Text>
+
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          color: "#6B7280",
+                          marginTop: 4,
+                        }}
+                      >
+                        {getScheduleSubtitle(item)}
+                      </Text>
+                    </View>
+
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <View
+                        style={{
+                          backgroundColor: mapStatusColor(item.status),
+                          paddingHorizontal: 12,
+                          paddingVertical: 5,
+                          borderRadius: 999,
+                          marginRight: 8,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "#FFFFFF",
+                            fontSize: 11,
+                            fontWeight: "700",
+                          }}
+                        >
+                          {mapStatusLabel(item.status)}
+                        </Text>
+                      </View>
+
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color="#9CA3AF"
+                      />
                     </View>
                   </View>
 
-                  <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 6 }}>
-                    {item.address}
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: "#028C56",
+                      fontWeight: "700",
+                    }}
+                  >
+                    Origem: {getScheduleOrigin(item)}
                   </Text>
 
-                  <Text style={{ fontSize: 14, color: "#4B5563" }}>
-                    Data: {item.dateLabel}
+                  <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 6 }}>
+                    Endereço: {getScheduleAddress(item)}
                   </Text>
-                </View>
-              ))
-            )}
 
-            <TouchableOpacity
-              onPress={() =>
-                Alert.alert(
-                  "Próxima etapa",
-                  "A criação manual de agendamentos será integrada na próxima etapa operacional da cooperativa."
-                )
-              }
-              style={{
-                backgroundColor: "#F0FDF4",
-                borderRadius: 12,
-                padding: 16,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                marginTop: 10,
-                marginBottom: 30,
-                borderWidth: 1,
-                borderColor: "#028C56",
-                borderStyle: "dashed",
-              }}
-            >
-              <Ionicons name="add-circle-outline" size={24} color="#028C56" />
-              <Text
-                style={{
-                  fontSize: 16,
-                  color: "#028C56",
-                  fontWeight: "600",
-                  marginLeft: 8,
-                }}
-              >
-                NOVO AGENDAMENTO
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
+                  <Text style={{ fontSize: 14, color: "#4B5563", marginTop: 4 }}>
+                    Data:{" "}
+                    {formatDate(
+                      item.scheduledDate || item.preferredDate || item.createdAt
+                    )}
+                  </Text>
+
+                  <Text style={{ fontSize: 14, color: "#4B5563", marginTop: 4 }}>
+                    Materiais:{" "}
+                    {materials.length > 0
+                      ? materials.join(", ")
+                      : "Não informado"}
+                  </Text>
+
+                  {!!item.notes && (
+                    <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 6 }}>
+                      Observações: {item.notes}
+                    </Text>
+                  )}
+
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      marginTop: 14,
+                    }}
+                  >
+                    {item.status === "REQUESTED" && (
+                      <ActionChip
+                        label="Agendar"
+                        color="#2563EB"
+                        onPress={() => handleUpdateStatus(item.id, "SCHEDULED")}
+                        loading={updatingId === item.id}
+                      />
+                    )}
+
+                    {(item.status === "REQUESTED" || item.status === "SCHEDULED") && (
+                      <ActionChip
+                        label="Delegar"
+                        color="#028C56"
+                        onPress={() => handleDelegate(item)}
+                      />
+                    )}
+
+                    {item.status === "SCHEDULED" && (
+                      <ActionChip
+                        label="Iniciar"
+                        color="#8B5CF6"
+                        onPress={() =>
+                          handleUpdateStatus(item.id, "IN_PROGRESS")
+                        }
+                        loading={updatingId === item.id}
+                      />
+                    )}
+
+                    {item.status === "IN_PROGRESS" && (
+                      <ActionChip
+                        label="Concluir"
+                        color="#028C56"
+                        onPress={() =>
+                          handleUpdateStatus(item.id, "COMPLETED")
+                        }
+                        loading={updatingId === item.id}
+                      />
+                    )}
+
+                    {item.status !== "COMPLETED" &&
+                      item.status !== "CANCELLED" && (
+                        <ActionChip
+                          label="Cancelar"
+                          color="#DC2626"
+                          onPress={() =>
+                            handleUpdateStatus(item.id, "CANCELLED")
+                          }
+                          loading={updatingId === item.id}
+                        />
+                      )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  color,
+  bg,
+}: {
+  label: string;
+  value: number;
+  color: string;
+  bg: string;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: bg,
+        borderRadius: 16,
+        padding: 16,
+        marginRight: 8,
+        alignItems: "center",
+      }}
+    >
+      <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
+        {label}
+      </Text>
+      <Text style={{ fontSize: 24, fontWeight: "800", color }}>{value}</Text>
+    </View>
+  );
+}
+
+function ActionChip({
+  label,
+  color,
+  onPress,
+  loading = false,
+}: {
+  label: string;
+  color: string;
+  onPress: () => void;
+  loading?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={loading}
+      style={{
+        backgroundColor: color,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 999,
+        marginRight: 8,
+        marginBottom: 8,
+        opacity: loading ? 0.7 : 1,
+      }}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color="#FFFFFF" />
+      ) : (
+        <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "700" }}>
+          {label.toUpperCase()}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#F9FAFB",
+        borderRadius: 16,
+        padding: 24,
+        alignItems: "center",
+        marginBottom: 20,
+      }}
+    >
+      <Ionicons name={icon} size={42} color="#9CA3AF" />
+      <Text
+        style={{
+          fontSize: 16,
+          color: "#111827",
+          fontWeight: "700",
+          marginTop: 10,
+          textAlign: "center",
+        }}
+      >
+        {title}
+      </Text>
+      <Text
+        style={{
+          fontSize: 14,
+          color: "#6B7280",
+          marginTop: 6,
+          textAlign: "center",
+        }}
+      >
+        {subtitle}
+      </Text>
     </View>
   );
 }

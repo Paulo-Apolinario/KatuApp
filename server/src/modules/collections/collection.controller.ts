@@ -82,15 +82,19 @@ export class CollectionController {
       const params = collectionIdParamsSchema.parse(request.params);
       const body = updateCollectionStatusSchema.parse(request.body);
 
-      if (authUser.role !== "COOPERATIVE") {
+      if (
+        authUser.role !== "COOPERATIVE" &&
+        authUser.role !== "COLLECTOR"
+      ) {
         return reply.status(403).send({
           success: false,
-          error: "Apenas cooperativas podem atualizar coletas.",
+          error: "Apenas cooperativas ou catadores podem atualizar coletas.",
         });
       }
 
       const collection = await collectionService.updateStatus(
         authUser.sub,
+        authUser.role,
         params.id,
         body
       );

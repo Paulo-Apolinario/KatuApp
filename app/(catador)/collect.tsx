@@ -1,292 +1,352 @@
-import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
-  Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-  Alert,
   ActivityIndicator,
-  Image,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+  TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { useAuth } from "@/src/contexts/AuthContext";
-import { collectionService } from "@/src/services/collectionService";
-import { scheduleService, type Schedule } from "@/src/services/scheduleService";
+import {
+  collectionService,
+  type Collection,
+  type CollectionMaterial,
+} from "@/src/services/collectionService";
 
-type MaterialType =
-  | "ALUMÍNIO"
-  | "PLÁSTICO"
-  | "PAPEL"
-  | "VIDRO"
-  | "METAL"
-  | "OUTRO";
+function formatDateTime(dateString?: string | null) {
+  if (!dateString) return "-";
 
-type UserLike = {
-  id?: string;
-  uid?: string;
-  role?: string;
-  totalKg?: number;
-  displayName?: string;
-  email?: string;
-  collector?: {
-    totalKg?: number;
-  } | null;
-};
-
-function getUserTotalKg(user: UserLike | null | undefined) {
-  if (typeof user?.collector?.totalKg === "number") {
-    return user.collector.totalKg;
-  }
-
-  if (typeof user?.totalKg === "number") {
-    return user.totalKg;
-  }
-
-  return 0;
-}
-
-function getUserRole(user: UserLike | null | undefined) {
-  return String(user?.role || "").toUpperCase();
-}
-
-function formatDateTime(date?: string | null) {
-  if (!date) return "-";
-
-  const parsed = new Date(date);
+  const parsed = new Date(dateString);
   if (Number.isNaN(parsed.getTime())) return "-";
 
   return parsed.toLocaleString("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
-function isToday(date?: string | null) {
-  if (!date) return false;
-
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return false;
-
-  const now = new Date();
-
-  return (
-    parsed.getDate() === now.getDate() &&
-    parsed.getMonth() === now.getMonth() &&
-    parsed.getFullYear() === now.getFullYear()
-  );
-}
-
-function getScheduleStatusLabel(status: Schedule["status"]) {
+function translateCollectionStatus(status: Collection["status"]) {
   switch (status) {
-    case "SCHEDULED":
-      return "AGENDADO";
+    case "PENDING":
+      return "Pendente";
     case "IN_PROGRESS":
-      return "EM ANDAMENTO";
-    case "REQUESTED":
-      return "SOLICITADO";
+      return "Em andamento";
     case "COMPLETED":
-      return "CONCLUÍDO";
+      return "Concluída";
     case "CANCELLED":
-      return "CANCELADO";
+      return "Cancelada";
     default:
       return status;
   }
 }
 
-function getScheduleStatusColor(status: Schedule["status"]) {
+function getCollectionStatusColor(status: Collection["status"]) {
   switch (status) {
-    case "SCHEDULED":
-      return "#2563EB";
+    case "PENDING":
+      return "#64748B";
     case "IN_PROGRESS":
       return "#F59E0B";
     case "COMPLETED":
       return "#10B981";
     case "CANCELLED":
       return "#DC2626";
-    case "REQUESTED":
     default:
-      return "#6B7280";
+      return "#64748B";
   }
 }
 
-function extractMaterials(notes?: string | null) {
-  if (!notes) return null;
+function getOriginLabel(item: Collection) {
+  if (item.generatorId) return "Gerador";
+  if (item.schedule?.requestedBy?.displayName || item.schedule?.requestedBy?.email) {
+    return "Pessoa física";
+  }
+  return "Solicitação";
+}
 
-  const match = notes.match(/materiais solicitados:\s*(.*)/i);
-  return match ? match[1] : null;
+function getSourceName(item: Collection) {
+  if (item.generator?.companyName) return item.generator.companyName;
+  if (item.generator?.name) return item.generator.name;
+  if (item.schedule?.requestedBy?.displayName) return item.schedule.requestedBy.displayName;
+  if (item.schedule?.requestedBy?.email) return item.schedule.requestedBy.email;
+  return "Origem não identificada";
+}
+
+function getAddress(item: Collection) {
+  return item.generator?.address || "-";
+}
+
+function extractRequestedMaterials(notes?: string | null): string[] {
+  if (!notes) return [];
+
+  const match = notes.match(/Materiais solicitados:\s*([^|]+)/i);
+  if (!match) return [];
+
+  return match[1]
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeMaterialsForEditing(item: Collection): CollectionMaterial[] {
+  if (Array.isArray(item.materials) && item.materials.length > 0) {
+    return item.materials.map((material) => ({
+      type: material.type,
+      quantityKg: Number(material.quantityKg || 0),
+    }));
+  }
+
+  return extractRequestedMaterials(item.schedule?.notes).map((type) => ({
+    type,
+    quantityKg: 0,
+  }));
+}
+
+function formatMaterials(materials?: CollectionMaterial[]) {
+  if (!Array.isArray(materials) || materials.length === 0) return "-";
+
+  return materials
+    .map((item) => `${item.type}: ${Number(item.quantityKg || 0).toFixed(1)} kg`)
+    .join(" • ");
 }
 
 export default function CollectScreen() {
-  const { user, refreshUser } = useAuth();
-  const currentUser = user as UserLike | null;
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [selectedCollectionId, setSelectedCollectionId] = useState("");
+  const [materialsDraft, setMaterialsDraft] = useState<CollectionMaterial[]>([]);
+  const [notesDraft, setNotesDraft] = useState("");
 
-  const [selectedMaterials, setSelectedMaterials] = useState<MaterialType[]>([]);
-  const [weight, setWeight] = useState("");
-  const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const [loadingSchedules, setLoadingSchedules] = useState(true);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [selectedScheduleId, setSelectedScheduleId] = useState("");
-
-  const materials: MaterialType[] = [
-    "ALUMÍNIO",
-    "PLÁSTICO",
-    "PAPEL",
-    "VIDRO",
-    "METAL",
-    "OUTRO",
-  ];
-
-  const totalAtual = getUserTotalKg(currentUser);
-
-  const availableSchedules = useMemo(() => {
-    return schedules.filter(
-      (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS"
-    );
-  }, [schedules]);
-
-  const selectedSchedule = useMemo(() => {
-    return availableSchedules.find((item) => item.id === selectedScheduleId) || null;
-  }, [availableSchedules, selectedScheduleId]);
-
-  const totalPendentes = useMemo(() => {
-    return availableSchedules.filter((item) => item.status === "SCHEDULED").length;
-  }, [availableSchedules]);
-
-  const totalEmAndamento = useMemo(() => {
-    return availableSchedules.filter((item) => item.status === "IN_PROGRESS").length;
-  }, [availableSchedules]);
-
-  const totalHoje = useMemo(() => {
-    return availableSchedules.filter((item) =>
-      isToday(item.scheduledDate || item.preferredDate)
-    ).length;
-  }, [availableSchedules]);
-
-  const loadSchedules = async () => {
+  const loadCollections = useCallback(async (showLoader = true) => {
     try {
-      setLoadingSchedules(true);
+      if (showLoader) setLoading(true);
 
-      const response = await scheduleService.list();
-      const safeData = Array.isArray(response) ? response : [];
-
-      const operational = safeData.filter(
-        (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS"
-      );
-
-      setSchedules(operational);
-
-      if (operational.length > 0) {
-        setSelectedScheduleId((current) =>
-          current && operational.some((item) => item.id === current)
-            ? current
-            : operational[0].id
-        );
-      } else {
-        setSelectedScheduleId("");
-      }
+      const response = await collectionService.list();
+      setCollections(Array.isArray(response) ? response : []);
     } catch (error) {
-      console.error("Erro ao carregar agendamentos:", error);
+      console.error("Erro ao carregar coletas delegadas:", error);
       Alert.alert("Erro", "Não foi possível carregar as coletas delegadas.");
+      setCollections([]);
     } finally {
-      setLoadingSchedules(false);
+      if (showLoader) setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    loadSchedules();
   }, []);
 
-  const toggleMaterial = (material: MaterialType) => {
-    if (selectedMaterials.includes(material)) {
-      setSelectedMaterials((prev) => prev.filter((m) => m !== material));
-    } else {
-      setSelectedMaterials((prev) => [...prev, material]);
-    }
+  useFocusEffect(
+    useCallback(() => {
+      loadCollections(true);
+    }, [loadCollections])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadCollections(false);
+  }, [loadCollections]);
+
+  const delegatedCollections = useMemo(() => {
+    return collections.filter(
+      (item) => item.status === "PENDING" || item.status === "IN_PROGRESS"
+    );
+  }, [collections]);
+
+  const selectedCollection = useMemo(() => {
+    return (
+      delegatedCollections.find((item) => item.id === selectedCollectionId) || null
+    );
+  }, [delegatedCollections, selectedCollectionId]);
+
+  const metrics = useMemo(() => {
+    const pending = delegatedCollections.filter(
+      (item) => item.status === "PENDING"
+    ).length;
+
+    const inProgress = delegatedCollections.filter(
+      (item) => item.status === "IN_PROGRESS"
+    ).length;
+
+    return {
+      pending,
+      inProgress,
+      total: delegatedCollections.length,
+    };
+  }, [delegatedCollections]);
+
+  const totalDraftWeight = useMemo(() => {
+    return materialsDraft.reduce(
+      (acc, item) => acc + Number(item.quantityKg || 0),
+      0
+    );
+  }, [materialsDraft]);
+
+  const handleOpenCollection = (collection: Collection) => {
+    setSelectedCollectionId(collection.id);
+    setMaterialsDraft(normalizeMaterialsForEditing(collection));
+    setNotesDraft(collection.notes || "");
   };
 
-  const handleRegisterCollect = async () => {
-    if (getUserRole(currentUser) !== "COLLECTOR") {
-      Alert.alert("Erro", "Esta tela é exclusiva para catadores.");
-      return;
-    }
+  const updateMaterialQuantity = (index: number, value: string) => {
+    const numeric = Number(String(value).replace(",", "."));
+    const safeValue = Number.isNaN(numeric) ? 0 : numeric;
 
-    if (!selectedScheduleId) {
+    setMaterialsDraft((prev) =>
+      prev.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              quantityKg: safeValue,
+            }
+          : item
+      )
+    );
+  };
+
+  const handleStartCollection = async () => {
+    if (!selectedCollection) {
       Alert.alert("Atenção", "Selecione uma coleta delegada.");
       return;
     }
 
-    if (!weight || selectedMaterials.length === 0) {
+    try {
+      setUpdatingId(selectedCollection.id);
+
+      await collectionService.updateStatus(selectedCollection.id, {
+        status: "IN_PROGRESS",
+      });
+
+      await loadCollections(false);
+      Alert.alert("Sucesso", "Coleta iniciada com sucesso.");
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error?.message || "Não foi possível iniciar a coleta."
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleCompleteCollection = async () => {
+    if (!selectedCollection) {
+      Alert.alert("Atenção", "Selecione uma coleta delegada.");
+      return;
+    }
+
+    if (materialsDraft.length === 0) {
       Alert.alert(
         "Atenção",
-        "Informe o peso e selecione pelo menos um material."
+        "Informe ao menos um material com quantidade para concluir."
       );
       return;
     }
 
-    const kg = Number(String(weight).replace(",", "."));
+    const hasInvalidQuantity = materialsDraft.some(
+      (item) => Number(item.quantityKg) <= 0
+    );
 
-    if (Number.isNaN(kg) || kg <= 0) {
-      Alert.alert("Atenção", "Informe um peso válido.");
+    if (hasInvalidQuantity) {
+      Alert.alert(
+        "Atenção",
+        "Todas as quantidades dos materiais devem ser maiores que zero."
+      );
       return;
     }
 
     try {
-      setSaving(true);
+      setUpdatingId(selectedCollection.id);
 
-      await collectionService.create({
-        scheduleId: selectedScheduleId,
-        totalWeightKg: kg,
-        materials: selectedMaterials,
-        notes: notes.trim() || undefined,
+      await collectionService.updateStatus(selectedCollection.id, {
+        status: "COMPLETED",
+        collectedAt: new Date().toISOString(),
+        totalWeightKg: totalDraftWeight,
+        materials: materialsDraft,
+        notes: notesDraft,
       });
 
-      await refreshUser?.();
-      await loadSchedules();
-
-      Alert.alert("Sucesso!", `Coleta de ${kg} kg registrada com sucesso!`, [
-        {
-          text: "OK",
-          onPress: () => {
-            setWeight("");
-            setSelectedMaterials([]);
-            setNotes("");
-            router.replace("/(catador)/data");
-          },
-        },
-      ]);
+      await loadCollections(false);
+      Alert.alert("Sucesso", "Coleta concluída com sucesso.");
     } catch (error: any) {
-      console.error("Erro ao registrar coleta:", error);
       Alert.alert(
         "Erro",
-        error?.message || "Não foi possível registrar a coleta."
+        error?.message || "Não foi possível concluir a coleta."
       );
     } finally {
-      setSaving(false);
+      setUpdatingId(null);
     }
   };
 
-  const handleReportProblem = () => {
-    Alert.alert(
-      "Relatar Problema",
-      "O fluxo de problemas operacionais será integrado em uma próxima etapa."
-    );
+  const handleReportProblem = async () => {
+    if (!selectedCollection) {
+      Alert.alert("Atenção", "Selecione uma coleta delegada.");
+      return;
+    }
+
+    try {
+      setUpdatingId(selectedCollection.id);
+
+      await collectionService.updateStatus(selectedCollection.id, {
+        status: "CANCELLED",
+        notes:
+          notesDraft?.trim() ||
+          "Problema operacional informado pelo catador.",
+      });
+
+      await loadCollections(false);
+      Alert.alert("Sucesso", "Problema registrado e coleta cancelada.");
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error?.message || "Não foi possível atualizar a coleta."
+      );
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#F3F4F6",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color="#028C56" />
+        <Text style={{ marginTop: 10, color: "#6B7280" }}>
+          Carregando coletas delegadas...
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#F3F4F6" }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 28 }}
+    >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#16a34a", "#22c55e"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
-          paddingBottom: 20,
+          paddingTop: 28,
+          paddingBottom: 26,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
           borderBottomRightRadius: 30,
@@ -303,575 +363,596 @@ export default function CollectScreen() {
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Image
-              source={require("../../assets/images/logo.png")}
-              resizeMode="contain"
-              style={{ width: 36, height: 36, marginRight: 8 }}
-            />
-            <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
-              KATUÁ
-            </Text>
-          </View>
+          <Text
+            style={{
+              color: "#FFFFFF",
+              fontSize: 24,
+              fontWeight: "800",
+            }}
+          >
+            Coletas delegadas
+          </Text>
 
           <View style={{ width: 24 }} />
         </View>
 
         <Text
           style={{
-            fontSize: 24,
-            fontWeight: "700",
-            color: "#FFFFFF",
-            marginTop: 15,
+            color: "#E8FFF1",
+            fontSize: 15,
+            marginTop: 10,
+            lineHeight: 22,
           }}
         >
-          Coletar
-        </Text>
-
-        <Text
-          style={{
-            fontSize: 14,
-            color: "#FFFFFF",
-            opacity: 0.9,
-            marginTop: 5,
-          }}
-        >
-          Coletas operacionais delegadas pela cooperativa
+          Aqui aparecem as coletas que a cooperativa delegou para este catador.
         </Text>
       </LinearGradient>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        style={{ flex: 1, padding: 20 }}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            marginBottom: 20,
-          }}
-        >
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "#F0FDF4",
-              borderRadius: 16,
-              padding: 16,
-              marginRight: 8,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontSize: 12, color: "#4B5563", marginBottom: 6 }}>
-              TOTAL COLETADO
-            </Text>
-            <Text style={{ fontSize: 24, fontWeight: "800", color: "#028C56" }}>
-              {totalAtual} kg
-            </Text>
-          </View>
-
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "#EFF6FF",
-              borderRadius: 16,
-              padding: 16,
-              marginLeft: 8,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontSize: 12, color: "#4B5563", marginBottom: 6 }}>
-              COLETAS HOJE
-            </Text>
-            <Text style={{ fontSize: 24, fontWeight: "800", color: "#2563EB" }}>
-              {totalHoje}
-            </Text>
-          </View>
+      <View style={{ paddingHorizontal: 16, paddingTop: 18 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <MetricCard
+            title="Delegadas"
+            value={String(metrics.total)}
+            icon="clipboard-outline"
+          />
+          <MetricCard
+            title="Pendentes"
+            value={String(metrics.pending)}
+            icon="time-outline"
+          />
         </View>
 
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            marginBottom: 24,
-          }}
-        >
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "#F9FAFB",
-              borderRadius: 14,
-              padding: 14,
-              marginRight: 8,
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontSize: 12, color: "#6B7280" }}>PENDENTES</Text>
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: "800",
-                color: "#111827",
-                marginTop: 4,
-              }}
-            >
-              {totalPendentes}
-            </Text>
-          </View>
-
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "#F9FAFB",
-              borderRadius: 14,
-              padding: 14,
-              marginLeft: 8,
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontSize: 12, color: "#6B7280" }}>EM ANDAMENTO</Text>
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: "800",
-                color: "#111827",
-                marginTop: 4,
-              }}
-            >
-              {totalEmAndamento}
-            </Text>
-          </View>
+        <View style={{ marginTop: 12 }}>
+          <MetricCardFull
+            title="Em andamento"
+            value={String(metrics.inProgress)}
+            icon="trail-sign-outline"
+          />
         </View>
 
-        <View style={{ marginBottom: 24 }}>
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "700",
-              color: "#111827",
-              marginBottom: 12,
-            }}
-          >
-            Coletas delegadas
-          </Text>
+        <SectionHeader title="Fila operacional" />
 
-          {loadingSchedules ? (
-            <View
-              style={{
-                borderWidth: 1,
-                borderColor: "#D1D5DB",
-                borderRadius: 12,
-                padding: 20,
-                backgroundColor: "#F9FAFB",
-                alignItems: "center",
-              }}
-            >
-              <ActivityIndicator color="#028C56" />
-              <Text style={{ marginTop: 8, color: "#6B7280" }}>
-                Carregando coletas...
-              </Text>
-            </View>
-          ) : availableSchedules.length > 0 ? (
-            availableSchedules.map((item) => {
-              const selected = item.id === selectedScheduleId;
-              const generatorName =
-                item.generator?.companyName ||
-                item.generator?.name ||
-                "Gerador";
-              const address = item.generator?.address || "-";
-              const dateTime = item.scheduledDate || item.preferredDate;
-              const isTodayBadge = isToday(dateTime);
-              const materialsFromNotes = extractMaterials(item.notes);
+        <View style={sectionCard}>
+          {delegatedCollections.length > 0 ? (
+            delegatedCollections.map((item) => {
+              const selected = item.id === selectedCollectionId;
 
               return (
                 <TouchableOpacity
                   key={item.id}
-                  onPress={() => setSelectedScheduleId(item.id)}
-                  style={{
-                    backgroundColor: selected ? "#F0FDF4" : "#F9FAFB",
-                    borderRadius: 14,
-                    padding: 14,
-                    marginBottom: 12,
-                    borderWidth: 1,
-                    borderColor: selected ? "#028C56" : "#E5E7EB",
-                  }}
+                  activeOpacity={0.85}
+                  onPress={() => handleOpenCollection(item)}
+                  style={[
+                    listItemCard,
+                    {
+                      borderColor: selected ? "#028C56" : "#E5E7EB",
+                      backgroundColor: selected ? "#F0FDF4" : "#F9FAFB",
+                    },
+                  ]}
                 >
                   <View
                     style={{
                       flexDirection: "row",
                       justifyContent: "space-between",
                       alignItems: "flex-start",
-                      marginBottom: 8,
                     }}
                   >
-                    <Text
-                      style={{
-                        flex: 1,
-                        fontSize: 16,
-                        fontWeight: "700",
-                        color: "#111827",
-                        marginRight: 10,
-                      }}
-                    >
-                      {generatorName}
-                    </Text>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={itemTitle}>{getSourceName(item)}</Text>
 
-                    <View style={{ alignItems: "flex-end" }}>
-                      <View
-                        style={{
-                          backgroundColor: getScheduleStatusColor(item.status),
-                          paddingHorizontal: 8,
-                          paddingVertical: 4,
-                          borderRadius: 12,
-                          marginBottom: isTodayBadge ? 6 : 0,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: "#FFFFFF",
-                            fontSize: 10,
-                            fontWeight: "700",
-                          }}
-                        >
-                          {getScheduleStatusLabel(item.status)}
-                        </Text>
-                      </View>
+                      <Text style={itemText}>Origem: {getOriginLabel(item)}</Text>
 
-                      {isTodayBadge && (
-                        <View
-                          style={{
-                            backgroundColor: "#FEF3C7",
-                            paddingHorizontal: 8,
-                            paddingVertical: 4,
-                            borderRadius: 12,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              color: "#92400E",
-                              fontSize: 10,
-                              fontWeight: "700",
-                            }}
-                          >
-                            HOJE
-                          </Text>
-                        </View>
+                      <Text style={itemText}>Endereço: {getAddress(item)}</Text>
+
+                      <Text style={itemText}>
+                        Materiais:{" "}
+                        {formatMaterials(
+                          item.materials?.length
+                            ? item.materials
+                            : normalizeMaterialsForEditing(item)
+                        )}
+                      </Text>
+
+                      <Text style={itemSubtext}>
+                        Data:{" "}
+                        {formatDateTime(
+                          item.schedule?.scheduledDate ||
+                            item.schedule?.preferredDate ||
+                            item.createdAt
+                        )}
+                      </Text>
+
+                      {!!item.notes && (
+                        <Text style={itemSubtext}>Observações: {item.notes}</Text>
                       )}
                     </View>
-                  </View>
 
-                  <View style={{ marginBottom: 4 }}>
-                    <Text style={{ fontSize: 12, color: "#6B7280" }}>Endereço</Text>
-                    <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-                      {address}
-                    </Text>
+                    <StatusBadge
+                      label={translateCollectionStatus(item.status)}
+                      color={getCollectionStatusColor(item.status)}
+                    />
                   </View>
-
-                  <View style={{ marginBottom: 4 }}>
-                    <Text style={{ fontSize: 12, color: "#6B7280" }}>Data e hora</Text>
-                    <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-                      {formatDateTime(dateTime)}
-                    </Text>
-                  </View>
-
-                  <View style={{ marginBottom: 4 }}>
-                    <Text style={{ fontSize: 12, color: "#6B7280" }}>
-                      Materiais previstos
-                    </Text>
-                    <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-                      {materialsFromNotes || item.notes || "Não informado"}
-                    </Text>
-                  </View>
-
-                  {!!item.notes && (
-                    <View style={{ marginTop: 4 }}>
-                      <Text style={{ fontSize: 12, color: "#6B7280" }}>Observações</Text>
-                      <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-                        {item.notes}
-                      </Text>
-                    </View>
-                  )}
                 </TouchableOpacity>
               );
             })
           ) : (
-            <View
-              style={{
-                borderWidth: 1,
-                borderColor: "#D1D5DB",
-                borderRadius: 12,
-                padding: 20,
-                backgroundColor: "#F9FAFB",
-                alignItems: "center",
-              }}
-            >
-              <Ionicons name="clipboard-outline" size={42} color="#9CA3AF" />
-              <Text
-                style={{
-                  color: "#6B7280",
-                  marginTop: 10,
-                  textAlign: "center",
-                }}
-              >
-                Nenhuma coleta operacional disponível no momento.
-              </Text>
-            </View>
+            <EmptyState
+              icon="clipboard-outline"
+              title="Nenhuma coleta delegada"
+              subtitle="Quando a cooperativa atribuir coletas a este catador, elas aparecerão aqui."
+            />
           )}
         </View>
 
-        {selectedSchedule && (
+        {selectedCollection && (
           <>
-            <View
-              style={{
-                backgroundColor: "#F9FAFB",
-                borderRadius: 16,
-                padding: 16,
-                marginBottom: 20,
-                borderWidth: 1,
-                borderColor: "#E5E7EB",
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: "700",
-                  color: "#111827",
-                  marginBottom: 12,
-                }}
-              >
-                Coleta selecionada
-              </Text>
+            <SectionHeader title="Detalhes da coleta" />
 
-              <View style={{ marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: "#6B7280" }}>Gerador</Text>
-                <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-                  {selectedSchedule.generator?.companyName ||
-                    selectedSchedule.generator?.name ||
-                    "-"}
-                </Text>
-              </View>
-
-              <View style={{ marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: "#6B7280" }}>Endereço</Text>
-                <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-                  {selectedSchedule.generator?.address || "-"}
-                </Text>
-              </View>
-
-              <View style={{ marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: "#6B7280" }}>Data e hora</Text>
-                <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-                  {formatDateTime(
-                    selectedSchedule.scheduledDate || selectedSchedule.preferredDate
-                  )}
-                </Text>
-              </View>
-
-              <View style={{ marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: "#6B7280" }}>Status</Text>
-                <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-                  {getScheduleStatusLabel(selectedSchedule.status)}
-                </Text>
-              </View>
-
-              <View style={{ marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: "#6B7280" }}>
-                  Materiais previstos
-                </Text>
-                <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-                  {extractMaterials(selectedSchedule.notes) ||
-                    selectedSchedule.notes ||
-                    "Não informado"}
-                </Text>
-              </View>
-
-              <View>
-                <Text style={{ fontSize: 12, color: "#6B7280" }}>Observações</Text>
-                <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500" }}>
-                  {selectedSchedule.notes || "-"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ marginBottom: 20 }}>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: "600",
-                  color: "#111827",
-                  marginBottom: 8,
-                }}
-              >
-                Peso da coleta (kg)
-              </Text>
-              <TextInput
-                value={weight}
-                onChangeText={setWeight}
-                placeholder="0.00"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="numeric"
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#D1D5DB",
-                  borderRadius: 8,
-                  padding: 12,
-                  fontSize: 16,
-                  color: "#111827",
-                  backgroundColor: "#F9FAFB",
-                }}
+            <View style={sectionCard}>
+              <InfoRow label="Origem" value={getOriginLabel(selectedCollection)} />
+              <InfoRow label="Solicitante" value={getSourceName(selectedCollection)} />
+              <InfoRow label="Endereço" value={getAddress(selectedCollection)} />
+              <InfoRow
+                label="Status"
+                value={translateCollectionStatus(selectedCollection.status)}
+              />
+              <InfoRow
+                label="Data"
+                value={formatDateTime(
+                  selectedCollection.schedule?.scheduledDate ||
+                    selectedCollection.schedule?.preferredDate ||
+                    selectedCollection.createdAt
+                )}
+              />
+              <InfoRow
+                label="Materiais"
+                value={formatMaterials(
+                  materialsDraft.length > 0
+                    ? materialsDraft
+                    : normalizeMaterialsForEditing(selectedCollection)
+                )}
+              />
+              <InfoRow
+                label="Peso total"
+                value={`${Number(
+                  selectedCollection.status === "COMPLETED"
+                    ? selectedCollection.totalWeightKg || 0
+                    : totalDraftWeight
+                ).toFixed(1)} kg`}
+                isLast
               />
             </View>
 
-            <View style={{ marginBottom: 25 }}>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: "600",
-                  color: "#111827",
-                  marginBottom: 12,
-                }}
-              >
-                Tipos de materiais coletados
-              </Text>
+            {selectedCollection.status === "IN_PROGRESS" && (
+              <>
+                <SectionHeader title="Registrar quantidade por material" />
 
-              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                {materials.map((material) => {
-                  const selected = selectedMaterials.includes(material);
-
-                  return (
-                    <TouchableOpacity
-                      key={material}
-                      onPress={() => toggleMaterial(material)}
-                      style={{
-                        backgroundColor: selected ? "#028C56" : "#F3F4F6",
-                        paddingHorizontal: 16,
-                        paddingVertical: 10,
-                        borderRadius: 20,
-                        marginRight: 8,
-                        marginBottom: 8,
-                        borderWidth: 1,
-                        borderColor: selected ? "#028C56" : "#D1D5DB",
-                      }}
-                    >
-                      <Text
+                <View style={sectionCard}>
+                  {materialsDraft.length > 0 ? (
+                    materialsDraft.map((material, index) => (
+                      <View
+                        key={`${material.type}-${index}`}
                         style={{
-                          color: selected ? "#FFFFFF" : "#4B5563",
-                          fontWeight: "600",
-                          fontSize: 14,
+                          marginBottom: index === materialsDraft.length - 1 ? 0 : 14,
                         }}
                       >
-                        {material}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "700",
+                            color: "#111827",
+                            marginBottom: 6,
+                          }}
+                        >
+                          {material.type}
+                        </Text>
 
-            <View style={{ marginBottom: 20 }}>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: "600",
-                  color: "#111827",
-                  marginBottom: 8,
-                }}
-              >
-                Observações da execução
-              </Text>
-              <TextInput
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Ex.: material estava separado, acesso pelos fundos, coleta concluída sem intercorrências"
-                placeholderTextColor="#9CA3AF"
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#D1D5DB",
-                  borderRadius: 8,
-                  padding: 12,
-                  fontSize: 16,
-                  color: "#111827",
-                  backgroundColor: "#F9FAFB",
-                  minHeight: 110,
-                }}
-              />
-            </View>
-
-            <View style={{ marginBottom: 24 }}>
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={handleRegisterCollect}
-                disabled={saving || !selectedScheduleId}
-                style={{ marginBottom: 12 }}
-              >
-                <LinearGradient
-                  colors={["#10F35D", "#028C56"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={{
-                    height: 52,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    opacity: saving || !selectedScheduleId ? 0.7 : 1,
-                  }}
-                >
-                  {saving ? (
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <ActivityIndicator color="#FFFFFF" />
-                      <Text
-                        style={{
-                          color: "#FFFFFF",
-                          fontSize: 18,
-                          fontWeight: "800",
-                          marginLeft: 8,
-                        }}
-                      >
-                        SALVANDO...
-                      </Text>
-                    </View>
+                        <TextInput
+                          value={String(material.quantityKg || "")}
+                          onChangeText={(value) => updateMaterialQuantity(index, value)}
+                          keyboardType="numeric"
+                          placeholder="Quantidade em kg"
+                          placeholderTextColor="#9CA3AF"
+                          style={{
+                            borderWidth: 1,
+                            borderColor: "#D1D5DB",
+                            borderRadius: 10,
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                            backgroundColor: "#FFFFFF",
+                            color: "#111827",
+                          }}
+                        />
+                      </View>
+                    ))
                   ) : (
-                    <Text
-                      style={{
-                        color: "#FFFFFF",
-                        fontSize: 18,
-                        fontWeight: "800",
-                      }}
-                    >
-                      REGISTRAR COLETA
+                    <Text style={{ color: "#6B7280" }}>
+                      Nenhum material disponível para informar.
                     </Text>
                   )}
-                </LinearGradient>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={handleReportProblem}
-                style={{
-                  height: 52,
-                  borderRadius: 8,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: "#FEF2F2",
-                  borderWidth: 1,
-                  borderColor: "#DC2626",
-                }}
-              >
-                <Text
-                  style={{ color: "#DC2626", fontSize: 16, fontWeight: "600" }}
-                >
-                  RELATAR PROBLEMA
-                </Text>
-              </TouchableOpacity>
+                  <View
+                    style={{
+                      marginTop: 16,
+                      paddingTop: 14,
+                      borderTopWidth: 1,
+                      borderTopColor: "#E5E7EB",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        fontWeight: "800",
+                        color: "#028C56",
+                      }}
+                    >
+                      Total calculado: {totalDraftWeight.toFixed(1)} kg
+                    </Text>
+                  </View>
+
+                  <View style={{ marginTop: 16 }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: "#111827",
+                        fontWeight: "700",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Observações finais
+                    </Text>
+
+                    <TextInput
+                      value={notesDraft}
+                      onChangeText={setNotesDraft}
+                      multiline
+                      placeholder="Observações da execução da coleta"
+                      placeholderTextColor="#9CA3AF"
+                      style={{
+                        minHeight: 90,
+                        borderWidth: 1,
+                        borderColor: "#D1D5DB",
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        backgroundColor: "#FFFFFF",
+                        color: "#111827",
+                        textAlignVertical: "top",
+                      }}
+                    />
+                  </View>
+                </View>
+              </>
+            )}
+
+            <SectionHeader title="Ações" />
+
+            <View style={sectionCard}>
+              {selectedCollection.status === "PENDING" && (
+                <QuickAction
+                  icon="play-outline"
+                  title="Iniciar coleta"
+                  subtitle="Coloca a coleta em andamento"
+                  onPress={handleStartCollection}
+                  loading={updatingId === selectedCollection.id}
+                />
+              )}
+
+              {selectedCollection.status === "IN_PROGRESS" && (
+                <QuickAction
+                  icon="checkmark-circle-outline"
+                  title="Concluir coleta"
+                  subtitle="Finaliza a coleta com peso real por material"
+                  onPress={handleCompleteCollection}
+                  loading={updatingId === selectedCollection.id}
+                />
+              )}
+
+              {(selectedCollection.status === "PENDING" ||
+                selectedCollection.status === "IN_PROGRESS") && (
+                <QuickAction
+                  icon="alert-circle-outline"
+                  title="Relatar problema"
+                  subtitle="Cancelar a coleta por problema operacional"
+                  onPress={handleReportProblem}
+                  loading={updatingId === selectedCollection.id}
+                  isLast
+                />
+              )}
             </View>
           </>
         )}
-      </ScrollView>
+      </View>
+    </ScrollView>
+  );
+}
+
+function MetricCard({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View
+      style={{
+        width: "48.5%",
+        backgroundColor: "#FFFFFF",
+        borderRadius: 18,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+      }}
+    >
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: "#ECFDF5",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 12,
+        }}
+      >
+        <Ionicons name={icon} size={22} color="#028C56" />
+      </View>
+
+      <Text style={{ color: "#6B7280", fontSize: 13 }}>{title}</Text>
+      <Text style={{ color: "#111827", fontSize: 24, fontWeight: "800", marginTop: 4 }}>
+        {value}
+      </Text>
     </View>
   );
 }
+
+function MetricCardFull({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#FFFFFF",
+        borderRadius: 18,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: "#FEF3C7",
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: 12,
+          }}
+        >
+          <Ionicons name={icon} size={22} color="#D97706" />
+        </View>
+
+        <View>
+          <Text style={{ color: "#6B7280", fontSize: 13 }}>{title}</Text>
+          <Text style={{ color: "#111827", fontSize: 24, fontWeight: "800", marginTop: 2 }}>
+            {value}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function SectionHeader({
+  title,
+}: {
+  title: string;
+}) {
+  return (
+    <Text
+      style={{
+        fontSize: 18,
+        fontWeight: "800",
+        color: "#111827",
+        marginTop: 20,
+        marginBottom: 12,
+      }}
+    >
+      {title}
+    </Text>
+  );
+}
+
+function QuickAction({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  loading = false,
+  isLast = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  loading?: boolean;
+  isLast?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      disabled={loading}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingBottom: isLast ? 0 : 16,
+        marginBottom: isLast ? 0 : 16,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: "#E5E7EB",
+        opacity: loading ? 0.7 : 1,
+      }}
+    >
+      <View
+        style={{
+          width: 46,
+          height: 46,
+          borderRadius: 23,
+          backgroundColor: "#F3F4F6",
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 14,
+        }}
+      >
+        {loading ? (
+          <ActivityIndicator color="#028C56" />
+        ) : (
+          <Ionicons name={icon} size={22} color="#028C56" />
+        )}
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: "700", color: "#111827" }}>
+          {title}
+        </Text>
+        <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>
+          {subtitle}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function StatusBadge({
+  label,
+  color,
+}: {
+  label: string;
+  color: string;
+}) {
+  return (
+    <View
+      style={{
+        alignSelf: "flex-start",
+        backgroundColor: color,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+      }}
+    >
+      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "800" }}>
+        {label.toUpperCase()}
+      </Text>
+    </View>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+  isLast = false,
+}: {
+  label: string;
+  value: string;
+  isLast?: boolean;
+}) {
+  return (
+    <View
+      style={{
+        paddingBottom: isLast ? 0 : 12,
+        marginBottom: isLast ? 0 : 12,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: "#E5E7EB",
+      }}
+    >
+      <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
+        {label}
+      </Text>
+      <Text style={{ fontSize: 15, color: "#111827", fontWeight: "600" }}>
+        {value || "-"}
+      </Text>
+    </View>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View style={{ alignItems: "center", paddingVertical: 28 }}>
+      <Ionicons name={icon} size={42} color="#9CA3AF" />
+      <Text
+        style={{
+          marginTop: 12,
+          fontSize: 16,
+          fontWeight: "700",
+          color: "#111827",
+          textAlign: "center",
+        }}
+      >
+        {title}
+      </Text>
+      <Text
+        style={{
+          marginTop: 6,
+          fontSize: 14,
+          color: "#6B7280",
+          textAlign: "center",
+          lineHeight: 22,
+        }}
+      >
+        {subtitle}
+      </Text>
+    </View>
+  );
+}
+
+const sectionCard = {
+  backgroundColor: "#FFFFFF",
+  borderRadius: 18,
+  padding: 16,
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+} as const;
+
+const listItemCard = {
+  borderWidth: 1,
+  borderRadius: 16,
+  padding: 14,
+  marginBottom: 12,
+} as const;
+
+const itemTitle = {
+  fontSize: 15,
+  fontWeight: "800" as const,
+  color: "#111827",
+} as const;
+
+const itemText = {
+  fontSize: 14,
+  color: "#374151",
+  marginTop: 4,
+} as const;
+
+const itemSubtext = {
+  fontSize: 12,
+  color: "#6B7280",
+  marginTop: 4,
+} as const;

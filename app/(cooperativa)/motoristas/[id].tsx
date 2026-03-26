@@ -19,7 +19,7 @@ import {
 
 export default function MotoristaDetalheScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
-  const routeId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const driverId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [motorista, setMotorista] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,14 +32,14 @@ export default function MotoristaDetalheScreen() {
   }
 
   const loadMotorista = useCallback(async () => {
-    if (!routeId) {
+    if (!driverId) {
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      const data = await driverService.getById(routeId);
+      const data = await driverService.getById(driverId);
       setMotorista(data);
     } catch (error) {
       console.error("Erro ao carregar motorista:", error);
@@ -52,18 +52,18 @@ export default function MotoristaDetalheScreen() {
     } finally {
       setLoading(false);
     }
-  }, [routeId]);
+  }, [driverId]);
 
   useEffect(() => {
     loadMotorista();
   }, [loadMotorista]);
 
   async function handleChangeStatus(status: DriverStatus) {
-    if (!routeId) return;
+    if (!driverId) return;
 
     try {
       setSavingStatus(true);
-      const updated = await driverService.updateStatus(routeId, status);
+      const updated = await driverService.updateStatus(driverId, status);
       setMotorista(updated);
       Alert.alert("Sucesso", "Status do motorista atualizado com sucesso.");
     } catch (error) {
@@ -265,41 +265,40 @@ const getStatusText = (status?: string) => {
           </Text>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            {[
-  { label: "Disponível", value: "AVAILABLE" },
-  { label: "Em rota", value: "ON_ROUTE" },
-  { label: "Inativo", value: "INACTIVE" },
-].map((item) => {
-  const selected = motorista.status === item.value;
+  {[
+    { label: "Disponível", value: "AVAILABLE" },
+    { label: "Em rota", value: "ON_ROUTE" },
+    { label: "Inativo", value: "INACTIVE" },
+  ].map((item) => {
+    const selected = motorista.status === item.value;
 
-  return (
-    <TouchableOpacity
-      key={item.value}
-      onPress={() => handleChangeStatus(item.value as DriverStatus)}
-      disabled={savingStatus}
-      style={{
-        backgroundColor: selected ? "#028C56" : "#F3F4F6",
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 20,
-        marginRight: 10,
-        marginBottom: 10,
-        opacity: savingStatus ? 0.7 : 1,
-      }}
-    >
-      <Text
+    return (
+      <TouchableOpacity
+        key={item.value}
+        onPress={() => handleChangeStatus(item.value as DriverStatus)}
+        disabled={savingStatus}
         style={{
-          color: selected ? "#FFFFFF" : "#4B5563",
-          fontWeight: "600",
+          backgroundColor: selected ? "#028C56" : "#F3F4F6",
+          paddingHorizontal: 14,
+          paddingVertical: 8,
+          borderRadius: 20,
+          marginRight: 10,
+          marginBottom: 10,
+          opacity: savingStatus ? 0.7 : 1,
         }}
       >
-        {item.label}
-      </Text>
-    </TouchableOpacity>
-  );
-})}
-              );
-          </View>
+        <Text
+          style={{
+            color: selected ? "#FFFFFF" : "#4B5563",
+            fontWeight: "600",
+          }}
+        >
+          {item.label}
+        </Text>
+      </TouchableOpacity>
+    );
+  })}
+</View>
 
           {savingStatus && (
             <View style={{ marginTop: 8, flexDirection: "row", alignItems: "center" }}>

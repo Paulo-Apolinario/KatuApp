@@ -18,6 +18,31 @@ import { driverService, type Driver } from "@/src/services/driverService";
 import { vehicleService, type Vehicle } from "@/src/services/vehicleService";
 import { routeService } from "@/src/services/routeService";
 
+function convertBrazilianDateToIsoDate(value: string) {
+  const raw = value.trim();
+
+  const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return null;
+
+  const [, day, month, year] = match;
+
+  const parsed = new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day)
+  );
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  const yyyy = String(parsed.getFullYear());
+  const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+  const dd = String(parsed.getDate()).padStart(2, "0");
+
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function NovaRotaScreen() {
   const [name, setName] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
@@ -61,6 +86,16 @@ export default function NovaRotaScreen() {
       return;
     }
 
+    const normalizedScheduledDate = convertBrazilianDateToIsoDate(scheduledDate);
+
+    if (!normalizedScheduledDate) {
+      Alert.alert(
+        "Data inválida",
+        "Informe a data no formato DD/MM/AAAA. Ex: 16/03/2026"
+      );
+      return;
+    }
+
     const stopsArray = stops
       .split(",")
       .map((item) => item.trim())
@@ -75,12 +110,12 @@ export default function NovaRotaScreen() {
       setSaving(true);
 
       await routeService.create({
-        name,
-        scheduledDate,
+        name: name.trim(),
+        scheduledDate: normalizedScheduledDate,
         driverId,
         vehicleId,
         stops: stopsArray,
-        description,
+        description: description.trim(),
       });
 
       Alert.alert("Sucesso", "Rota cadastrada com sucesso!", [
@@ -130,7 +165,7 @@ export default function NovaRotaScreen() {
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="Ex: Rota Centro Manhã"
+            placeholder="Ex: Rota Centro"
             placeholderTextColor="#9CA3AF"
             style={{
               borderWidth: 1,
@@ -150,7 +185,7 @@ export default function NovaRotaScreen() {
           <TextInput
             value={scheduledDate}
             onChangeText={setScheduledDate}
-            placeholder="2026-03-16T08:00:00.000Z"
+            placeholder="Ex: 16/03/2026"
             placeholderTextColor="#9CA3AF"
             style={{
               borderWidth: 1,

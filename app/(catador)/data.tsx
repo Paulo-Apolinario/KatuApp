@@ -140,7 +140,7 @@ export default function DataScreen() {
               opacity: 0.9,
             }}
           >
-            KATU
+            KATUÁ
           </Text>
         </View>
       </LinearGradient>

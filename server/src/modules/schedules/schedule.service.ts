@@ -1,4 +1,4 @@
-import { ScheduleStatus, UserRole } from "@prisma/client";
+import { AccountStatus, ScheduleStatus, UserRole } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import {
   CreateScheduleInput,
@@ -6,7 +6,9 @@ import {
 } from "./schedule.schemas";
 
 function isGeneratorRole(role: string) {
-  return role === UserRole.GENERATOR_SMALL || role === UserRole.GENERATOR_LARGE;
+  return (
+    role === UserRole.GENERATOR_SMALL || role === UserRole.GENERATOR_LARGE
+  );
 }
 
 function buildScheduleNotes(
@@ -18,10 +20,15 @@ function buildScheduleNotes(
     : "";
 
   const extraNotes = notes?.trim() || "";
-
   const combined = [materialsText, extraNotes].filter(Boolean).join(" | ");
 
   return combined || null;
+}
+
+function resolveInitialStatus(data: CreateScheduleInput) {
+  return data.scheduledDate
+    ? ScheduleStatus.SCHEDULED
+    : ScheduleStatus.REQUESTED;
 }
 
 export class ScheduleService {
@@ -59,15 +66,18 @@ export class ScheduleService {
           cooperativeId: cooperative.id,
           generatorId: generator.id,
           requestedByUserId: authUserId,
-          preferredDate: data.preferredDate ? new Date(data.preferredDate) : null,
-          scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
+          preferredDate: data.preferredDate
+            ? new Date(data.preferredDate)
+            : null,
+          scheduledDate: data.scheduledDate
+            ? new Date(data.scheduledDate)
+            : null,
           notes: buildScheduleNotes(data.requestedMaterials, data.notes),
-          status: data.scheduledDate
-            ? ScheduleStatus.SCHEDULED
-            : ScheduleStatus.REQUESTED,
+          status: resolveInitialStatus(data),
         },
         include: {
           generator: true,
+          cooperative: true,
         },
       });
 
@@ -88,13 +98,59 @@ export class ScheduleService {
           cooperativeId: generator.cooperativeId,
           generatorId: generator.id,
           requestedByUserId: authUserId,
-          preferredDate: data.preferredDate ? new Date(data.preferredDate) : null,
-          scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
+          preferredDate: data.preferredDate
+            ? new Date(data.preferredDate)
+            : null,
+          scheduledDate: data.scheduledDate
+            ? new Date(data.scheduledDate)
+            : null,
           notes: buildScheduleNotes(data.requestedMaterials, data.notes),
-          status: ScheduleStatus.REQUESTED,
+          status: resolveInitialStatus(data),
         },
         include: {
           generator: true,
+          cooperative: true,
+        },
+      });
+
+      return schedule;
+    }
+
+    if (authUserRole === UserRole.PF) {
+      const cooperative = await prisma.cooperative.findFirst({
+        where: {
+          id: data.cooperativeId,
+          user: {
+            role: UserRole.COOPERATIVE,
+            isActive: true,
+            accountStatus: AccountStatus.ACTIVE,
+          },
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      if (!cooperative) {
+        throw new Error("Cooperativa não encontrada ou inativa.");
+      }
+
+      const schedule = await prisma.schedule.create({
+        data: {
+          cooperativeId: cooperative.id,
+          requestedByUserId: authUserId,
+          preferredDate: data.preferredDate
+            ? new Date(data.preferredDate)
+            : null,
+          scheduledDate: data.scheduledDate
+            ? new Date(data.scheduledDate)
+            : null,
+          notes: buildScheduleNotes(data.requestedMaterials, data.notes),
+          status: resolveInitialStatus(data),
+        },
+        include: {
+          generator: true,
+          cooperative: true,
         },
       });
 
@@ -120,6 +176,15 @@ export class ScheduleService {
         },
         include: {
           generator: true,
+          cooperative: true,
+          requestedBy: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              role: true,
+            },
+          },
         },
         orderBy: {
           createdAt: "desc",
@@ -142,6 +207,38 @@ export class ScheduleService {
         },
         include: {
           generator: true,
+          cooperative: true,
+          requestedBy: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+    }
+
+    if (authUserRole === UserRole.PF) {
+      return prisma.schedule.findMany({
+        where: {
+          requestedByUserId: authUserId,
+        },
+        include: {
+          generator: true,
+          cooperative: true,
+          requestedBy: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              role: true,
+            },
+          },
         },
         orderBy: {
           createdAt: "desc",
@@ -169,7 +266,16 @@ export class ScheduleService {
         },
         include: {
           generator: true,
+          cooperative: true,
           collections: true,
+          requestedBy: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              role: true,
+            },
+          },
         },
       });
 
@@ -196,7 +302,44 @@ export class ScheduleService {
         },
         include: {
           generator: true,
+          cooperative: true,
           collections: true,
+          requestedBy: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      });
+
+      if (!schedule) {
+        throw new Error("Agendamento não encontrado.");
+      }
+
+      return schedule;
+    }
+
+    if (authUserRole === UserRole.PF) {
+      const schedule = await prisma.schedule.findFirst({
+        where: {
+          id: scheduleId,
+          requestedByUserId: authUserId,
+        },
+        include: {
+          generator: true,
+          cooperative: true,
+          collections: true,
+          requestedBy: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              role: true,
+            },
+          },
         },
       });
 
@@ -237,10 +380,19 @@ export class ScheduleService {
     const updatedSchedule = await prisma.schedule.update({
       where: { id: existingSchedule.id },
       data: {
-        status: ScheduleStatus[data.status],
+        status: data.status,
       },
       include: {
         generator: true,
+        cooperative: true,
+        requestedBy: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+            role: true,
+          },
+        },
       },
     });
 

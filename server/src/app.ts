@@ -5,6 +5,7 @@ import jwt from "@fastify/jwt";
 
 import { env } from "./config/env";
 import { appRoutes } from "./routes/index";
+import { cooperativesRoutes } from "./modules/cooperatives/cooperatives.routes";
 
 
 export async function buildApp() {
@@ -35,6 +36,7 @@ export async function buildApp() {
   });
 
   await app.register(appRoutes);
+  await app.register(cooperativesRoutes);
 
   return app;
 }
