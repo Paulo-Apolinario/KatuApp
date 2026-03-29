@@ -7,6 +7,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,6 +20,7 @@ import {
 import {
   collectionService,
   type Collection,
+  type CollectionMaterial,
 } from "@/src/services/collectionService";
 
 type AuthUserLike = {
@@ -98,6 +100,14 @@ function extractMaterials(notes?: string | null) {
     .filter(Boolean);
 }
 
+function formatCollectionMaterials(materials?: CollectionMaterial[]) {
+  if (!Array.isArray(materials) || materials.length === 0) return "-";
+
+  return materials
+    .map((item) => `${item.type}: ${Number(item.quantityKg || 0).toFixed(1)} kg`)
+    .join(", ");
+}
+
 function getScheduleBadgeColor(status: Schedule["status"]) {
   switch (status) {
     case "REQUESTED":
@@ -136,7 +146,6 @@ export default function GeneratorDashboardScreen() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
 
@@ -151,6 +160,14 @@ export default function GeneratorDashboardScreen() {
     try {
       if (showLoader) setLoading(true);
 
+      if (!scheduleService || typeof scheduleService.list !== "function") {
+        throw new Error("Serviço de agendamentos não carregado.");
+      }
+
+      if (!collectionService || typeof collectionService.list !== "function") {
+        throw new Error("Serviço de coletas não carregado.");
+      }
+
       const [scheduleResponse, collectionResponse] = await Promise.all([
         scheduleService.list(),
         collectionService.list(),
@@ -160,6 +177,12 @@ export default function GeneratorDashboardScreen() {
       setCollections(Array.isArray(collectionResponse) ? collectionResponse : []);
     } catch (error) {
       console.error("Erro ao carregar dashboard do gerador:", error);
+      Alert.alert(
+        "Erro",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar o dashboard do gerador."
+      );
       setSchedules([]);
       setCollections([]);
     } finally {
@@ -284,12 +307,7 @@ export default function GeneratorDashboardScreen() {
           Acompanhe agendamentos, coletas concluídas e o impacto gerado pela sua operação.
         </Text>
 
-        <View
-          style={{
-            flexDirection: "row",
-            marginTop: 18,
-          }}
-        >
+        <View style={{ flexDirection: "row", marginTop: 18 }}>
           <ActionButton
             icon="calendar-outline"
             label="Novo agendamento"
@@ -432,7 +450,7 @@ export default function GeneratorDashboardScreen() {
 
                     {(item.materials || []).length > 0 && (
                       <Text style={itemSubtext}>
-                        Materiais: {item.materials.join(", ")}
+                        Materiais: {formatCollectionMaterials(item.materials)}
                       </Text>
                     )}
                   </View>

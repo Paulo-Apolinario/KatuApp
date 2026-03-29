@@ -31,6 +31,30 @@ function resolveInitialStatus(data: CreateScheduleInput) {
     : ScheduleStatus.REQUESTED;
 }
 
+const scheduleInclude = {
+  generator: true,
+  cooperative: true,
+  requestedBy: {
+    select: {
+      id: true,
+      displayName: true,
+      email: true,
+      role: true,
+    },
+  },
+  collections: {
+    include: {
+      collector: true,
+      driver: true,
+      vehicle: true,
+      route: true,
+    },
+    orderBy: {
+      createdAt: "desc" as const,
+    },
+  },
+};
+
 export class ScheduleService {
   async create(
     authUserId: string,
@@ -61,7 +85,7 @@ export class ScheduleService {
         throw new Error("Gerador não encontrado para esta cooperativa.");
       }
 
-      const schedule = await prisma.schedule.create({
+      return prisma.schedule.create({
         data: {
           cooperativeId: cooperative.id,
           generatorId: generator.id,
@@ -75,13 +99,8 @@ export class ScheduleService {
           notes: buildScheduleNotes(data.requestedMaterials, data.notes),
           status: resolveInitialStatus(data),
         },
-        include: {
-          generator: true,
-          cooperative: true,
-        },
+        include: scheduleInclude,
       });
-
-      return schedule;
     }
 
     if (isGeneratorRole(authUserRole)) {
@@ -93,7 +112,7 @@ export class ScheduleService {
         throw new Error("Gerador do usuário autenticado não encontrado.");
       }
 
-      const schedule = await prisma.schedule.create({
+      return prisma.schedule.create({
         data: {
           cooperativeId: generator.cooperativeId,
           generatorId: generator.id,
@@ -107,13 +126,8 @@ export class ScheduleService {
           notes: buildScheduleNotes(data.requestedMaterials, data.notes),
           status: resolveInitialStatus(data),
         },
-        include: {
-          generator: true,
-          cooperative: true,
-        },
+        include: scheduleInclude,
       });
-
-      return schedule;
     }
 
     if (authUserRole === UserRole.PF) {
@@ -126,16 +140,13 @@ export class ScheduleService {
             accountStatus: AccountStatus.ACTIVE,
           },
         },
-        include: {
-          user: true,
-        },
       });
 
       if (!cooperative) {
         throw new Error("Cooperativa não encontrada ou inativa.");
       }
 
-      const schedule = await prisma.schedule.create({
+      return prisma.schedule.create({
         data: {
           cooperativeId: cooperative.id,
           requestedByUserId: authUserId,
@@ -148,13 +159,8 @@ export class ScheduleService {
           notes: buildScheduleNotes(data.requestedMaterials, data.notes),
           status: resolveInitialStatus(data),
         },
-        include: {
-          generator: true,
-          cooperative: true,
-        },
+        include: scheduleInclude,
       });
-
-      return schedule;
     }
 
     throw new Error("Usuário sem permissão para criar agendamentos.");
@@ -174,21 +180,12 @@ export class ScheduleService {
         where: {
           cooperativeId: cooperative.id,
         },
-        include: {
-          generator: true,
-          cooperative: true,
-          requestedBy: {
-            select: {
-              id: true,
-              displayName: true,
-              email: true,
-              role: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
+        include: scheduleInclude,
+        orderBy: [
+          { status: "asc" },
+          { scheduledDate: "asc" },
+          { createdAt: "desc" },
+        ],
       });
     }
 
@@ -205,21 +202,12 @@ export class ScheduleService {
         where: {
           generatorId: generator.id,
         },
-        include: {
-          generator: true,
-          cooperative: true,
-          requestedBy: {
-            select: {
-              id: true,
-              displayName: true,
-              email: true,
-              role: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
+        include: scheduleInclude,
+        orderBy: [
+          { status: "asc" },
+          { scheduledDate: "asc" },
+          { createdAt: "desc" },
+        ],
       });
     }
 
@@ -228,21 +216,12 @@ export class ScheduleService {
         where: {
           requestedByUserId: authUserId,
         },
-        include: {
-          generator: true,
-          cooperative: true,
-          requestedBy: {
-            select: {
-              id: true,
-              displayName: true,
-              email: true,
-              role: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
+        include: scheduleInclude,
+        orderBy: [
+          { status: "asc" },
+          { scheduledDate: "asc" },
+          { createdAt: "desc" },
+        ],
       });
     }
 
@@ -264,19 +243,7 @@ export class ScheduleService {
           id: scheduleId,
           cooperativeId: cooperative.id,
         },
-        include: {
-          generator: true,
-          cooperative: true,
-          collections: true,
-          requestedBy: {
-            select: {
-              id: true,
-              displayName: true,
-              email: true,
-              role: true,
-            },
-          },
-        },
+        include: scheduleInclude,
       });
 
       if (!schedule) {
@@ -300,19 +267,7 @@ export class ScheduleService {
           id: scheduleId,
           generatorId: generator.id,
         },
-        include: {
-          generator: true,
-          cooperative: true,
-          collections: true,
-          requestedBy: {
-            select: {
-              id: true,
-              displayName: true,
-              email: true,
-              role: true,
-            },
-          },
-        },
+        include: scheduleInclude,
       });
 
       if (!schedule) {
@@ -328,19 +283,7 @@ export class ScheduleService {
           id: scheduleId,
           requestedByUserId: authUserId,
         },
-        include: {
-          generator: true,
-          cooperative: true,
-          collections: true,
-          requestedBy: {
-            select: {
-              id: true,
-              displayName: true,
-              email: true,
-              role: true,
-            },
-          },
-        },
+        include: scheduleInclude,
       });
 
       if (!schedule) {
@@ -371,31 +314,36 @@ export class ScheduleService {
         id: scheduleId,
         cooperativeId: cooperative.id,
       },
+      include: {
+        collections: {
+          where: {
+            status: {
+              in: ["PENDING", "IN_PROGRESS"],
+            },
+          },
+        },
+      },
     });
 
     if (!existingSchedule) {
       throw new Error("Agendamento não encontrado.");
     }
 
-    const updatedSchedule = await prisma.schedule.update({
+    if (
+      data.status === ScheduleStatus.CANCELLED &&
+      existingSchedule.collections.length > 0
+    ) {
+      throw new Error(
+        "Não é possível cancelar um agendamento com coleta operacional ativa."
+      );
+    }
+
+    return prisma.schedule.update({
       where: { id: existingSchedule.id },
       data: {
         status: data.status,
       },
-      include: {
-        generator: true,
-        cooperative: true,
-        requestedBy: {
-          select: {
-            id: true,
-            displayName: true,
-            email: true,
-            role: true,
-          },
-        },
-      },
+      include: scheduleInclude,
     });
-
-    return updatedSchedule;
   }
 }

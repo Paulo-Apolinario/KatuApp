@@ -14,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import {
   collectionService,
   type Collection,
+  type CollectionMaterial,
 } from "@/src/services/collectionService";
 
 type MaterialStats = {
@@ -34,6 +35,42 @@ const materialColors = [
   "#EC4899",
   "#14B8A6",
 ];
+
+function normalizeMaterials(materials: unknown): CollectionMaterial[] {
+  if (!Array.isArray(materials)) return [];
+
+  return materials
+    .map((item) => {
+      if (typeof item === "string") {
+        return {
+          type: item,
+          quantityKg: 0,
+        };
+      }
+
+      if (item && typeof item === "object" && "type" in item) {
+        return {
+          type: String((item as { type?: unknown }).type ?? "Não informado"),
+          quantityKg: Number(
+            (item as { quantityKg?: unknown }).quantityKg ?? 0
+          ),
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean) as CollectionMaterial[];
+}
+
+function getCollectionTotalKg(collection: Collection) {
+  const materialsKg = normalizeMaterials(collection.materials).reduce(
+    (sum, item) => sum + Number(item.quantityKg ?? 0),
+    0
+  );
+
+  if (materialsKg > 0) return materialsKg;
+  return Number(collection.totalWeightKg ?? 0);
+}
 
 export default function PercentualScreen() {
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -72,7 +109,7 @@ export default function PercentualScreen() {
 
   const totalKg = useMemo(() => {
     return completedCollections.reduce(
-      (sum, item) => sum + Number(item.totalWeightKg || 0),
+      (sum, item) => sum + getCollectionTotalKg(item),
       0
     );
   }, [completedCollections]);
@@ -89,33 +126,26 @@ export default function PercentualScreen() {
     > = {};
 
     completedCollections.forEach((collection) => {
-      const weight = Number(collection.totalWeightKg || 0);
-      const materialsInCollection = collection.materials || [];
-
-      if (materialsInCollection.length === 0) return;
-
-      const weightPerMaterial =
-        materialsInCollection.length > 0
-          ? weight / materialsInCollection.length
-          : 0;
+      const materialsInCollection = normalizeMaterials(collection.materials);
 
       materialsInCollection.forEach((material) => {
-        const normalized = String(material).trim().toUpperCase();
+        const normalizedName = material.type.trim() || "Não informado";
+        const quantity = Number(material.quantityKg ?? 0);
 
-        if (!materialMap[normalized]) {
-          materialMap[normalized] = {
+        if (!materialMap[normalizedName]) {
+          materialMap[normalizedName] = {
             count: 0,
             totalKg: 0,
           };
         }
 
-        materialMap[normalized].count += 1;
-        materialMap[normalized].totalKg += weightPerMaterial;
+        materialMap[normalizedName].count += 1;
+        materialMap[normalizedName].totalKg += quantity;
       });
     });
 
-    const totalOccurrences = Object.values(materialMap).reduce(
-      (sum, item) => sum + item.count,
+    const totalMaterialsKg = Object.values(materialMap).reduce(
+      (sum, item) => sum + item.totalKg,
       0
     );
 
@@ -125,8 +155,8 @@ export default function PercentualScreen() {
         count: data.count,
         totalKg: data.totalKg,
         percent:
-          totalOccurrences > 0
-            ? Math.round((data.count / totalOccurrences) * 100)
+          totalMaterialsKg > 0
+            ? Math.round((data.totalKg / totalMaterialsKg) * 100)
             : 0,
         color: materialColors[index % materialColors.length],
       }))
@@ -320,7 +350,7 @@ export default function PercentualScreen() {
                     marginBottom: 6,
                   }}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
                     <View
                       style={{
                         width: 12,
@@ -335,6 +365,7 @@ export default function PercentualScreen() {
                         fontSize: 15,
                         fontWeight: "500",
                         color: "#374151",
+                        flexShrink: 1,
                       }}
                     >
                       {item.name}
@@ -361,7 +392,7 @@ export default function PercentualScreen() {
                 >
                   <View
                     style={{
-                      width: `${item.percent}%`,
+                      width: `${Math.min(item.percent, 100)}%`,
                       height: 10,
                       backgroundColor: item.color,
                       borderRadius: 5,
@@ -428,7 +459,7 @@ export default function PercentualScreen() {
                       marginRight: 8,
                     }}
                   />
-                  <Text style={{ fontSize: 14, color: "#4B5563" }}>
+                  <Text style={{ fontSize: 14, color: "#4B5563", flexShrink: 1 }}>
                     {item.name}
                   </Text>
                 </View>

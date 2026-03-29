@@ -10,10 +10,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
-import {
-  collectionService,
-  type Collection,
-} from "@/src/services/collectionService";
+import { collectionService } from "@/src/services/collectionService";
+import type { Collection, CollectionMaterial } from "@/src/types/collection";
 
 function formatDate(date?: string | null) {
   if (!date) return "-";
@@ -22,6 +20,51 @@ function formatDate(date?: string | null) {
   if (Number.isNaN(parsed.getTime())) return "-";
 
   return parsed.toLocaleDateString("pt-BR");
+}
+
+function normalizeMaterials(materials: unknown): CollectionMaterial[] {
+  if (!Array.isArray(materials)) return [];
+
+  return materials
+    .map((item) => {
+      if (typeof item === "string") {
+        return { type: item, quantityKg: 0 };
+      }
+
+      if (
+        item &&
+        typeof item === "object" &&
+        "type" in item
+      ) {
+        return {
+          type: String((item as { type?: unknown }).type ?? "Não informado"),
+          quantityKg: Number(
+            (item as { quantityKg?: unknown }).quantityKg ?? 0
+          ),
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean) as CollectionMaterial[];
+}
+
+function getCollectionTotalKg(collection: Collection) {
+  const materialsKg = (collection.materials ?? []).reduce(
+    (sum, item) => sum + Number(item.quantityKg ?? 0),
+    0
+  );
+
+  if (materialsKg > 0) return materialsKg;
+  return Number(collection.totalWeightKg ?? 0);
+}
+
+function getMaterialsLabel(materials?: CollectionMaterial[]) {
+  if (!materials || materials.length === 0) return "-";
+
+  return materials
+    .map((item) => `${item.type} (${Number(item.quantityKg ?? 0).toFixed(1)} kg)`)
+    .join(", ");
 }
 
 export default function CollectorDashboardScreen() {
@@ -34,7 +77,16 @@ export default function CollectorDashboardScreen() {
       if (showLoader) setLoading(true);
 
       const response = await collectionService.list();
-      setCollections(Array.isArray(response) ? response : []);
+
+      const normalized = Array.isArray(response)
+        ? response.map((item) => ({
+            ...item,
+            materials: normalizeMaterials(item.materials),
+            totalWeightKg: Number(item.totalWeightKg ?? 0),
+          }))
+        : [];
+
+      setCollections(normalized);
     } catch (error) {
       console.error("Erro ao carregar dashboard do catador:", error);
       setCollections([]);
@@ -65,34 +117,58 @@ export default function CollectorDashboardScreen() {
     );
 
     const totalKg = completedCollections.reduce(
-      (acc, item) => acc + Number(item.totalWeightKg || 0),
+      (acc, item) => acc + getCollectionTotalKg(item),
       0
     );
 
     const lastCollection =
       [...completedCollections].sort((a, b) => {
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        const aTime = a.collectedAt
+          ? new Date(a.collectedAt).getTime()
+          : a.createdAt
+            ? new Date(a.createdAt).getTime()
+            : 0;
+
+        const bTime = b.collectedAt
+          ? new Date(b.collectedAt).getTime()
+          : b.createdAt
+            ? new Date(b.createdAt).getTime()
+            : 0;
+
         return bTime - aTime;
       })[0] || null;
 
     const topMaterialsMap: Record<string, number> = {};
 
     completedCollections.forEach((item) => {
-      (item.materials || []).forEach((material) => {
-        topMaterialsMap[material] = (topMaterialsMap[material] || 0) + 1;
+      (item.materials ?? []).forEach((material) => {
+        const materialType = material.type?.trim() || "Não informado";
+        const quantity = Number(material.quantityKg ?? 0);
+
+        topMaterialsMap[materialType] =
+          (topMaterialsMap[materialType] || 0) + quantity;
       });
     });
 
     const topMaterials = Object.entries(topMaterialsMap)
-      .map(([material, count]) => ({ material, count }))
-      .sort((a, b) => b.count - a.count)
+      .map(([material, quantityKg]) => ({ material, quantityKg }))
+      .sort((a, b) => b.quantityKg - a.quantityKg)
       .slice(0, 5);
 
     const recentCollections = [...collections]
       .sort((a, b) => {
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        const aTime = a.collectedAt
+          ? new Date(a.collectedAt).getTime()
+          : a.createdAt
+            ? new Date(a.createdAt).getTime()
+            : 0;
+
+        const bTime = b.collectedAt
+          ? new Date(b.collectedAt).getTime()
+          : b.createdAt
+            ? new Date(b.createdAt).getTime()
+            : 0;
+
         return bTime - aTime;
       })
       .slice(0, 4);
@@ -169,7 +245,7 @@ export default function CollectorDashboardScreen() {
             lineHeight: 22,
           }}
         >
-          Veja o total coletado, o andamento das coletas e os materiais mais recorrentes.
+          Veja o total coletado, o andamento das coletas e os materiais mais relevantes.
         </Text>
       </LinearGradient>
 
@@ -213,15 +289,17 @@ export default function CollectorDashboardScreen() {
             <>
               <InfoRow
                 label="Data"
-                value={formatDate(metrics.lastCollection.createdAt)}
+                value={formatDate(
+                  metrics.lastCollection.collectedAt || metrics.lastCollection.createdAt
+                )}
               />
               <InfoRow
                 label="Peso"
-                value={`${Number(metrics.lastCollection.totalWeightKg || 0).toFixed(1)} kg`}
+                value={`${getCollectionTotalKg(metrics.lastCollection).toFixed(1)} kg`}
               />
               <InfoRow
                 label="Materiais"
-                value={(metrics.lastCollection.materials || []).join(", ") || "-"}
+                value={getMaterialsLabel(metrics.lastCollection.materials)}
                 isLast
               />
             </>
@@ -234,7 +312,7 @@ export default function CollectorDashboardScreen() {
           )}
         </View>
 
-        <SectionHeader title="Materiais mais recorrentes" />
+        <SectionHeader title="Materiais com maior volume" />
 
         <View style={sectionCard}>
           {metrics.topMaterials.length > 0 ? (
@@ -256,14 +334,14 @@ export default function CollectorDashboardScreen() {
                   {item.material}
                 </Text>
                 <Text style={{ color: "#028C56", fontWeight: "800" }}>
-                  {item.count}
+                  {item.quantityKg.toFixed(1)} kg
                 </Text>
               </View>
             ))
           ) : (
             <EmptyState
               icon="cube-outline"
-              title="Sem materiais recorrentes"
+              title="Sem materiais registrados"
               subtitle="Os materiais aparecerão aqui conforme as coletas forem concluídas."
             />
           )}
@@ -275,18 +353,16 @@ export default function CollectorDashboardScreen() {
           {metrics.recentCollections.length > 0 ? (
             metrics.recentCollections.map((item) => (
               <View key={item.id} style={listItemCard}>
-                <Text style={itemTitle}>
-                  Status: {item.status}
-                </Text>
+                <Text style={itemTitle}>Status: {item.status}</Text>
                 <Text style={itemText}>
-                  Peso: {Number(item.totalWeightKg || 0).toFixed(1)} kg
+                  Peso: {getCollectionTotalKg(item).toFixed(1)} kg
                 </Text>
                 <Text style={itemSubtext}>
-                  Data: {formatDate(item.createdAt)}
+                  Data: {formatDate(item.collectedAt || item.createdAt)}
                 </Text>
-                {(item.materials || []).length > 0 && (
+                {(item.materials ?? []).length > 0 && (
                   <Text style={itemSubtext}>
-                    Materiais: {item.materials.join(", ")}
+                    Materiais: {getMaterialsLabel(item.materials)}
                   </Text>
                 )}
               </View>

@@ -12,17 +12,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { collectionService } from "@/src/services/collectionService";
+import type { Collection, CollectionMaterial } from "@/src/types/collection";
 
-type CollectionItem = {
-  id: string;
-  totalWeightKg: number;
-  materials: string[];
-  notes?: string | null;
-  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
-  createdAt?: string;
-};
-
-function formatDate(value?: string) {
+function formatDate(value?: string | null) {
   if (!value) return "-";
 
   const parsed = new Date(value);
@@ -31,17 +23,65 @@ function formatDate(value?: string) {
   return parsed.toLocaleDateString("pt-BR");
 }
 
+function normalizeMaterials(materials: unknown): CollectionMaterial[] {
+  if (!Array.isArray(materials)) return [];
+
+  return materials
+    .map((item) => {
+      if (typeof item === "string") {
+        return { type: item, quantityKg: 0 };
+      }
+
+      if (
+        item &&
+        typeof item === "object" &&
+        "type" in item
+      ) {
+        return {
+          type: String((item as { type?: unknown }).type ?? "Não informado"),
+          quantityKg: Number(
+            (item as { quantityKg?: unknown }).quantityKg ?? 0
+          ),
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean) as CollectionMaterial[];
+}
+
+function getCollectionTotalKg(collection: Collection) {
+  const materialsKg = (collection.materials ?? []).reduce(
+    (sum, item) => sum + Number(item.quantityKg ?? 0),
+    0
+  );
+
+  if (materialsKg > 0) return materialsKg;
+  return Number(collection.totalWeightKg ?? 0);
+}
+
 export default function DataScreen() {
   const [loading, setLoading] = useState(true);
-  const [collections, setCollections] = useState<CollectionItem[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
 
   const loadCollections = async () => {
     try {
       setLoading(true);
+
       const response = await collectionService.list();
-      setCollections(Array.isArray(response) ? response : []);
+
+      const normalized = Array.isArray(response)
+        ? response.map((item) => ({
+            ...item,
+            materials: normalizeMaterials(item.materials),
+            totalWeightKg: Number(item.totalWeightKg ?? 0),
+          }))
+        : [];
+
+      setCollections(normalized);
     } catch (error) {
       console.error("Erro ao carregar coletas:", error);
+      setCollections([]);
     } finally {
       setLoading(false);
     }
@@ -58,7 +98,7 @@ export default function DataScreen() {
   const totalKg = useMemo(
     () =>
       completedCollections.reduce(
-        (acc, item) => acc + Number(item.totalWeightKg || 0),
+        (acc, item) => acc + getCollectionTotalKg(item),
         0
       ),
     [completedCollections]
@@ -67,25 +107,30 @@ export default function DataScreen() {
   const totalColetas = completedCollections.length;
 
   const materialPercentuais = useMemo(() => {
-    const contagem: Record<string, number> = {};
+    const quantidadePorMaterial: Record<string, number> = {};
 
     completedCollections.forEach((coleta) => {
-      (coleta.materials || []).forEach((material) => {
-        contagem[material] = (contagem[material] || 0) + 1;
+      (coleta.materials ?? []).forEach((material) => {
+        const materialType = material.type?.trim() || "Não informado";
+        const quantity = Number(material.quantityKg ?? 0);
+
+        quantidadePorMaterial[materialType] =
+          (quantidadePorMaterial[materialType] || 0) + quantity;
       });
     });
 
-    const totalMateriais = Object.values(contagem).reduce(
+    const totalMateriaisKg = Object.values(quantidadePorMaterial).reduce(
       (acc, val) => acc + val,
       0
     );
 
-    if (totalMateriais === 0) return [];
+    if (totalMateriaisKg === 0) return [];
 
-    return Object.entries(contagem)
-      .map(([material, quantidade], index) => ({
+    return Object.entries(quantidadePorMaterial)
+      .map(([material, quantidadeKg], index) => ({
         material,
-        percent: Math.round((quantidade / totalMateriais) * 100),
+        quantityKg: quantidadeKg,
+        percent: Math.round((quantidadeKg / totalMateriaisKg) * 100),
         color: [
           "#06B6D4",
           "#EF4444",
@@ -95,7 +140,7 @@ export default function DataScreen() {
           "#F59E0B",
         ][index % 6],
       }))
-      .sort((a, b) => b.percent - a.percent);
+      .sort((a, b) => b.quantityKg - a.quantityKg);
   }, [completedCollections]);
 
   return (
@@ -179,7 +224,7 @@ export default function DataScreen() {
                   TOTAL COLETADO
                 </Text>
                 <Text style={{ fontSize: 28, fontWeight: "800", color: "#028C56" }}>
-                  {totalKg} kg
+                  {totalKg.toFixed(1)} kg
                 </Text>
               </View>
 
@@ -253,7 +298,7 @@ export default function DataScreen() {
                     }}
                   >
                     <Text style={{ flex: 1, color: "#4B5563" }}>
-                      {formatDate(item.createdAt)}
+                      {formatDate(item.collectedAt || item.createdAt)}
                     </Text>
                     <Text style={{ flex: 1, color: "#4B5563" }}>
                       {item.status}
@@ -261,7 +306,7 @@ export default function DataScreen() {
                     <Text
                       style={{ flex: 1, color: "#028C56", fontWeight: "600" }}
                     >
-                      {item.totalWeightKg} kg
+                      {getCollectionTotalKg(item).toFixed(1)} kg
                     </Text>
                   </View>
                 ))
@@ -317,7 +362,7 @@ export default function DataScreen() {
                           color: "#111827",
                         }}
                       >
-                        {item.percent}%
+                        {item.percent}% ({item.quantityKg.toFixed(1)} kg)
                       </Text>
                     </View>
                     <View

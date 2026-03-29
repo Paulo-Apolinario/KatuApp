@@ -48,7 +48,7 @@ export default function HomeCatScreen() {
     try {
       setLoading(true);
       const data = await collectionService.list();
-      setCollections(data);
+      setCollections(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao carregar painel do catador:", error);
       Alert.alert("Erro", "Não foi possível carregar o painel do catador.");
@@ -73,15 +73,24 @@ export default function HomeCatScreen() {
       (item) => item.status === "IN_PROGRESS"
     );
 
+    const pendingCollections = collections.filter(
+      (item) => item.status === "PENDING"
+    );
+
     const totalCollectedKg = completedCollections.reduce(
       (acc, item) => acc + Number(item.totalWeightKg || 0),
       0
     );
 
+    const activeOperation =
+      inProgressCollections[0] || pendingCollections[0] || null;
+
     return {
       totalCollectedKg,
       completedCollections,
       inProgressCollections,
+      pendingCollections,
+      activeOperation,
       recentCollections: completedCollections.slice(0, 5),
     };
   }, [collections]);
@@ -140,7 +149,7 @@ export default function HomeCatScreen() {
             lineHeight: 22,
           }}
         >
-          Acompanhe suas coletas executadas, volume coletado e ações rápidas.
+          Acompanhe coletas, rota atual, volume coletado e ações rápidas.
         </Text>
 
         <View style={{ flexDirection: "row", marginTop: 18 }}>
@@ -151,9 +160,9 @@ export default function HomeCatScreen() {
             style={{ flex: 1, marginRight: 10 }}
           />
           <ActionButton
-            icon="bar-chart-outline"
-            label="Ver dados"
-            onPress={() => router.push("/(catador)/data")}
+            icon="map-outline"
+            label="Mapa"
+            onPress={() => router.push("../(catador)/mapas")}
             style={{ flex: 1 }}
           />
         </View>
@@ -181,6 +190,75 @@ export default function HomeCatScreen() {
           />
         </View>
 
+        <SectionHeader title="Operação atual" />
+
+        <View style={sectionCard}>
+          {metrics.activeOperation ? (
+            <>
+              <Text style={itemTitle}>
+                {metrics.activeOperation.generator?.companyName ||
+                  metrics.activeOperation.generator?.name ||
+                  "Coleta operacional"}
+              </Text>
+
+              <Text style={itemText}>
+                Endereço: {metrics.activeOperation.generator?.address || "-"}
+              </Text>
+
+              <Text style={itemText}>
+                Status: {metrics.activeOperation.status}
+              </Text>
+
+              <Text style={itemText}>
+                Rota: {metrics.activeOperation.route?.name || "-"}
+              </Text>
+
+              <Text style={itemText}>
+                Motorista: {metrics.activeOperation.driver?.name || "-"}
+              </Text>
+
+              <Text style={itemText}>
+                Veículo:{" "}
+                {metrics.activeOperation.vehicle
+                  ? `${metrics.activeOperation.vehicle.model}${
+                      metrics.activeOperation.vehicle.plate
+                        ? ` • ${metrics.activeOperation.vehicle.plate}`
+                        : ""
+                    }`
+                  : "-"}
+              </Text>
+
+              <Text style={itemSubtext}>
+                Data:{" "}
+                {formatDateTime(
+                  metrics.activeOperation.schedule?.scheduledDate ||
+                    metrics.activeOperation.schedule?.preferredDate ||
+                    metrics.activeOperation.createdAt
+                )}
+              </Text>
+
+              <View style={{ marginTop: 14, flexDirection: "row", gap: 10 }}>
+                <QuickMiniButton
+                  icon="play-outline"
+                  label="Abrir execução"
+                  onPress={() => router.push("/(catador)/collect")}
+                />
+                <QuickMiniButton
+                  icon="map-outline"
+                  label="Ver mapa"
+                  onPress={() => router.push("../(catador)/mapas")}
+                />
+              </View>
+            </>
+          ) : (
+            <EmptyState
+              icon="trail-sign-outline"
+              title="Nenhuma operação ativa"
+              subtitle="Quando houver coleta pendente ou em andamento, a rota atual aparecerá aqui."
+            />
+          )}
+        </View>
+
         <SectionHeader
           title="Coletas recentes"
           actionLabel="Ver dados"
@@ -191,7 +269,9 @@ export default function HomeCatScreen() {
           {metrics.recentCollections.length > 0 ? (
             metrics.recentCollections.map((item) => (
               <View key={item.id} style={listItemCard}>
-                <Text style={itemTitle}>Status: {item.status}</Text>
+                <Text style={itemTitle}>
+                  {item.generator?.companyName || item.generator?.name || "Coleta concluída"}
+                </Text>
                 <Text style={itemText}>
                   Peso: {Number(item.totalWeightKg || 0).toFixed(1)} kg
                 </Text>
@@ -222,6 +302,12 @@ export default function HomeCatScreen() {
             onPress={() => router.push("/(catador)/collect")}
           />
           <QuickAction
+            icon="map-outline"
+            title="Mapa do catador"
+            subtitle="Visualizar a operação atual no mapa"
+            onPress={() => router.push("../(catador)/mapas")}
+          />
+          <QuickAction
             icon="bar-chart-outline"
             title="Ver dados"
             subtitle="Acompanhar total coletado e histórico"
@@ -232,12 +318,6 @@ export default function HomeCatScreen() {
             title="Comprovantes"
             subtitle="Gerar e consultar comprovantes"
             onPress={() => router.push("/(catador)/receipts")}
-          />
-          <QuickAction
-            icon="grid-outline"
-            title="Resumo do catador"
-            subtitle="Visualizar painel consolidado"
-            onPress={() => router.push("/(catador)/dashboard")}
             isLast
           />
         </View>
@@ -428,8 +508,8 @@ function QuickAction({
       style={{
         flexDirection: "row",
         alignItems: "center",
-        paddingBottom: isLast ? 0 : 16,
-        marginBottom: isLast ? 0 : 16,
+        paddingBottom: isLast ? 0 : 14,
+        marginBottom: isLast ? 0 : 14,
         borderBottomWidth: isLast ? 0 : 1,
         borderBottomColor: "#E5E7EB",
       }}
@@ -439,23 +519,55 @@ function QuickAction({
           width: 46,
           height: 46,
           borderRadius: 23,
-          backgroundColor: "#F3F4F6",
+          backgroundColor: "#ECFDF5",
           alignItems: "center",
           justifyContent: "center",
-          marginRight: 14,
+          marginRight: 12,
         }}
       >
         <Ionicons name={icon} size={22} color="#028C56" />
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: "#111827" }}>
+        <Text style={{ color: "#111827", fontSize: 15, fontWeight: "800" }}>
           {title}
         </Text>
-        <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>
+        <Text style={{ color: "#6B7280", fontSize: 13, marginTop: 2 }}>
           {subtitle}
         </Text>
       </View>
+    </TouchableOpacity>
+  );
+}
+
+function QuickMiniButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        flex: 1,
+        backgroundColor: "#F8FAFC",
+        borderColor: "#E2E8F0",
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "row",
+      }}
+    >
+      <Ionicons name={icon} size={16} color="#028C56" />
+      <Text style={{ color: "#0F172A", fontWeight: "700", marginLeft: 8 }}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -470,26 +582,25 @@ function EmptyState({
   subtitle: string;
 }) {
   return (
-    <View style={{ alignItems: "center", paddingVertical: 28 }}>
+    <View style={{ alignItems: "center", paddingVertical: 16 }}>
       <Ionicons name={icon} size={42} color="#9CA3AF" />
       <Text
         style={{
-          marginTop: 12,
-          fontSize: 16,
-          fontWeight: "700",
           color: "#111827",
-          textAlign: "center",
+          fontSize: 16,
+          fontWeight: "800",
+          marginTop: 12,
         }}
       >
         {title}
       </Text>
       <Text
         style={{
-          marginTop: 6,
-          fontSize: 14,
           color: "#6B7280",
+          fontSize: 13,
           textAlign: "center",
-          lineHeight: 22,
+          marginTop: 6,
+          lineHeight: 20,
         }}
       >
         {subtitle}
@@ -516,19 +627,19 @@ const listItemCard = {
 } as const;
 
 const itemTitle = {
-  fontSize: 15,
-  fontWeight: "800" as const,
   color: "#111827",
+  fontSize: 15,
+  fontWeight: "800",
 } as const;
 
 const itemText = {
-  fontSize: 14,
   color: "#374151",
-  marginTop: 4,
+  fontSize: 13,
+  marginTop: 6,
 } as const;
 
 const itemSubtext = {
-  fontSize: 12,
   color: "#6B7280",
-  marginTop: 4,
+  fontSize: 12,
+  marginTop: 6,
 } as const;

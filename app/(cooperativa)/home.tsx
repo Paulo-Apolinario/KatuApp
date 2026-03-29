@@ -30,10 +30,10 @@ type AuthUserLike = {
 };
 
 function formatDate(value?: string | null) {
-  if (!value) return "Sem data";
+  if (!value) return "Sem data agendada";
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Sem data";
+  if (Number.isNaN(date.getTime())) return "Sem data agendada";
 
   return date.toLocaleString("pt-BR", {
     day: "2-digit",
@@ -57,25 +57,25 @@ function extractRequestedMaterials(notes?: string | null) {
 }
 
 function getScheduleOrigin(item: Schedule) {
-  if (item.generatorId) return "GERADOR";
-  if (item.requestedByUserId) return "PESSOA FÍSICA";
-  return "SOLICITAÇÃO";
+  if (item.generatorId) return "Gerador";
+  if (item.requestedByUserId) return "Pessoa física";
+  return "Solicitação";
 }
 
 function getStatusLabel(status?: string) {
   switch (status) {
     case "REQUESTED":
-      return "SOLICITADO";
+      return "Solicitado";
     case "SCHEDULED":
-      return "AGENDADO";
+      return "Agendado";
     case "IN_PROGRESS":
-      return "EM ANDAMENTO";
+      return "Em andamento";
     case "COMPLETED":
-      return "CONCLUÍDO";
+      return "Concluído";
     case "CANCELLED":
-      return "CANCELADO";
+      return "Cancelado";
     default:
-      return "SEM STATUS";
+      return "Sem status";
   }
 }
 
@@ -102,6 +102,7 @@ function getUserDisplayName(user: AuthUserLike | null) {
 
 type MenuCardProps = {
   title: string;
+  subtitle: string;
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   color: string;
@@ -111,6 +112,7 @@ type MenuCardProps = {
 
 function MenuCard({
   title,
+  subtitle,
   icon,
   onPress,
   color,
@@ -119,47 +121,106 @@ function MenuCard({
 }: MenuCardProps) {
   return (
     <TouchableOpacity
-      activeOpacity={0.88}
+      activeOpacity={0.9}
       onPress={onPress}
       style={{
         width: "48%",
         backgroundColor,
-        borderRadius: 30,
+        borderRadius: 26,
         borderWidth: 1,
         borderColor,
-        paddingVertical: 14,
-        paddingHorizontal: 12,
-        alignItems: "center",
-        justifyContent: "center",
+        paddingVertical: 16,
+        paddingHorizontal: 14,
         marginBottom: 14,
-        minHeight: 140,
+        minHeight: 150,
+        justifyContent: "space-between",
       }}
     >
       <View
         style={{
-          width: 74,
-          height: 74,
-          borderRadius: 37,
-          backgroundColor: "rgba(255,255,255,0.35)",
+          width: 62,
+          height: 62,
+          borderRadius: 31,
+          backgroundColor: "rgba(255,255,255,0.45)",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: 12,
         }}
       >
-        <Ionicons name={icon} size={40} color={color} />
+        <Ionicons name={icon} size={30} color={color} />
       </View>
 
-      <Text
+      <View>
+        <Text
+          style={{
+            color,
+            fontSize: 14,
+            fontWeight: "900",
+          }}
+        >
+          {title}
+        </Text>
+
+        <Text
+          style={{
+            color: "#475569",
+            fontSize: 12,
+            marginTop: 6,
+            lineHeight: 17,
+          }}
+        >
+          {subtitle}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function MetricCard({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View
+      style={{
+        width: "48.5%",
+        backgroundColor: "#FFFFFF",
+        borderRadius: 18,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+      }}
+    >
+      <View
         style={{
-          color,
-          fontSize: 14,
-          fontWeight: "800",
-          textAlign: "center",
+          width: 42,
+          height: 42,
+          borderRadius: 21,
+          backgroundColor: "#DCFCE7",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 10,
         }}
       >
-        {title}
+        <Ionicons name={icon} size={20} color="#15803D" />
+      </View>
+
+      <Text style={{ fontSize: 13, color: "#6B7280" }}>{title}</Text>
+      <Text
+        style={{
+          marginTop: 4,
+          fontSize: 22,
+          fontWeight: "800",
+          color: "#111827",
+        }}
+      >
+        {value}
       </Text>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -253,8 +314,8 @@ export default function CooperativeHomeScreen() {
       if (showLoader) setLoadingSchedules(true);
 
       const data = await scheduleService.list();
-      setSchedules(data);
-    } catch (error: any) {
+      setSchedules(Array.isArray(data) ? data : []);
+    } catch (error) {
       console.error("Erro ao carregar agendamentos da home:", error);
       setSchedules([]);
     } finally {
@@ -284,15 +345,23 @@ export default function CooperativeHomeScreen() {
           item.status === "IN_PROGRESS"
       )
       .sort((a, b) => {
-        const aTime = new Date(
-          a.scheduledDate || a.preferredDate || a.createdAt || 0
-        ).getTime();
-        const bTime = new Date(
-          b.scheduledDate || b.preferredDate || b.createdAt || 0
-        ).getTime();
+        const aTime = new Date(a.scheduledDate || a.createdAt || 0).getTime();
+        const bTime = new Date(b.scheduledDate || b.createdAt || 0).getTime();
         return bTime - aTime;
       })
       .slice(0, 4);
+  }, [schedules]);
+
+  const homeMetrics = useMemo(() => {
+    const requested = schedules.filter((item) => item.status === "REQUESTED").length;
+    const scheduled = schedules.filter((item) => item.status === "SCHEDULED").length;
+    const inProgress = schedules.filter((item) => item.status === "IN_PROGRESS").length;
+
+    return {
+      requested,
+      scheduled,
+      inProgress,
+    };
   }, [schedules]);
 
   return (
@@ -310,7 +379,7 @@ export default function CooperativeHomeScreen() {
         end={{ x: 1, y: 0 }}
         style={{
           paddingTop: 34,
-          paddingBottom: 26,
+          paddingBottom: 28,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 34,
           borderBottomRightRadius: 34,
@@ -339,13 +408,12 @@ export default function CooperativeHomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={{ alignItems: "center", marginTop: 20 }}>
+        <View style={{ marginTop: 20 }}>
           <Text
             style={{
-              fontSize: 32,
+              fontSize: 30,
               fontWeight: "900",
               color: "#FFFFFF",
-              textAlign: "center",
             }}
           >
             {displayName}
@@ -353,13 +421,13 @@ export default function CooperativeHomeScreen() {
 
           <Text
             style={{
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: "700",
               color: "#E8FFF1",
               marginTop: 6,
             }}
           >
-            Painel da cooperativa
+            Central operacional da cooperativa
           </Text>
 
           <TouchableOpacity
@@ -369,16 +437,21 @@ export default function CooperativeHomeScreen() {
               flexDirection: "row",
               alignItems: "center",
               marginTop: 14,
+              alignSelf: "flex-start",
+              backgroundColor: "rgba(255,255,255,0.16)",
+              borderRadius: 999,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
             }}
           >
             <Ionicons
               name={locationError ? "alert-circle-outline" : "location"}
-              size={22}
+              size={18}
               color="#FFFFFF"
             />
             <Text
               style={{
-                fontSize: 18,
+                fontSize: 14,
                 fontWeight: "800",
                 color: "#FFFFFF",
                 marginLeft: 8,
@@ -391,16 +464,334 @@ export default function CooperativeHomeScreen() {
       </LinearGradient>
 
       <View style={{ paddingHorizontal: 20, paddingTop: 18 }}>
-        <Text
+        <View
           style={{
-            fontSize: 20,
-            fontWeight: "900",
-            color: "#0F172A",
-            marginBottom: 16,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginBottom: 18,
           }}
         >
-          Gestão da Cooperativa
-        </Text>
+          <MetricCard
+            title="Solicitados"
+            value={String(homeMetrics.requested)}
+            icon="document-text-outline"
+          />
+          <MetricCard
+            title="Agendados"
+            value={String(homeMetrics.scheduled)}
+            icon="calendar-outline"
+          />
+        </View>
+
+        <View
+          style={{
+            marginBottom: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 18,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 14,
+              }}
+            >
+              <View>
+                <Text
+                  style={{
+                    fontSize: 20,
+                    fontWeight: "900",
+                    color: "#0F172A",
+                  }}
+                >
+                  Agendamentos recentes
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: "#64748B",
+                    marginTop: 4,
+                  }}
+                >
+                  Priorize a operação do dia e abra rapidamente os detalhes.
+                </Text>
+              </View>
+
+              <TouchableOpacity onPress={() => router.push("/(cooperativa)/schedule")}>
+                <Text
+                  style={{
+                    color: "#028C56",
+                    fontWeight: "800",
+                    fontSize: 10,
+                  }}
+                >
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {loadingSchedules ? (
+              <View
+                style={{
+                  alignItems: "center",
+                  paddingVertical: 24,
+                }}
+              >
+                <ActivityIndicator size="large" color="#028C56" />
+                <Text style={{ marginTop: 12, color: "#6B7280" }}>
+                  Carregando agendamentos...
+                </Text>
+              </View>
+            ) : highlightedSchedules.length === 0 ? (
+              <View
+                style={{
+                  alignItems: "center",
+                  paddingVertical: 20,
+                }}
+              >
+                <Ionicons name="calendar-outline" size={42} color="#9CA3AF" />
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "700",
+                    color: "#111827",
+                    marginTop: 10,
+                  }}
+                >
+                  Nenhum agendamento ativo
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: "#6B7280",
+                    marginTop: 6,
+                    textAlign: "center",
+                  }}
+                >
+                  Os agendamentos em aberto aparecerão aqui para acesso rápido.
+                </Text>
+              </View>
+            ) : (
+              highlightedSchedules.map((item) => {
+                const materials = extractRequestedMaterials(item.notes);
+
+                return (
+                  <View
+                    key={item.id}
+                    style={{
+                      backgroundColor: "#F8FAFC",
+                      borderRadius: 16,
+                      padding: 14,
+                      borderWidth: 1,
+                      borderColor: "#E5E7EB",
+                      marginBottom: 12,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <View style={{ flex: 1, paddingRight: 12 }}>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: "900",
+                            color: "#0F172A",
+                          }}
+                        >
+                          {item.generator?.companyName ||
+                            item.generator?.name ||
+                            "Solicitação sem gerador vinculado"}
+                        </Text>
+
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: "800",
+                            color: "#0B8F4D",
+                            marginTop: 8,
+                          }}
+                        >
+                          Origem: {getScheduleOrigin(item)}
+                        </Text>
+
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            color: "#64748B",
+                            marginTop: 8,
+                          }}
+                        >
+                          Endereço: {item.generator?.address || "Não informado"}
+                        </Text>
+
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            color: "#475569",
+                            marginTop: 6,
+                          }}
+                        >
+                          Data agendada:{" "}
+                          {formatDate(item.scheduledDate || item.createdAt)}
+                        </Text>
+
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            color: "#475569",
+                            marginTop: 6,
+                          }}
+                        >
+                          Materiais:{" "}
+                          {materials.length > 0 ? materials.join(", ") : "Não informado"}
+                        </Text>
+                      </View>
+
+                      <View style={{ alignItems: "flex-end" }}>
+                        <View
+                          style={{
+                            backgroundColor: getStatusColor(item.status),
+                            borderRadius: 999,
+                            paddingHorizontal: 12,
+                            paddingVertical: 7,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: "#FFFFFF",
+                              fontWeight: "900",
+                              fontSize: 11,
+                            }}
+                          >
+                            {getStatusLabel(item.status)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        marginTop: 14,
+                        gap: 10,
+                      }}
+                    >
+                      <TouchableOpacity
+                        onPress={() =>
+                          router.push({
+                            pathname: "/(cooperativa)/schedule/[id]",
+                            params: { id: item.id },
+                          })
+                        }
+                        style={{
+                          flex: 1,
+                          backgroundColor: "#028C56",
+                          borderRadius: 12,
+                          paddingVertical: 11,
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "#FFFFFF",
+                            fontWeight: "900",
+                            fontSize: 13,
+                          }}
+                        >
+                          ABRIR
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => router.push("/(cooperativa)/mapas")}
+                        style={{
+                          flex: 1,
+                          backgroundColor: "#EEF4FF",
+                          borderColor: "#C7D8FF",
+                          borderWidth: 1,
+                          borderRadius: 12,
+                          paddingVertical: 11,
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "#2E63E6",
+                            fontWeight: "900",
+                            fontSize: 13,
+                          }}
+                        >
+                          VER MAPA
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </View>
+
+        <View
+          style={{
+            marginBottom: 14,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <View>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "900",
+                color: "#0F172A",
+              }}
+            >
+              Gestão da cooperativa
+            </Text>
+            <Text
+              style={{
+                fontSize: 13,
+                color: "#64748B",
+                marginTop: 4,
+              }}
+            >
+              Acesse os módulos principais da operação.
+            </Text>
+          </View>
+
+          <View
+            style={{
+              backgroundColor: "#F3F4F6",
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 999,
+            }}
+          >
+            <Text
+              style={{
+                color: "#475569",
+                fontWeight: "800",
+                fontSize: 12,
+              }}
+            >
+              Em rota: {homeMetrics.inProgress}
+            </Text>
+          </View>
+        </View>
 
         <View
           style={{
@@ -411,34 +802,37 @@ export default function CooperativeHomeScreen() {
         >
           <MenuCard
             title="PEQUENO GERADOR"
+            subtitle="Cadastre, acompanhe e gerencie pequenos geradores."
             icon="storefront-outline"
-             onPress={() =>
-             router.push({
-             pathname: "/(cooperativa)/geradores",
-             params: { type: "SMALL" },
+            onPress={() =>
+              router.push({
+                pathname: "/(cooperativa)/geradores",
+                params: { type: "SMALL" },
               })
-               }
-             color="#0B8F4D"
-             backgroundColor="#E9F7F0"
-              borderColor="#BFE6CF"
-           />
+            }
+            color="#0B8F4D"
+            backgroundColor="#E9F7F0"
+            borderColor="#BFE6CF"
+          />
 
           <MenuCard
-           title="GRANDE GERADOR"
-           icon="business-outline"
-           onPress={() =>
-           router.push({
-           pathname: "/(cooperativa)/geradores",
-           params: { type: "LARGE" },
-           })
+            title="GRANDE GERADOR"
+            subtitle="Administre empresas e grandes pontos de coleta."
+            icon="business-outline"
+            onPress={() =>
+              router.push({
+                pathname: "/(cooperativa)/geradores",
+                params: { type: "LARGE" },
+              })
             }
-           color="#2E63E6"
-           backgroundColor="#EEF4FF"
-           borderColor="#C7D8FF"
-            />
+            color="#2E63E6"
+            backgroundColor="#EEF4FF"
+            borderColor="#C7D8FF"
+          />
 
           <MenuCard
             title="MOTORISTAS"
+            subtitle="Organize equipe, vínculo e disponibilidade operacional."
             icon="people-outline"
             onPress={() => router.push("/(cooperativa)/motoristas")}
             color="#11B27C"
@@ -448,6 +842,7 @@ export default function CooperativeHomeScreen() {
 
           <MenuCard
             title="VEÍCULOS"
+            subtitle="Controle a frota e acompanhe uso dos veículos."
             icon="car-outline"
             onPress={() => router.push("/(cooperativa)/veiculos")}
             color="#E59200"
@@ -457,7 +852,8 @@ export default function CooperativeHomeScreen() {
 
           <MenuCard
             title="ROTAS"
-            icon="map-outline"
+            subtitle="Crie e acompanhe trajetos operacionais da coleta."
+            icon="git-network-outline"
             onPress={() => router.push("/(cooperativa)/rotas")}
             color="#875CF6"
             backgroundColor="#F4ECFF"
@@ -465,16 +861,28 @@ export default function CooperativeHomeScreen() {
           />
 
           <MenuCard
+            title="MAPAS"
+            subtitle="Visualize a localização das coletas e futuras rotas."
+            icon="map-outline"
+            onPress={() => router.push("/(cooperativa)/mapas")}
+            color="#0F766E"
+            backgroundColor="#ECFEFF"
+            borderColor="#BDEFF3"
+          />
+
+          <MenuCard
             title="DASHBOARD"
+            subtitle="Acompanhe indicadores, produtividade e visão geral."
             icon="speedometer-outline"
             onPress={() => router.push("/(cooperativa)/dashboard")}
-            color="#875CF6"
-            backgroundColor="#F4ECFF"
-            borderColor="#DEC8FF"
+            color="#7C3AED"
+            backgroundColor="#F5F3FF"
+            borderColor="#DDD6FE"
           />
 
           <MenuCard
             title="PAINEL DA FROTA"
+            subtitle="Central de apoio para logística, veículos e operação."
             icon="car-sport-outline"
             onPress={() => router.push("/(cooperativa)/fleet")}
             color="#C88700"
@@ -484,6 +892,7 @@ export default function CooperativeHomeScreen() {
 
           <MenuCard
             title="AGENDAMENTOS"
+            subtitle="Gerencie solicitações, datas e execução das coletas."
             icon="calendar-outline"
             onPress={() => router.push("/(cooperativa)/schedule")}
             color="#DC2626"
@@ -493,6 +902,7 @@ export default function CooperativeHomeScreen() {
 
           <MenuCard
             title="CATADORES"
+            subtitle="Gerencie catadores, vínculos e operação em campo."
             icon="people-circle-outline"
             onPress={() => router.push("/(cooperativa)/catadores")}
             color="#E5489B"
@@ -500,185 +910,6 @@ export default function CooperativeHomeScreen() {
             borderColor="#F6C6DE"
           />
         </View>
-
-        <Text
-          style={{
-            fontSize: 20,
-            fontWeight: "900",
-            color: "#0F172A",
-            marginTop: 10,
-            marginBottom: 14,
-          }}
-        >
-          Agendamentos recentes
-        </Text>
-
-        {loadingSchedules ? (
-          <View
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: 18,
-              padding: 24,
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-              alignItems: "center",
-            }}
-          >
-            <ActivityIndicator size="large" color="#028C56" />
-            <Text style={{ marginTop: 12, color: "#6B7280" }}>
-              Carregando agendamentos...
-            </Text>
-          </View>
-        ) : highlightedSchedules.length === 0 ? (
-          <View
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: 18,
-              padding: 24,
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-              alignItems: "center",
-            }}
-          >
-            <Ionicons name="calendar-outline" size={42} color="#9CA3AF" />
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "700",
-                color: "#111827",
-                marginTop: 10,
-              }}
-            >
-              Nenhum agendamento ativo
-            </Text>
-            <Text
-              style={{
-                fontSize: 14,
-                color: "#6B7280",
-                marginTop: 6,
-                textAlign: "center",
-              }}
-            >
-              Os agendamentos de geradores e PF aparecerão aqui.
-            </Text>
-          </View>
-        ) : (
-          highlightedSchedules.map((item) => {
-            const materials = extractRequestedMaterials(item.notes);
-
-            return (
-              <View
-                key={item.id}
-                style={{
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: 18,
-                  padding: 16,
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  marginBottom: 12,
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text
-                      style={{
-                        fontSize: 18,
-                        fontWeight: "900",
-                        color: "#0F172A",
-                      }}
-                    >
-                      {item.generator?.companyName ||
-                        item.generator?.name ||
-                        "Solicitação sem gerador vinculado"}
-                    </Text>
-
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "800",
-                        color: "#0B8F4D",
-                        marginTop: 10,
-                      }}
-                    >
-                      Origem: {getScheduleOrigin(item)}
-                    </Text>
-
-                    <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 8 }}>
-                      Endereço: {item.generator?.address || "Não informado"}
-                    </Text>
-
-                    <Text style={{ fontSize: 14, color: "#4B5563", marginTop: 6 }}>
-                      Data:{" "}
-                      {formatDate(
-                        item.scheduledDate || item.preferredDate || item.createdAt
-                      )}
-                    </Text>
-
-                    <Text style={{ fontSize: 14, color: "#4B5563", marginTop: 6 }}>
-                      Materiais:{" "}
-                      {materials.length > 0 ? materials.join(", ") : "Não informado"}
-                    </Text>
-                  </View>
-
-                  <View style={{ alignItems: "flex-end" }}>
-                    <View
-                      style={{
-                        backgroundColor: getStatusColor(item.status),
-                        borderRadius: 999,
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: "#FFFFFF",
-                          fontWeight: "900",
-                          fontSize: 12,
-                        }}
-                      >
-                        {getStatusLabel(item.status)}
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      onPress={() =>
-                        router.push({
-                          pathname: "/(cooperativa)/schedule/[id]",
-                          params: { id: item.id },
-                        })
-                      }
-                      style={{
-                        marginTop: 16,
-                        backgroundColor: "#FFFFFF",
-                        borderColor: "#DC2626",
-                        borderWidth: 1.5,
-                        borderRadius: 12,
-                        paddingHorizontal: 18,
-                        paddingVertical: 10,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: "#DC2626",
-                          fontWeight: "900",
-                          fontSize: 14,
-                        }}
-                      >
-                        ABRIR
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            );
-          })
-        )}
       </View>
     </ScrollView>
   );

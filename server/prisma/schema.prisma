@@ -72,7 +72,20 @@ model Generator {
   companyName    String?
   email          String                @unique
   phone          String?
+
+  // endereço estruturado
+  zipCode        String?
+  street         String?
+  number         String?
+  neighborhood   String?
+  city           String?
+  state          String?
   address        String?
+
+  // coordenadas para mapa
+  latitude       Float?
+  longitude      Float?
+
   status         String?
   accessReleased Boolean               @default(false)
   accessStatus   GeneratorAccessStatus @default(PENDING_ACTIVATION)
@@ -80,6 +93,7 @@ model Generator {
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
   activatedAt    DateTime?
+
   collections    Collection[]
   cooperative    Cooperative           @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
   user           User?                 @relation(fields: [userId], references: [id])
@@ -89,6 +103,8 @@ model Generator {
   @@index([type])
   @@index([accessStatus])
   @@index([name])
+  @@index([city])
+  @@index([state])
 }
 
 model Schedule {

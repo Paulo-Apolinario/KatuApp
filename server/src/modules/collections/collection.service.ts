@@ -2,11 +2,13 @@ import {
   CollectionStatus,
   CollectorStatus,
   DriverStatus,
+  Prisma,
   RouteStatus,
   ScheduleStatus,
   UserRole,
   VehicleStatus,
 } from "@prisma/client";
+
 import { prisma } from "../../lib/prisma";
 import {
   CreateCollectionInput,
@@ -18,6 +20,52 @@ function isGeneratorRole(role: string) {
     role === UserRole.GENERATOR_SMALL || role === UserRole.GENERATOR_LARGE
   );
 }
+
+type MaterialItem = {
+  type: string;
+  quantityKg: number;
+};
+
+function normalizeMaterials(materials?: unknown): MaterialItem[] {
+  if (!Array.isArray(materials)) return [];
+
+  return materials
+    .map((item: any) => ({
+      type: String(item?.type || "").trim(),
+      quantityKg: Number(item?.quantityKg || 0),
+    }))
+    .filter((item) => item.type.length > 0);
+}
+
+function calculateTotalWeight(materials: MaterialItem[]) {
+  return materials.reduce((sum, item) => sum + Number(item.quantityKg || 0), 0);
+}
+
+function toPrismaJson(materials: MaterialItem[]): Prisma.InputJsonValue {
+  return materials as unknown as Prisma.InputJsonValue;
+}
+
+const collectionInclude = {
+  generator: true,
+  collector: true,
+  driver: true,
+  vehicle: true,
+  route: true,
+  schedule: {
+    include: {
+      requestedBy: {
+        select: {
+          id: true,
+          displayName: true,
+          email: true,
+          role: true,
+        },
+      },
+      generator: true,
+      cooperative: true,
+    },
+  },
+};
 
 export class CollectionService {
   async create(
@@ -168,6 +216,12 @@ export class CollectionService {
       throw new Error("Este agendamento já possui uma coleta vinculada.");
     }
 
+    const normalizedMaterials = normalizeMaterials(data.materials);
+    const safeTotal =
+      typeof data.totalWeightKg === "number"
+        ? data.totalWeightKg
+        : calculateTotalWeight(normalizedMaterials);
+
     const [collection] = await prisma.$transaction([
       prisma.collection.create({
         data: {
@@ -179,30 +233,15 @@ export class CollectionService {
           vehicleId: data.vehicleId || null,
           routeId: data.routeId || null,
           collectedAt: data.collectedAt ? new Date(data.collectedAt) : null,
-          totalWeightKg: data.totalWeightKg ?? 0,
-          materials: data.materials ?? [],
+          totalWeightKg: safeTotal,
+          materials:
+            normalizedMaterials.length > 0
+              ? toPrismaJson(normalizedMaterials)
+              : Prisma.JsonNull,
           notes: data.notes?.trim() || null,
           status: CollectionStatus.PENDING,
         },
-        include: {
-          generator: true,
-          collector: true,
-          driver: true,
-          vehicle: true,
-          route: true,
-          schedule: {
-            include: {
-              requestedBy: {
-                select: {
-                  id: true,
-                  displayName: true,
-                  email: true,
-                  role: true,
-                },
-              },
-            },
-          },
-        },
+        include: collectionInclude,
       }),
       prisma.schedule.update({
         where: { id: schedule.id },
@@ -216,26 +255,6 @@ export class CollectionService {
   }
 
   async listMine(authUserId: string, authUserRole: string) {
-    const includeRelations = {
-      generator: true,
-      collector: true,
-      driver: true,
-      vehicle: true,
-      route: true,
-      schedule: {
-        include: {
-          requestedBy: {
-            select: {
-              id: true,
-              displayName: true,
-              email: true,
-              role: true,
-            },
-          },
-        },
-      },
-    };
-
     if (authUserRole === UserRole.COOPERATIVE) {
       const cooperative = await prisma.cooperative.findUnique({
         where: { userId: authUserId },
@@ -249,10 +268,8 @@ export class CollectionService {
         where: {
           cooperativeId: cooperative.id,
         },
-        include: includeRelations,
-        orderBy: {
-          createdAt: "desc",
-        },
+        include: collectionInclude,
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       });
     }
 
@@ -269,10 +286,8 @@ export class CollectionService {
         where: {
           collectorId: collector.id,
         },
-        include: includeRelations,
-        orderBy: {
-          createdAt: "desc",
-        },
+        include: collectionInclude,
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       });
     }
 
@@ -289,10 +304,8 @@ export class CollectionService {
         where: {
           generatorId: generator.id,
         },
-        include: includeRelations,
-        orderBy: {
-          createdAt: "desc",
-        },
+        include: collectionInclude,
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       });
     }
 
@@ -303,10 +316,8 @@ export class CollectionService {
             requestedByUserId: authUserId,
           },
         },
-        include: includeRelations,
-        orderBy: {
-          createdAt: "desc",
-        },
+        include: collectionInclude,
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       });
     }
 
@@ -318,26 +329,6 @@ export class CollectionService {
     authUserRole: string,
     collectionId: string
   ) {
-    const includeRelations = {
-      generator: true,
-      collector: true,
-      driver: true,
-      vehicle: true,
-      route: true,
-      schedule: {
-        include: {
-          requestedBy: {
-            select: {
-              id: true,
-              displayName: true,
-              email: true,
-              role: true,
-            },
-          },
-        },
-      },
-    };
-
     if (authUserRole === UserRole.COOPERATIVE) {
       const cooperative = await prisma.cooperative.findUnique({
         where: { userId: authUserId },
@@ -352,7 +343,7 @@ export class CollectionService {
           id: collectionId,
           cooperativeId: cooperative.id,
         },
-        include: includeRelations,
+        include: collectionInclude,
       });
 
       if (!collection) {
@@ -376,7 +367,7 @@ export class CollectionService {
           id: collectionId,
           collectorId: collector.id,
         },
-        include: includeRelations,
+        include: collectionInclude,
       });
 
       if (!collection) {
@@ -400,7 +391,7 @@ export class CollectionService {
           id: collectionId,
           generatorId: generator.id,
         },
-        include: includeRelations,
+        include: collectionInclude,
       });
 
       if (!collection) {
@@ -418,7 +409,7 @@ export class CollectionService {
             requestedByUserId: authUserId,
           },
         },
-        include: includeRelations,
+        include: collectionInclude,
       });
 
       if (!collection) {
@@ -468,12 +459,53 @@ export class CollectionService {
       throw new Error("Usuário sem permissão para atualizar coleta.");
     }
 
+    const incomingMaterials =
+      typeof data.materials !== "undefined"
+        ? normalizeMaterials(data.materials)
+        : normalizeMaterials(collection.materials as unknown);
+
+    const calculatedTotal = calculateTotalWeight(incomingMaterials);
+
+    if (
+      data.status === CollectionStatus.COMPLETED &&
+      incomingMaterials.length === 0
+    ) {
+      throw new Error(
+        "Informe ao menos um material com quantidade para concluir a coleta."
+      );
+    }
+
+    if (
+      data.status === CollectionStatus.COMPLETED &&
+      incomingMaterials.some((item) => Number(item.quantityKg) <= 0)
+    ) {
+      throw new Error(
+        "Todas as quantidades dos materiais devem ser maiores que zero."
+      );
+    }
+
+    const materialsToSave: Prisma.InputJsonValue | Prisma.NullTypes.JsonNull =
+      typeof data.materials !== "undefined"
+        ? incomingMaterials.length > 0
+          ? toPrismaJson(incomingMaterials)
+          : Prisma.JsonNull
+        : collection.materials === null
+        ? Prisma.JsonNull
+        : (collection.materials as Prisma.InputJsonValue);
+
+    const totalWeightToSave =
+      data.status === CollectionStatus.COMPLETED
+        ? calculatedTotal
+        : typeof data.totalWeightKg === "number"
+        ? data.totalWeightKg
+        : collection.totalWeightKg;
+
     const nextScheduleStatus =
-      data.status === "IN_PROGRESS"
+      data.status === CollectionStatus.IN_PROGRESS
         ? ScheduleStatus.IN_PROGRESS
-        : data.status === "COMPLETED"
+        : data.status === CollectionStatus.COMPLETED
         ? ScheduleStatus.COMPLETED
-        : data.status === "CANCELLED"
+        : data.status === CollectionStatus.CANCELLED
         ? ScheduleStatus.CANCELLED
         : ScheduleStatus.SCHEDULED;
 
@@ -482,38 +514,22 @@ export class CollectionService {
         where: { id: collection.id },
         data: {
           status: data.status,
-          collectedAt: data.collectedAt
-            ? new Date(data.collectedAt)
-            : collection.collectedAt,
-          totalWeightKg:
-            typeof data.totalWeightKg === "number"
-              ? data.totalWeightKg
-              : collection.totalWeightKg,
-          materials: data.materials ?? [],
+          collectedAt:
+            data.status === CollectionStatus.COMPLETED
+              ? data.collectedAt
+                ? new Date(data.collectedAt)
+                : new Date()
+              : data.collectedAt
+              ? new Date(data.collectedAt)
+              : collection.collectedAt,
+          totalWeightKg: totalWeightToSave,
+          materials: materialsToSave,
           notes:
             typeof data.notes === "string"
               ? data.notes.trim() || null
               : collection.notes,
         },
-        include: {
-          generator: true,
-          collector: true,
-          driver: true,
-          vehicle: true,
-          route: true,
-          schedule: {
-            include: {
-              requestedBy: {
-                select: {
-                  id: true,
-                  displayName: true,
-                  email: true,
-                  role: true,
-                },
-              },
-            },
-          },
-        },
+        include: collectionInclude,
       }),
       prisma.schedule.update({
         where: { id: collection.scheduleId! },

@@ -14,10 +14,8 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { generateReceiptPDF } from "@/src/services/pdfGenerator";
 import { useAuth } from "@/src/contexts/AuthContext";
-import {
-  collectionService,
-  type Collection,
-} from "@/src/services/collectionService";
+import { collectionService } from "@/src/services/collectionService";
+import type { Collection, CollectionMaterial } from "@/src/types/collection";
 
 type AuthUser = {
   id?: string;
@@ -25,6 +23,10 @@ type AuthUser = {
   displayName?: string;
   name?: string;
   email?: string;
+  phone?: string;
+  cpf?: string;
+  city?: string;
+  location?: string;
 };
 
 function formatDate(value?: string | null) {
@@ -34,6 +36,51 @@ function formatDate(value?: string | null) {
   if (Number.isNaN(parsed.getTime())) return "-";
 
   return parsed.toLocaleDateString("pt-BR");
+}
+
+function normalizeMaterials(materials: unknown): CollectionMaterial[] {
+  if (!Array.isArray(materials)) return [];
+
+  return materials
+    .map((item) => {
+      if (typeof item === "string") {
+        return { type: item, quantityKg: 0 };
+      }
+
+      if (
+        item &&
+        typeof item === "object" &&
+        "type" in item
+      ) {
+        return {
+          type: String((item as { type?: unknown }).type ?? "Não informado"),
+          quantityKg: Number(
+            (item as { quantityKg?: unknown }).quantityKg ?? 0
+          ),
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean) as CollectionMaterial[];
+}
+
+function getCollectionTotalKg(collection: Collection) {
+  const materialsKg = (collection.materials ?? []).reduce(
+    (sum, item) => sum + Number(item.quantityKg ?? 0),
+    0
+  );
+
+  if (materialsKg > 0) return materialsKg;
+  return Number(collection.totalWeightKg ?? 0);
+}
+
+function getMaterialsSummary(materials?: CollectionMaterial[]) {
+  if (!materials || materials.length === 0) return "-";
+
+  return materials
+    .map((item) => `${item.type} (${Number(item.quantityKg ?? 0).toFixed(1)} kg)`)
+    .join(", ");
 }
 
 export default function ReceiptsScreen() {
@@ -51,7 +98,15 @@ export default function ReceiptsScreen() {
 
       const response = await collectionService.list();
 
-      const completed = response.filter((item) => item.status === "COMPLETED");
+      const normalized = Array.isArray(response)
+        ? response.map((item) => ({
+            ...item,
+            materials: normalizeMaterials(item.materials),
+            totalWeightKg: Number(item.totalWeightKg ?? 0),
+          }))
+        : [];
+
+      const completed = normalized.filter((item) => item.status === "COMPLETED");
       setReceipts(completed);
     } catch (error) {
       console.error("Erro ao carregar comprovantes:", error);
@@ -67,32 +122,63 @@ export default function ReceiptsScreen() {
 
   const receiptsOrdenados = useMemo(() => {
     return [...receipts].sort((a, b) => {
-      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      const aTime = a.collectedAt
+        ? new Date(a.collectedAt).getTime()
+        : a.createdAt
+          ? new Date(a.createdAt).getTime()
+          : 0;
+
+      const bTime = b.collectedAt
+        ? new Date(b.collectedAt).getTime()
+        : b.createdAt
+          ? new Date(b.createdAt).getTime()
+          : 0;
+
       return bTime - aTime;
     });
   }, [receipts]);
 
   const userData = useMemo(() => {
-  return {
-    name: currentUser?.displayName || currentUser?.name || "Catador",
-    age: 0,                      // ← coloque 0 ou pegue de algum lugar real (perfil?)
-    location: "Fortaleza",       // ← ou deixe vazio / pegue do contexto
-    cpf: "",                     // ← idealmente vir do perfil do usuário
-    phone: "",
-    email: currentUser?.email || "",
-    code: currentUser?.id || currentUser?.uid || "",
-    totalKg: receiptsOrdenados.reduce(
-      (acc, item) => acc + Number(item.totalWeightKg || 0),
-      0
-    ),
-    since:
-      receiptsOrdenados.length > 0
-        ? formatDate(receiptsOrdenados[receiptsOrdenados.length - 1]?.createdAt)
-        : "-",
-    topMaterials: [],            // ← pode calcular os mais frequentes depois
-  };
-}, [currentUser, receiptsOrdenados]);
+    const topMaterialsMap: Record<string, number> = {};
+
+    receiptsOrdenados.forEach((item) => {
+      (item.materials ?? []).forEach((material) => {
+        const type = material.type?.trim() || "Não informado";
+        const quantity = Number(material.quantityKg ?? 0);
+
+        topMaterialsMap[type] = (topMaterialsMap[type] || 0) + quantity;
+      });
+    });
+
+    const topMaterials = Object.entries(topMaterialsMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([type, quantityKg]) => ({
+        type,
+        quantityKg,
+      }));
+
+    return {
+      name: currentUser?.displayName || currentUser?.name || "Catador",
+      location: currentUser?.location || currentUser?.city || "Não informado",
+      cpf: currentUser?.cpf || "",
+      phone: currentUser?.phone || "",
+      email: currentUser?.email || "",
+      code: currentUser?.id || currentUser?.uid || "",
+      totalKg: receiptsOrdenados.reduce(
+        (acc, item) => acc + getCollectionTotalKg(item),
+        0
+      ),
+      since:
+        receiptsOrdenados.length > 0
+          ? formatDate(
+              receiptsOrdenados[receiptsOrdenados.length - 1]?.collectedAt ||
+                receiptsOrdenados[receiptsOrdenados.length - 1]?.createdAt
+            )
+          : "-",
+      topMaterials,
+    };
+  }, [currentUser, receiptsOrdenados]);
 
   const handleGenerateFullReceipt = async () => {
     setLoadingReceipt("full");
@@ -101,7 +187,7 @@ export default function ReceiptsScreen() {
       const result = await generateReceiptPDF(userData);
 
       if (result.success) {
-        Alert.alert("Sucesso", "Comprovante gerado com sucesso!");
+        Alert.alert("Sucesso", "Comprovante consolidado gerado com sucesso!");
       } else {
         Alert.alert("Erro", "Não foi possível gerar o comprovante.");
       }
@@ -119,16 +205,18 @@ export default function ReceiptsScreen() {
     try {
       const result = await generateReceiptPDF(userData, {
         id: receipt.id,
-        date: formatDate(receipt.createdAt),
-        kg: receipt.totalWeightKg,
-        materials: receipt.materials || [],
+        date: formatDate(receipt.collectedAt || receipt.createdAt),
+        kg: getCollectionTotalKg(receipt),
+        materials: receipt.materials ?? [],
         local: receipt.notes || "-",
       });
 
       if (result.success) {
         Alert.alert(
           "Sucesso",
-          `Comprovante da coleta de ${formatDate(receipt.createdAt)} gerado com sucesso!`
+          `Comprovante da coleta de ${formatDate(
+            receipt.collectedAt || receipt.createdAt
+          )} gerado com sucesso!`
         );
       } else {
         Alert.alert("Erro", "Não foi possível gerar o comprovante.");
@@ -230,10 +318,10 @@ export default function ReceiptsScreen() {
               </View>
 
               <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
-                Gerar comprovante completo com o histórico consolidado
+                Gerar comprovante consolidado com o histórico real das coletas
               </Text>
               <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
-                Formato: PDF • Atualizado com dados reais
+                Formato: HTML profissional para compartilhamento
               </Text>
             </TouchableOpacity>
 
@@ -262,10 +350,10 @@ export default function ReceiptsScreen() {
                     >
                       <View style={{ flex: 1, paddingRight: 12 }}>
                         <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
-                          {formatDate(receipt.createdAt)}
+                          {formatDate(receipt.collectedAt || receipt.createdAt)}
                         </Text>
                         <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 2 }}>
-                          {(receipt.materials || []).join(", ") || "-"}
+                          {getMaterialsSummary(receipt.materials)}
                         </Text>
                         <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
                           {receipt.notes || "-"}
@@ -274,7 +362,7 @@ export default function ReceiptsScreen() {
 
                       <View style={{ alignItems: "flex-end" }}>
                         <Text style={{ fontSize: 16, fontWeight: "700", color: "#028C56" }}>
-                          {receipt.totalWeightKg}kg
+                          {getCollectionTotalKg(receipt).toFixed(1)} kg
                         </Text>
                       </View>
                     </View>
@@ -293,10 +381,10 @@ export default function ReceiptsScreen() {
                         Detalhes da coleta:
                       </Text>
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
-                        • Peso: {receipt.totalWeightKg}kg
+                        • Peso: {getCollectionTotalKg(receipt).toFixed(1)} kg
                       </Text>
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
-                        • Materiais: {(receipt.materials || []).join(", ") || "-"}
+                        • Materiais: {getMaterialsSummary(receipt.materials)}
                       </Text>
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
                         • Observações: {receipt.notes || "-"}

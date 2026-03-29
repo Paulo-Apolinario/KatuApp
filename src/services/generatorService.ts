@@ -1,14 +1,15 @@
 import { api } from "./api";
 
-  export type GeneratorAccessStatus =
+export type GeneratorType = "SMALL" | "LARGE";
+
+export type GeneratorAccessStatus =
   | "PENDING_ACTIVATION"
   | "ACTIVE"
   | "INACTIVE"
   | "BLOCKED";
 
-  export type GeneratorType = "SMALL" | "LARGE";
-
-  export interface Generator {
+export interface Generator {
+  generator: any;
   id: string;
   cooperativeId: string;
   userId?: string | null;
@@ -17,61 +18,97 @@ import { api } from "./api";
   companyName?: string | null;
   email: string;
   phone?: string | null;
+
+  zipCode?: string | null;
+  street?: string | null;
+  number?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
   address?: string | null;
+
+  latitude?: number | null;
+  longitude?: number | null;
+
   status?: string | null;
-  accessReleased?: boolean;
+  accessReleased: boolean;
   accessStatus: GeneratorAccessStatus;
-  totalKg?: number;
-  createdAt?: string;
-  updatedAt?: string;
+  totalKg: number;
+  createdAt: string;
+  updatedAt: string;
   activatedAt?: string | null;
 }
 
 export interface CreateGeneratorDTO {
+  type: GeneratorType;
   name: string;
   companyName?: string;
   email: string;
   phone?: string;
+
+  zipCode?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
   address?: string;
-  type: "SMALL" | "LARGE";
+
+  latitude?: number;
+  longitude?: number;
+
+  status?: string;
 }
-
-type ListGeneratorsApiResponse =
-  | Generator[]
-  | {
-      generators?: Generator[];
-    };
-
-type GetGeneratorByIdResponse = {
-  generator: Generator;
-};
 
 type CreateGeneratorResponse = {
+  success: boolean;
   generator: Generator;
   temporaryPassword?: string;
-  message?: string;
 };
 
-async function list(): Promise<Generator[]> {
-  const response = await api.get<ListGeneratorsApiResponse>("/generators", true);
+type ListGeneratorsResponse = {
+  success: boolean;
+  generators: Generator[];
+};
 
-  if (Array.isArray(response)) {
-    return response;
-  }
-
-  return response.generators ?? [];
-}
-
-async function getGeneratorById(id: string) {
-  return api.get<GetGeneratorByIdResponse>(`/generators/${id}`, true);
-}
+type FindGeneratorByIdResponse = {
+  success: boolean;
+  generator: Generator;
+};
 
 async function createGenerator(data: CreateGeneratorDTO) {
   return api.post<CreateGeneratorResponse>("/generators", data, true);
 }
 
+async function listMine() {
+  const response = await api.get<ListGeneratorsResponse>("/generators", true);
+  return response.generators ?? [];
+}
+
+// compatibilidade com telas antigas
+async function list() {
+  return listMine();
+}
+
+async function findById(id: string) {
+  const response = await api.get<FindGeneratorByIdResponse>(
+    `/generators/${id}`,
+    true
+  );
+  return response.generator;
+}
+
+// compatibilidade com telas antigas
+async function getGeneratorById(id: string) {
+  return findById(id);
+}
+
 export const generatorService = {
-  list,
-  getGeneratorById,
   createGenerator,
+  listMine,
+  list,
+  findById,
+  getGeneratorById,
 };
+
+export default generatorService;

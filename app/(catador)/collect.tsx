@@ -222,6 +222,7 @@ export default function CollectScreen() {
 
       await collectionService.updateStatus(selectedCollection.id, {
         status: "IN_PROGRESS",
+        notes: notesDraft,
       });
 
       await loadCollections(false);
@@ -384,7 +385,7 @@ export default function CollectScreen() {
             lineHeight: 22,
           }}
         >
-          Aqui aparecem as coletas que a cooperativa delegou para este catador.
+          Aqui aparecem as coletas atribuídas para este catador com contexto operacional completo.
         </Text>
       </LinearGradient>
 
@@ -441,8 +442,22 @@ export default function CollectScreen() {
                       <Text style={itemTitle}>{getSourceName(item)}</Text>
 
                       <Text style={itemText}>Origem: {getOriginLabel(item)}</Text>
-
                       <Text style={itemText}>Endereço: {getAddress(item)}</Text>
+
+                      {!!item.route?.name && (
+                        <Text style={itemText}>Rota: {item.route.name}</Text>
+                      )}
+
+                      {!!item.driver?.name && (
+                        <Text style={itemText}>Motorista: {item.driver.name}</Text>
+                      )}
+
+                      {!!item.vehicle?.model && (
+                        <Text style={itemText}>
+                          Veículo: {item.vehicle.model}
+                          {item.vehicle.plate ? ` • ${item.vehicle.plate}` : ""}
+                        </Text>
+                      )}
 
                       <Text style={itemText}>
                         Materiais:{" "}
@@ -461,10 +476,6 @@ export default function CollectScreen() {
                             item.createdAt
                         )}
                       </Text>
-
-                      {!!item.notes && (
-                        <Text style={itemSubtext}>Observações: {item.notes}</Text>
-                      )}
                     </View>
 
                     <StatusBadge
@@ -486,7 +497,7 @@ export default function CollectScreen() {
 
         {selectedCollection && (
           <>
-            <SectionHeader title="Detalhes da coleta" />
+            <SectionHeader title="Operação atual" />
 
             <View style={sectionCard}>
               <InfoRow label="Origem" value={getOriginLabel(selectedCollection)} />
@@ -497,13 +508,39 @@ export default function CollectScreen() {
                 value={translateCollectionStatus(selectedCollection.status)}
               />
               <InfoRow
+                label="Rota"
+                value={selectedCollection.route?.name || "-"}
+              />
+              <InfoRow
+                label="Motorista"
+                value={selectedCollection.driver?.name || "-"}
+              />
+              <InfoRow
+                label="Veículo"
+                value={
+                  selectedCollection.vehicle
+                    ? `${selectedCollection.vehicle.model}${
+                        selectedCollection.vehicle.plate
+                          ? ` • ${selectedCollection.vehicle.plate}`
+                          : ""
+                      }`
+                    : "-"
+                }
+              />
+              <InfoRow
                 label="Data"
                 value={formatDateTime(
                   selectedCollection.schedule?.scheduledDate ||
                     selectedCollection.schedule?.preferredDate ||
                     selectedCollection.createdAt
                 )}
+                isLast
               />
+            </View>
+
+            <SectionHeader title="Detalhes da coleta" />
+
+            <View style={sectionCard}>
               <InfoRow
                 label="Materiais"
                 value={formatMaterials(
@@ -702,7 +739,14 @@ function MetricCard({
       </View>
 
       <Text style={{ color: "#6B7280", fontSize: 13 }}>{title}</Text>
-      <Text style={{ color: "#111827", fontSize: 24, fontWeight: "800", marginTop: 4 }}>
+      <Text
+        style={{
+          color: "#111827",
+          fontSize: 20,
+          fontWeight: "800",
+          marginTop: 4,
+        }}
+      >
         {value}
       </Text>
     </View>
@@ -728,7 +772,7 @@ function MetricCardFull({
         borderColor: "#E5E7EB",
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
         <View
           style={{
             width: 44,
@@ -745,7 +789,14 @@ function MetricCardFull({
 
         <View>
           <Text style={{ color: "#6B7280", fontSize: 13 }}>{title}</Text>
-          <Text style={{ color: "#111827", fontSize: 24, fontWeight: "800", marginTop: 2 }}>
+          <Text
+            style={{
+              color: "#111827",
+              fontSize: 24,
+              fontWeight: "800",
+              marginTop: 2,
+            }}
+          >
             {value}
           </Text>
         </View>
@@ -754,23 +805,69 @@ function MetricCardFull({
   );
 }
 
-function SectionHeader({
-  title,
-}: {
-  title: string;
-}) {
+function SectionHeader({ title }: { title: string }) {
   return (
-    <Text
+    <View
       style={{
-        fontSize: 18,
-        fontWeight: "800",
-        color: "#111827",
         marginTop: 20,
         marginBottom: 12,
       }}
     >
-      {title}
-    </Text>
+      <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>
+        {title}
+      </Text>
+    </View>
+  );
+}
+
+function StatusBadge({
+  label,
+  color,
+}: {
+  label: string;
+  color: string;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: color,
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+      }}
+    >
+      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "800" }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+  isLast = false,
+}: {
+  label: string;
+  value: string;
+  isLast?: boolean;
+}) {
+  return (
+    <View
+      style={{
+        paddingBottom: isLast ? 0 : 12,
+        marginBottom: isLast ? 0 : 12,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: "#E5E7EB",
+      }}
+    >
+      <Text style={{ color: "#6B7280", fontSize: 12, marginBottom: 4 }}>
+        {label}
+      </Text>
+      <Text style={{ color: "#111827", fontSize: 14, fontWeight: "700" }}>
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -797,11 +894,10 @@ function QuickAction({
       style={{
         flexDirection: "row",
         alignItems: "center",
-        paddingBottom: isLast ? 0 : 16,
-        marginBottom: isLast ? 0 : 16,
+        paddingBottom: isLast ? 0 : 14,
+        marginBottom: isLast ? 0 : 14,
         borderBottomWidth: isLast ? 0 : 1,
         borderBottomColor: "#E5E7EB",
-        opacity: loading ? 0.7 : 1,
       }}
     >
       <View
@@ -809,80 +905,28 @@ function QuickAction({
           width: 46,
           height: 46,
           borderRadius: 23,
-          backgroundColor: "#F3F4F6",
+          backgroundColor: "#ECFDF5",
           alignItems: "center",
           justifyContent: "center",
-          marginRight: 14,
+          marginRight: 12,
         }}
       >
         {loading ? (
-          <ActivityIndicator color="#028C56" />
+          <ActivityIndicator size="small" color="#028C56" />
         ) : (
           <Ionicons name={icon} size={22} color="#028C56" />
         )}
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: "#111827" }}>
+        <Text style={{ color: "#111827", fontSize: 15, fontWeight: "800" }}>
           {title}
         </Text>
-        <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>
+        <Text style={{ color: "#6B7280", fontSize: 13, marginTop: 2 }}>
           {subtitle}
         </Text>
       </View>
     </TouchableOpacity>
-  );
-}
-
-function StatusBadge({
-  label,
-  color,
-}: {
-  label: string;
-  color: string;
-}) {
-  return (
-    <View
-      style={{
-        alignSelf: "flex-start",
-        backgroundColor: color,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 999,
-      }}
-    >
-      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "800" }}>
-        {label.toUpperCase()}
-      </Text>
-    </View>
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-  isLast = false,
-}: {
-  label: string;
-  value: string;
-  isLast?: boolean;
-}) {
-  return (
-    <View
-      style={{
-        paddingBottom: isLast ? 0 : 12,
-        marginBottom: isLast ? 0 : 12,
-        borderBottomWidth: isLast ? 0 : 1,
-        borderBottomColor: "#E5E7EB",
-      }}
-    >
-      <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
-        {label}
-      </Text>
-      <Text style={{ fontSize: 15, color: "#111827", fontWeight: "600" }}>
-        {value || "-"}
-      </Text>
-    </View>
   );
 }
 
@@ -896,26 +940,25 @@ function EmptyState({
   subtitle: string;
 }) {
   return (
-    <View style={{ alignItems: "center", paddingVertical: 28 }}>
+    <View style={{ alignItems: "center", paddingVertical: 16 }}>
       <Ionicons name={icon} size={42} color="#9CA3AF" />
       <Text
         style={{
-          marginTop: 12,
-          fontSize: 16,
-          fontWeight: "700",
           color: "#111827",
-          textAlign: "center",
+          fontSize: 16,
+          fontWeight: "800",
+          marginTop: 12,
         }}
       >
         {title}
       </Text>
       <Text
         style={{
-          marginTop: 6,
-          fontSize: 14,
           color: "#6B7280",
+          fontSize: 13,
           textAlign: "center",
-          lineHeight: 22,
+          marginTop: 6,
+          lineHeight: 20,
         }}
       >
         {subtitle}
@@ -940,19 +983,19 @@ const listItemCard = {
 } as const;
 
 const itemTitle = {
-  fontSize: 15,
-  fontWeight: "800" as const,
   color: "#111827",
+  fontSize: 15,
+  fontWeight: "800",
 } as const;
 
 const itemText = {
-  fontSize: 14,
   color: "#374151",
-  marginTop: 4,
+  fontSize: 13,
+  marginTop: 6,
 } as const;
 
 const itemSubtext = {
-  fontSize: 12,
   color: "#6B7280",
-  marginTop: 4,
+  fontSize: 12,
+  marginTop: 6,
 } as const;

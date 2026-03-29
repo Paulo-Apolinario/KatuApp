@@ -1,90 +1,16 @@
 import { api } from "./api";
+import type {
+  Collection,
+  CollectionMaterial,
+  CollectionStatus,
+} from "@/src/types/collection";
 
-export type CollectionStatus =
-  | "PENDING"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "CANCELLED";
-
-export interface CollectionMaterial {
-  type: string;
-  quantityKg: number;
-}
-
-export interface Collection {
-  id: string;
-  cooperativeId: string;
-  generatorId?: string | null;
-  collectorId?: string | null;
-  scheduleId?: string | null;
-  driverId?: string | null;
-  vehicleId?: string | null;
-  routeId?: string | null;
-  collectedAt?: string | null;
-  totalWeightKg: number;
-  materials: CollectionMaterial[];
-  notes?: string | null;
-  status: CollectionStatus;
-  createdAt?: string;
-  updatedAt?: string;
-
-  generator?: {
-    id: string;
-    name?: string | null;
-    companyName?: string | null;
-    address?: string | null;
-  } | null;
-
-  collector?: {
-    id: string;
-    name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-  } | null;
-
-  driver?: {
-    id: string;
-    name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    cnh?: string | null;
-    cnhCategory?: string | null;
-    status?: string | null;
-  } | null;
-
-  vehicle?: {
-    id: string;
-    plate?: string | null;
-    model?: string | null;
-    brand?: string | null;
-    year?: number | null;
-    capacityKg?: number | null;
-    status?: string | null;
-  } | null;
-
-  route?: {
-    id: string;
-    name?: string | null;
-    description?: string | null;
-    scheduledDate?: string | null;
-    stops?: string[];
-    status?: string | null;
-  } | null;
-
-  schedule?: {
-    id: string;
-    scheduledDate?: string | null;
-    preferredDate?: string | null;
-    status?: string | null;
-    notes?: string | null;
-    requestedBy?: {
-      id: string;
-      displayName?: string | null;
-      email?: string | null;
-      role?: string | null;
-    } | null;
-  } | null;
-}
+// mantém compatibilidade com arquivos que importam tipos do service
+export type {
+  Collection,
+  CollectionMaterial,
+  CollectionStatus,
+} from "@/src/types/collection";
 
 export interface CreateCollectionPayload {
   scheduleId: string;
@@ -110,15 +36,116 @@ type ListCollectionsApiResponse =
   | Collection[]
   | {
       collections?: Collection[];
+      success?: boolean;
     };
 
 type CreateCollectionApiResponse = {
   collection?: Collection;
+  success?: boolean;
 };
 
 type UpdateCollectionStatusApiResponse = {
   collection?: Collection;
+  success?: boolean;
 };
+
+function normalizeMaterials(materials: unknown): CollectionMaterial[] {
+  if (!Array.isArray(materials)) return [];
+
+  return materials
+    .map((item) => {
+      if (typeof item === "string") {
+        return {
+          type: item.trim(),
+          quantityKg: 0,
+        };
+      }
+
+      if (item && typeof item === "object") {
+        const typedItem = item as {
+          type?: unknown;
+          quantityKg?: unknown;
+        };
+
+        return {
+          type: String(typedItem.type ?? "").trim(),
+          quantityKg: Number(typedItem.quantityKg ?? 0),
+        };
+      }
+
+      return null;
+    })
+    .filter(
+      (item): item is CollectionMaterial =>
+        !!item && item.type.length > 0
+    );
+}
+
+function normalizeCollection(collection: Collection): Collection {
+  return {
+    ...collection,
+    totalWeightKg: Number(collection.totalWeightKg ?? 0),
+    materials: normalizeMaterials(collection.materials),
+
+    generator: collection.generator
+      ? {
+          ...collection.generator,
+          latitude:
+            typeof collection.generator.latitude === "number"
+              ? collection.generator.latitude
+              : collection.generator.latitude != null
+              ? Number(collection.generator.latitude)
+              : null,
+          longitude:
+            typeof collection.generator.longitude === "number"
+              ? collection.generator.longitude
+              : collection.generator.longitude != null
+              ? Number(collection.generator.longitude)
+              : null,
+        }
+      : null,
+
+    schedule: collection.schedule
+      ? {
+          ...collection.schedule,
+          generator: collection.schedule.generator
+            ? {
+                ...collection.schedule.generator,
+                latitude:
+                  typeof collection.schedule.generator.latitude === "number"
+                    ? collection.schedule.generator.latitude
+                    : collection.schedule.generator.latitude != null
+                    ? Number(collection.schedule.generator.latitude)
+                    : null,
+                longitude:
+                  typeof collection.schedule.generator.longitude === "number"
+                    ? collection.schedule.generator.longitude
+                    : collection.schedule.generator.longitude != null
+                    ? Number(collection.schedule.generator.longitude)
+                    : null,
+              }
+            : null,
+        }
+      : null,
+  };
+}
+
+function serializeMaterials(
+  materials?: CollectionMaterial[]
+): CollectionMaterial[] | undefined {
+  if (!Array.isArray(materials) || materials.length === 0) {
+    return undefined;
+  }
+
+  const normalized = materials
+    .map((item) => ({
+      type: String(item.type ?? "").trim(),
+      quantityKg: Number(item.quantityKg ?? 0),
+    }))
+    .filter((item) => item.type.length > 0);
+
+  return normalized.length > 0 ? normalized : undefined;
+}
 
 async function list(): Promise<Collection[]> {
   const response = await api.get<ListCollectionsApiResponse>(
@@ -126,11 +153,13 @@ async function list(): Promise<Collection[]> {
     true
   );
 
-  if (Array.isArray(response)) {
-    return response;
-  }
+  const collections = Array.isArray(response)
+    ? response
+    : Array.isArray(response?.collections)
+    ? response.collections
+    : [];
 
-  return response.collections ?? [];
+  return collections.map(normalizeCollection);
 }
 
 async function create(payload: CreateCollectionPayload): Promise<Collection> {
@@ -147,17 +176,17 @@ async function create(payload: CreateCollectionPayload): Promise<Collection> {
         typeof payload.totalWeightKg === "number"
           ? payload.totalWeightKg
           : undefined,
-      materials: payload.materials ?? undefined,
+      materials: serializeMaterials(payload.materials),
       notes: payload.notes?.trim() || undefined,
     },
     true
   );
 
-  if (!response.collection) {
+  if (!response?.collection) {
     throw new Error("Coleta não retornada pela API.");
   }
 
-  return response.collection;
+  return normalizeCollection(response.collection);
 }
 
 async function updateStatus(
@@ -173,17 +202,17 @@ async function updateStatus(
         typeof payload.totalWeightKg === "number"
           ? payload.totalWeightKg
           : undefined,
-      materials: payload.materials ?? undefined,
+      materials: serializeMaterials(payload.materials),
       notes: payload.notes?.trim() || undefined,
     },
     true
   );
 
-  if (!response.collection) {
+  if (!response?.collection) {
     throw new Error("Coleta não retornada pela API.");
   }
 
-  return response.collection;
+  return normalizeCollection(response.collection);
 }
 
 export const collectionService = {
@@ -192,4 +221,5 @@ export const collectionService = {
   updateStatus,
 };
 
+// compatibilidade total com import default
 export default collectionService;

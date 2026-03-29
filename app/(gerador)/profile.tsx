@@ -20,6 +20,7 @@ import {
 import {
   collectionService,
   type Collection,
+  type CollectionMaterial,
 } from "@/src/services/collectionService";
 import {
   type Generator,
@@ -61,7 +62,10 @@ function getGeneratorAddress(user: AuthUserLike | null) {
   return user?.generator?.address || user?.address || "-";
 }
 
-function getGeneratorTypeLabel(role?: string, generatorType?: GeneratorType | null) {
+function getGeneratorTypeLabel(
+  role?: string,
+  generatorType?: GeneratorType | null
+) {
   if (generatorType === "SMALL" || role === "GENERATOR_SMALL") {
     return "Gerador de Pequeno Porte";
   }
@@ -110,6 +114,39 @@ function formatDate(dateString?: string | null) {
   if (Number.isNaN(parsed.getTime())) return "-";
 
   return parsed.toLocaleDateString("pt-BR");
+}
+
+function normalizeMaterials(materials: unknown): CollectionMaterial[] {
+  if (!Array.isArray(materials)) return [];
+
+  return materials
+    .map((item) => {
+      if (typeof item === "string") {
+        return { type: item, quantityKg: 0 };
+      }
+
+      if (item && typeof item === "object" && "type" in item) {
+        return {
+          type: String((item as { type?: unknown }).type ?? "Não informado"),
+          quantityKg: Number(
+            (item as { quantityKg?: unknown }).quantityKg ?? 0
+          ),
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean) as CollectionMaterial[];
+}
+
+function getCollectionTotalKg(collection: Collection) {
+  const materialsKg = normalizeMaterials(collection.materials).reduce(
+    (sum, item) => sum + Number(item.quantityKg ?? 0),
+    0
+  );
+
+  if (materialsKg > 0) return materialsKg;
+  return Number(collection.totalWeightKg ?? 0);
 }
 
 export default function GeneratorProfileScreen() {
@@ -165,14 +202,24 @@ export default function GeneratorProfileScreen() {
     );
 
     const totalKg = completedCollections.reduce(
-      (acc, item) => acc + Number(item.totalWeightKg || 0),
+      (acc, item) => acc + getCollectionTotalKg(item),
       0
     );
 
     const lastCollection =
       [...completedCollections].sort((a, b) => {
-        const aTime = new Date(a.createdAt || 0).getTime();
-        const bTime = new Date(b.createdAt || 0).getTime();
+        const aTime = a.collectedAt
+          ? new Date(a.collectedAt).getTime()
+          : a.createdAt
+            ? new Date(a.createdAt).getTime()
+            : 0;
+
+        const bTime = b.collectedAt
+          ? new Date(b.collectedAt).getTime()
+          : b.createdAt
+            ? new Date(b.createdAt).getTime()
+            : 0;
+
         return bTime - aTime;
       })[0] || null;
 
@@ -181,7 +228,7 @@ export default function GeneratorProfileScreen() {
       openSchedules,
       completedCollections: completedCollections.length,
       totalKg,
-      lastCollectionDate: lastCollection?.createdAt || null,
+      lastCollectionDate: lastCollection?.collectedAt || lastCollection?.createdAt || null,
     };
   }, [schedules, collections]);
 
@@ -416,7 +463,7 @@ export default function GeneratorProfileScreen() {
           <InfoRow
             icon="leaf-outline"
             label="Total no gerador"
-            value={`${Number(currentUser?.generator?.totalKg || 0).toFixed(1)} kg`}
+            value={`${metrics.totalKg.toFixed(1)} kg`}
             isLast
           />
         </View>

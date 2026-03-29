@@ -1,16 +1,35 @@
 import {
   GeneratorAccessStatus,
   GeneratorType,
-  UserRole,
 } from "@prisma/client";
 
 import { prisma } from "../../lib/prisma";
-import {
-  CreateGeneratorInput,
-} from "./generator.schemas";
+import { CreateGeneratorInput } from "./generator.schemas";
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function normalizeText(value?: string | null) {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
+function buildFullAddress(data: CreateGeneratorInput) {
+  if (data.address?.trim()) {
+    return data.address.trim();
+  }
+
+  const parts = [
+    data.street?.trim(),
+    data.number?.trim(),
+    data.neighborhood?.trim(),
+    data.city?.trim(),
+    data.state?.trim(),
+    data.zipCode?.trim(),
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(", ") : null;
 }
 
 export class GeneratorService {
@@ -41,16 +60,31 @@ export class GeneratorService {
       throw new Error("Já existe um gerador com este e-mail.");
     }
 
+    const fullAddress = buildFullAddress(data);
+
     const generator = await prisma.generator.create({
       data: {
         cooperativeId: cooperative.id,
         type: data.type === "LARGE" ? GeneratorType.LARGE : GeneratorType.SMALL,
         name: data.name.trim(),
-        companyName: data.companyName?.trim() || null,
+        companyName: normalizeText(data.companyName),
         email,
-        phone: data.phone?.trim() || null,
-        address: data.address?.trim() || null,
-        status: data.status?.trim() || "ativo",
+        phone: normalizeText(data.phone),
+
+        zipCode: normalizeText(data.zipCode),
+        street: normalizeText(data.street),
+        number: normalizeText(data.number),
+        neighborhood: normalizeText(data.neighborhood),
+        city: normalizeText(data.city),
+        state: normalizeText(data.state),
+        address: fullAddress,
+
+        latitude:
+          typeof data.latitude === "number" ? data.latitude : null,
+        longitude:
+          typeof data.longitude === "number" ? data.longitude : null,
+
+        status: normalizeText(data.status) || "ativo",
         accessReleased: false,
         accessStatus: GeneratorAccessStatus.PENDING_ACTIVATION,
         totalKg: 0,

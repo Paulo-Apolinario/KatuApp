@@ -6,7 +6,22 @@ export const createGeneratorSchema = z.object({
   companyName: z.string().optional(),
   email: z.string().email("E-mail inválido"),
   phone: z.string().optional(),
+
+  // endereço estruturado
+  zipCode: z.string().optional(),
+  street: z.string().optional(),
+  number: z.string().optional(),
+  neighborhood: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+
+  // endereço consolidado
   address: z.string().optional(),
+
+  // coordenadas opcionais
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+
   status: z.string().optional(),
 });
 
