@@ -39,20 +39,31 @@ export class VehicleController {
     try {
       const authUser = request.user as { sub: string; role: string };
 
-      if (authUser.role !== "COOPERATIVE") {
-        return reply.status(403).send({
-          success: false,
-          error: "Apenas cooperativas podem listar veículos.",
+      if (authUser.role === "COOPERATIVE") {
+        const vehicles = await vehicleService.listByAuthenticatedCooperative(
+          authUser.sub
+        );
+
+        return reply.send({
+          success: true,
+          vehicles,
         });
       }
 
-      const vehicles = await vehicleService.listByAuthenticatedCooperative(
-        authUser.sub
-      );
+      if (authUser.role === "DRIVER") {
+        const vehicles = await vehicleService.listByAuthenticatedDriver(
+          authUser.sub
+        );
 
-      return reply.send({
-        success: true,
-        vehicles,
+        return reply.send({
+          success: true,
+          vehicles,
+        });
+      }
+
+      return reply.status(403).send({
+        success: false,
+        error: "Usuário sem permissão para listar veículos.",
       });
     } catch (error: any) {
       return reply.status(400).send({
@@ -67,14 +78,18 @@ export class VehicleController {
       const authUser = request.user as { sub: string; role: string };
       const params = vehicleIdParamsSchema.parse(request.params);
 
-      if (authUser.role !== "COOPERATIVE") {
+      if (authUser.role !== "COOPERATIVE" && authUser.role !== "DRIVER") {
         return reply.status(403).send({
           success: false,
-          error: "Apenas cooperativas podem consultar veículos.",
+          error: "Usuário sem permissão para consultar veículos.",
         });
       }
 
-      const vehicle = await vehicleService.findById(authUser.sub, params.id);
+      const vehicle = await vehicleService.findById(
+        authUser.sub,
+        authUser.role,
+        params.id
+      );
 
       return reply.send({
         success: true,

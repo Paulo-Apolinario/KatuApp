@@ -160,7 +160,8 @@ export default function ActivateAccessScreen() {
                 lineHeight: 20,
               }}
             >
-              Use o email cadastrado pela cooperativa para ativar seu acesso e definir sua senha.
+              Use o e-mail cadastrado pela cooperativa para ativar seu acesso e
+              definir sua senha.
             </Text>
           </View>
 
@@ -173,7 +174,7 @@ export default function ActivateAccessScreen() {
                 fontSize: 14,
               }}
             >
-              Email cadastrado pela cooperativa *
+              E-mail cadastrado *
             </Text>
             <TextInput
               value={email}

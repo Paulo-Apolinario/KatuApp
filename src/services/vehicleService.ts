@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { routeService } from "./routeService";
 
 export type VehicleStatus = "ACTIVE" | "MAINTENANCE" | "INACTIVE";
 
@@ -50,6 +51,19 @@ function normalizeStatus(status?: string | null): VehicleStatus {
   return "ACTIVE";
 }
 
+export function translateVehicleStatus(status?: string | null) {
+  switch (status) {
+    case "ACTIVE":
+      return "Ativo";
+    case "MAINTENANCE":
+      return "Em manutenção";
+    case "INACTIVE":
+      return "Inativo";
+    default:
+      return "Não informado";
+  }
+}
+
 function normalizeVehicle(vehicle: BackendVehicle): Vehicle {
   return {
     id: vehicle.id,
@@ -67,6 +81,23 @@ function normalizeVehicle(vehicle: BackendVehicle): Vehicle {
 
 function sanitizePlate(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+}
+
+function normalizeRouteVehicle(vehicle: any): Vehicle | null {
+  if (!vehicle?.id) return null;
+
+  return {
+    id: vehicle.id,
+    plate: vehicle.plate ?? "",
+    model: vehicle.model ?? "",
+    brand: vehicle.brand ?? null,
+    year: vehicle.year ?? null,
+    capacityKg: vehicle.capacityKg ?? null,
+    driverId: null,
+    status: normalizeStatus(vehicle.status),
+    createdAt: undefined,
+    updatedAt: undefined,
+  };
 }
 
 export const vehicleService = {
@@ -111,6 +142,47 @@ export const vehicleService = {
     const response = await api.get<VehicleEnvelope>("/vehicles", true);
     const items = Array.isArray(response?.vehicles) ? response.vehicles : [];
     return items.map(normalizeVehicle);
+  },
+
+  async listByDriver(driverId?: string | null): Promise<Vehicle[]> {
+    const vehicles = await this.list();
+
+    if (!driverId) return vehicles;
+
+    const filtered = vehicles.filter((vehicle) => vehicle.driverId === driverId);
+
+    // fallback: quando o backend do motorista já retorna apenas os veículos dele
+    return filtered.length > 0 ? filtered : vehicles;
+  },
+
+  async getCurrentByDriver(driverId?: string | null): Promise<Vehicle | null> {
+    const vehicles = await this.listByDriver(driverId);
+
+    if (vehicles.length > 0) {
+      return vehicles[0];
+    }
+
+    // fallback forte: usa o veículo vinculado à próxima rota do motorista
+    if (driverId) {
+      try {
+        const nextRoute = await routeService.getNextRouteByDriver(driverId);
+
+        if (nextRoute?.vehicle) {
+          return normalizeRouteVehicle(nextRoute.vehicle);
+        }
+
+        const activeRoutes = await routeService.listActiveByDriver(driverId);
+        const routeWithVehicle = activeRoutes.find((route) => route.vehicle?.id);
+
+        if (routeWithVehicle?.vehicle) {
+          return normalizeRouteVehicle(routeWithVehicle.vehicle);
+        }
+      } catch {
+        // mantém retorno nulo se não conseguir resolver pelo fallback
+      }
+    }
+
+    return null;
   },
 
   async getById(id: string): Promise<Vehicle> {

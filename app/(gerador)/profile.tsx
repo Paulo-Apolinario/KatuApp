@@ -35,8 +35,8 @@ type AuthUserLike = {
   name?: string;
   displayName?: string;
   email?: string;
-  phone?: string;
-  address?: string;
+  phone?: string | null;
+  address?: string | null;
   generator?: Generator | null;
 };
 
@@ -151,7 +151,9 @@ function getCollectionTotalKg(collection: Collection) {
 
 export default function GeneratorProfileScreen() {
   const { user } = useAuth();
-  const currentUser = user as AuthUserLike | null;
+  const currentUser: AuthUserLike | null = user
+    ? (user as unknown as AuthUserLike)
+    : null;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -228,7 +230,8 @@ export default function GeneratorProfileScreen() {
       openSchedules,
       completedCollections: completedCollections.length,
       totalKg,
-      lastCollectionDate: lastCollection?.collectedAt || lastCollection?.createdAt || null,
+      lastCollectionDate:
+        lastCollection?.collectedAt || lastCollection?.createdAt || null,
     };
   }, [schedules, collections]);
 
@@ -490,28 +493,28 @@ export default function GeneratorProfileScreen() {
             icon="create-outline"
             title="Editar perfil"
             subtitle="Atualize as informações da sua conta"
-            onPress={() => router.push("/(gerador)/edit-profile")}
+            onPress={() => router.push("/(gerador)/edit-profile" as any)}
           />
 
           <QuickAction
             icon="calendar-outline"
             title="Solicitar coleta"
             subtitle="Criar um novo agendamento para a cooperativa"
-            onPress={() => router.push("/(gerador)/schedule")}
+            onPress={() => router.push("/(gerador)/schedule" as any)}
           />
 
           <QuickAction
             icon="pie-chart-outline"
             title="Ver impacto"
             subtitle="Acompanhe o percentual e os resultados ambientais"
-            onPress={() => router.push("/(gerador)/percentual")}
+            onPress={() => router.push("/(gerador)/percentual" as any)}
           />
 
           <QuickAction
             icon="chatbubble-outline"
             title="Enviar feedback"
             subtitle="Compartilhe sua experiência com a operação"
-            onPress={() => router.push("/(gerador)/feedback")}
+            onPress={() => router.push("/(gerador)/feedback" as any)}
             isLast
           />
         </View>

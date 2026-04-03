@@ -13,6 +13,11 @@ export async function driverRoutes(app: FastifyInstance) {
     };
   });
 
+  app.get("/me", driverController.me);
+  app.patch("/me", driverController.updateMe);
+  app.get("/me/reports", driverController.listMyReports);
+  app.post("/me/reports", driverController.createReport);
+
   app.post("/", driverController.create);
   app.get("/", driverController.listMine);
   app.get("/:id", driverController.findById);

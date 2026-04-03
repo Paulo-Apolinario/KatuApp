@@ -1,4 +1,9 @@
-import { AccountStatus, ScheduleStatus, UserRole } from "@prisma/client";
+import {
+  AccountStatus,
+  CollectionStatus,
+  ScheduleStatus,
+  UserRole,
+} from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import {
   CreateScheduleInput,
@@ -12,7 +17,7 @@ function isGeneratorRole(role: string) {
 }
 
 function buildScheduleNotes(
-  requestedMaterials: string[],
+  requestedMaterials: string[] = [],
   notes?: string
 ): string | null {
   const materialsText = requestedMaterials.length
@@ -31,29 +36,132 @@ function resolveInitialStatus(data: CreateScheduleInput) {
     : ScheduleStatus.REQUESTED;
 }
 
+function normalizeDate(date?: string | null) {
+  if (!date) return null;
+  return new Date(date);
+}
+
+const userSelect = {
+  id: true,
+  displayName: true,
+  email: true,
+  role: true,
+  phone: true,
+  isActive: true,
+  accountStatus: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const cooperativeSelect = {
+  id: true,
+  name: true,
+  registrationNumber: true,
+  email: true,
+  phone: true,
+  address: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const generatorSelect = {
+  id: true,
+  name: true,
+  companyName: true,
+  email: true,
+  phone: true,
+  zipCode: true,
+  street: true,
+  number: true,
+  neighborhood: true,
+  city: true,
+  state: true,
+  address: true,
+  latitude: true,
+  longitude: true,
+  type: true,
+  accessReleased: true,
+  accessStatus: true,
+  totalKg: true,
+  userId: true,
+  cooperativeId: true,
+} as const;
+
+const collectorSelect = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  rg: true,
+  birthDate: true,
+  status: true,
+  kgMonth: true,
+  collectionsToday: true,
+  totalKg: true,
+} as const;
+
+const driverSelect = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  cpf: true,
+  cnh: true,
+  cnhCategory: true,
+  status: true,
+} as const;
+
+const vehicleSelect = {
+  id: true,
+  plate: true,
+  model: true,
+  brand: true,
+  year: true,
+  capacityKg: true,
+  status: true,
+} as const;
+
+const routeSelect = {
+  id: true,
+  name: true,
+  description: true,
+  scheduledDate: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 const scheduleInclude = {
-  generator: true,
-  cooperative: true,
+  generator: {
+    select: generatorSelect,
+  },
+  cooperative: {
+    select: cooperativeSelect,
+  },
   requestedBy: {
-    select: {
-      id: true,
-      displayName: true,
-      email: true,
-      role: true,
-    },
+    select: userSelect,
   },
   collections: {
     include: {
-      collector: true,
-      driver: true,
-      vehicle: true,
-      route: true,
+      collector: {
+        select: collectorSelect,
+      },
+      driver: {
+        select: driverSelect,
+      },
+      vehicle: {
+        select: vehicleSelect,
+      },
+      route: {
+        select: routeSelect,
+      },
     },
     orderBy: {
       createdAt: "desc" as const,
     },
   },
-};
+} as const;
 
 export class ScheduleService {
   async create(
@@ -90,12 +198,8 @@ export class ScheduleService {
           cooperativeId: cooperative.id,
           generatorId: generator.id,
           requestedByUserId: authUserId,
-          preferredDate: data.preferredDate
-            ? new Date(data.preferredDate)
-            : null,
-          scheduledDate: data.scheduledDate
-            ? new Date(data.scheduledDate)
-            : null,
+          preferredDate: normalizeDate(data.preferredDate),
+          scheduledDate: normalizeDate(data.scheduledDate),
           notes: buildScheduleNotes(data.requestedMaterials, data.notes),
           status: resolveInitialStatus(data),
         },
@@ -117,12 +221,8 @@ export class ScheduleService {
           cooperativeId: generator.cooperativeId,
           generatorId: generator.id,
           requestedByUserId: authUserId,
-          preferredDate: data.preferredDate
-            ? new Date(data.preferredDate)
-            : null,
-          scheduledDate: data.scheduledDate
-            ? new Date(data.scheduledDate)
-            : null,
+          preferredDate: normalizeDate(data.preferredDate),
+          scheduledDate: normalizeDate(data.scheduledDate),
           notes: buildScheduleNotes(data.requestedMaterials, data.notes),
           status: resolveInitialStatus(data),
         },
@@ -131,6 +231,10 @@ export class ScheduleService {
     }
 
     if (authUserRole === UserRole.PF) {
+      if (!data.cooperativeId) {
+        throw new Error("Cooperativa é obrigatória para agendamento PF.");
+      }
+
       const cooperative = await prisma.cooperative.findFirst({
         where: {
           id: data.cooperativeId,
@@ -150,12 +254,8 @@ export class ScheduleService {
         data: {
           cooperativeId: cooperative.id,
           requestedByUserId: authUserId,
-          preferredDate: data.preferredDate
-            ? new Date(data.preferredDate)
-            : null,
-          scheduledDate: data.scheduledDate
-            ? new Date(data.scheduledDate)
-            : null,
+          preferredDate: normalizeDate(data.preferredDate),
+          scheduledDate: normalizeDate(data.scheduledDate),
           notes: buildScheduleNotes(data.requestedMaterials, data.notes),
           status: resolveInitialStatus(data),
         },
@@ -184,6 +284,7 @@ export class ScheduleService {
         orderBy: [
           { status: "asc" },
           { scheduledDate: "asc" },
+          { preferredDate: "asc" },
           { createdAt: "desc" },
         ],
       });
@@ -206,6 +307,7 @@ export class ScheduleService {
         orderBy: [
           { status: "asc" },
           { scheduledDate: "asc" },
+          { preferredDate: "asc" },
           { createdAt: "desc" },
         ],
       });
@@ -220,6 +322,7 @@ export class ScheduleService {
         orderBy: [
           { status: "asc" },
           { scheduledDate: "asc" },
+          { preferredDate: "asc" },
           { createdAt: "desc" },
         ],
       });
@@ -318,7 +421,7 @@ export class ScheduleService {
         collections: {
           where: {
             status: {
-              in: ["PENDING", "IN_PROGRESS"],
+              in: [CollectionStatus.PENDING, CollectionStatus.IN_PROGRESS],
             },
           },
         },

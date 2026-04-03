@@ -22,14 +22,12 @@ type ProfileType = "pf" | "comercial" | "grande" | "cooperativa" | "catador";
 function getRouteByProfile(profile: ProfileType) {
   switch (profile) {
     case "pf":
-      return "/(auth)/login";
+      return "/(auth)/login?profile=pf";
     case "cooperativa":
-      return "/(auth)/login";
+      return "/(auth)/login?profile=cooperativa";
     case "comercial":
     case "grande":
-      return "/(public)/access-type";
     case "catador":
-      return "/(public)/access-type";
     default:
       return "/(public)/access-type";
   }
@@ -37,6 +35,10 @@ function getRouteByProfile(profile: ProfileType) {
 
 function sanitizeDigits(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function isValidEmail(value: string) {
+  return /\S+@\S+\.\S+/.test(value);
 }
 
 export default function RegisterScreen() {
@@ -56,7 +58,6 @@ export default function RegisterScreen() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const [cpf, setCpf] = useState("");
-  const [cnpj, setCnpj] = useState("");
   const [cooperativeName, setCooperativeName] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [address, setAddress] = useState("");
@@ -66,14 +67,21 @@ export default function RegisterScreen() {
   }, [profile]);
 
   const validateFields = () => {
+    const normalizedEmail = email.trim().toLowerCase();
+
     if (
       !name.trim() ||
-      !email.trim() ||
+      !normalizedEmail ||
       !password.trim() ||
       !confirmPassword.trim() ||
       !phone.trim()
     ) {
       setErrorMessage("Preencha todos os campos obrigatórios.");
+      return false;
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      setErrorMessage("Informe um e-mail válido.");
       return false;
     }
 
@@ -87,15 +95,13 @@ export default function RegisterScreen() {
       return false;
     }
 
-    if (profile === "pf") {
-      if (!cpf.trim()) {
-        setErrorMessage("CPF é obrigatório.");
-        return false;
-      }
+    if (profile === "pf" && !sanitizeDigits(cpf)) {
+      setErrorMessage("CPF é obrigatório.");
+      return false;
     }
 
     if (profile === "cooperativa") {
-      if (!cooperativeName.trim() || !registrationNumber.trim()) {
+      if (!cooperativeName.trim() || !sanitizeDigits(registrationNumber)) {
         setErrorMessage("Nome da cooperativa e CNPJ são obrigatórios.");
         return false;
       }
@@ -134,77 +140,76 @@ export default function RegisterScreen() {
   };
 
   async function handleRegister() {
-    setErrorMessage("");
+  setErrorMessage("");
 
-    if (!isSupportedPublicProfile) {
-      Alert.alert("Cadastro interno", getUnsupportedMessage(), [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(public)/access-type"),
-        },
-      ]);
+  if (!isSupportedPublicProfile) {
+    Alert.alert("Cadastro interno", getUnsupportedMessage(), [
+      {
+        text: "OK",
+        onPress: () => router.replace("/(public)/access-type"),
+      },
+    ]);
+    return;
+  }
+
+  if (!validateFields()) return;
+
+  setLoading(true);
+
+  try {
+    const normalizedEmail = email.trim().toLowerCase();
+    let result;
+
+    if (profile === "pf") {
+      result = await authService.registerPf({
+        displayName: name.trim(),
+        email: normalizedEmail,
+        password,
+        phone: phone.trim(),
+        rememberMe,
+        cpf: sanitizeDigits(cpf),
+        address: address.trim() || undefined,
+      });
+    } else if (profile === "cooperativa") {
+      result = await authService.registerCooperative({
+        displayName: name.trim(),
+        email: normalizedEmail,
+        password,
+        phone: phone.trim(),
+        rememberMe,
+        cooperativeName: cooperativeName.trim(),
+        registrationNumber: sanitizeDigits(registrationNumber),
+        address: address.trim() || undefined,
+      });
+    }
+
+    if (!result) {
+      setErrorMessage("Não foi possível concluir o cadastro.");
       return;
     }
 
-    if (!validateFields()) return;
-
-    setLoading(true);
-
-    try {
-      if (profile === "pf") {
-        if (typeof (authService as any).registerPf !== "function") {
-          throw new Error("Método registerPf não encontrado no authService.");
-        }
-
-        await (authService as any).registerPf({
-          displayName: name.trim(),
-          email: email.trim().toLowerCase(),
-          password,
-          phone: phone.trim(),
-          rememberMe,
-          cpf: sanitizeDigits(cpf),
-          address: address.trim() || undefined,
-        });
-      }
-
-      if (profile === "cooperativa") {
-        if (typeof (authService as any).registerCooperative !== "function") {
-          throw new Error(
-            "Método registerCooperative não encontrado no authService."
-          );
-        }
-
-        await (authService as any).registerCooperative({
-          displayName: name.trim(),
-          email: email.trim().toLowerCase(),
-          password,
-          phone: phone.trim(),
-          rememberMe,
-          cooperativeName: cooperativeName.trim(),
-          registrationNumber: sanitizeDigits(registrationNumber || cnpj),
-          address: address.trim() || undefined,
-        });
-      }
-
-      Alert.alert("Sucesso!", "Cadastro realizado com sucesso!", [
-        {
-          text: "OK",
-          onPress: () => {
-            router.replace(getRouteByProfile(profile));
-          },
-        },
-      ]);
-    } catch (error: any) {
-      console.error("ERRO COMPLETO:", error);
-
-      const message =
-        error?.message || "Não foi possível concluir o cadastro.";
-
-      setErrorMessage(message);
-    } finally {
-      setLoading(false);
+    if (result.success === false) {
+      setErrorMessage(result.error);
+      return;
     }
+
+    Alert.alert("Sucesso!", "Cadastro realizado com sucesso!", [
+      {
+        text: "OK",
+        onPress: () => {
+          router.replace(getRouteByProfile(profile));
+        },
+      },
+    ]);
+  } catch (error: any) {
+    console.error("Erro no cadastro:", error);
+    setErrorMessage(
+      error?.message || "Não foi possível concluir o cadastro."
+    );
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <KeyboardAvoidingView
@@ -264,7 +269,7 @@ export default function RegisterScreen() {
                 marginBottom: 2,
               }}
             >
-              KATU
+              KATUÁ
             </Text>
 
             <View
@@ -449,11 +454,8 @@ export default function RegisterScreen() {
 
                   <FormInput
                     label="CNPJ"
-                    value={registrationNumber || cnpj}
-                    onChangeText={(value) => {
-                      setRegistrationNumber(value);
-                      setCnpj(value);
-                    }}
+                    value={registrationNumber}
+                    onChangeText={setRegistrationNumber}
                     placeholder="Digite o CNPJ"
                     icon="document-text-outline"
                     keyboardType="numeric"

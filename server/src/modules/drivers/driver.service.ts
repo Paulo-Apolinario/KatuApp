@@ -1,8 +1,10 @@
-import { DriverStatus } from "@prisma/client";
+import { DriverReportType, DriverStatus } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import {
   CreateDriverInput,
+  CreateDriverReportInput,
   UpdateDriverStatusInput,
+  UpdateMyDriverProfileInput,
 } from "./driver.schemas";
 
 function normalizeEmail(email: string) {
@@ -14,7 +16,7 @@ function sanitizeDigits(value?: string) {
 }
 
 export class DriverService {
-  async create(cooperativeUserId: string, data: CreateDriverInput) {
+  private async getAuthenticatedCooperative(cooperativeUserId: string) {
     const cooperative = await prisma.cooperative.findUnique({
       where: { userId: cooperativeUserId },
     });
@@ -22,6 +24,28 @@ export class DriverService {
     if (!cooperative) {
       throw new Error("Cooperativa do usuário autenticado não encontrada.");
     }
+
+    return cooperative;
+  }
+
+  private async getAuthenticatedDriverByUserId(userId: string) {
+    const driver = await prisma.driver.findFirst({
+      where: { userId },
+      include: {
+        cooperative: true,
+        user: true,
+      },
+    });
+
+    if (!driver) {
+      throw new Error("Motorista autenticado não encontrado.");
+    }
+
+    return driver;
+  }
+
+  async create(cooperativeUserId: string, data: CreateDriverInput) {
+    const cooperative = await this.getAuthenticatedCooperative(cooperativeUserId);
 
     const email = normalizeEmail(data.email);
     const cpf = sanitizeDigits(data.cpf);
@@ -73,13 +97,7 @@ export class DriverService {
   }
 
   async listByAuthenticatedCooperative(cooperativeUserId: string) {
-    const cooperative = await prisma.cooperative.findUnique({
-      where: { userId: cooperativeUserId },
-    });
-
-    if (!cooperative) {
-      throw new Error("Cooperativa do usuário autenticado não encontrada.");
-    }
+    const cooperative = await this.getAuthenticatedCooperative(cooperativeUserId);
 
     return prisma.driver.findMany({
       where: { cooperativeId: cooperative.id },
@@ -88,13 +106,7 @@ export class DriverService {
   }
 
   async findById(cooperativeUserId: string, driverId: string) {
-    const cooperative = await prisma.cooperative.findUnique({
-      where: { userId: cooperativeUserId },
-    });
-
-    if (!cooperative) {
-      throw new Error("Cooperativa do usuário autenticado não encontrada.");
-    }
+    const cooperative = await this.getAuthenticatedCooperative(cooperativeUserId);
 
     const driver = await prisma.driver.findFirst({
       where: {
@@ -122,6 +134,88 @@ export class DriverService {
       data: {
         status: DriverStatus[data.status],
       },
+    });
+  }
+
+  async getMe(userId: string) {
+    const driver = await prisma.driver.findFirst({
+      where: { userId },
+      include: {
+        cooperative: true,
+        user: true,
+      },
+    });
+
+    if (!driver) {
+      throw new Error("Motorista autenticado não encontrado.");
+    }
+
+    return driver;
+  }
+
+  async updateMe(userId: string, data: UpdateMyDriverProfileInput) {
+    const driver = await this.getAuthenticatedDriverByUserId(userId);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: {
+          displayName: data.displayName.trim(),
+          phone: data.phone?.trim() || null,
+        },
+      }),
+      prisma.driver.update({
+        where: { id: driver.id },
+        data: {
+          name: data.displayName.trim(),
+          phone: data.phone?.trim() || null,
+          cnh: data.cnh?.trim() || null,
+          cnhCategory: data.cnhCategory?.trim().toUpperCase() || null,
+          notes: data.notes?.trim() || null,
+        },
+      }),
+    ]);
+
+    return prisma.driver.findUnique({
+      where: { id: driver.id },
+      include: {
+        cooperative: true,
+        user: true,
+      },
+    });
+  }
+
+  async createReport(userId: string, data: CreateDriverReportInput) {
+    const driver = await this.getAuthenticatedDriverByUserId(userId);
+
+    return prisma.driverReport.create({
+      data: {
+        driverId: driver.id,
+        type: DriverReportType[data.type],
+        description: data.description.trim(),
+        routeId: data.routeId || null,
+        vehicleId: data.vehicleId || null,
+        collectionId: data.collectionId || null,
+      },
+      include: {
+        route: true,
+        vehicle: true,
+        collection: true,
+      },
+    });
+  }
+
+  async listMyReports(userId: string) {
+    const driver = await this.getAuthenticatedDriverByUserId(userId);
+
+    return prisma.driverReport.findMany({
+      where: { driverId: driver.id },
+      include: {
+        route: true,
+        vehicle: true,
+        collection: true,
+      },
+      orderBy: { createdAt: "desc" },
     });
   }
 }

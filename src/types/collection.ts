@@ -66,13 +66,14 @@ export interface Collection {
   } | null;
 
   route?: {
-    id: string;
-    name?: string | null;
-    description?: string | null;
-    scheduledDate?: string | null;
-    stops?: string[];
-    status?: string | null;
-  } | null;
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  scheduledDate?: string | null;
+  stops?: string[];
+  status?: string | null;
+  driverId?: string | null;
+} | null;
 
   schedule?: {
     id: string;

@@ -2,6 +2,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -18,12 +19,7 @@ import {
 import {
   collectionService,
   type Collection,
-  type CollectionMaterial,
 } from "@/src/services/collectionService";
-import {
-  collectorService,
-  type Collector,
-} from "@/src/services/collectorService";
 import {
   routeService,
   type RouteItem,
@@ -37,13 +33,22 @@ import {
   type Vehicle,
 } from "@/src/services/vehicleService";
 
-function formatDateTime(dateString?: string | null) {
-  if (!dateString) return "-";
+function formatDate(value?: string | null) {
+  if (!value) return "Sem data";
 
-  const parsed = new Date(dateString);
-  if (Number.isNaN(parsed.getTime())) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sem data";
 
-  return parsed.toLocaleString("pt-BR", {
+  return date.toLocaleDateString("pt-BR");
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "Sem data";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sem data";
+
+  return date.toLocaleString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -52,16 +57,11 @@ function formatDateTime(dateString?: string | null) {
   });
 }
 
-function formatDate(dateString?: string | null) {
-  if (!dateString) return "-";
-
-  const parsed = new Date(dateString);
-  if (Number.isNaN(parsed.getTime())) return "-";
-
-  return parsed.toLocaleDateString("pt-BR");
+function formatWeight(value?: number | null) {
+  return `${Number(value ?? 0).toFixed(1)} kg`;
 }
 
-function translateScheduleStatus(status?: string | null) {
+function getScheduleStatusLabel(status?: string) {
   switch (status) {
     case "REQUESTED":
       return "Solicitado";
@@ -74,26 +74,28 @@ function translateScheduleStatus(status?: string | null) {
     case "CANCELLED":
       return "Cancelado";
     default:
-      return status || "Sem status";
+      return "Sem status";
   }
 }
 
-function translateCollectionStatus(status?: string | null) {
+function getScheduleStatusColor(status?: string) {
   switch (status) {
-    case "PENDING":
-      return "Pendente";
+    case "REQUESTED":
+      return "#F59E0B";
+    case "SCHEDULED":
+      return "#2563EB";
     case "IN_PROGRESS":
-      return "Em andamento";
+      return "#8B5CF6";
     case "COMPLETED":
-      return "Concluído";
+      return "#10B981";
     case "CANCELLED":
-      return "Cancelado";
+      return "#DC2626";
     default:
-      return status || "Sem status";
+      return "#6B7280";
   }
 }
 
-function getRouteStatusLabel(status?: string | null) {
+function getRouteStatusLabel(status?: string) {
   switch (status) {
     case "SCHEDULED":
       return "Agendada";
@@ -104,18 +106,18 @@ function getRouteStatusLabel(status?: string | null) {
     case "CANCELLED":
       return "Cancelada";
     default:
-      return status || "Sem status";
+      return "Sem status";
   }
 }
 
-function getRouteStatusColor(status?: string | null) {
+function getRouteStatusColor(status?: string) {
   switch (status) {
     case "SCHEDULED":
-      return "#2563EB";
-    case "IN_PROGRESS":
       return "#F59E0B";
-    case "COMPLETED":
+    case "IN_PROGRESS":
       return "#10B981";
+    case "COMPLETED":
+      return "#2563EB";
     case "CANCELLED":
       return "#DC2626";
     default:
@@ -123,12 +125,27 @@ function getRouteStatusColor(status?: string | null) {
   }
 }
 
-function getCollectionStatusColor(status?: string | null) {
+function getCollectionStatusLabel(status?: string) {
   switch (status) {
     case "PENDING":
-      return "#64748B";
+      return "Pendente";
     case "IN_PROGRESS":
+      return "Em andamento";
+    case "COMPLETED":
+      return "Concluída";
+    case "CANCELLED":
+      return "Cancelada";
+    default:
+      return "Sem status";
+  }
+}
+
+function getCollectionStatusColor(status?: string) {
+  switch (status) {
+    case "PENDING":
       return "#F59E0B";
+    case "IN_PROGRESS":
+      return "#8B5CF6";
     case "COMPLETED":
       return "#10B981";
     case "CANCELLED":
@@ -136,39 +153,254 @@ function getCollectionStatusColor(status?: string | null) {
     default:
       return "#6B7280";
   }
-}
-
-function formatMaterials(materials?: CollectionMaterial[] | null) {
-  if (!Array.isArray(materials) || materials.length === 0) return "-";
-
-  return materials
-    .map((item) => `${item.type}: ${Number(item.quantityKg || 0).toFixed(1)} kg`)
-    .join(" • ");
 }
 
 function getScheduleName(item: Schedule) {
-  if (item.generator?.companyName) return item.generator.companyName;
-  if (item.generator?.name) return item.generator.name;
-  if (item.requestedBy?.displayName) return item.requestedBy.displayName;
-  if (item.requestedBy?.email) return item.requestedBy.email;
-  return "Solicitação sem identificação";
+  return (
+    item.generator?.companyName ||
+    item.generator?.businessName ||
+    item.generator?.name ||
+    item.requestedBy?.displayName ||
+    "Solicitação operacional"
+  );
 }
 
-function getCollectionOriginName(item: Collection) {
-  if (item.generator?.companyName) return item.generator.companyName;
-  if (item.generator?.name) return item.generator.name;
-  if (item.schedule?.requestedBy?.displayName) {
-    return item.schedule.requestedBy.displayName;
-  }
-  if (item.schedule?.requestedBy?.email) {
-    return item.schedule.requestedBy.email;
-  }
-  return "Origem não identificada";
+function getCollectionName(item: Collection) {
+  return (
+    item.generator?.companyName ||
+    item.generator?.businessName ||
+    item.generator?.name ||
+    item.schedule?.generator?.companyName ||
+    item.schedule?.generator?.businessName ||
+    item.schedule?.generator?.name ||
+    "Coleta operacional"
+  );
 }
 
 function getCollectionAddress(item: Collection) {
-  if (item.generator?.address) return item.generator.address;
-  return "-";
+  return (
+    item.generator?.address ||
+    item.schedule?.generator?.address ||
+    "Endereço não informado"
+  );
+}
+
+function getRouteVehicleLabel(item: RouteItem) {
+  if (!item.vehicle?.model) return "Veículo não informado";
+  return `${item.vehicle.model}${item.vehicle.plate ? ` - ${item.vehicle.plate}` : ""}`;
+}
+
+type ExecutiveMetricCardProps = {
+  title: string;
+  value: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  backgroundColor: string;
+};
+
+function ExecutiveMetricCard({
+  title,
+  value,
+  subtitle,
+  icon,
+  color,
+  backgroundColor,
+}: ExecutiveMetricCardProps) {
+  return (
+    <View
+      style={{
+        width: "48.5%",
+        backgroundColor,
+        borderRadius: 22,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        minHeight: 142,
+        justifyContent: "space-between",
+      }}
+    >
+      <View
+        style={{
+          width: 50,
+          height: 50,
+          borderRadius: 25,
+          backgroundColor: "rgba(255,255,255,0.65)",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name={icon} size={24} color={color} />
+      </View>
+
+      <View>
+        <Text
+          style={{
+            fontSize: 13,
+            color: "#64748B",
+            fontWeight: "700",
+          }}
+        >
+          {title}
+        </Text>
+
+        <Text
+          style={{
+            marginTop: 4,
+            fontSize: 26,
+            fontWeight: "900",
+            color: "#0F172A",
+          }}
+        >
+          {value}
+        </Text>
+
+        <Text
+          style={{
+            marginTop: 6,
+            fontSize: 12,
+            color: "#64748B",
+            lineHeight: 17,
+          }}
+        >
+          {subtitle}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function SectionHeader({
+  title,
+  subtitle,
+  actionLabel,
+  onPress,
+}: {
+  title: string;
+  subtitle?: string;
+  actionLabel?: string;
+  onPress?: () => void;
+}) {
+  return (
+    <View
+      style={{
+        marginBottom: 12,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "flex-end",
+      }}
+    >
+      <View style={{ flex: 1, paddingRight: 12 }}>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: "900",
+            color: "#0F172A",
+          }}
+        >
+          {title}
+        </Text>
+        {!!subtitle && (
+          <Text
+            style={{
+              fontSize: 13,
+              color: "#64748B",
+              marginTop: 4,
+            }}
+          >
+            {subtitle}
+          </Text>
+        )}
+      </View>
+
+      {!!actionLabel && !!onPress && (
+        <TouchableOpacity onPress={onPress}>
+          <Text
+            style={{
+              color: "#028C56",
+              fontWeight: "900",
+              fontSize: 12,
+            }}
+          >
+            {actionLabel}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        paddingVertical: 24,
+        paddingHorizontal: 14,
+      }}
+    >
+      <Ionicons name={icon} size={42} color="#9CA3AF" />
+      <Text
+        style={{
+          fontSize: 16,
+          fontWeight: "800",
+          color: "#111827",
+          marginTop: 10,
+          textAlign: "center",
+        }}
+      >
+        {title}
+      </Text>
+      <Text
+        style={{
+          fontSize: 13,
+          color: "#6B7280",
+          marginTop: 6,
+          textAlign: "center",
+          lineHeight: 19,
+        }}
+      >
+        {subtitle}
+      </Text>
+    </View>
+  );
+}
+
+function Badge({
+  label,
+  color,
+}: {
+  label: string;
+  color: string;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: color,
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+      }}
+    >
+      <Text
+        style={{
+          color: "#FFFFFF",
+          fontWeight: "900",
+          fontSize: 11,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
 }
 
 export default function CooperativeDashboardScreen() {
@@ -177,7 +409,6 @@ export default function CooperativeDashboardScreen() {
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
-  const [collectors, setCollectors] = useState<Collector[]>([]);
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -187,32 +418,29 @@ export default function CooperativeDashboardScreen() {
       if (showLoader) setLoading(true);
 
       const [
-        scheduleResponse,
-        collectionResponse,
-        collectorResponse,
-        routeResponse,
-        driverResponse,
-        vehicleResponse,
+        schedulesResponse,
+        collectionsResponse,
+        routesResponse,
+        driversResponse,
+        vehiclesResponse,
       ] = await Promise.all([
         scheduleService.list(),
         collectionService.list(),
-        collectorService.list(),
         routeService.list(),
         driverService.list(),
         vehicleService.list(),
       ]);
 
-      setSchedules(Array.isArray(scheduleResponse) ? scheduleResponse : []);
-      setCollections(Array.isArray(collectionResponse) ? collectionResponse : []);
-      setCollectors(Array.isArray(collectorResponse) ? collectorResponse : []);
-      setRoutes(Array.isArray(routeResponse) ? routeResponse : []);
-      setDrivers(Array.isArray(driverResponse) ? driverResponse : []);
-      setVehicles(Array.isArray(vehicleResponse) ? vehicleResponse : []);
+      setSchedules(Array.isArray(schedulesResponse) ? schedulesResponse : []);
+      setCollections(Array.isArray(collectionsResponse) ? collectionsResponse : []);
+      setRoutes(Array.isArray(routesResponse) ? routesResponse : []);
+      setDrivers(Array.isArray(driversResponse) ? driversResponse : []);
+      setVehicles(Array.isArray(vehiclesResponse) ? vehiclesResponse : []);
     } catch (error) {
-      console.error("Erro ao carregar dashboard da cooperativa:", error);
+      console.error("Erro ao carregar dashboard:", error);
+      Alert.alert("Erro", "Não foi possível carregar o dashboard da cooperativa.");
       setSchedules([]);
       setCollections([]);
-      setCollectors([]);
       setRoutes([]);
       setDrivers([]);
       setVehicles([]);
@@ -228,15 +456,21 @@ export default function CooperativeDashboardScreen() {
     }, [loadDashboard])
   );
 
-  const onRefresh = useCallback(async () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    await loadDashboard(false);
+    loadDashboard(false);
   }, [loadDashboard]);
 
-  const metrics = useMemo(() => {
-    const requestedSchedules = schedules.filter((item) => item.status === "REQUESTED");
-    const scheduledSchedules = schedules.filter((item) => item.status === "SCHEDULED");
-    const inProgressSchedules = schedules.filter((item) => item.status === "IN_PROGRESS");
+  const dashboardMetrics = useMemo(() => {
+    const requestedSchedules = schedules.filter(
+      (item) => item.status === "REQUESTED"
+    );
+    const scheduledSchedules = schedules.filter(
+      (item) => item.status === "SCHEDULED"
+    );
+    const inProgressSchedules = schedules.filter(
+      (item) => item.status === "IN_PROGRESS"
+    );
 
     const activeRoutes = routes.filter(
       (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS"
@@ -246,39 +480,25 @@ export default function CooperativeDashboardScreen() {
       (item) => item.status === "IN_PROGRESS"
     );
 
-    const completedCollections = collections.filter(
-      (item) => item.status === "COMPLETED"
-    );
+    const completedToday = collections.filter((item) => {
+      if (item.status !== "COMPLETED") return false;
 
-    const completedToday = completedCollections.filter((item) => {
-      if (!item.collectedAt && !item.createdAt) return false;
+      const baseDate = item.collectedAt || item.updatedAt || item.createdAt;
+      if (!baseDate) return false;
 
-      const sourceDate = new Date(item.collectedAt || item.createdAt || 0);
-      const now = new Date();
+      const date = new Date(baseDate);
+      const today = new Date();
 
       return (
-        sourceDate.getDate() === now.getDate() &&
-        sourceDate.getMonth() === now.getMonth() &&
-        sourceDate.getFullYear() === now.getFullYear()
+        date.getDate() === today.getDate() &&
+        date.getMonth() === today.getMonth() &&
+        date.getFullYear() === today.getFullYear()
       );
     });
 
-    const totalCollectedKg = completedCollections.reduce(
-      (acc, item) => acc + Number(item.totalWeightKg || 0),
-      0
-    );
-
-    const collectorsAvailable = collectors.filter(
-      (item) => item.status === "AVAILABLE"
-    ).length;
-
-    const collectorsOnRoute = collectors.filter(
-      (item) => item.status === "ON_ROUTE"
-    ).length;
-
-    const collectorsInactive = collectors.filter(
-      (item) => item.status === "INACTIVE"
-    ).length;
+    const totalCollectedKg = collections
+      .filter((item) => item.status === "COMPLETED")
+      .reduce((sum, item) => sum + Number(item.totalWeightKg ?? 0), 0);
 
     const driversAvailable = drivers.filter(
       (item) => item.status === "AVAILABLE"
@@ -289,10 +509,16 @@ export default function CooperativeDashboardScreen() {
     ).length;
 
     const nextSchedules = [...schedules]
-      .filter((item) => item.status === "REQUESTED" || item.status === "SCHEDULED")
+      .filter(
+        (item) => item.status === "REQUESTED" || item.status === "SCHEDULED"
+      )
       .sort((a, b) => {
-        const aTime = new Date(a.scheduledDate || a.preferredDate || 0).getTime();
-        const bTime = new Date(b.scheduledDate || b.preferredDate || 0).getTime();
+        const aTime = new Date(
+          a.scheduledDate || a.preferredDate || a.createdAt || 0
+        ).getTime();
+        const bTime = new Date(
+          b.scheduledDate || b.preferredDate || b.createdAt || 0
+        ).getTime();
         return aTime - bTime;
       })
       .slice(0, 4);
@@ -321,16 +547,13 @@ export default function CooperativeDashboardScreen() {
       inProgressCollections: inProgressCollections.length,
       completedToday: completedToday.length,
       totalCollectedKg,
-      collectorsAvailable,
-      collectorsOnRoute,
-      collectorsInactive,
       driversAvailable,
       vehiclesActive,
       nextSchedules,
       recentCollections,
       recentRoutes,
     };
-  }, [schedules, collections, collectors, routes, drivers, vehicles]);
+  }, [schedules, collections, routes, drivers, vehicles]);
 
   if (loading) {
     return (
@@ -379,230 +602,198 @@ export default function CooperativeDashboardScreen() {
           }}
         >
           <View>
-            <Text style={{ color: "#E8FFF1", fontSize: 14 }}>
-              KATUÁ • Cooperativa
+            <Text style={{ color: "#E8FFF1", fontSize: 13, fontWeight: "700" }}>
+              Visão executiva
             </Text>
             <Text
               style={{
                 color: "#FFFFFF",
-                fontSize: 30,
-                fontWeight: "800",
+                fontSize: 28,
+                fontWeight: "900",
                 marginTop: 4,
               }}
             >
-              Centro operacional
+              Dashboard
             </Text>
           </View>
 
           <TouchableOpacity
-            onPress={onRefresh}
-            activeOpacity={0.85}
+            onPress={() => router.back()}
             style={{
-              width: 46,
-              height: 46,
-              borderRadius: 23,
-              backgroundColor: "rgba(255,255,255,0.18)",
+              width: 42,
+              height: 42,
+              borderRadius: 21,
+              backgroundColor: "rgba(255,255,255,0.16)",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <Ionicons name="refresh-outline" size={22} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
         <Text
           style={{
             color: "#E8FFF1",
-            fontSize: 15,
+            fontSize: 14,
+            lineHeight: 20,
             marginTop: 10,
-            lineHeight: 22,
           }}
         >
-          Visão moderna da operação com acesso rápido para gestão, logística e histórico.
+          Acompanhe os principais indicadores da cooperativa, a operação em campo
+          e o ritmo das rotas.
         </Text>
+      </LinearGradient>
+
+      <View style={{ paddingHorizontal: 20, paddingTop: 18 }}>
+        <SectionHeader
+          title="Indicadores principais"
+          subtitle="Leitura rápida do cenário atual da cooperativa."
+        />
 
         <View
           style={{
-            marginTop: 18,
-            backgroundColor: "rgba(255,255,255,0.14)",
-            borderRadius: 20,
-            padding: 16,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            rowGap: 12,
+            marginBottom: 22,
           }}
         >
-          <Text style={{ color: "#E8FFF1", fontSize: 13 }}>Volume coletado</Text>
-          <Text
-            style={{
-              color: "#FFFFFF",
-              fontSize: 28,
-              fontWeight: "800",
-              marginTop: 6,
-            }}
-          >
-            {metrics.totalCollectedKg.toFixed(1)} kg
-          </Text>
-          <Text style={{ color: "#E8FFF1", fontSize: 13, marginTop: 6 }}>
-            {metrics.completedToday} coletas concluídas hoje • {metrics.inProgressCollections} em andamento
-          </Text>
-        </View>
-      </LinearGradient>
-
-      <View style={{ paddingHorizontal: 16, paddingTop: 18 }}>
-        <SectionHeader title="Atalhos inteligentes" />
-
-        <View style={gridRow}>
-          <GridShortcutCard
-            icon="calendar-outline"
-            title="Agendamentos"
-            subtitle="Solicitações e delegação"
-            onPress={() => router.push("/(cooperativa)/schedule")}
-          />
-          <GridShortcutCard
-            icon="time-outline"
-            title="Histórico"
-            subtitle="Coletas concluídas"
-            onPress={() => router.push("/(cooperativa)/history")}
-          />
-        </View>
-
-        <View style={gridRow}>
-          <GridShortcutCard
-            icon="trail-sign-outline"
-            title="Rotas"
-            subtitle="Planejamento logístico"
-            onPress={() => router.push("/(cooperativa)/rotas")}
-          />
-          <GridShortcutCard
-            icon="car-outline"
-            title="Veículos"
-            subtitle="Frota disponível"
-            onPress={() => router.push("/(cooperativa)/veiculos")}
-          />
-        </View>
-
-        <View style={gridRow}>
-          <GridShortcutCard
-            icon="person-outline"
-            title="Motoristas"
-            subtitle="Equipe de condução"
-            onPress={() => router.push("/(cooperativa)/motoristas")}
-          />
-          <GridShortcutCard
-            icon="people-outline"
-            title="Catadores"
-            subtitle="Equipe operacional"
-            onPress={() => router.push("/(cooperativa)/catadores")}
-          />
-        </View>
-
-        <SectionHeader title="Indicadores principais" />
-
-        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <MetricCard
-            title="Solicitações abertas"
-            value={String(metrics.requestedSchedules)}
-            icon="mail-unread-outline"
-          />
-          <MetricCard
-            title="Agendadas"
-            value={String(metrics.scheduledSchedules)}
-            icon="calendar-outline"
-          />
-        </View>
-
-        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 12 }}>
-          <MetricCard
-            title="Em execução"
-            value={String(metrics.inProgressCollections)}
-            icon="cube-outline"
-          />
-          <MetricCard
-            title="Rotas ativas"
-            value={String(metrics.activeRoutes)}
-            icon="map-outline"
-          />
-        </View>
-
-        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 12 }}>
-          <MetricCard
-            title="Motoristas livres"
-            value={String(metrics.driversAvailable)}
-            icon="person-outline"
-          />
-          <MetricCard
-            title="Veículos ativos"
-            value={String(metrics.vehiclesActive)}
-            icon="car-sport-outline"
-          />
-        </View>
-
-        <SectionHeader title="Equipe e disponibilidade" />
-
-        <View style={sectionCard}>
-          <StatusRow
-            label="Catadores disponíveis"
-            value={String(metrics.collectorsAvailable)}
-            color="#10B981"
-          />
-          <StatusRow
-            label="Catadores em rota"
-            value={String(metrics.collectorsOnRoute)}
+          <ExecutiveMetricCard
+            title="Solicitações"
+            value={String(dashboardMetrics.requestedSchedules)}
+            subtitle="Pedidos aguardando organização"
+            icon="document-text-outline"
             color="#F59E0B"
+            backgroundColor="#FFF7E8"
           />
-          <StatusRow
-            label="Catadores inativos"
-            value={String(metrics.collectorsInactive)}
-            color="#6B7280"
-          />
-          <StatusRow
-            label="Solicitações em progresso"
-            value={String(metrics.inProgressSchedules)}
+          <ExecutiveMetricCard
+            title="Agendados"
+            value={String(dashboardMetrics.scheduledSchedules)}
+            subtitle="Coletas programadas para execução"
+            icon="calendar-outline"
             color="#2563EB"
-            isLast
+            backgroundColor="#EEF4FF"
+          />
+          <ExecutiveMetricCard
+            title="Rotas ativas"
+            value={String(dashboardMetrics.activeRoutes)}
+            subtitle="Rotas em agenda ou andamento"
+            icon="git-network-outline"
+            color="#7C3AED"
+            backgroundColor="#F5F3FF"
+          />
+          <ExecutiveMetricCard
+            title="Em campo"
+            value={String(dashboardMetrics.inProgressCollections)}
+            subtitle="Coletas em execução neste momento"
+            icon="trail-sign-outline"
+            color="#8B5CF6"
+            backgroundColor="#F5F3FF"
+          />
+          <ExecutiveMetricCard
+            title="Concluídas hoje"
+            value={String(dashboardMetrics.completedToday)}
+            subtitle="Execuções finalizadas no dia"
+            icon="checkmark-done-outline"
+            color="#10B981"
+            backgroundColor="#ECFDF5"
+          />
+          <ExecutiveMetricCard
+            title="Peso coletado"
+            value={formatWeight(dashboardMetrics.totalCollectedKg)}
+            subtitle="Volume concluído acumulado"
+            icon="barbell-outline"
+            color="#0F766E"
+            backgroundColor="#ECFEFF"
           />
         </View>
 
-        <SectionHeader title="Próximos agendamentos" />
+        <SectionHeader
+          title="Disponibilidade operacional"
+          subtitle="Recursos prontos para apoiar a operação."
+        />
 
-        <View style={sectionCard}>
-          {metrics.nextSchedules.length > 0 ? (
-            metrics.nextSchedules.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                activeOpacity={0.85}
-                onPress={() => router.push(`/(cooperativa)/schedule/${item.id}` as any)}
-                style={listItemCard}
-              >
-                <Text style={itemTitle}>{getScheduleName(item)}</Text>
-                <Text style={itemText}>
-                  Data: {formatDateTime(item.scheduledDate || item.preferredDate)}
-                </Text>
-                <Text style={itemText}>
-                  Status: {translateScheduleStatus(item.status)}
-                </Text>
-                {!!item.notes && (
-                  <Text style={itemSubtext}>Observações: {item.notes}</Text>
-                )}
-              </TouchableOpacity>
-            ))
-          ) : (
-            <EmptyState
-              icon="calendar-clear-outline"
-              title="Nenhum agendamento pendente"
-              subtitle="As novas solicitações aparecerão aqui."
-            />
-          )}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            rowGap: 12,
+            marginBottom: 22,
+          }}
+        >
+          <ExecutiveMetricCard
+            title="Motoristas disponíveis"
+            value={String(dashboardMetrics.driversAvailable)}
+            subtitle="Equipe pronta para entrar em rota"
+            icon="people-outline"
+            color="#028C56"
+            backgroundColor="#EAF8F3"
+          />
+          <ExecutiveMetricCard
+            title="Veículos ativos"
+            value={String(dashboardMetrics.vehiclesActive)}
+            subtitle="Frota apta para operação"
+            icon="car-outline"
+            color="#E59200"
+            backgroundColor="#FFF8E8"
+          />
+          <ExecutiveMetricCard
+            title="Em andamento"
+            value={String(dashboardMetrics.inProgressSchedules)}
+            subtitle="Agendamentos em execução"
+            icon="pulse-outline"
+            color="#DC2626"
+            backgroundColor="#FEF2F2"
+          />
+          <ExecutiveMetricCard
+            title="Mapa operacional"
+            value={String(dashboardMetrics.activeRoutes)}
+            subtitle="Rotas para acompanhamento visual"
+            icon="map-outline"
+            color="#0F766E"
+            backgroundColor="#ECFEFF"
+          />
         </View>
 
-        <SectionHeader title="Rotas recentes" />
+        <SectionHeader
+          title="Próximos agendamentos"
+          subtitle="Acompanhe as próximas demandas da operação."
+          actionLabel="VER AGENDAMENTOS"
+          onPress={() => router.push("/(cooperativa)/schedule")}
+        />
 
-        <View style={sectionCard}>
-          {metrics.recentRoutes.length > 0 ? (
-            metrics.recentRoutes.map((item) => (
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 20,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: "#E5E7EB",
+            marginBottom: 22,
+          }}
+        >
+          {dashboardMetrics.nextSchedules.length > 0 ? (
+            dashboardMetrics.nextSchedules.map((item) => (
               <TouchableOpacity
                 key={item.id}
-                activeOpacity={0.85}
-                onPress={() => router.push(`/(cooperativa)/rotas/${item.id}` as any)}
-                style={listItemCard}
+                activeOpacity={0.88}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(cooperativa)/schedule/[id]",
+                    params: { id: item.id },
+                  })
+                }
+                style={{
+                  backgroundColor: "#F8FAFC",
+                  borderRadius: 16,
+                  padding: 14,
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  marginBottom: 12,
+                }}
               >
                 <View
                   style={{
@@ -611,19 +802,147 @@ export default function CooperativeDashboardScreen() {
                     alignItems: "flex-start",
                   }}
                 >
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={itemTitle}>{item.name}</Text>
-                    <Text style={itemText}>
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "900",
+                        color: "#0F172A",
+                      }}
+                    >
+                      {getScheduleName(item)}
+                    </Text>
+
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#64748B",
+                        marginTop: 8,
+                      }}
+                    >
+                      Data:{" "}
+                      {formatDateTime(
+                        item.scheduledDate || item.preferredDate || item.createdAt
+                      )}
+                    </Text>
+
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#64748B",
+                        marginTop: 6,
+                      }}
+                    >
+                      Endereço: {item.generator?.address || "Não informado"}
+                    </Text>
+                  </View>
+
+                  <Badge
+                    label={getScheduleStatusLabel(item.status)}
+                    color={getScheduleStatusColor(item.status)}
+                  />
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <EmptyState
+              icon="calendar-outline"
+              title="Nenhum agendamento em destaque"
+              subtitle="As próximas solicitações e programações aparecerão aqui."
+            />
+          )}
+        </View>
+
+        <SectionHeader
+          title="Rotas recentes"
+          subtitle="Acompanhe as últimas rotas registradas."
+          actionLabel="VER ROTAS"
+          onPress={() => router.push("/(cooperativa)/rotas")}
+        />
+
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 20,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: "#E5E7EB",
+            marginBottom: 22,
+          }}
+        >
+          {dashboardMetrics.recentRoutes.length > 0 ? (
+            dashboardMetrics.recentRoutes.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                activeOpacity={0.88}
+                onPress={() =>
+                  router.push(`/(cooperativa)/rotas/${item.id}` as any)
+                }
+                style={{
+                  backgroundColor: "#F8FAFC",
+                  borderRadius: 16,
+                  padding: 14,
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  marginBottom: 12,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "900",
+                        color: "#0F172A",
+                      }}
+                    >
+                      {item.name}
+                    </Text>
+
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#64748B",
+                        marginTop: 8,
+                      }}
+                    >
                       Data: {formatDate(item.scheduledDate || item.createdAt)}
                     </Text>
-                    <Text style={itemText}>
+
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#64748B",
+                        marginTop: 6,
+                      }}
+                    >
                       Motorista: {item.driver?.name || "Não informado"}
                     </Text>
-                    <Text style={itemSubtext}>
-                      Veículo:{" "}
-                      {item.vehicle?.model
-                        ? `${item.vehicle.model}${item.vehicle.plate ? ` - ${item.vehicle.plate}` : ""}`
-                        : "Não informado"}
+
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#64748B",
+                        marginTop: 6,
+                      }}
+                    >
+                      Veículo: {getRouteVehicleLabel(item)}
+                    </Text>
+
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#64748B",
+                        marginTop: 6,
+                      }}
+                    >
+                      Coletas: {item.stats?.totalCollections ?? 0}
                     </Text>
                   </View>
 
@@ -636,19 +955,43 @@ export default function CooperativeDashboardScreen() {
             ))
           ) : (
             <EmptyState
-              icon="map-outline"
-              title="Nenhuma rota encontrada"
-              subtitle="As rotas recentes aparecerão aqui."
+              icon="git-network-outline"
+              title="Nenhuma rota registrada"
+              subtitle="As rotas operacionais aparecerão aqui para acompanhamento."
             />
           )}
         </View>
 
-        <SectionHeader title="Coletas recentes" />
+        <SectionHeader
+          title="Coletas recentes"
+          subtitle="Últimas movimentações registradas no sistema."
+          actionLabel="VER MAPA"
+          onPress={() => router.push("/(cooperativa)/mapas")}
+        />
 
-        <View style={sectionCard}>
-          {metrics.recentCollections.length > 0 ? (
-            metrics.recentCollections.map((item) => (
-              <View key={item.id} style={listItemCard}>
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 20,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: "#E5E7EB",
+            marginBottom: 22,
+          }}
+        >
+          {dashboardMetrics.recentCollections.length > 0 ? (
+            dashboardMetrics.recentCollections.map((item) => (
+              <View
+                key={item.id}
+                style={{
+                  backgroundColor: "#F8FAFC",
+                  borderRadius: 16,
+                  padding: 14,
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  marginBottom: 12,
+                }}
+              >
                 <View
                   style={{
                     flexDirection: "row",
@@ -656,24 +999,60 @@ export default function CooperativeDashboardScreen() {
                     alignItems: "flex-start",
                   }}
                 >
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={itemTitle}>{getCollectionOriginName(item)}</Text>
-                    <Text style={itemText}>
-                      Peso: {Number(item.totalWeightKg || 0).toFixed(1)} kg
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "900",
+                        color: "#0F172A",
+                      }}
+                    >
+                      {getCollectionName(item)}
                     </Text>
-                    <Text style={itemText}>
+
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#64748B",
+                        marginTop: 8,
+                      }}
+                    >
                       Endereço: {getCollectionAddress(item)}
                     </Text>
-                    <Text style={itemSubtext}>
-                      Materiais: {formatMaterials(item.materials)}
+
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#64748B",
+                        marginTop: 6,
+                      }}
+                    >
+                      Peso: {formatWeight(item.totalWeightKg)}
                     </Text>
-                    <Text style={itemSubtext}>
+
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#64748B",
+                        marginTop: 6,
+                      }}
+                    >
                       Data: {formatDateTime(item.collectedAt || item.createdAt)}
+                    </Text>
+
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#64748B",
+                        marginTop: 6,
+                      }}
+                    >
+                      Catador: {item.collector?.name || item.collector?.displayName || "Não informado"}
                     </Text>
                   </View>
 
                   <Badge
-                    label={translateCollectionStatus(item.status)}
+                    label={getCollectionStatusLabel(item.status)}
                     color={getCollectionStatusColor(item.status)}
                   />
                 </View>
@@ -683,71 +1062,130 @@ export default function CooperativeDashboardScreen() {
             <EmptyState
               icon="cube-outline"
               title="Nenhuma coleta recente"
-              subtitle="As execuções registradas aparecerão aqui."
+              subtitle="As coletas registradas aparecerão aqui para leitura rápida."
             />
           )}
+        </View>
+
+        <SectionHeader
+          title="Atalhos executivos"
+          subtitle="Acesse rapidamente os módulos estratégicos."
+        />
+
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            marginBottom: 6,
+          }}
+        >
+          <QuickActionCard
+            title="Agendamentos"
+            subtitle="Fila de solicitações"
+            icon="calendar-outline"
+            color="#DC2626"
+            backgroundColor="#FEF2F2"
+            borderColor="#F6C7C7"
+            onPress={() => router.push("/(cooperativa)/schedule")}
+          />
+          <QuickActionCard
+            title="Rotas"
+            subtitle="Operação logística"
+            icon="git-network-outline"
+            color="#7C3AED"
+            backgroundColor="#F5F3FF"
+            borderColor="#DDD6FE"
+            onPress={() => router.push("/(cooperativa)/rotas")}
+          />
+          <QuickActionCard
+            title="Mapas"
+            subtitle="Visão geográfica"
+            icon="map-outline"
+            color="#0F766E"
+            backgroundColor="#ECFEFF"
+            borderColor="#BDEFF3"
+            onPress={() => router.push("/(cooperativa)/mapas")}
+          />
+          <QuickActionCard
+            title="Home"
+            subtitle="Painel operacional"
+            icon="home-outline"
+            color="#028C56"
+            backgroundColor="#EAF8F3"
+            borderColor="#BDE8D7"
+            onPress={() => router.push("/(cooperativa)/home")}
+          />
         </View>
       </View>
     </ScrollView>
   );
 }
 
-function GridShortcutCard({
-  icon,
+function QuickActionCard({
   title,
   subtitle,
+  icon,
+  color,
+  backgroundColor,
+  borderColor,
   onPress,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  backgroundColor: string;
+  borderColor: string;
   onPress: () => void;
 }) {
   return (
     <TouchableOpacity
-      activeOpacity={0.88}
+      activeOpacity={0.92}
       onPress={onPress}
       style={{
         width: "48.5%",
-        backgroundColor: "#FFFFFF",
+        backgroundColor,
         borderRadius: 22,
-        padding: 16,
         borderWidth: 1,
-        borderColor: "#E5E7EB",
-        minHeight: 132,
+        borderColor,
+        paddingVertical: 16,
+        paddingHorizontal: 14,
+        marginBottom: 14,
+        minHeight: 138,
         justifyContent: "space-between",
       }}
     >
       <View
         style={{
-          width: 50,
-          height: 50,
-          borderRadius: 25,
-          backgroundColor: "#ECFDF5",
+          width: 54,
+          height: 54,
+          borderRadius: 27,
+          backgroundColor: "rgba(255,255,255,0.55)",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Ionicons name={icon} size={24} color="#028C56" />
+        <Ionicons name={icon} size={26} color={color} />
       </View>
 
       <View>
         <Text
           style={{
-            fontSize: 16,
-            fontWeight: "800",
-            color: "#111827",
-            marginTop: 14,
+            color,
+            fontSize: 14,
+            fontWeight: "900",
           }}
         >
           {title}
         </Text>
+
         <Text
           style={{
-            fontSize: 13,
-            color: "#6B7280",
-            marginTop: 4,
-            lineHeight: 18,
+            color: "#475569",
+            fontSize: 12,
+            marginTop: 6,
+            lineHeight: 17,
           }}
         >
           {subtitle}
@@ -756,203 +1194,3 @@ function GridShortcutCard({
     </TouchableOpacity>
   );
 }
-
-function MetricCard({
-  title,
-  value,
-  icon,
-}: {
-  title: string;
-  value: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}) {
-  return (
-    <View
-      style={{
-        width: "48.5%",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 18,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-      }}
-    >
-      <View
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: "#DCFCE7",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 10,
-        }}
-      >
-        <Ionicons name={icon} size={20} color="#15803D" />
-      </View>
-
-      <Text style={{ fontSize: 13, color: "#6B7280" }}>{title}</Text>
-      <Text
-        style={{
-          marginTop: 4,
-          fontSize: 22,
-          fontWeight: "800",
-          color: "#111827",
-        }}
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <View style={{ marginTop: 18, marginBottom: 10 }}>
-      <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>
-        {title}
-      </Text>
-    </View>
-  );
-}
-
-function StatusRow({
-  label,
-  value,
-  color,
-  isLast = false,
-}: {
-  label: string;
-  value: string;
-  color: string;
-  isLast?: boolean;
-}) {
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingBottom: isLast ? 0 : 12,
-        marginBottom: isLast ? 0 : 12,
-        borderBottomWidth: isLast ? 0 : 1,
-        borderBottomColor: "#E5E7EB",
-      }}
-    >
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <View
-          style={{
-            width: 12,
-            height: 12,
-            borderRadius: 6,
-            backgroundColor: color,
-            marginRight: 10,
-          }}
-        />
-        <Text style={{ fontSize: 15, color: "#374151", fontWeight: "600" }}>
-          {label}
-        </Text>
-      </View>
-
-      <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function Badge({ label, color }: { label: string; color: string }) {
-  return (
-    <View
-      style={{
-        backgroundColor: color,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 14,
-      }}
-    >
-      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-function EmptyState({
-  icon,
-  title,
-  subtitle,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <View style={{ alignItems: "center", paddingVertical: 28 }}>
-      <Ionicons name={icon} size={42} color="#9CA3AF" />
-      <Text
-        style={{
-          fontSize: 16,
-          fontWeight: "700",
-          color: "#374151",
-          marginTop: 10,
-          textAlign: "center",
-        }}
-      >
-        {title}
-      </Text>
-      <Text
-        style={{
-          fontSize: 14,
-          color: "#6B7280",
-          textAlign: "center",
-          marginTop: 6,
-          lineHeight: 20,
-        }}
-      >
-        {subtitle}
-      </Text>
-    </View>
-  );
-}
-
-const gridRow = {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  marginBottom: 12,
-} as const;
-
-const sectionCard = {
-  backgroundColor: "#FFFFFF",
-  borderRadius: 18,
-  padding: 16,
-  borderWidth: 1,
-  borderColor: "#E5E7EB",
-} as const;
-
-const listItemCard = {
-  backgroundColor: "#F9FAFB",
-  borderRadius: 14,
-  padding: 14,
-  marginBottom: 10,
-  borderWidth: 1,
-  borderColor: "#E5E7EB",
-} as const;
-
-const itemTitle = {
-  fontSize: 15,
-  fontWeight: "700" as const,
-  color: "#111827",
-} as const;
-
-const itemText = {
-  marginTop: 5,
-  fontSize: 14,
-  color: "#4B5563",
-} as const;
-
-const itemSubtext = {
-  marginTop: 6,
-  fontSize: 13,
-  color: "#6B7280",
-} as const;

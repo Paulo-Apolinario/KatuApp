@@ -1,4 +1,4 @@
-import { VehicleStatus } from "@prisma/client";
+import { UserRole, VehicleStatus } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import {
   CreateVehicleInput,
@@ -73,7 +73,24 @@ export class VehicleService {
     });
   }
 
-  async findById(cooperativeUserId: string, vehicleId: string) {
+  async listByAuthenticatedDriver(driverUserId: string) {
+    const driver = await prisma.driver.findUnique({
+      where: { userId: driverUserId },
+    });
+
+    if (!driver) {
+      throw new Error("Motorista do usuário autenticado não encontrado.");
+    }
+
+    return prisma.vehicle.findMany({
+      where: {
+        driverId: driver.id,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async findByIdForCooperative(cooperativeUserId: string, vehicleId: string) {
     const cooperative = await prisma.cooperative.findUnique({
       where: { userId: cooperativeUserId },
     });
@@ -96,12 +113,50 @@ export class VehicleService {
     return vehicle;
   }
 
+  async findByIdForDriver(driverUserId: string, vehicleId: string) {
+    const driver = await prisma.driver.findUnique({
+      where: { userId: driverUserId },
+    });
+
+    if (!driver) {
+      throw new Error("Motorista do usuário autenticado não encontrado.");
+    }
+
+    const vehicle = await prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        driverId: driver.id,
+      },
+    });
+
+    if (!vehicle) {
+      throw new Error("Veículo não encontrado para este motorista.");
+    }
+
+    return vehicle;
+  }
+
+  async findById(authUserId: string, authUserRole: string, vehicleId: string) {
+    if (authUserRole === UserRole.COOPERATIVE) {
+      return this.findByIdForCooperative(authUserId, vehicleId);
+    }
+
+    if (authUserRole === UserRole.DRIVER) {
+      return this.findByIdForDriver(authUserId, vehicleId);
+    }
+
+    throw new Error("Usuário sem permissão para consultar veículo.");
+  }
+
   async updateStatus(
     cooperativeUserId: string,
     vehicleId: string,
     data: UpdateVehicleStatusInput
   ) {
-    const vehicle = await this.findById(cooperativeUserId, vehicleId);
+    const vehicle = await this.findByIdForCooperative(
+      cooperativeUserId,
+      vehicleId
+    );
 
     return prisma.vehicle.update({
       where: { id: vehicle.id },

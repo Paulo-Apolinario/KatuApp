@@ -32,7 +32,10 @@ type AuthUserLike = {
   generator?: Generator | null;
 };
 
-function getGeneratorTypeLabel(role?: string, generatorType?: GeneratorType | null) {
+function getGeneratorTypeLabel(
+  role?: string,
+  generatorType?: GeneratorType | null
+) {
   if (generatorType === "SMALL" || role === "GENERATOR_SMALL") {
     return "Gerador de Pequeno Porte";
   }
@@ -61,17 +64,24 @@ function getAccessStatusLabel(status?: GeneratorAccessStatus | null) {
 
 export default function EditGeneratorProfileScreen() {
   const { user } = useAuth();
-  const currentUser = user as AuthUserLike | null;
+  const currentUser: AuthUserLike | null = user
+    ? (user as unknown as AuthUserLike)
+    : null;
 
-  const generator = currentUser?.generator || null;
+  const generator = currentUser?.generator ?? null;
 
   const [responsibleName, setResponsibleName] = useState(
-    generator?.name || currentUser?.name || currentUser?.displayName || ""
+    generator?.name || currentUser?.displayName || currentUser?.name || ""
   );
-  const [companyName, setCompanyName] = useState(generator?.companyName || "");
+
+  const [companyName, setCompanyName] = useState(
+    generator?.companyName || ""
+  );
+
   const [phone, setPhone] = useState(
     generator?.phone || currentUser?.phone || ""
   );
+
   const [address, setAddress] = useState(
     generator?.address || currentUser?.address || ""
   );

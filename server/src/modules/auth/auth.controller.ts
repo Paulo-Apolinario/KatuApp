@@ -3,9 +3,11 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import { AuthService } from "./auth.service";
 import {
   activateGeneratorAccessSchema,
+  forgotPasswordSchema,
   loginSchema,
   registerCooperativeSchema,
   registerPfSchema,
+  resetPasswordSchema,
 } from "./auth.schemas";
 
 const authService = new AuthService();
@@ -23,6 +25,8 @@ function serializeUser(user: any) {
     personProfile: user.personProfile ?? null,
     generator: user.generator ?? null,
     collector: user.collector ?? null,
+    cooperative: user.cooperative ?? null,
+    driver: user.driver ?? null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -145,11 +149,50 @@ export class AuthController {
         user: serializeUser(result.user),
         generator: result.generator ?? null,
         collector: result.collector ?? null,
+        driver: result.driver ?? null,
       });
     } catch (error: any) {
       return reply.status(400).send({
         success: false,
         error: error.message || "Erro ao liberar acesso.",
+      });
+    }
+  }
+
+  async forgotPassword(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const body = forgotPasswordSchema.parse(request.body);
+
+      const result = await authService.forgotPassword(body);
+
+      return reply.send({
+        success: true,
+        message: result.message,
+        resetToken: result.resetToken,
+        expiresAt: result.expiresAt ?? null,
+      });
+    } catch (error: any) {
+      return reply.status(400).send({
+        success: false,
+        error: error.message || "Erro ao solicitar redefinição de senha.",
+      });
+    }
+  }
+
+  async resetPassword(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const body = resetPasswordSchema.parse(request.body);
+
+      const result = await authService.resetPassword(body);
+
+      return reply.send({
+        success: true,
+        message: result.message,
+      });
+    } catch (error: any) {
+      return reply.status(400).send({
+        success: false,
+        error: error.message || "Erro ao redefinir senha.",
       });
     }
   }

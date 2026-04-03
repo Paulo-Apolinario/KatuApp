@@ -4,6 +4,7 @@ export type UserRole =
   | "GENERATOR_LARGE"
   | "COOPERATIVE"
   | "COLLECTOR"
+  | "DRIVER"
   | "ADMIN";
 
 export interface PersonProfile {
@@ -46,6 +47,33 @@ export interface CollectorProfile {
   totalKg: number;
 }
 
+export interface CooperativeProfile {
+  id: string;
+  name: string;
+  registrationNumber?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  userId?: string;
+}
+
+export interface DriverProfile {
+  id: string;
+  cooperativeId: string;
+  userId?: string | null;
+  name: string;
+  email: string;
+  phone?: string | null;
+  cpf?: string | null;
+  cnh?: string | null;
+  cnhCategory?: string | null;
+  notes?: string | null;
+  status: "AVAILABLE" | "ON_ROUTE" | "INACTIVE";
+  cooperative?: CooperativeProfile | null;
+}
+
 export interface UserDoc {
   id: string;
   email: string;
@@ -58,6 +86,8 @@ export interface UserDoc {
   personProfile?: PersonProfile | null;
   generator?: GeneratorProfile | null;
   collector?: CollectorProfile | null;
+  cooperative?: CooperativeProfile | null;
+  driver?: DriverProfile | null;
   createdAt?: string;
   updatedAt?: string;
 }

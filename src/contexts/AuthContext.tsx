@@ -1,12 +1,21 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { router } from "expo-router";
+import { router, Href } from "expo-router";
 import authService from "../services/authService";
 import { UserDoc } from "../types/user";
 
 type AuthActionResult = {
   success: boolean;
   error?: string;
+  message?: string;
   requiresActivation?: boolean;
+  resetToken?: string;
+};
+
+type ResetPasswordInput = {
+  email: string;
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
 };
 
 interface AuthContextData {
@@ -15,7 +24,8 @@ interface AuthContextData {
   signIn: (
     email: string,
     password: string,
-    expectedProfile?: string
+    expectedProfile?: string,
+    rememberMe?: boolean
   ) => Promise<AuthActionResult>;
   signOut: () => Promise<void>;
   register: (
@@ -27,6 +37,8 @@ interface AuthContextData {
     email: string,
     password: string
   ) => Promise<AuthActionResult>;
+  forgotPassword: (email: string) => Promise<AuthActionResult>;
+  resetPassword: (data: ResetPasswordInput) => Promise<AuthActionResult>;
   refreshUser: () => Promise<void>;
 }
 
@@ -38,7 +50,7 @@ function normalizeRole(role?: string) {
   return String(role || "").toUpperCase();
 }
 
-function getRouteByRole(role?: string) {
+function getRouteByRole(role?: string): Href {
   const normalized = normalizeRole(role);
 
   switch (normalized) {
@@ -51,6 +63,8 @@ function getRouteByRole(role?: string) {
       return "/(catador)/homecat";
     case "COOPERATIVE":
       return "/(cooperativa)/home";
+    case "DRIVER":
+      return "/(motorista)/home";
     default:
       return "/(public)/access-type";
   }
@@ -68,6 +82,8 @@ function mapExpectedProfileToRole(profile?: string) {
       return "COLLECTOR";
     case "cooperativa":
       return "COOPERATIVE";
+    case "motorista":
+      return "DRIVER";
     default:
       return undefined;
   }
@@ -79,11 +95,12 @@ function isActivatableRole(role?: string) {
   return (
     normalized === "GENERATOR_SMALL" ||
     normalized === "GENERATOR_LARGE" ||
-    normalized === "COLLECTOR"
+    normalized === "COLLECTOR" ||
+    normalized === "DRIVER"
   );
 }
 
-function requiresActivation(result: any) {
+function checkRequiresActivation(result: any) {
   const role = normalizeRole(result?.user?.role);
 
   if (!isActivatableRole(role)) {
@@ -124,7 +141,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const signIn = async (
     email: string,
     password: string,
-    expectedProfile?: string
+    expectedProfile?: string,
+    rememberMe?: boolean
   ): Promise<AuthActionResult> => {
     try {
       const result = await authService.login(email, password);
@@ -149,23 +167,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         };
       }
 
-      if (requiresActivation(result)) {
+      if (checkRequiresActivation(result)) {
         setUser(result.user ?? null);
 
-        router.replace(
-          `/(public)/activate-access?email=${encodeURIComponent(email.trim())}`
-        );
+        router.replace({
+          pathname: "/(public)/activate-access",
+          params: { email: email.trim() },
+        });
 
         return {
           success: true,
           requiresActivation: true,
+          message: result.message,
         };
       }
 
-      setUser(result.user);
-      router.replace(getRouteByRole(result.user.role));
+      if (result.user) {
+        setUser(result.user);
+        router.replace(getRouteByRole(result.user.role));
+      }
 
-      return { success: true };
+      return {
+        success: true,
+        message: result.message,
+      };
     } catch {
       return {
         success: false,
@@ -223,10 +248,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         };
       }
 
-      setUser(result.user);
-      router.replace(getRouteByRole(result.user.role));
+      if (result.user) {
+        setUser(result.user);
+        router.replace(getRouteByRole(result.user.role));
+      }
 
-      return { success: true };
+      return {
+        success: true,
+        message: result.message,
+      };
     } catch {
       return {
         success: false,
@@ -253,7 +283,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       router.replace(getRouteByRole(result.user.role));
     }
 
-    return { success: true };
+    return {
+      success: true,
+      message: result.message,
+    };
+  };
+
+  const forgotPassword = async (email: string): Promise<AuthActionResult> => {
+    const result = await authService.forgotPassword(email);
+
+    if (result.success === false) {
+      return {
+        success: false,
+        error: result.error,
+      };
+    }
+
+    return {
+      success: true,
+      message: result.message,
+      resetToken: result.resetToken,
+    };
+  };
+
+  const resetPassword = async (
+    data: ResetPasswordInput
+  ): Promise<AuthActionResult> => {
+    const result = await authService.resetPassword({
+      email: data.email,
+      token: data.token,
+      newPassword: data.newPassword,
+      confirmPassword: data.confirmPassword,
+    });
+
+    if (result.success === false) {
+      return {
+        success: false,
+        error: result.error,
+      };
+    }
+
+    return {
+      success: true,
+      message: result.message,
+    };
   };
 
   return (
@@ -265,6 +338,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         signOut,
         register,
         activateGeneratorAccess,
+        forgotPassword,
+        resetPassword,
         refreshUser,
       }}
     >

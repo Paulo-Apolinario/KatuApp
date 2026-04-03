@@ -45,27 +45,169 @@ function toPrismaJson(materials: MaterialItem[]): Prisma.InputJsonValue {
   return materials as unknown as Prisma.InputJsonValue;
 }
 
+const userSelect = {
+  id: true,
+  displayName: true,
+  email: true,
+  role: true,
+  phone: true,
+  isActive: true,
+  accountStatus: true,
+} as const;
+
+const cooperativeSelect = {
+  id: true,
+  name: true,
+  registrationNumber: true,
+  email: true,
+  phone: true,
+  address: true,
+  createdAt: true,
+  updatedAt: true,
+  userId: true,
+} as const;
+
+const generatorInclude = {
+  user: {
+    select: userSelect,
+  },
+  cooperative: {
+    select: cooperativeSelect,
+  },
+} as const;
+
+const cooperativeInclude = {
+  user: {
+    select: userSelect,
+  },
+} as const;
+
+const collectorInclude = {
+  user: {
+    select: userSelect,
+  },
+  cooperative: {
+    select: cooperativeSelect,
+  },
+} as const;
+
+const driverInclude = {
+  cooperative: {
+    select: cooperativeSelect,
+  },
+} as const;
+
+const vehicleInclude = {
+  cooperative: {
+    select: cooperativeSelect,
+  },
+  driver: {
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      status: true,
+    },
+  },
+} as const;
+
+const routeInclude = {
+  driver: {
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      status: true,
+    },
+  },
+  vehicle: {
+    select: {
+      id: true,
+      plate: true,
+      model: true,
+      brand: true,
+      year: true,
+      capacityKg: true,
+      status: true,
+    },
+  },
+  cooperative: {
+    select: cooperativeSelect,
+  },
+} as const;
+
 const collectionInclude = {
-  generator: true,
-  collector: true,
-  driver: true,
-  vehicle: true,
-  route: true,
+  generator: {
+    include: generatorInclude,
+  },
+  collector: {
+    include: collectorInclude,
+  },
+  driver: {
+    include: driverInclude,
+  },
+  vehicle: {
+    include: vehicleInclude,
+  },
+  route: {
+    include: routeInclude,
+  },
   schedule: {
     include: {
       requestedBy: {
-        select: {
-          id: true,
-          displayName: true,
-          email: true,
-          role: true,
+        select: userSelect,
+      },
+      generator: {
+        include: generatorInclude,
+      },
+      cooperative: {
+        include: cooperativeInclude,
+      },
+      collections: {
+        include: {
+          collector: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              status: true,
+            },
+          },
+          driver: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              status: true,
+            },
+          },
+          vehicle: {
+            select: {
+              id: true,
+              plate: true,
+              model: true,
+              brand: true,
+              year: true,
+              capacityKg: true,
+              status: true,
+            },
+          },
+          route: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              scheduledDate: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc" as const,
         },
       },
-      generator: true,
-      cooperative: true,
     },
   },
-};
+} as const;
 
 export class CollectionService {
   async create(
@@ -93,11 +235,25 @@ export class CollectionService {
       include: {
         generator: true,
         requestedBy: {
+          select: userSelect,
+        },
+        collections: {
+          where: {
+            status: {
+              in: [
+                CollectionStatus.PENDING,
+                CollectionStatus.IN_PROGRESS,
+                CollectionStatus.COMPLETED,
+              ],
+            },
+          },
           select: {
             id: true,
-            displayName: true,
-            email: true,
-            role: true,
+            status: true,
+            routeId: true,
+            collectorId: true,
+            driverId: true,
+            vehicleId: true,
           },
         },
       },
@@ -112,6 +268,10 @@ export class CollectionService {
       schedule.status === ScheduleStatus.COMPLETED
     ) {
       throw new Error("Não é possível delegar um agendamento encerrado.");
+    }
+
+    if (schedule.collections.length > 0) {
+      throw new Error("Este agendamento já possui uma coleta vinculada.");
     }
 
     const collector = await prisma.collector.findFirst({
@@ -190,6 +350,18 @@ export class CollectionService {
     }
 
     if (route) {
+      if (route.driverId && !driver) {
+        throw new Error(
+          "A rota informada já possui motorista vinculado. Informe o motorista correspondente."
+        );
+      }
+
+      if (route.vehicleId && !vehicle) {
+        throw new Error(
+          "A rota informada já possui veículo vinculado. Informe o veículo correspondente."
+        );
+      }
+
       if (driver && route.driverId && route.driverId !== driver.id) {
         throw new Error("A rota informada pertence a outro motorista.");
       }
@@ -197,23 +369,6 @@ export class CollectionService {
       if (vehicle && route.vehicleId && route.vehicleId !== vehicle.id) {
         throw new Error("A rota informada pertence a outro veículo.");
       }
-    }
-
-    const existingCollection = await prisma.collection.findFirst({
-      where: {
-        scheduleId: schedule.id,
-        status: {
-          in: [
-            CollectionStatus.PENDING,
-            CollectionStatus.IN_PROGRESS,
-            CollectionStatus.COMPLETED,
-          ],
-        },
-      },
-    });
-
-    if (existingCollection) {
-      throw new Error("Este agendamento já possui uma coleta vinculada.");
     }
 
     const normalizedMaterials = normalizeMaterials(data.materials);
@@ -229,8 +384,8 @@ export class CollectionService {
           generatorId: schedule.generatorId ?? null,
           collectorId: collector.id,
           scheduleId: schedule.id,
-          driverId: data.driverId || null,
-          vehicleId: data.vehicleId || null,
+          driverId: data.driverId || route?.driverId || null,
+          vehicleId: data.vehicleId || route?.vehicleId || null,
           routeId: data.routeId || null,
           collectedAt: data.collectedAt ? new Date(data.collectedAt) : null,
           totalWeightKg: safeTotal,
@@ -247,6 +402,7 @@ export class CollectionService {
         where: { id: schedule.id },
         data: {
           status: ScheduleStatus.SCHEDULED,
+          scheduledDate: schedule.scheduledDate ?? new Date(),
         },
       }),
     ]);
@@ -285,6 +441,24 @@ export class CollectionService {
       return prisma.collection.findMany({
         where: {
           collectorId: collector.id,
+        },
+        include: collectionInclude,
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+      });
+    }
+
+    if (authUserRole === UserRole.DRIVER) {
+      const driver = await prisma.driver.findUnique({
+        where: { userId: authUserId },
+      });
+
+      if (!driver) {
+        throw new Error("Motorista do usuário autenticado não encontrado.");
+      }
+
+      return prisma.collection.findMany({
+        where: {
+          driverId: driver.id,
         },
         include: collectionInclude,
         orderBy: [{ status: "asc" }, { createdAt: "desc" }],
@@ -377,6 +551,30 @@ export class CollectionService {
       return collection;
     }
 
+    if (authUserRole === UserRole.DRIVER) {
+      const driver = await prisma.driver.findUnique({
+        where: { userId: authUserId },
+      });
+
+      if (!driver) {
+        throw new Error("Motorista do usuário autenticado não encontrado.");
+      }
+
+      const collection = await prisma.collection.findFirst({
+        where: {
+          id: collectionId,
+          driverId: driver.id,
+        },
+        include: collectionInclude,
+      });
+
+      if (!collection) {
+        throw new Error("Coleta não encontrada.");
+      }
+
+      return collection;
+    }
+
     if (isGeneratorRole(authUserRole)) {
       const generator = await prisma.generator.findUnique({
         where: { userId: authUserId },
@@ -454,6 +652,14 @@ export class CollectionService {
 
       if (!collector || collection.collectorId !== collector.id) {
         throw new Error("Coleta não encontrada para este catador.");
+      }
+    } else if (authUserRole === UserRole.DRIVER) {
+      const driver = await prisma.driver.findUnique({
+        where: { userId: authUserId },
+      });
+
+      if (!driver || collection.driverId !== driver.id) {
+        throw new Error("Coleta não encontrada para este motorista.");
       }
     } else {
       throw new Error("Usuário sem permissão para atualizar coleta.");

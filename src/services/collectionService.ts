@@ -5,7 +5,6 @@ import type {
   CollectionStatus,
 } from "@/src/types/collection";
 
-// mantém compatibilidade com arquivos que importam tipos do service
 export type {
   Collection,
   CollectionMaterial,
@@ -49,6 +48,21 @@ type UpdateCollectionStatusApiResponse = {
   success?: boolean;
 };
 
+export function translateCollectionStatus(status?: string | null) {
+  switch (status) {
+    case "PENDING":
+      return "Pendente";
+    case "IN_PROGRESS":
+      return "Em andamento";
+    case "COMPLETED":
+      return "Concluída";
+    case "CANCELLED":
+      return "Cancelada";
+    default:
+      return "Não informado";
+  }
+}
+
 function normalizeMaterials(materials: unknown): CollectionMaterial[] {
   if (!Array.isArray(materials)) return [];
 
@@ -76,8 +90,7 @@ function normalizeMaterials(materials: unknown): CollectionMaterial[] {
       return null;
     })
     .filter(
-      (item): item is CollectionMaterial =>
-        !!item && item.type.length > 0
+      (item): item is CollectionMaterial => !!item && item.type.length > 0
     );
 }
 
@@ -162,6 +175,31 @@ async function list(): Promise<Collection[]> {
   return collections.map(normalizeCollection);
 }
 
+async function listByDriver(driverId?: string | null): Promise<Collection[]> {
+  const collections = await list();
+
+  if (!driverId) return collections;
+
+  const filtered = collections.filter((collection) => {
+    const directMatch = collection.driverId === driverId;
+    const routeMatch = collection.route?.driverId === driverId;
+
+    return directMatch || routeMatch;
+  });
+
+  // fallback: quando o backend do motorista já entrega só as coletas dele
+  return filtered.length > 0 ? filtered : collections;
+}
+
+async function listActiveByDriver(driverId?: string | null): Promise<Collection[]> {
+  const collections = await listByDriver(driverId);
+
+  return collections.filter(
+    (collection) =>
+      collection.status === "PENDING" || collection.status === "IN_PROGRESS"
+  );
+}
+
 async function create(payload: CreateCollectionPayload): Promise<Collection> {
   const response = await api.post<CreateCollectionApiResponse>(
     "/collections",
@@ -217,9 +255,10 @@ async function updateStatus(
 
 export const collectionService = {
   list,
+  listByDriver,
+  listActiveByDriver,
   create,
   updateStatus,
 };
 
-// compatibilidade total com import default
 export default collectionService;

@@ -188,13 +188,7 @@ export default function ScheduleScreen() {
     }
   };
 
-  const handleDelegate = (schedule: Schedule) => {
-    Alert.alert(
-      "Próxima etapa",
-      `Vamos conectar a delegação do agendamento ${schedule.id} para um catador na próxima fase operacional.`
-    );
-  };
-
+  
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
@@ -426,14 +420,7 @@ export default function ScheduleScreen() {
                       />
                     )}
 
-                    {(item.status === "REQUESTED" || item.status === "SCHEDULED") && (
-                      <ActionChip
-                        label="Delegar"
-                        color="#028C56"
-                        onPress={() => handleDelegate(item)}
-                      />
-                    )}
-
+                    
                     {item.status === "SCHEDULED" && (
                       <ActionChip
                         label="Iniciar"

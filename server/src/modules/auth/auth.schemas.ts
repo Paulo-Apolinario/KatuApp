@@ -31,9 +31,29 @@ export const activateGeneratorAccessSchema = z.object({
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("E-mail inválido"),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    email: z.string().email("E-mail inválido"),
+    token: z.string().min(6, "Token inválido"),
+    newPassword: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres"),
+    confirmPassword: z
+      .string()
+      .min(6, "A confirmação da senha deve ter pelo menos 6 caracteres"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "As senhas não coincidem.",
+    path: ["confirmPassword"],
+  });
+
 export type RegisterPfInput = z.infer<typeof registerPfSchema>;
 export type RegisterCooperativeInput = z.infer<typeof registerCooperativeSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ActivateGeneratorAccessInput = z.infer<
   typeof activateGeneratorAccessSchema
 >;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

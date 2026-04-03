@@ -8,23 +8,25 @@ datasource db {
 }
 
 model User {
-  id                 String         @id @default(cuid())
-  email              String         @unique
-  passwordHash       String
-  displayName        String
-  role               UserRole
-  accountStatus      AccountStatus  @default(ACTIVE)
-  isActive           Boolean        @default(true)
-  phone              String?
-  rememberMe         Boolean        @default(false)
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  collector          Collector?
-  cooperative        Cooperative?
-  driver             Driver?
-  generator          Generator?
-  personProfile      PersonProfile?
-  requestedSchedules Schedule[]     @relation("UserRequestedSchedules")
+  id                     String         @id @default(cuid())
+  email                  String         @unique
+  passwordHash           String
+  displayName            String
+  role                   UserRole
+  accountStatus          AccountStatus  @default(ACTIVE)
+  isActive               Boolean        @default(true)
+  phone                  String?
+  rememberMe             Boolean        @default(false)
+  resetPasswordToken     String?
+  resetPasswordExpiresAt DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  collector              Collector?
+  cooperative            Cooperative?
+  driver                 Driver?
+  generator              Generator?
+  personProfile          PersonProfile?
+  requestedSchedules     Schedule[]     @relation("UserRequestedSchedules")
 
   @@index([role])
 }
@@ -36,6 +38,8 @@ model Cooperative {
   email              String?      @unique
   phone              String?
   address            String?
+  latitude           Float?
+  longitude          Float?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   userId             String       @unique
@@ -51,6 +55,30 @@ model Cooperative {
   @@index([name])
 }
 
+model DriverReport {
+  id           String           @id @default(cuid())
+  driverId     String
+  type         DriverReportType
+  description  String
+  routeId      String?
+  vehicleId    String?
+  collectionId String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  driver     Driver      @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  route      Route?      @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  vehicle    Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  collection Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  @@index([driverId])
+  @@index([type])
+  @@index([routeId])
+  @@index([vehicleId])
+  @@index([collectionId])
+  @@index([createdAt])
+}
+
 model PersonProfile {
   id          String   @id @default(cuid())
   userId      String   @unique
@@ -64,27 +92,27 @@ model PersonProfile {
 }
 
 model Generator {
-  id             String                @id @default(cuid())
-  cooperativeId  String
-  userId         String?               @unique
-  type           GeneratorType
-  name           String
-  companyName    String?
-  email          String                @unique
-  phone          String?
+  id            String        @id @default(cuid())
+  cooperativeId String
+  userId        String?       @unique
+  type          GeneratorType
+  name          String
+  companyName   String?
+  email         String        @unique
+  phone         String?
 
   // endereço estruturado
-  zipCode        String?
-  street         String?
-  number         String?
-  neighborhood   String?
-  city           String?
-  state          String?
-  address        String?
+  zipCode      String?
+  street       String?
+  number       String?
+  neighborhood String?
+  city         String?
+  state        String?
+  address      String?
 
   // coordenadas para mapa
-  latitude       Float?
-  longitude      Float?
+  latitude  Float?
+  longitude Float?
 
   status         String?
   accessReleased Boolean               @default(false)
@@ -94,10 +122,10 @@ model Generator {
   updatedAt      DateTime              @updatedAt
   activatedAt    DateTime?
 
-  collections    Collection[]
-  cooperative    Cooperative           @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  user           User?                 @relation(fields: [userId], references: [id])
-  schedules      Schedule[]
+  collections Collection[]
+  cooperative Cooperative  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  user        User?        @relation(fields: [userId], references: [id])
+  schedules   Schedule[]
 
   @@index([cooperativeId])
   @@index([type])
@@ -169,7 +197,7 @@ model Collection {
 
   collectedAt   DateTime?
   totalWeightKg Float            @default(0)
-  materials     Json?         
+  materials     Json?
   notes         String?
   status        CollectionStatus @default(PENDING)
   createdAt     DateTime         @default(now())
@@ -180,9 +208,10 @@ model Collection {
   generator   Generator?  @relation(fields: [generatorId], references: [id], onDelete: SetNull)
   schedule    Schedule?   @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
 
-  driver  Driver?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
-  route   Route?   @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  driver  Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  route   Route?         @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  reports DriverReport[]
 
   @@index([cooperativeId])
   @@index([generatorId])
@@ -204,16 +233,17 @@ model Driver {
   cpf           String?
   cnh           String?
   cnhCategory   String?
-  notes         String? //
+  notes         String?
   status        DriverStatus @default(AVAILABLE)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  cooperative Cooperative  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  user        User?        @relation(fields: [userId], references: [id])
+  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  user        User?          @relation(fields: [userId], references: [id])
   routes      Route[]
   vehicles    Vehicle[]
   collections Collection[]
+  reports     DriverReport[]
 
   @@index([cooperativeId])
   @@index([status])
@@ -227,8 +257,8 @@ model Vehicle {
   driverId      String?
   plate         String        @unique
   model         String
-  brand         String? //
-  year          Int? //
+  brand         String?
+  year          Int?
   capacityKg    Float         @default(0)
   status        VehicleStatus @default(ACTIVE)
   createdAt     DateTime      @default(now())
@@ -236,8 +266,9 @@ model Vehicle {
 
   routes      Route[]
   collections Collection[]
-  cooperative Cooperative  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  driver      Driver?      @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  reports     DriverReport[]
+  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  driver      Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
 
   @@index([cooperativeId])
   @@index([driverId])
@@ -251,17 +282,18 @@ model Route {
   driverId      String?
   vehicleId     String?
   name          String
-  description   String? //
-  scheduledDate DateTime? //
-  stops         String[] //
+  description   String?
+  scheduledDate DateTime?
+  stops         String[]
   status        RouteStatus @default(SCHEDULED)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  cooperative Cooperative  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  driver      Driver?      @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  vehicle     Vehicle?     @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  driver      Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle     Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   collections Collection[]
+  reports     DriverReport[]
 
   @@index([cooperativeId])
   @@index([driverId])
@@ -276,6 +308,7 @@ enum UserRole {
   GENERATOR_LARGE
   COOPERATIVE
   COLLECTOR
+  DRIVER
   ADMIN
 }
 
@@ -329,6 +362,13 @@ enum VehicleStatus {
   ACTIVE
   MAINTENANCE
   INACTIVE
+}
+
+enum DriverReportType {
+  DELAY
+  MECHANICAL_ISSUE
+  COLLECTION_NOT_COMPLETED
+  GENERAL_NOTE
 }
 
 enum RouteStatus {

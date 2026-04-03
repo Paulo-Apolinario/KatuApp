@@ -18,12 +18,22 @@ import { useAuth } from "@/src/contexts/AuthContext";
 
 type ProfileType = "pf" | "comercial" | "grande" | "cooperativa" | "catador";
 
-export default function ForgotScreen() {
-  const params = useLocalSearchParams<{ profile?: string }>();
-  const profile = params.profile as ProfileType | undefined;
-  const { forgotPassword } = useAuth();
+export default function ResetPasswordScreen() {
+  const params = useLocalSearchParams<{
+    email?: string;
+    token?: string;
+    profile?: string;
+  }>();
 
-  const [email, setEmail] = useState("");
+  const profile = params.profile as ProfileType | undefined;
+  const { resetPassword } = useAuth();
+
+  const [email] = useState(params.email || "");
+  const [token] = useState(params.token || "");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const profileLabel = useMemo(() => {
@@ -43,59 +53,60 @@ export default function ForgotScreen() {
     }
   }, [profile]);
 
-  async function handleForgotPassword() {
-    const normalizedEmail = email.trim().toLowerCase();
+  async function handleReset() {
+    if (!email || !token) {
+      Alert.alert("Erro", "Dados de redefinição inválidos.");
+      return;
+    }
 
-    if (!normalizedEmail) {
-      Alert.alert("Atenção", "Informe seu e-mail.");
+    if (!newPassword || !confirmPassword) {
+      Alert.alert("Erro", "Preencha todos os campos.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert("Erro", "A nova senha deve ter pelo menos 6 caracteres.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert("Erro", "As senhas não coincidem.");
       return;
     }
 
     try {
       setLoading(true);
 
-      const result = await forgotPassword(normalizedEmail);
+      const result = await resetPassword({
+        email,
+        token,
+        newPassword,
+        confirmPassword,
+      });
 
       if (!result.success) {
-        Alert.alert(
-          "Erro",
-          result.error || "Não foi possível iniciar a recuperação."
-        );
-        return;
-      }
-
-      if (result.resetToken) {
-        Alert.alert(
-          "Token gerado",
-          `Ambiente de desenvolvimento:\n\nToken: ${result.resetToken}`,
-          [
-            {
-              text: "Continuar",
-              onPress: () => {
-                const query = new URLSearchParams({
-                  email: normalizedEmail,
-                  token: result.resetToken!,
-                  ...(profile ? { profile } : {}),
-                }).toString();
-
-                router.push(`/(auth)/reset-password?${query}` as any);
-              },
-            },
-          ]
-        );
+        Alert.alert("Erro", result.error || "Não foi possível redefinir a senha.");
         return;
       }
 
       Alert.alert(
-        "Solicitação enviada",
-        result.message ||
-          "Se o e-mail existir em nossa base, a recuperação foi iniciada."
+        "Sucesso",
+        result.message || "Senha redefinida com sucesso.",
+        [
+          {
+            text: "Ir para login",
+            onPress: () => {
+              const query = profile ? `?profile=${profile}` : "";
+              router.replace(`/(auth)/login${query}` as any);
+            },
+          },
+        ]
       );
     } catch (error: any) {
-      console.error("Erro ao solicitar recuperação:", error);
+      console.error("Erro ao redefinir senha:", error);
       Alert.alert(
         "Erro",
-        error?.message || "Não foi possível iniciar a recuperação de senha."
+        error?.message || "Não foi possível redefinir a senha."
       );
     } finally {
       setLoading(false);
@@ -172,7 +183,7 @@ export default function ForgotScreen() {
                 textAlign: "center",
               }}
             >
-              Esqueci minha senha
+              Redefinir senha
             </Text>
 
             <Text
@@ -184,7 +195,7 @@ export default function ForgotScreen() {
                 lineHeight: 20,
               }}
             >
-              Informe o e-mail da sua conta para iniciar a redefinição de senha.
+              Informe sua nova senha para concluir a recuperação de acesso.
             </Text>
 
             <View
@@ -208,6 +219,109 @@ export default function ForgotScreen() {
             </View>
           </View>
 
+          <View style={{ marginBottom: 14 }}>
+            <Text
+              style={{
+                color: "#028C56",
+                marginBottom: 6,
+                fontWeight: "700",
+                fontSize: 14,
+              }}
+            >
+              E-mail
+            </Text>
+
+            <TextInput
+              value={email}
+              editable={false}
+              style={{
+                borderWidth: 1,
+                borderColor: "#D1D5DB",
+                borderRadius: 14,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                fontSize: 16,
+                color: "#6B7280",
+                backgroundColor: "#F9FAFB",
+              }}
+            />
+          </View>
+
+          <View style={{ marginBottom: 14 }}>
+            <Text
+              style={{
+                color: "#028C56",
+                marginBottom: 6,
+                fontWeight: "700",
+                fontSize: 14,
+              }}
+            >
+              Token
+            </Text>
+
+            <TextInput
+              value={token}
+              editable={false}
+              style={{
+                borderWidth: 1,
+                borderColor: "#D1D5DB",
+                borderRadius: 14,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                fontSize: 16,
+                color: "#6B7280",
+                backgroundColor: "#F9FAFB",
+              }}
+            />
+          </View>
+
+          <View style={{ marginBottom: 14 }}>
+            <Text
+              style={{
+                color: "#028C56",
+                marginBottom: 6,
+                fontWeight: "700",
+                fontSize: 14,
+              }}
+            >
+              Nova senha *
+            </Text>
+
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: "#D1D5DB",
+                borderRadius: 14,
+                paddingHorizontal: 16,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <TextInput
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry={!showNewPassword}
+                placeholder="Digite a nova senha"
+                placeholderTextColor="#9CA3AF"
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  fontSize: 16,
+                  color: "#111827",
+                }}
+              />
+              <TouchableOpacity
+                onPress={() => setShowNewPassword((prev) => !prev)}
+              >
+                <Ionicons
+                  name={showNewPassword ? "eye-outline" : "eye-off-outline"}
+                  size={20}
+                  color="#028C56"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <View style={{ marginBottom: 24 }}>
             <Text
               style={{
@@ -217,32 +331,47 @@ export default function ForgotScreen() {
                 fontSize: 14,
               }}
             >
-              E-mail *
+              Confirmar nova senha *
             </Text>
 
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholder="seu@email.com"
-              placeholderTextColor="#9CA3AF"
-              editable={!loading}
+            <View
               style={{
                 borderWidth: 1,
                 borderColor: "#D1D5DB",
                 borderRadius: 14,
                 paddingHorizontal: 16,
-                paddingVertical: 14,
-                fontSize: 16,
-                color: "#111827",
+                flexDirection: "row",
+                alignItems: "center",
               }}
-            />
+            >
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                placeholder="Confirme a nova senha"
+                placeholderTextColor="#9CA3AF"
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  fontSize: 16,
+                  color: "#111827",
+                }}
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirmPassword((prev) => !prev)}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
+                  size={20}
+                  color="#028C56"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity
             activeOpacity={0.9}
-            onPress={handleForgotPassword}
+            onPress={handleReset}
             disabled={loading}
           >
             <LinearGradient
@@ -279,7 +408,7 @@ export default function ForgotScreen() {
                     fontWeight: "800",
                   }}
                 >
-                  CONTINUAR
+                  REDEFINIR SENHA
                 </Text>
               )}
             </LinearGradient>

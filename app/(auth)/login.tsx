@@ -7,16 +7,39 @@ import {
   TouchableOpacity,
   View,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/contexts/AuthContext";
 
-type ProfileType = "pf" | "comercial" | "grande" | "cooperativa" | "catador";
+type ProfileType =
+  | "pf"
+  | "comercial"
+  | "grande"
+  | "cooperativa"
+  | "catador"
+  | "motorista";
+
+const allowedProfiles: ProfileType[] = [
+  "pf",
+  "comercial",
+  "grande",
+  "cooperativa",
+  "catador",
+  "motorista",
+];
+
+function normalizeProfile(profile?: string): ProfileType | undefined {
+  if (!profile) return undefined;
+  return allowedProfiles.includes(profile as ProfileType)
+    ? (profile as ProfileType)
+    : undefined;
+}
 
 export default function LoginScreen() {
   const params = useLocalSearchParams<{ profile?: string }>();
-  const profile = params.profile as ProfileType | undefined;
+  const profile = normalizeProfile(params.profile);
 
   const { signIn } = useAuth();
 
@@ -38,13 +61,17 @@ export default function LoginScreen() {
         return "Cooperativa";
       case "catador":
         return "Catador";
+      case "motorista":
+        return "Motorista";
       default:
-        return "";
+        return "Acesso";
     }
   }, [profile]);
 
   async function handleLogin() {
-    if (!email.trim() || !password.trim()) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password.trim()) {
       Alert.alert("Atenção", "Preencha e-mail e senha.");
       return;
     }
@@ -52,14 +79,12 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const result = await signIn(
-        email.trim(),
-        password,
-        profile
-      );
+      const result = await signIn(normalizedEmail, password, profile, rememberMe);
 
       if (result.success) {
-        Alert.alert("Sucesso", "Login realizado com sucesso!");
+        if (!result.requiresActivation) {
+          Alert.alert("Sucesso", "Login realizado com sucesso!");
+        }
         return;
       }
 
@@ -72,6 +97,20 @@ export default function LoginScreen() {
     }
   }
 
+  function handleGoToForgotPassword() {
+    router.push({
+      pathname: "/(auth)/forgot",
+      params: profile ? { profile } : {},
+    });
+  }
+
+  function handleGoToRegister() {
+    router.push({
+      pathname: "/(auth)/register",
+      params: profile ? { profile } : {},
+    });
+  }
+
   return (
     <View
       style={{
@@ -82,7 +121,7 @@ export default function LoginScreen() {
       }}
     >
       <TouchableOpacity
-        onPress={() => router.push("/(public)/choose-profile")}
+        onPress={() => router.push("/(public)/access-type")}
         style={{
           position: "absolute",
           top: 60,
@@ -123,7 +162,7 @@ export default function LoginScreen() {
             style={{ width: 70, height: 70, marginRight: 10 }}
           />
           <Text style={{ fontSize: 30, fontWeight: "700", color: "#111827" }}>
-            KATU
+            KATUÁ
           </Text>
         </View>
 
@@ -149,15 +188,18 @@ export default function LoginScreen() {
           >
             <Ionicons name="mail-outline" size={20} color="#028C56" />
             <Text style={{ color: "#028C56", marginLeft: 8, fontWeight: "500" }}>
-              Email
+              E-mail
             </Text>
           </View>
+
           <TextInput
             value={email}
             onChangeText={setEmail}
             placeholder="seu@email.com"
             placeholderTextColor="#9CA3AF"
             autoCapitalize="none"
+            keyboardType="email-address"
+            editable={!loading}
             style={{
               borderBottomWidth: 1,
               borderBottomColor: "#D1D5DB",
@@ -183,7 +225,11 @@ export default function LoginScreen() {
                 Senha
               </Text>
             </View>
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              disabled={loading}
+            >
               <Ionicons
                 name={showPassword ? "eye-outline" : "eye-off-outline"}
                 size={20}
@@ -191,12 +237,14 @@ export default function LoginScreen() {
               />
             </TouchableOpacity>
           </View>
+
           <TextInput
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
             placeholder="••••••••"
             placeholderTextColor="#9CA3AF"
+            editable={!loading}
             style={{
               borderBottomWidth: 1,
               borderBottomColor: "#D1D5DB",
@@ -213,11 +261,13 @@ export default function LoginScreen() {
             flexDirection: "row",
             justifyContent: "space-between",
             marginBottom: 30,
+            alignItems: "center",
           }}
         >
           <TouchableOpacity
             onPress={() => setRememberMe(!rememberMe)}
             style={{ flexDirection: "row", alignItems: "center" }}
+            disabled={loading}
           >
             <View
               style={{
@@ -234,10 +284,10 @@ export default function LoginScreen() {
             >
               {rememberMe && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
             </View>
-            <Text style={{ fontSize: 12, color: "#4B5563" }}>Lembre-me</Text>
+            <Text style={{ fontSize: 12, color: "#4B5563" }}>Lembrar de mim</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity>
+          <TouchableOpacity onPress={handleGoToForgotPassword} disabled={loading}>
             <Text style={{ fontSize: 12, color: "#028C56", fontWeight: "500" }}>
               Esqueceu a senha?
             </Text>
@@ -262,17 +312,31 @@ export default function LoginScreen() {
               opacity: loading ? 0.7 : 1,
             }}
           >
-            <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
-              {loading ? "ENTRANDO..." : "LOGIN"}
-            </Text>
+            {loading ? (
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <ActivityIndicator color="#FFFFFF" />
+                <Text
+                  style={{
+                    color: "#FFFFFF",
+                    fontSize: 16,
+                    fontWeight: "800",
+                    marginLeft: 8,
+                  }}
+                >
+                  ENTRANDO...
+                </Text>
+              </View>
+            ) : (
+              <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
+                LOGIN
+              </Text>
+            )}
           </LinearGradient>
         </TouchableOpacity>
 
         <View style={{ flexDirection: "row", justifyContent: "center" }}>
           <Text style={{ color: "#4B5563" }}>Não tem uma conta? </Text>
-          <TouchableOpacity
-            onPress={() => router.push(`/(auth)/register?profile=${profile}`)}
-          >
+          <TouchableOpacity onPress={handleGoToRegister} disabled={loading}>
             <Text
               style={{
                 color: "#028C56",

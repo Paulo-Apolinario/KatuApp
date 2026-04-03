@@ -213,13 +213,7 @@ export default function CatadorDetailScreen() {
     }
   }
 
-  const handleAtribuirRota = () => {
-    Alert.alert(
-      "Aviso",
-      "A atribuição de rota para catador será a próxima etapa do sistema."
-    );
-  };
-
+  
   const completedCollections = useMemo(() => {
     if (!catador?.id) return [];
 
@@ -622,21 +616,6 @@ export default function CatadorDetailScreen() {
             </Text>
           )}
         </View>
-
-        <TouchableOpacity
-          onPress={handleAtribuirRota}
-          style={{
-            backgroundColor: "#028C56",
-            borderRadius: 8,
-            padding: 16,
-            alignItems: "center",
-            marginBottom: 30,
-          }}
-        >
-          <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
-            ATRIBUIR ROTA
-          </Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );

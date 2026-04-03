@@ -103,15 +103,29 @@ export default function AccessTypeScreen() {
           onPress={() => router.replace("/(auth)/login?profile=catador")}
         />
 
+        <EntryButton
+          title="MOTORISTA"
+          onPress={() => router.replace("/(auth)/login?profile=motorista")}
+        />
+
         <TouchableOpacity
-          onPress={() => router.replace("../(public)/activate-generator")}
+          onPress={() => router.replace("/(public)/activate-access")}
           style={{
             marginTop: 8,
             alignItems: "center",
             paddingVertical: 10,
           }}
         >
-          
+          <Text
+            style={{
+              color: "#028C56",
+              fontSize: 14,
+              fontWeight: "700",
+              textDecorationLine: "underline",
+            }}
+          >
+            Liberar meu acesso
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

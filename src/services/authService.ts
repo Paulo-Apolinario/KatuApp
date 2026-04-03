@@ -4,11 +4,13 @@ import { UserDoc } from "../types/user";
 
 export type AuthSuccess = {
   success: true;
-  user: UserDoc;
+  user?: UserDoc;
   token?: string;
   requiresActivation?: boolean;
   firstAccess?: boolean;
   mustChangePassword?: boolean;
+  message?: string;
+  resetToken?: string;
 };
 
 export type AuthError = {
@@ -24,6 +26,7 @@ type LoginResponse = {
   requiresActivation?: boolean;
   firstAccess?: boolean;
   mustChangePassword?: boolean;
+  message?: string;
 };
 
 type MeResponse = {
@@ -35,6 +38,20 @@ type ActivateAccessResponse = {
   token?: string;
   user?: UserDoc;
 };
+
+type ForgotPasswordResponse = {
+  message?: string;
+  token?: string;
+  resetToken?: string;
+};
+
+type ResetPasswordResponse = {
+  message?: string;
+};
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
 
 class AuthService {
   async saveSession(token: string, user?: UserDoc): Promise<void> {
@@ -91,7 +108,12 @@ class AuthService {
     rememberMe?: boolean;
   }): Promise<AuthResult> {
     try {
-      const response = await api.post<LoginResponse>("/auth/register/pf", data);
+      const payload = {
+        ...data,
+        email: normalizeEmail(data.email),
+      };
+
+      const response = await api.post<LoginResponse>("/auth/register/pf", payload);
 
       if (!response.user) {
         return {
@@ -116,6 +138,7 @@ class AuthService {
         requiresActivation: response.requiresActivation,
         firstAccess: response.firstAccess,
         mustChangePassword: response.mustChangePassword,
+        message: response.message,
       };
     } catch (error: unknown) {
       return {
@@ -139,9 +162,14 @@ class AuthService {
     rememberMe?: boolean;
   }): Promise<AuthResult> {
     try {
+      const payload = {
+        ...data,
+        email: normalizeEmail(data.email),
+      };
+
       const response = await api.post<LoginResponse>(
         "/auth/register/cooperative",
-        data
+        payload
       );
 
       if (!response.user) {
@@ -167,6 +195,7 @@ class AuthService {
         requiresActivation: response.requiresActivation,
         firstAccess: response.firstAccess,
         mustChangePassword: response.mustChangePassword,
+        message: response.message,
       };
     } catch (error: unknown) {
       return {
@@ -182,7 +211,7 @@ class AuthService {
   async login(email: string, password: string): Promise<AuthResult> {
     try {
       const response = await api.post<LoginResponse>("/auth/login", {
-        email: email.trim(),
+        email: normalizeEmail(email),
         password,
       });
 
@@ -209,6 +238,7 @@ class AuthService {
         requiresActivation: response.requiresActivation,
         firstAccess: response.firstAccess,
         mustChangePassword: response.mustChangePassword,
+        message: response.message,
       };
     } catch (error: unknown) {
       return {
@@ -227,7 +257,7 @@ class AuthService {
       const response = await api.post<ActivateAccessResponse>(
         "/auth/activate-generator-access",
         {
-          email: email.trim(),
+          email: normalizeEmail(email),
           password,
         }
       );
@@ -252,12 +282,72 @@ class AuthService {
         success: true,
         user: response.user,
         token: response.token,
+        message: response.message,
       };
     } catch (error: unknown) {
       return {
         success: false,
         error:
           error instanceof Error ? error.message : "Erro ao liberar acesso.",
+      };
+    }
+  }
+
+  async forgotPassword(email: string): Promise<AuthResult> {
+    try {
+      const response = await api.post<ForgotPasswordResponse>(
+        "/auth/forgot-password",
+        {
+          email: normalizeEmail(email),
+        }
+      );
+
+      return {
+        success: true,
+        message:
+          response.message ||
+          "Se o e-mail existir, a recuperação foi iniciada.",
+        resetToken: response.resetToken || response.token,
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao solicitar recuperação de senha.",
+      };
+    }
+  }
+
+  async resetPassword(data: {
+    email: string;
+    token: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<AuthResult> {
+    try {
+      const response = await api.post<ResetPasswordResponse>(
+        "/auth/reset-password",
+        {
+          email: normalizeEmail(data.email),
+          token: data.token.trim(),
+          newPassword: data.newPassword,
+          confirmPassword: data.confirmPassword,
+        }
+      );
+
+      return {
+        success: true,
+        message: response.message || "Senha redefinida com sucesso.",
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao redefinir a senha.",
       };
     }
   }

@@ -84,11 +84,13 @@ export class CollectionController {
 
       if (
         authUser.role !== "COOPERATIVE" &&
-        authUser.role !== "COLLECTOR"
+        authUser.role !== "COLLECTOR" &&
+        authUser.role !== "DRIVER"
       ) {
         return reply.status(403).send({
           success: false,
-          error: "Apenas cooperativas ou catadores podem atualizar coletas.",
+          error:
+            "Apenas cooperativas, catadores ou motoristas podem atualizar coletas.",
         });
       }
 

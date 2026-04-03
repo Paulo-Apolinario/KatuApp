@@ -15,6 +15,10 @@ export async function routeRoutes(app: FastifyInstance) {
 
   app.post("/", routeController.create);
   app.get("/", routeController.listMine);
+  app.get("/available-collections", routeController.listAvailableCollections);
   app.get("/:id", routeController.findById);
+  app.patch("/:id", routeController.update);
   app.patch("/:id/status", routeController.updateStatus);
+  app.post("/:id/collections/:collectionId", routeController.addCollection);
+  app.delete("/:id/collections/:collectionId", routeController.removeCollection);
 }
