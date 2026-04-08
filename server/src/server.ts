@@ -1,5 +1,6 @@
 import { buildApp } from "./app";
 import { env } from "./config/env";
+import { prisma } from "./lib/prisma";
 
 async function start() {
   const app = await buildApp();
@@ -9,6 +10,7 @@ async function start() {
 
     try {
       await app.close();
+      await prisma.$disconnect();
       app.log.info("KATU API encerrada com sucesso.");
       process.exit(0);
     } catch (error) {
@@ -21,6 +23,8 @@ async function start() {
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
   try {
+    await prisma.$connect();
+
     await app.listen({
       port: env.PORT,
       host: "0.0.0.0",
@@ -29,6 +33,7 @@ async function start() {
     app.log.info(`🚀 KATU server running on port ${env.PORT}`);
   } catch (error) {
     app.log.error(error, "Falha ao iniciar KATU API.");
+    await prisma.$disconnect().catch(() => {});
     process.exit(1);
   }
 }

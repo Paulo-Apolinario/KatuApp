@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: katu_user
-      POSTGRES_PASSWORD: SUA_SENHA_FORTE_AQUI
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: katu_db
     volumes:
       - katu_postgres_data:/var/lib/postgresql/data

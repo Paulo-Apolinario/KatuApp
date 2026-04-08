@@ -1,9 +1,9 @@
 {
-  "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -14,29 +14,11 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
     "allowSyntheticDefaultImports": true,
-    "jsx": "react-jsx",
-
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    },
-
     "outDir": "./dist",
+    "rootDir": "./src",
     "types": ["node"]
   },
-  "include": [
-    "src",
-    "prisma",
-    "src/@types",
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

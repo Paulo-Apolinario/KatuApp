@@ -22,9 +22,22 @@ export async function buildApp() {
   const allowedOrigins = parseCorsOrigins(env.CORS_ORIGIN);
 
   const app = Fastify({
-    logger: {
-      level: env.LOG_LEVEL,
-    },
+    logger:
+      env.NODE_ENV === "development"
+        ? {
+            level: env.LOG_LEVEL,
+            transport: {
+              target: "pino-pretty",
+              options: {
+                colorize: true,
+                translateTime: "HH:MM:ss Z",
+                ignore: "pid,hostname",
+              },
+            },
+          }
+        : {
+            level: env.LOG_LEVEL,
+          },
     trustProxy: true,
   });
 

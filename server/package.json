@@ -5,15 +5,15 @@
   "type": "commonjs",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsup src/server.ts --format cjs --clean",
+    "build": "tsup src/server.ts --format cjs --clean --sourcemap",
     "start": "node dist/server.js",
-    "start:prod": "NODE_ENV=production node dist/server.js",
+    "start:prod": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:push": "prisma db push",
-    "lint:env": "node -e \"require('./dist/config/env.js')\""
+    "check": "tsc --noEmit"
   },
   "dependencies": {
     "@fastify/cors": "^10.1.0",
