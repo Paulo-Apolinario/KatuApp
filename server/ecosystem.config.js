@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "katu-api",
       script: "dist/server.js",
-      cwd: "/var/www/katu-server",
+      cwd: "/var/www/katu-server/server",
       instances: 1,
       exec_mode: "fork",
       autorestart: true,

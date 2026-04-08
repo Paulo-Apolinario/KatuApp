@@ -30,7 +30,7 @@ async function start() {
       host: "0.0.0.0",
     });
 
-    app.log.info(`🚀 KATU server running on port ${env.PORT}`);
+    app.log.info(`KATU server running on port ${env.PORT}`);
   } catch (error) {
     app.log.error(error, "Falha ao iniciar KATU API.");
     await prisma.$disconnect().catch(() => {});
