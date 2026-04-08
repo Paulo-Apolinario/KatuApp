@@ -4,19 +4,20 @@
     "slug": "katua",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo.png",
     "scheme": "katua",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.katua",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Permitir que o KATU use sua localização para mostrar a cidade atual."
+        "NSLocationWhenInUseUsageDescription": "Permitir que o KATU use sua localização para mostrar a cidade atual.",
+        "UISupportsDocumentBrowser": true
       }
     },
-    
     "android": {
+      "package": "com.anonymous.katua",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -29,26 +30,28 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.anonymous.katua"
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAwBin_pCueGl_F7fX349EI_SSFMk3d5Os"
+        }
+      }
     },
-    
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png",
+      "favicon": "./assets/images/logo.png",
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyBvGd5WchRUg2FwNKpc9v4VFWHbjWxCjRA"
         }
       }
     },
-    
-    
     "plugins": [
       "expo-router",
+      "./plugins/withAndroidCleartextTraffic",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -65,19 +68,15 @@
       ],
       "expo-secure-store"
     ],
-    "expo": {
-    "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Permitir que o KATU use sua localização para mostrar a cidade atual.",
-        "UISupportsDocumentBrowser": true
-      }
-    }
-  },
-    
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2e4aa901-003d-4431-ae50-40de91ace5df"
+      }
     }
   }
 }

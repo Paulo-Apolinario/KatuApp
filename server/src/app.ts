@@ -7,14 +7,41 @@ import { env } from "./config/env";
 import { appRoutes } from "./routes/index";
 import { cooperativesRoutes } from "./modules/cooperatives/cooperatives.routes";
 
+function parseCorsOrigins(origins: string): string[] | boolean {
+  if (!origins || origins.trim() === "*") {
+    return true;
+  }
+
+  return origins
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 export async function buildApp() {
+  const allowedOrigins = parseCorsOrigins(env.CORS_ORIGIN);
+
   const app = Fastify({
-    logger: true,
+    logger: {
+      level: env.LOG_LEVEL,
+    },
+    trustProxy: true,
   });
 
   await app.register(cors, {
-    origin: true,
+    origin: (origin, callback) => {
+      if (allowedOrigins === true || !origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Origem não permitida pelo CORS."), false);
+    },
     credentials: true,
   });
 
@@ -30,9 +57,19 @@ export async function buildApp() {
   app.decorate("authenticate", async function (request: any, reply: any) {
     try {
       await request.jwtVerify();
-    } catch (error) {
+    } catch {
       return reply.unauthorized("Token inválido ou ausente.");
     }
+  });
+
+  app.get("/", async () => {
+    return {
+      status: "ok",
+      service: "KATU API",
+      environment: env.APP_ENV,
+      nodeEnv: env.NODE_ENV,
+      timestamp: new Date().toISOString(),
+    };
   });
 
   await app.register(appRoutes);

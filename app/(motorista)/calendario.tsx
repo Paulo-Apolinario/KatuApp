@@ -1,21 +1,22 @@
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Linking,
   RefreshControl,
   ScrollView,
   Text,
+  Linking,
   TouchableOpacity,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+
+import { useAuth } from "@/src/contexts/AuthContext";
 import {
   routeService,
   type RouteItem,
   translateRouteStatus,
 } from "@/src/services/routeService";
-import { useAuth } from "@/src/contexts/AuthContext";
 import { translateCollectionStatus } from "@/src/services/collectionService";
 import { translateVehicleStatus } from "@/src/services/vehicleService";
 import { MotoristaGreenHeader } from "@/src/components/MotoristaGreenHeader";
@@ -36,6 +37,88 @@ function openExternalNavigation(params: {
   return Linking.openURL(url);
 }
 
+type RouteWithDetail = RouteItem & {
+  detail: RouteItem;
+  calendarDate: Date | null;
+};
+
+type CalendarDay = {
+  key: string;
+  date: Date;
+  inCurrentMonth: boolean;
+};
+
+function normalizeDate(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function getMonthLabel(date: Date) {
+  return date.toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getWeekdayLabels() {
+  return ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+}
+
+function getRouteBaseDate(route: RouteItem): Date | null {
+  if (route.scheduledDate) {
+    const parsed = new Date(route.scheduledDate);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+
+  const collectionDate =
+    route.collections?.[0]?.schedule?.scheduledDate ||
+    route.collections?.[0]?.schedule?.preferredDate ||
+    null;
+
+  if (collectionDate) {
+    const parsed = new Date(collectionDate);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+
+  return null;
+}
+
+function buildMonthGrid(referenceDate: Date): CalendarDay[] {
+  const year = referenceDate.getFullYear();
+  const month = referenceDate.getMonth();
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+
+  const start = new Date(firstDayOfMonth);
+  start.setDate(firstDayOfMonth.getDate() - firstDayOfMonth.getDay());
+
+  const end = new Date(lastDayOfMonth);
+  end.setDate(lastDayOfMonth.getDate() + (6 - lastDayOfMonth.getDay()));
+
+  const days: CalendarDay[] = [];
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    days.push({
+      key: `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`,
+      date: new Date(cursor),
+      inCurrentMonth: cursor.getMonth() === month,
+    });
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return days;
+}
+
 function DetailLine({
   label,
   value,
@@ -44,7 +127,7 @@ function DetailLine({
   value?: string | number | null;
 }) {
   return (
-    <Text style={{ color: "#6B7280", marginTop: 6 }}>
+    <Text style={{ color: "#6B7280", marginTop: 6, lineHeight: 21 }}>
       {label}: {value || "Não informado"}
     </Text>
   );
@@ -89,16 +172,22 @@ function StatusBadge({ label }: { label: string }) {
   );
 }
 
-export default function MotoristaRotasScreen() {
+export default function MotoristaCalendarioScreen() {
   const { user } = useAuth();
-  const params = useLocalSearchParams<{ highlightRouteId?: string }>();
   const driverId = user?.driver?.id ?? null;
+
+  const today = useMemo(() => normalizeDate(new Date()), []);
+  const [currentMonth, setCurrentMonth] = useState(
+    new Date(today.getFullYear(), today.getMonth(), 1)
+  );
+  const [selectedDate, setSelectedDate] = useState<Date>(today);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
   const [routes, setRoutes] = useState<RouteItem[]>([]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailsById, setDetailsById] = useState<Record<string, RouteItem>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadRoutes = useCallback(
@@ -121,18 +210,14 @@ export default function MotoristaRotasScreen() {
 
         const data = await routeService.listByDriver(driverId);
         setRoutes(data);
-
-        if (params.highlightRouteId) {
-          setExpandedId(String(params.highlightRouteId));
-        }
       } catch (err: any) {
-        setError(err?.message || "Não foi possível carregar as rotas.");
+        setError(err?.message || "Não foi possível carregar o calendário.");
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [driverId, params.highlightRouteId]
+    [driverId]
   );
 
   useFocusEffect(
@@ -140,6 +225,74 @@ export default function MotoristaRotasScreen() {
       void loadRoutes();
     }, [loadRoutes])
   );
+
+  const routeItems = useMemo<RouteWithDetail[]>(
+    () =>
+      routes
+        .map((item) => ({
+          ...item,
+          detail: detailsById[item.id] ?? item,
+          calendarDate: getRouteBaseDate(item),
+        }))
+        .sort((a, b) => {
+          const aTime = a.calendarDate ? a.calendarDate.getTime() : 0;
+          const bTime = b.calendarDate ? b.calendarDate.getTime() : 0;
+          return aTime - bTime;
+        }),
+    [detailsById, routes]
+  );
+
+  const monthGrid = useMemo(() => buildMonthGrid(currentMonth), [currentMonth]);
+
+  const routesByDayMap = useMemo(() => {
+    const map = new Map<string, RouteWithDetail[]>();
+
+    routeItems.forEach((route) => {
+      if (!route.calendarDate) return;
+
+      const key = normalizeDate(route.calendarDate).toISOString();
+      const current = map.get(key) ?? [];
+      current.push(route);
+      map.set(key, current);
+    });
+
+    return map;
+  }, [routeItems]);
+
+  const selectedDayKey = normalizeDate(selectedDate).toISOString();
+
+  const selectedRoutes = useMemo(() => {
+    return routesByDayMap.get(selectedDayKey) ?? [];
+  }, [routesByDayMap, selectedDayKey]);
+
+  const monthSummary = useMemo(() => {
+    const month = currentMonth.getMonth();
+    const year = currentMonth.getFullYear();
+
+    const monthRoutes = routeItems.filter((route) => {
+      return (
+        route.calendarDate &&
+        route.calendarDate.getMonth() === month &&
+        route.calendarDate.getFullYear() === year
+      );
+    });
+
+    const totalCollections = monthRoutes.reduce((acc, route) => {
+      return acc + (route.detail.collections?.length || route.collections?.length || 0);
+    }, 0);
+
+    const activeDays = new Set(
+      monthRoutes
+        .filter((route) => route.calendarDate)
+        .map((route) => normalizeDate(route.calendarDate!).toISOString())
+    ).size;
+
+    return {
+      totalRoutes: monthRoutes.length,
+      totalCollections,
+      activeDays,
+    };
+  }, [currentMonth, routeItems]);
 
   const handleToggleRoute = useCallback(
     async (routeId: string) => {
@@ -162,15 +315,6 @@ export default function MotoristaRotasScreen() {
     [detailsById, expandedId]
   );
 
-  const routeItems = useMemo(
-    () =>
-      routes.map((item) => ({
-        ...item,
-        detail: detailsById[item.id] ?? item,
-      })),
-    [detailsById, routes]
-  );
-
   if (loading) {
     return (
       <View
@@ -183,7 +327,7 @@ export default function MotoristaRotasScreen() {
       >
         <ActivityIndicator size="large" color="#028C56" />
         <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
-          Carregando rotas...
+          Carregando calendário...
         </Text>
       </View>
     );
@@ -192,8 +336,8 @@ export default function MotoristaRotasScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <MotoristaGreenHeader
-        title="Rotas"
-        subtitle="Rotas atribuídas ao motorista"
+        title="Calendário"
+        subtitle="Agenda operacional do motorista"
         onBack={() => router.back()}
       />
 
@@ -226,7 +370,270 @@ export default function MotoristaRotasScreen() {
           </View>
         )}
 
-        {routeItems.length === 0 ? (
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 20,
+            padding: 16,
+            marginBottom: 16,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 14,
+            }}
+          >
+            <TouchableOpacity
+              onPress={() =>
+                setCurrentMonth(
+                  new Date(
+                    currentMonth.getFullYear(),
+                    currentMonth.getMonth() - 1,
+                    1
+                  )
+                )
+              }
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: "#F0FDF4",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="chevron-back" size={20} color="#028C56" />
+            </TouchableOpacity>
+
+            <Text
+              style={{
+                color: "#111827",
+                fontSize: 18,
+                fontWeight: "800",
+                textTransform: "capitalize",
+              }}
+            >
+              {getMonthLabel(currentMonth)}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() =>
+                setCurrentMonth(
+                  new Date(
+                    currentMonth.getFullYear(),
+                    currentMonth.getMonth() + 1,
+                    1
+                  )
+                )
+              }
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: "#F0FDF4",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="chevron-forward" size={20} color="#028C56" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flexDirection: "row", marginBottom: 10 }}>
+            {getWeekdayLabels().map((label) => (
+              <View
+                key={label}
+                style={{ flex: 1, alignItems: "center", paddingVertical: 6 }}
+              >
+                <Text
+                  style={{
+                    color: "#6B7280",
+                    fontSize: 12,
+                    fontWeight: "700",
+                  }}
+                >
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+            {monthGrid.map((day) => {
+              const normalized = normalizeDate(day.date);
+              const key = normalized.toISOString();
+              const hasRoutes = (routesByDayMap.get(key) ?? []).length > 0;
+              const isSelected = isSameDay(normalized, selectedDate);
+              const isToday = isSameDay(normalized, today);
+
+              return (
+                <TouchableOpacity
+                  key={day.key}
+                  activeOpacity={0.9}
+                  onPress={() => setSelectedDate(normalized)}
+                  style={{
+                    width: "14.285%",
+                    padding: 4,
+                  }}
+                >
+                  <View
+                    style={{
+                      minHeight: 56,
+                      borderRadius: 14,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderWidth: isSelected ? 2 : 1,
+                      borderColor: isSelected
+                        ? "#028C56"
+                        : isToday
+                        ? "#86EFAC"
+                        : "#E5E7EB",
+                      backgroundColor: isSelected
+                        ? "#ECFDF5"
+                        : day.inCurrentMonth
+                        ? "#FFFFFF"
+                        : "#F8FAFC",
+                      opacity: day.inCurrentMonth ? 1 : 0.6,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: isSelected ? "#065F46" : "#111827",
+                        fontWeight: isSelected ? "800" : "700",
+                        fontSize: 15,
+                      }}
+                    >
+                      {day.date.getDate()}
+                    </Text>
+
+                    {hasRoutes && (
+                      <View
+                        style={{
+                          marginTop: 5,
+                          width: 7,
+                          height: 7,
+                          borderRadius: 999,
+                          backgroundColor: "#028C56",
+                        }}
+                      />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginBottom: 16,
+          }}
+        >
+          <View
+            style={{
+              width: "31%",
+              backgroundColor: "#FFFFFF",
+              borderRadius: 18,
+              padding: 14,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#6B7280", fontSize: 11, fontWeight: "700" }}>
+              ROTAS
+            </Text>
+            <Text
+              style={{
+                color: "#111827",
+                fontSize: 22,
+                fontWeight: "800",
+                marginTop: 8,
+              }}
+            >
+              {monthSummary.totalRoutes}
+            </Text>
+          </View>
+
+          <View
+            style={{
+              width: "31%",
+              backgroundColor: "#FFFFFF",
+              borderRadius: 18,
+              padding: 14,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#6B7280", fontSize: 11, fontWeight: "700" }}>
+              COLETAS
+            </Text>
+            <Text
+              style={{
+                color: "#111827",
+                fontSize: 22,
+                fontWeight: "800",
+                marginTop: 8,
+              }}
+            >
+              {monthSummary.totalCollections}
+            </Text>
+          </View>
+
+          <View
+            style={{
+              width: "31%",
+              backgroundColor: "#FFFFFF",
+              borderRadius: 18,
+              padding: 14,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#6B7280", fontSize: 11, fontWeight: "700" }}>
+              DIAS ATIVOS
+            </Text>
+            <Text
+              style={{
+                color: "#111827",
+                fontSize: 22,
+                fontWeight: "800",
+                marginTop: 8,
+              }}
+            >
+              {monthSummary.activeDays}
+            </Text>
+          </View>
+        </View>
+
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 18,
+            padding: 16,
+            marginBottom: 16,
+          }}
+        >
+          <Text style={{ color: "#111827", fontSize: 17, fontWeight: "800" }}>
+            Agenda do dia
+          </Text>
+
+          <Text style={{ color: "#6B7280", marginTop: 8, lineHeight: 22 }}>
+            {selectedDate.toLocaleDateString("pt-BR", {
+              weekday: "long",
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })}
+          </Text>
+
+          <Text style={{ color: "#6B7280", marginTop: 10 }}>
+            Rotas do dia: {selectedRoutes.length}
+          </Text>
+        </View>
+
+        {selectedRoutes.length === 0 ? (
           <View
             style={{
               backgroundColor: "#FFFFFF",
@@ -235,14 +642,14 @@ export default function MotoristaRotasScreen() {
             }}
           >
             <Text style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}>
-              Nenhuma rota disponível
+              Nenhuma rota neste dia
             </Text>
             <Text style={{ color: "#6B7280", marginTop: 10, lineHeight: 22 }}>
-              Ainda não existem rotas atribuídas a este motorista.
+              Selecione outro dia marcado no calendário para ver as rotas atribuídas.
             </Text>
           </View>
         ) : (
-          routeItems.map((routeEntry) => {
+          selectedRoutes.map((routeEntry) => {
             const { detail, ...item } = routeEntry;
             const isExpanded = expandedId === item.id;
 
@@ -294,7 +701,11 @@ export default function MotoristaRotasScreen() {
                     <DetailLine label="Paradas" value={item.stops?.length || 0} />
                     <DetailLine
                       label="Coletas"
-                      value={item.stats?.totalCollections ?? detail.collections?.length ?? 0}
+                      value={
+                        item.stats?.totalCollections ??
+                        detail.collections?.length ??
+                        0
+                      }
                     />
                     {!!item.vehicle?.plate && (
                       <DetailLine label="Veículo" value={item.vehicle.plate} />

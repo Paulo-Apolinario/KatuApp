@@ -5,8 +5,7 @@ export const STORAGE_KEYS = {
   user: "@katu:user",
 };
 
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.5.194:3333";
+const API_BASE_URL = "http://192.168.5.194:3333";
 
 type RequestMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
@@ -36,11 +35,21 @@ async function request<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${normalizedEndpoint}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error(
+      "Não foi possível conectar ao servidor. Verifique se o backend está ativo e acessível pela rede."
+    );
+  }
 
   const contentType = response.headers.get("content-type");
   let data: any = null;

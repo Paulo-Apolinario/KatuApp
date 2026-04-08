@@ -6,13 +6,18 @@ services:
     container_name: katu_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: katu_user
+      POSTGRES_PASSWORD: SUA_SENHA_FORTE_AQUI
       POSTGRES_DB: katu_db
-    ports:
-      - "5432:5432"
     volumes:
       - katu_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U katu_user -d katu_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   katu_postgres_data:
