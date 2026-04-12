@@ -6,6 +6,7 @@ import jwt from "@fastify/jwt";
 import { env } from "./config/env";
 import { appRoutes } from "./routes/index";
 import { cooperativesRoutes } from "./modules/cooperatives/cooperatives.routes";
+import { feedbackRoutes } from "./modules/feedback/feedback.routes";
 
 function parseCorsOrigins(origins: string): string[] | boolean {
   if (!origins || origins.trim() === "*") {
@@ -87,6 +88,7 @@ export async function buildApp() {
 
   await app.register(appRoutes);
   await app.register(cooperativesRoutes);
+  await app.register(feedbackRoutes);
 
   return app;
 }
