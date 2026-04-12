@@ -998,12 +998,12 @@ export default function CooperativeMapScreen() {
                     </Text>
                   </TouchableOpacity>
 
-                  {!!selectedPoint.routeId ? (
+                  {!!selectedPoint.routeId && typeof selectedPoint.routeId === "string" ? (
                     <TouchableOpacity
                       onPress={() =>
                         router.push({
                           pathname: "/(cooperativa)/rotas/[id]",
-                          params: { id: selectedPoint.routeId },
+                          params: { id: selectedPoint.routeId as string },
                         })
                       }
                       style={{

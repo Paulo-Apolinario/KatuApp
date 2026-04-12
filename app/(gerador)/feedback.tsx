@@ -18,7 +18,7 @@ type FeedbackCategory =
   | "PONTUALIDADE"
   | "COLETA"
   | "APLICATIVO"
-  | "COMUNICAÇÃO";
+  | "COMUNICACAO";
 
 function getNpsLabel(score: number | null) {
   if (score === null) return "Selecione uma nota";
@@ -48,7 +48,7 @@ export default function FeedbackScreen() {
     "PONTUALIDADE",
     "COLETA",
     "APLICATIVO",
-    "COMUNICAÇÃO",
+    "COMUNICACAO",
   ];
 
   const canSubmit = useMemo(() => {
@@ -354,26 +354,7 @@ export default function FeedbackScreen() {
             borderColor: "#FDE68A",
           }}
         >
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: "700",
-              color: "#92400E",
-              marginBottom: 6,
-            }}
-          >
-            Observação
-          </Text>
-
-          <Text
-            style={{
-              fontSize: 14,
-              color: "#92400E",
-              lineHeight: 20,
-            }}
-          >
-            Esta tela já está pronta para uso no frontend. A persistência real do feedback será conectada quando confirmarmos o endpoint do backend.
-          </Text>
+                
         </View>
 
         <TouchableOpacity

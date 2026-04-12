@@ -126,17 +126,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }
 
   useEffect(() => {
-    async function bootstrap() {
-      try {
-        const currentUser = await authService.getCurrentUserData();
-        setUser(currentUser);
-      } finally {
-        setLoading(false);
-      }
+  async function bootstrap() {
+    try {
+      await authService.clearSession();
+      const currentUser = await authService.getCurrentUserData();
+      setUser(currentUser);
+    } finally {
+      setLoading(false);
     }
+  }
 
-    bootstrap();
-  }, []);
+  bootstrap();
+}, []);
 
   const signIn = async (
     email: string,

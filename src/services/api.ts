@@ -5,7 +5,8 @@ export const STORAGE_KEYS = {
   user: "@katu:user",
 };
 
-const API_BASE_URL = "http://192.168.5.194:3333";
+// DEBUG TEMPORÁRIO: hardcoded para eliminar dúvida de .env
+const API_BASE_URL = "http://178.104.40.124";
 
 type RequestMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
@@ -40,14 +41,26 @@ async function request<T>(
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}${normalizedEndpoint}`, {
+    const url = `${API_BASE_URL}${normalizedEndpoint}`;
+    console.log("[API] Request:", { url, method, auth });
+
+    response = await fetch(url, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-  } catch {
+  } catch (error: any) {
+    console.log("[API] Fetch error:", {
+      apiBaseUrl: API_BASE_URL,
+      endpoint: normalizedEndpoint,
+      method,
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+    });
+
     throw new Error(
-      "Não foi possível conectar ao servidor. Verifique se o backend está ativo e acessível pela rede."
+      `Falha de conexão com a API (${API_BASE_URL}${normalizedEndpoint}).`
     );
   }
 
@@ -59,10 +72,16 @@ async function request<T>(
   }
 
   if (!response.ok) {
+    console.log("[API] HTTP error:", {
+      status: response.status,
+      endpoint: normalizedEndpoint,
+      data,
+    });
+
     throw new Error(
       data?.message ||
         data?.error ||
-        "Erro na comunicação com o servidor."
+        `Erro HTTP ${response.status} na comunicação com o servidor.`
     );
   }
 
