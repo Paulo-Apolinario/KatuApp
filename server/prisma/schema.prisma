@@ -26,6 +26,7 @@ model User {
   driver                 Driver?
   generator              Generator?
   personProfile          PersonProfile?
+  feedbacks              Feedback[]
   requestedSchedules     Schedule[]     @relation("UserRequestedSchedules")
 
   @@index([role])
@@ -51,6 +52,7 @@ model Cooperative {
   routes             Route[]
   schedules          Schedule[]
   vehicles           Vehicle[]
+  feedbacks          Feedback[]
 
   @@index([name])
 }
@@ -150,6 +152,7 @@ model Schedule {
   requestedBy User        @relation("UserRequestedSchedules", fields: [requestedByUserId], references: [id], onDelete: Cascade)
 
   collections Collection[]
+  feedbacks   Feedback[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -302,6 +305,32 @@ model Route {
   @@index([scheduledDate])
 }
 
+model Feedback {
+  id            String             @id @default(cuid())
+  userId        String
+  cooperativeId String
+  scheduleId    String?
+  npsScore      Int
+  categories    FeedbackCategory[]
+  reason        String?
+  improvement   String?
+  likes         String?
+  continuity    String?
+  emailSent     Boolean            @default(false)
+  emailedAt     DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  schedule    Schedule?   @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([cooperativeId])
+  @@index([scheduleId])
+  @@index([createdAt])
+}
+
 enum UserRole {
   PF
   GENERATOR_SMALL
@@ -376,4 +405,12 @@ enum RouteStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+enum FeedbackCategory {
+  ATENDIMENTO
+  PONTUALIDADE
+  COLETA
+  APLICATIVO
+  COMUNICACAO
 }
