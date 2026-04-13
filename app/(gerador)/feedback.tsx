@@ -13,6 +13,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
+import { sendFeedback } from "@/src/services/feedbackService";
+
 type FeedbackCategory =
   | "ATENDIMENTO"
   | "PONTUALIDADE"
@@ -81,13 +83,20 @@ export default function FeedbackScreen() {
     try {
       setSending(true);
 
-      // Integração real com endpoint de feedback será conectada na próxima etapa,
-      // quando confirmarmos o contrato do backend.
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const result = await sendFeedback({
+        npsScore,
+        categories: selectedCategories,
+        reason: reason.trim() || undefined,
+        improvement: improvement.trim() || undefined,
+        likes: likes.trim() || undefined,
+        continuity: continuity.trim() || undefined,
+      });
 
       Alert.alert(
-        "Obrigado!",
-        "Seu feedback foi registrado com sucesso. Ele será importante para melhorar a experiência do gerador no KATUÁ.",
+        result.emailSent ? "Feedback enviado" : "Feedback registrado",
+        result.emailSent
+          ? "Seu feedback foi enviado com sucesso para a cooperativa."
+          : "Seu feedback foi salvo, mas o envio do email ainda não foi concluído.",
         [
           {
             text: "OK",
@@ -98,9 +107,13 @@ export default function FeedbackScreen() {
           },
         ]
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao enviar feedback:", error);
-      Alert.alert("Erro", "Não foi possível enviar seu feedback.");
+
+      Alert.alert(
+        "Erro",
+        error?.message || "Não foi possível enviar seu feedback."
+      );
     } finally {
       setSending(false);
     }
@@ -343,19 +356,6 @@ export default function FeedbackScreen() {
           onChangeText={setContinuity}
           minHeight={80}
         />
-
-        <View
-          style={{
-            backgroundColor: "#FEFCE8",
-            borderRadius: 16,
-            padding: 16,
-            marginBottom: 20,
-            borderWidth: 1,
-            borderColor: "#FDE68A",
-          }}
-        >
-                
-        </View>
 
         <TouchableOpacity
           activeOpacity={0.9}
