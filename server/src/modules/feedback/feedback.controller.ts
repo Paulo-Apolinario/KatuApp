@@ -16,9 +16,17 @@ export async function createFeedbackController(
   reply: FastifyReply
 ) {
   try {
-    const user = (request as any).user;
+    console.log("[FEEDBACK][request.user]", (request as any).user);
 
-    if (!user?.id) {
+    const authUser = (request as any).user;
+
+    const authenticatedUserId =
+      authUser?.id ||
+      authUser?.userId ||
+      authUser?.sub ||
+      null;
+
+    if (!authenticatedUserId) {
       return reply.status(401).send({
         success: false,
         message: "Usuário não autenticado.",
@@ -26,7 +34,7 @@ export async function createFeedbackController(
     }
 
     const result = await createFeedback({
-      userId: user.id,
+      userId: authenticatedUserId,
       npsScore: request.body.npsScore,
       categories: request.body.categories,
       reason: request.body.reason,
