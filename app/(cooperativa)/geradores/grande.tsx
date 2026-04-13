@@ -13,10 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { collection, getDocs } from "firebase/firestore";
-
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
+import { generatorService, Generator } from "@/src/services/generatorService";
 
 type GeradorStatus = "ativo" | "pendente" | "inativo";
 
@@ -30,62 +27,54 @@ interface GrandeGerador {
   kgColetado: number;
   status: GeradorStatus;
   tipo: "pequeno" | "grande";
-  cooperativaId?: string;
+}
+
+function mapAccessStatusToGeradorStatus(status?: string | null): GeradorStatus {
+  if (status === "ACTIVE") return "ativo";
+  if (status === "PENDING") return "pendente";
+  return "inativo";
+}
+
+function mapGeneratorToGrande(item: Generator): GrandeGerador {
+  return {
+    id: item.id,
+    nome: item.companyName || "Sem nome",
+    endereco: item.address || "Endereço não informado",
+    contato: item.name || "Não informado",
+    telefone: item.phone || "Não informado",
+    ultimaColeta: "Sem registro",
+    kgColetado: Number(item.totalKg ?? 0),
+    status: mapAccessStatusToGeradorStatus(item.accessStatus),
+    tipo: "grande",
+  };
 }
 
 export default function GrandeGeradorScreen() {
-  const { user } = useAuth();
-
   const [searchText, setSearchText] = useState("");
-  const [filterStatus, setFilterStatus] = useState<GeradorStatus | "todos">(
-    "todos"
-  );
+  const [filterStatus, setFilterStatus] = useState<GeradorStatus | "todos">("todos");
   const [loading, setLoading] = useState(true);
   const [geradores, setGeradores] = useState<GrandeGerador[]>([]);
 
   const carregarGeradores = useCallback(async () => {
-    if (!user?.uid) {
-      setGeradores([]);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
 
-      const snap = await getDocs(collection(db, "geradores"));
+      const response = await generatorService.list();
 
-      const lista = snap.docs
-        .map((docSnap) => {
-          const data: any = docSnap.data();
-
-          return {
-            id: docSnap.id,
-            nome: data.nome || data.companyName || "Sem nome",
-            endereco: data.endereco || data.address || "Endereço não informado",
-            contato: data.contato || "Não informado",
-            telefone: data.telefone || data.phone || "Não informado",
-            ultimaColeta: data.ultimaColeta || "Sem registro",
-            kgColetado: Number(data.kgColetado || data.kgTotal || 0),
-            status: (data.status || "ativo") as GeradorStatus,
-            tipo: (data.tipo || "grande") as "pequeno" | "grande",
-            cooperativaId: data.cooperativaId || "",
-          };
-        })
-        .filter((item) => {
-          const pertenceCooperativa = !item.cooperativaId || item.cooperativaId === user.uid;
-          const ehGrande = item.tipo === "grande";
-          return pertenceCooperativa && ehGrande;
-        });
+      const lista: GrandeGerador[] = response
+        .filter((item) => item.type === "LARGE")
+        .map(mapGeneratorToGrande);
 
       setGeradores(lista);
-    } catch (error) {
-      console.error("Erro ao carregar grandes geradores:", error);
-      Alert.alert("Erro", "Não foi possível carregar os grandes geradores.");
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error.message || "Não foi possível carregar os grandes geradores."
+      );
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -100,8 +89,7 @@ export default function GrandeGeradorScreen() {
         g.endereco.toLowerCase().includes(searchText.toLowerCase()) ||
         g.contato.toLowerCase().includes(searchText.toLowerCase());
 
-      const matchesFilter =
-        filterStatus === "todos" || g.status === filterStatus;
+      const matchesFilter = filterStatus === "todos" || g.status === filterStatus;
 
       return matchesSearch && matchesFilter;
     });
@@ -151,7 +139,7 @@ export default function GrandeGeradorScreen() {
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
             <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
-              KATU
+              KATUÁ
             </Text>
           </View>
 
@@ -242,9 +230,7 @@ export default function GrandeGeradorScreen() {
               return (
                 <TouchableOpacity
                   key={item.value}
-                  onPress={() =>
-                    setFilterStatus(item.value as GeradorStatus | "todos")
-                  }
+                  onPress={() => setFilterStatus(item.value as GeradorStatus | "todos")}
                   style={{
                     backgroundColor: selected ? item.color : "#F3F4F6",
                     paddingHorizontal: 16,

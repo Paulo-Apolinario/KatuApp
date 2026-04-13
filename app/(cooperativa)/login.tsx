@@ -10,12 +10,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
+import { useAuth } from "@/src/contexts/AuthContext";
 
 export default function CooperativaLoginScreen() {
+  const { signIn } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -46,21 +50,31 @@ export default function CooperativaLoginScreen() {
     }
   }
 
-  const handleLogin = () => {
-    if (!email || !password) {
+  async function handleLogin() {
+    if (!email.trim() || !password.trim()) {
       Alert.alert("Atenção", "Preencha e-mail e senha");
       return;
     }
 
-    setLoading(true);
-    
-    // Simular login (depois substituir por Firebase)
-    setTimeout(() => {
-      setLoading(false);
-      // REDIRECIONAR PARA A HOME, NÃO PARA O DASHBOARD
-      router.replace("/(cooperativa)/home.tsx" as any);
-    }, 1500);
-  };
+    try {
+      setLoading(true);
+
+      const result = await signIn(email.trim(), password, "cooperativa");
+
+      if (!result.success) {
+        Alert.alert("Erro", result.error || "Não foi possível entrar.");
+        return;
+      }
+
+      router.replace("/(cooperativa)/home");
+    } catch (error: unknown) {
+  const mensagemErro =
+    error instanceof Error ? error.message : "Falha inesperada ao fazer login.";
+  Alert.alert("Erro", mensagemErro);
+} finally {
+  setLoading(false);
+}
+  }
 
   return (
     <KeyboardAvoidingView
@@ -83,7 +97,7 @@ export default function CooperativaLoginScreen() {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          
+
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Image
               source={require("../../assets/images/logo.png")}
@@ -91,7 +105,7 @@ export default function CooperativaLoginScreen() {
               style={{ width: 50, height: 50, marginRight: 8 }}
             />
             <Text style={{ fontSize: 28, fontWeight: "800", color: "#FFFFFF" }}>
-              KATU
+              KATUÁ
             </Text>
           </View>
 
@@ -101,7 +115,7 @@ export default function CooperativaLoginScreen() {
         <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF", marginTop: 20, textAlign: "center" }}>
           Cooperativa de Reciclagem
         </Text>
-        
+
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 10 }}>
           <Ionicons name="location-sharp" size={16} color="#FFFFFF" />
           <Text style={{ fontSize: 14, color: "#FFFFFF", marginLeft: 5, opacity: 0.9 }}>
@@ -110,12 +124,11 @@ export default function CooperativaLoginScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
       >
         <View style={{ paddingHorizontal: 24, paddingVertical: 20 }}>
-          {/* Título da seção */}
           <View style={{ marginBottom: 30 }}>
             <Text style={{ fontSize: 28, fontWeight: "800", color: "#111827", textAlign: "center" }}>
               Acesso
@@ -125,38 +138,38 @@ export default function CooperativaLoginScreen() {
             </Text>
           </View>
 
-          {/* Card de Informações da Cooperativa */}
-          <View style={{
-            backgroundColor: "#F0FDF4",
-            borderRadius: 16,
-            padding: 16,
-            marginBottom: 25,
-            borderWidth: 1,
-            borderColor: "#028C56",
-          }}>
+          <View
+            style={{
+              backgroundColor: "#F0FDF4",
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: 25,
+              borderWidth: 1,
+              borderColor: "#028C56",
+            }}
+          >
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
               <Ionicons name="business" size={24} color="#028C56" />
               <Text style={{ fontSize: 16, fontWeight: "600", color: "#028C56", marginLeft: 10 }}>
-                Cooperativa da Jeri
+                Painel da Cooperativa
               </Text>
             </View>
-            
+
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 5 }}>
               <Ionicons name="time-outline" size={16} color="#4B5563" />
               <Text style={{ fontSize: 13, color: "#4B5563", marginLeft: 8 }}>
-                Atua de 06:30 às 18:30
+                Acesso ao sistema operacional
               </Text>
             </View>
-            
+
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Ionicons name="call-outline" size={16} color="#4B5563" />
+              <Ionicons name="shield-checkmark-outline" size={16} color="#4B5563" />
               <Text style={{ fontSize: 13, color: "#4B5563", marginLeft: 8 }}>
-                (88) 90000-0000
+                Autenticação com backend próprio
               </Text>
             </View>
           </View>
 
-          {/* Email */}
           <View style={{ marginBottom: 20 }}>
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
               <Ionicons name="mail-outline" size={20} color="#028C56" />
@@ -183,7 +196,6 @@ export default function CooperativaLoginScreen() {
             />
           </View>
 
-          {/* Senha */}
           <View style={{ marginBottom: 20 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -218,14 +230,12 @@ export default function CooperativaLoginScreen() {
             />
           </View>
 
-          {/* Esqueceu senha */}
           <TouchableOpacity style={{ alignSelf: "flex-end", marginBottom: 25 }}>
             <Text style={{ fontSize: 14, color: "#028C56", fontWeight: "500" }}>
               Esqueceu a senha?
             </Text>
           </TouchableOpacity>
 
-          {/* Botão Login */}
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={handleLogin}
@@ -242,18 +252,41 @@ export default function CooperativaLoginScreen() {
                 alignItems: "center",
                 justifyContent: "center",
                 opacity: loading ? 0.7 : 1,
+                flexDirection: "row",
               }}
             >
-              <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
-                {loading ? "ENTRANDO..." : "ENTRAR"}
-              </Text>
+              {loading ? (
+                <>
+                  <ActivityIndicator color="#FFFFFF" />
+                  <Text
+                    style={{
+                      color: "#FFFFFF",
+                      fontSize: 18,
+                      fontWeight: "800",
+                      marginLeft: 8,
+                    }}
+                  >
+                    ENTRANDO...
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
+                  ENTRAR
+                </Text>
+              )}
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Solicitar acesso */}
           <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 10 }}>
             <Text style={{ color: "#4B5563" }}>Não tem uma conta? </Text>
-            <TouchableOpacity onPress={() => Alert.alert("Atenção", "Entre em contato com a administração da cooperativa para solicitar seu acesso.")}>
+            <TouchableOpacity
+              onPress={() =>
+                Alert.alert(
+                  "Atenção",
+                  "Entre em contato com a administração da cooperativa para solicitar seu acesso."
+                )
+              }
+            >
               <Text style={{ color: "#028C56", fontWeight: "700", textDecorationLine: "underline" }}>
                 Solicitar acesso
               </Text>

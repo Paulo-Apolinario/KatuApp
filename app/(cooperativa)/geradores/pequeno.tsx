@@ -13,10 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { collection, getDocs } from "firebase/firestore";
-
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
+import { generatorService, Generator } from "@/src/services/generatorService";
 
 type GeradorStatus = "ativo" | "pendente" | "inativo";
 
@@ -29,61 +26,53 @@ interface Gerador {
   kgColetado: number;
   telefone: string;
   tipo: "pequeno" | "grande";
-  cooperativaId?: string;
+}
+
+function mapAccessStatusToGeradorStatus(status?: string | null): GeradorStatus {
+  if (status === "ACTIVE") return "ativo";
+  if (status === "PENDING") return "pendente";
+  return "inativo";
+}
+
+function mapGeneratorToPequeno(item: Generator): Gerador {
+  return {
+    id: item.id,
+    nome: item.companyName || "Sem nome",
+    endereco: item.address || "Endereço não informado",
+    status: mapAccessStatusToGeradorStatus(item.accessStatus),
+    ultimaColeta: "Sem registro",
+    kgColetado: Number(item.totalKg ?? 0),
+    telefone: item.phone || "Não informado",
+    tipo: "pequeno",
+  };
 }
 
 export default function PequenoGeradorScreen() {
-  const { user } = useAuth();
-
   const [searchText, setSearchText] = useState("");
-  const [filterStatus, setFilterStatus] = useState<GeradorStatus | "todos">(
-    "todos"
-  );
+  const [filterStatus, setFilterStatus] = useState<GeradorStatus | "todos">("todos");
   const [loading, setLoading] = useState(true);
   const [geradores, setGeradores] = useState<Gerador[]>([]);
 
   const carregarGeradores = useCallback(async () => {
-    if (!user?.uid) {
-      setGeradores([]);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
 
-      const snap = await getDocs(collection(db, "geradores"));
+      const response = await generatorService.list();
 
-      const lista = snap.docs
-        .map((docSnap) => {
-          const data: any = docSnap.data();
-
-          return {
-            id: docSnap.id,
-            nome: data.nome || data.companyName || "Sem nome",
-            endereco: data.endereco || data.address || "Endereço não informado",
-            status: (data.status || "ativo") as GeradorStatus,
-            ultimaColeta: data.ultimaColeta || "Sem registro",
-            kgColetado: Number(data.kgColetado || data.kgTotal || 0),
-            telefone: data.telefone || data.phone || "Não informado",
-            tipo: (data.tipo || "pequeno") as "pequeno" | "grande",
-            cooperativaId: data.cooperativaId || "",
-          };
-        })
-        .filter((item) => {
-          const pertenceCooperativa = !item.cooperativaId || item.cooperativaId === user.uid;
-          const ehPequeno = item.tipo === "pequeno";
-          return pertenceCooperativa && ehPequeno;
-        });
+      const lista: Gerador[] = response
+        .filter((item) => item.type === "SMALL")
+        .map(mapGeneratorToPequeno);
 
       setGeradores(lista);
-    } catch (error) {
-      console.error("Erro ao carregar pequenos geradores:", error);
-      Alert.alert("Erro", "Não foi possível carregar os pequenos geradores.");
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error.message || "Não foi possível carregar os pequenos geradores."
+      );
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -113,7 +102,7 @@ export default function PequenoGeradorScreen() {
       case "inativo":
         return "INATIVO";
       default:
-      return String(status).toUpperCase();
+        return String(status).toUpperCase();
     }
   };
 
@@ -123,8 +112,7 @@ export default function PequenoGeradorScreen() {
         g.nome.toLowerCase().includes(searchText.toLowerCase()) ||
         g.endereco.toLowerCase().includes(searchText.toLowerCase());
 
-      const matchesFilter =
-        filterStatus === "todos" || g.status === filterStatus;
+      const matchesFilter = filterStatus === "todos" || g.status === filterStatus;
 
       return matchesSearch && matchesFilter;
     });
@@ -162,7 +150,7 @@ export default function PequenoGeradorScreen() {
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
             <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
-              KATU
+              KATUÁ
             </Text>
           </View>
 
@@ -238,9 +226,7 @@ export default function PequenoGeradorScreen() {
               return (
                 <TouchableOpacity
                   key={item.value}
-                  onPress={() =>
-                    setFilterStatus(item.value as GeradorStatus | "todos")
-                  }
+                  onPress={() => setFilterStatus(item.value as GeradorStatus | "todos")}
                   style={{
                     backgroundColor: selected ? item.color : "#F3F4F6",
                     paddingHorizontal: 16,

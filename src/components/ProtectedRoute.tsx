@@ -8,20 +8,39 @@ interface ProtectedRouteProps {
   allowedUserTypes?: string[];
 }
 
-function getRouteByUserType(userType?: string) {
-  switch (userType) {
-    case "pf":
+function getRouteByRole(role?: string) {
+  switch (role) {
+    case "PF":
       return "/(pf-tabs)/home";
-    case "comercial":
-    case "grande":
+    case "GENERATOR_SMALL":
+    case "GENERATOR_LARGE":
       return "/(gerador)/dashboard";
-    case "catador":
+    case "COLLECTOR":
       return "/(catador)/homecat";
-    case "cooperativa":
+    case "COOPERATIVE":
       return "/(cooperativa)/home";
     default:
       return "/(public)/access-type";
   }
+}
+
+function mapAllowedTypesToRoles(types: string[]) {
+  return types.map((type) => {
+    switch (type) {
+      case "pf":
+        return "PF";
+      case "comercial":
+        return "GENERATOR_SMALL";
+      case "grande":
+        return "GENERATOR_LARGE";
+      case "catador":
+        return "COLLECTOR";
+      case "cooperativa":
+        return "COOPERATIVE";
+      default:
+        return type;
+    }
+  });
 }
 
 export default function ProtectedRoute({
@@ -47,11 +66,10 @@ export default function ProtectedRoute({
       return;
     }
 
-    if (
-      allowedUserTypes.length > 0 &&
-      !allowedUserTypes.includes(user.userType)
-    ) {
-      router.replace(getRouteByUserType(user.userType));
+    const allowedRoles = mapAllowedTypesToRoles(allowedUserTypes);
+
+    if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+      router.replace(getRouteByRole(user.role));
     }
   }, [user, loading, segments, allowedUserTypes]);
 
@@ -72,11 +90,9 @@ export default function ProtectedRoute({
 
   if (!user) return null;
 
-  if (
-    allowedUserTypes.length > 0 &&
-    user?.userType &&
-    !allowedUserTypes.includes(user.userType)
-  ) {
+  const allowedRoles = mapAllowedTypesToRoles(allowedUserTypes);
+
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     return null;
   }
 

@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Text,
   View,
@@ -10,107 +10,138 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { collection, getDocs, query, where } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
+import { collectionService } from "@/src/services/collectionService";
+import type { Collection, CollectionMaterial } from "@/src/types/collection";
 
-type Coleta = {
-  id: string;
-  local: string;
-  pesoKg: number;
-  materiais: string[];
-  createdAt?: any;
-};
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "-";
+
+  return parsed.toLocaleDateString("pt-BR");
+}
+
+function normalizeMaterials(materials: unknown): CollectionMaterial[] {
+  if (!Array.isArray(materials)) return [];
+
+  return materials
+    .map((item) => {
+      if (typeof item === "string") {
+        return { type: item, quantityKg: 0 };
+      }
+
+      if (
+        item &&
+        typeof item === "object" &&
+        "type" in item
+      ) {
+        return {
+          type: String((item as { type?: unknown }).type ?? "Não informado"),
+          quantityKg: Number(
+            (item as { quantityKg?: unknown }).quantityKg ?? 0
+          ),
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean) as CollectionMaterial[];
+}
+
+function getCollectionTotalKg(collection: Collection) {
+  const materialsKg = (collection.materials ?? []).reduce(
+    (sum, item) => sum + Number(item.quantityKg ?? 0),
+    0
+  );
+
+  if (materialsKg > 0) return materialsKg;
+  return Number(collection.totalWeightKg ?? 0);
+}
 
 export default function DataScreen() {
-  const { user } = useAuth();
-
   const [loading, setLoading] = useState(true);
-  const [coletas, setColetas] = useState<Coleta[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
 
-  const loadColetas = useCallback(async () => {
-    if (!user?.uid) {
-      setColetas([]);
-      setLoading(false);
-      return;
-    }
-
+  const loadCollections = async () => {
     try {
       setLoading(true);
 
-      const q = query(collection(db, "coletas"), where("catadorId", "==", user.uid));
-      const snap = await getDocs(q);
+      const response = await collectionService.list();
 
-      const lista: Coleta[] = snap.docs.map((docSnap) => {
-        const data: any = docSnap.data();
+      const normalized = Array.isArray(response)
+        ? response.map((item) => ({
+            ...item,
+            materials: normalizeMaterials(item.materials),
+            totalWeightKg: Number(item.totalWeightKg ?? 0),
+          }))
+        : [];
 
-        return {
-          id: docSnap.id,
-          local: data.local || "-",
-          pesoKg: Number(data.pesoKg || 0),
-          materiais: Array.isArray(data.materiais) ? data.materiais : [],
-          createdAt: data.createdAt,
-        };
-      });
-
-      lista.sort((a, b) => {
-        const aTime = a.createdAt?.seconds || 0;
-        const bTime = b.createdAt?.seconds || 0;
-        return bTime - aTime;
-      });
-
-      setColetas(lista);
+      setCollections(normalized);
     } catch (error) {
       console.error("Erro ao carregar coletas:", error);
+      setCollections([]);
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  };
 
   useEffect(() => {
-    loadColetas();
-  }, [loadColetas]);
+    loadCollections();
+  }, []);
+
+  const completedCollections = useMemo(() => {
+    return collections.filter((item) => item.status === "COMPLETED");
+  }, [collections]);
 
   const totalKg = useMemo(
-    () => coletas.reduce((acc, item) => acc + Number(item.pesoKg || 0), 0),
-    [coletas]
+    () =>
+      completedCollections.reduce(
+        (acc, item) => acc + getCollectionTotalKg(item),
+        0
+      ),
+    [completedCollections]
   );
 
-  const totalColetas = coletas.length;
+  const totalColetas = completedCollections.length;
 
   const materialPercentuais = useMemo(() => {
-    const contagem: Record<string, number> = {};
+    const quantidadePorMaterial: Record<string, number> = {};
 
-    coletas.forEach((coleta) => {
-      coleta.materiais.forEach((material) => {
-        contagem[material] = (contagem[material] || 0) + 1;
+    completedCollections.forEach((coleta) => {
+      (coleta.materials ?? []).forEach((material) => {
+        const materialType = material.type?.trim() || "Não informado";
+        const quantity = Number(material.quantityKg ?? 0);
+
+        quantidadePorMaterial[materialType] =
+          (quantidadePorMaterial[materialType] || 0) + quantity;
       });
     });
 
-    const totalMateriais = Object.values(contagem).reduce((acc, val) => acc + val, 0);
+    const totalMateriaisKg = Object.values(quantidadePorMaterial).reduce(
+      (acc, val) => acc + val,
+      0
+    );
 
-    if (totalMateriais === 0) return [];
+    if (totalMateriaisKg === 0) return [];
 
-    return Object.entries(contagem)
-      .map(([material, quantidade], index) => ({
+    return Object.entries(quantidadePorMaterial)
+      .map(([material, quantidadeKg], index) => ({
         material,
-        percent: Math.round((quantidade / totalMateriais) * 100),
-        color: ["#06B6D4", "#EF4444", "#8B5CF6", "#3B82F6", "#10B981", "#F59E0B"][index % 6],
+        quantityKg: quantidadeKg,
+        percent: Math.round((quantidadeKg / totalMateriaisKg) * 100),
+        color: [
+          "#06B6D4",
+          "#EF4444",
+          "#8B5CF6",
+          "#3B82F6",
+          "#10B981",
+          "#F59E0B",
+        ][index % 6],
       }))
-      .sort((a, b) => b.percent - a.percent);
-  }, [coletas]);
-
-  function formatDate(value: any) {
-    try {
-      if (value?.toDate) {
-        return value.toDate().toLocaleDateString("pt-BR");
-      }
-      return "-";
-    } catch {
-      return "-";
-    }
-  }
+      .sort((a, b) => b.quantityKg - a.quantityKg);
+  }, [completedCollections]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
@@ -127,7 +158,10 @@ export default function DataScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 15 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>
@@ -135,19 +169,31 @@ export default function DataScreen() {
           </Text>
         </View>
 
-        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 15 }}>
+        <View
+          style={{ flexDirection: "row", alignItems: "center", marginTop: 15 }}
+        >
           <Image
             source={require("../../assets/images/logo.png")}
             resizeMode="contain"
             style={{ width: 30, height: 30, marginRight: 8 }}
           />
-          <Text style={{ fontSize: 18, fontWeight: "600", color: "#FFFFFF", opacity: 0.9 }}>
-            KatuAI
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "600",
+              color: "#FFFFFF",
+              opacity: 0.9,
+            }}
+          >
+            KATUÁ
           </Text>
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+      >
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 40 }}>
             <ActivityIndicator size="large" color="#028C56" />
@@ -157,7 +203,13 @@ export default function DataScreen() {
           </View>
         ) : (
           <>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 25 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginBottom: 25,
+              }}
+            >
               <View
                 style={{
                   flex: 1,
@@ -172,7 +224,7 @@ export default function DataScreen() {
                   TOTAL COLETADO
                 </Text>
                 <Text style={{ fontSize: 28, fontWeight: "800", color: "#028C56" }}>
-                  {totalKg} kg
+                  {totalKg.toFixed(1)} kg
                 </Text>
               </View>
 
@@ -203,18 +255,16 @@ export default function DataScreen() {
                 marginBottom: 20,
               }}
             >
-              <View
+              <Text
                 style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
+                  fontSize: 18,
+                  fontWeight: "700",
+                  color: "#111827",
                   marginBottom: 15,
                 }}
               >
-                <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
-                  Histórico de Coletas
-                </Text>
-              </View>
+                Histórico de Coletas
+              </Text>
 
               <View
                 style={{
@@ -225,13 +275,19 @@ export default function DataScreen() {
                   marginBottom: 10,
                 }}
               >
-                <Text style={{ flex: 1, fontWeight: "600", color: "#374151" }}>DATA</Text>
-                <Text style={{ flex: 1, fontWeight: "600", color: "#374151" }}>LOCAL</Text>
-                <Text style={{ flex: 1, fontWeight: "600", color: "#374151" }}>KG</Text>
+                <Text style={{ flex: 1, fontWeight: "600", color: "#374151" }}>
+                  DATA
+                </Text>
+                <Text style={{ flex: 1, fontWeight: "600", color: "#374151" }}>
+                  STATUS
+                </Text>
+                <Text style={{ flex: 1, fontWeight: "600", color: "#374151" }}>
+                  KG
+                </Text>
               </View>
 
-              {coletas.length > 0 ? (
-                coletas.map((item) => (
+              {completedCollections.length > 0 ? (
+                completedCollections.map((item) => (
                   <View
                     key={item.id}
                     style={{
@@ -242,19 +298,21 @@ export default function DataScreen() {
                     }}
                   >
                     <Text style={{ flex: 1, color: "#4B5563" }}>
-                      {formatDate(item.createdAt)}
+                      {formatDate(item.collectedAt || item.createdAt)}
                     </Text>
-                    <Text style={{ flex: 1, color: "#4B5563" }} numberOfLines={1}>
-                      {item.local}
+                    <Text style={{ flex: 1, color: "#4B5563" }}>
+                      {item.status}
                     </Text>
-                    <Text style={{ flex: 1, color: "#028C56", fontWeight: "600" }}>
-                      {item.pesoKg} kg
+                    <Text
+                      style={{ flex: 1, color: "#028C56", fontWeight: "600" }}
+                    >
+                      {getCollectionTotalKg(item).toFixed(1)} kg
                     </Text>
                   </View>
                 ))
               ) : (
                 <Text style={{ color: "#6B7280", paddingVertical: 12 }}>
-                  Nenhuma coleta registrada ainda.
+                  Nenhuma coleta concluída ainda.
                 </Text>
               )}
             </View>
@@ -267,7 +325,14 @@ export default function DataScreen() {
                 marginBottom: 30,
               }}
             >
-              <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 15 }}>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "700",
+                  color: "#111827",
+                  marginBottom: 15,
+                }}
+              >
                 Percentual por Material
               </Text>
 
@@ -275,16 +340,38 @@ export default function DataScreen() {
                 materialPercentuais.map((item, index) => (
                   <View key={`${item.material}-${index}`} style={{ marginBottom: 12 }}>
                     <View
-                      style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        marginBottom: 4,
+                      }}
                     >
-                      <Text style={{ fontSize: 14, fontWeight: "500", color: "#4B5563" }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: "500",
+                          color: "#4B5563",
+                        }}
+                      >
                         {item.material}
                       </Text>
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>
-                        {item.percent}%
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: "600",
+                          color: "#111827",
+                        }}
+                      >
+                        {item.percent}% ({item.quantityKg.toFixed(1)} kg)
                       </Text>
                     </View>
-                    <View style={{ height: 8, backgroundColor: "#E5E7EB", borderRadius: 4 }}>
+                    <View
+                      style={{
+                        height: 8,
+                        backgroundColor: "#E5E7EB",
+                        borderRadius: 4,
+                      }}
+                    >
                       <View
                         style={{
                           width: `${item.percent}%`,

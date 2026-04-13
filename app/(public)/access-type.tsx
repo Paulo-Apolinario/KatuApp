@@ -84,7 +84,7 @@ export default function AccessTypeScreen() {
               fontWeight: "700",
             }}
           >
-            KATU
+            KATUÁ
           </Text>
         </View>
 
@@ -103,8 +103,13 @@ export default function AccessTypeScreen() {
           onPress={() => router.replace("/(auth)/login?profile=catador")}
         />
 
+        <EntryButton
+          title="MOTORISTA"
+          onPress={() => router.replace("/(auth)/login?profile=motorista")}
+        />
+
         <TouchableOpacity
-          onPress={() => router.replace("/(public)/activate-generator")}
+          onPress={() => router.replace("/(public)/activate-access")}
           style={{
             marginTop: 8,
             alignItems: "center",
@@ -119,17 +124,7 @@ export default function AccessTypeScreen() {
               textDecorationLine: "underline",
             }}
           >
-            Já fui cadastrado pela cooperativa
-          </Text>
-          <Text
-            style={{
-              color: "#6B7280",
-              fontSize: 12,
-              marginTop: 4,
-              textAlign: "center",
-            }}
-          >
-            Clique aqui para liberar seu acesso
+            Liberar meu acesso
           </Text>
         </TouchableOpacity>
       </View>

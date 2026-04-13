@@ -1,0 +1,416 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String         @id @default(cuid())
+  email                  String         @unique
+  passwordHash           String
+  displayName            String
+  role                   UserRole
+  accountStatus          AccountStatus  @default(ACTIVE)
+  isActive               Boolean        @default(true)
+  phone                  String?
+  rememberMe             Boolean        @default(false)
+  resetPasswordToken     String?
+  resetPasswordExpiresAt DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  collector              Collector?
+  cooperative            Cooperative?
+  driver                 Driver?
+  generator              Generator?
+  personProfile          PersonProfile?
+  feedbacks              Feedback[]
+  requestedSchedules     Schedule[]     @relation("UserRequestedSchedules")
+
+  @@index([role])
+}
+
+model Cooperative {
+  id                 String       @id @default(cuid())
+  name               String
+  registrationNumber String?      @unique
+  email              String?      @unique
+  phone              String?
+  address            String?
+  latitude           Float?
+  longitude          Float?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  userId             String       @unique
+  collections        Collection[]
+  collectors         Collector[]
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drivers            Driver[]
+  generators         Generator[]
+  routes             Route[]
+  schedules          Schedule[]
+  vehicles           Vehicle[]
+  feedbacks          Feedback[]
+
+  @@index([name])
+}
+
+model DriverReport {
+  id           String           @id @default(cuid())
+  driverId     String
+  type         DriverReportType
+  description  String
+  routeId      String?
+  vehicleId    String?
+  collectionId String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  driver     Driver      @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  route      Route?      @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  vehicle    Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  collection Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  @@index([driverId])
+  @@index([type])
+  @@index([routeId])
+  @@index([vehicleId])
+  @@index([collectionId])
+  @@index([createdAt])
+}
+
+model PersonProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  cpf         String   @unique
+  address     String?
+  totalKg     Float    @default(0)
+  greenStreak Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Generator {
+  id            String        @id @default(cuid())
+  cooperativeId String
+  userId        String?       @unique
+  type          GeneratorType
+  name          String
+  companyName   String?
+  email         String        @unique
+  phone         String?
+
+  // endereço estruturado
+  zipCode      String?
+  street       String?
+  number       String?
+  neighborhood String?
+  city         String?
+  state        String?
+  address      String?
+
+  // coordenadas para mapa
+  latitude  Float?
+  longitude Float?
+
+  status         String?
+  accessReleased Boolean               @default(false)
+  accessStatus   GeneratorAccessStatus @default(PENDING_ACTIVATION)
+  totalKg        Float                 @default(0)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  activatedAt    DateTime?
+
+  collections Collection[]
+  cooperative Cooperative  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  user        User?        @relation(fields: [userId], references: [id])
+  schedules   Schedule[]
+
+  @@index([cooperativeId])
+  @@index([type])
+  @@index([accessStatus])
+  @@index([name])
+  @@index([city])
+  @@index([state])
+}
+
+model Schedule {
+  id                String         @id @default(uuid())
+  cooperativeId     String
+  generatorId       String?
+  requestedByUserId String
+  preferredDate     DateTime?
+  scheduledDate     DateTime?
+  status            ScheduleStatus @default(REQUESTED)
+  notes             String?
+
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  generator   Generator?  @relation(fields: [generatorId], references: [id], onDelete: SetNull)
+  requestedBy User        @relation("UserRequestedSchedules", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+
+  collections Collection[]
+  feedbacks   Feedback[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cooperativeId])
+  @@index([generatorId])
+  @@index([requestedByUserId])
+  @@index([status])
+}
+
+model Collector {
+  id               String          @id @default(cuid())
+  cooperativeId    String?
+  userId           String?         @unique
+  name             String
+  email            String          @unique
+  phone            String?
+  rg               String?
+  birthDate        String?
+  status           CollectorStatus @default(AVAILABLE)
+  kgMonth          Float           @default(0)
+  collectionsToday Int             @default(0)
+  totalKg          Float           @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  collections      Collection[]
+  cooperative      Cooperative?    @relation(fields: [cooperativeId], references: [id])
+  user             User?           @relation(fields: [userId], references: [id])
+
+  @@index([cooperativeId])
+  @@index([status])
+  @@index([name])
+}
+
+model Collection {
+  id            String  @id @default(cuid())
+  cooperativeId String
+  generatorId   String?
+  collectorId   String?
+  scheduleId    String? @unique
+
+  driverId  String?
+  vehicleId String?
+  routeId   String?
+
+  collectedAt   DateTime?
+  totalWeightKg Float            @default(0)
+  materials     Json?
+  notes         String?
+  status        CollectionStatus @default(PENDING)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  collector   Collector?  @relation(fields: [collectorId], references: [id])
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  generator   Generator?  @relation(fields: [generatorId], references: [id], onDelete: SetNull)
+  schedule    Schedule?   @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  driver  Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  route   Route?         @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  reports DriverReport[]
+
+  @@index([cooperativeId])
+  @@index([generatorId])
+  @@index([collectorId])
+  @@index([scheduleId])
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([routeId])
+  @@index([status])
+}
+
+model Driver {
+  id            String       @id @default(cuid())
+  cooperativeId String
+  userId        String?      @unique
+  name          String
+  email         String       @unique
+  phone         String?
+  cpf           String?
+  cnh           String?
+  cnhCategory   String?
+  notes         String?
+  status        DriverStatus @default(AVAILABLE)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  user        User?          @relation(fields: [userId], references: [id])
+  routes      Route[]
+  vehicles    Vehicle[]
+  collections Collection[]
+  reports     DriverReport[]
+
+  @@index([cooperativeId])
+  @@index([status])
+  @@index([name])
+  @@index([cpf])
+}
+
+model Vehicle {
+  id            String        @id @default(cuid())
+  cooperativeId String
+  driverId      String?
+  plate         String        @unique
+  model         String
+  brand         String?
+  year          Int?
+  capacityKg    Float         @default(0)
+  status        VehicleStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  routes      Route[]
+  collections Collection[]
+  reports     DriverReport[]
+  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  driver      Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  @@index([cooperativeId])
+  @@index([driverId])
+  @@index([status])
+  @@index([plate])
+}
+
+model Route {
+  id            String      @id @default(cuid())
+  cooperativeId String
+  driverId      String?
+  vehicleId     String?
+  name          String
+  description   String?
+  scheduledDate DateTime?
+  stops         String[]
+  status        RouteStatus @default(SCHEDULED)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  driver      Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle     Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  collections Collection[]
+  reports     DriverReport[]
+
+  @@index([cooperativeId])
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([scheduledDate])
+}
+
+model Feedback {
+  id            String             @id @default(cuid())
+  userId        String
+  cooperativeId String
+  scheduleId    String?
+  npsScore      Int
+  categories    FeedbackCategory[]
+  reason        String?
+  improvement   String?
+  likes         String?
+  continuity    String?
+  emailSent     Boolean            @default(false)
+  emailedAt     DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  schedule    Schedule?   @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([cooperativeId])
+  @@index([scheduleId])
+  @@index([createdAt])
+}
+
+enum UserRole {
+  PF
+  GENERATOR_SMALL
+  GENERATOR_LARGE
+  COOPERATIVE
+  COLLECTOR
+  DRIVER
+  ADMIN
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum GeneratorType {
+  SMALL
+  LARGE
+}
+
+enum GeneratorAccessStatus {
+  PENDING_ACTIVATION
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum CollectorStatus {
+  AVAILABLE
+  ON_ROUTE
+  INACTIVE
+}
+
+enum ScheduleStatus {
+  REQUESTED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CollectionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DriverStatus {
+  AVAILABLE
+  ON_ROUTE
+  INACTIVE
+}
+
+enum VehicleStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+}
+
+enum DriverReportType {
+  DELAY
+  MECHANICAL_ISSUE
+  COLLECTION_NOT_COMPLETED
+  GENERAL_NOTE
+}
+
+enum RouteStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum FeedbackCategory {
+  ATENDIMENTO
+  PONTUALIDADE
+  COLETA
+  APLICATIVO
+  COMUNICACAO
+}

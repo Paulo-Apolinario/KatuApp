@@ -1,111 +1,133 @@
-import { router } from "expo-router";
-import { useEffect, useState, useCallback } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
-  Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
 
-interface UserProfile {
-  uid: string;
+import { useAuth } from "@/src/contexts/AuthContext";
+import {
+  scheduleService,
+  type Schedule,
+} from "@/src/services/scheduleService";
+
+type AuthUserLike = {
+  id?: string;
+  name?: string;
   displayName?: string;
   email?: string;
   cpf?: string;
   phone?: string;
   address?: string;
-  createdAt?: any;
-  totalKg?: number;
-  greenStreak?: number;
-  code?: string;
-  userType?: string;
+  createdAt?: string | null;
+};
+
+function formatDate(dateString?: string | null) {
+  if (!dateString) return "Não informado";
+
+  const parsed = new Date(dateString);
+  if (Number.isNaN(parsed.getTime())) return "Não informado";
+
+  return parsed.toLocaleDateString("pt-BR");
+}
+
+function extractRequestedMaterials(notes?: string | null) {
+  if (!notes) return [];
+
+  const match = notes.match(/Materiais solicitados:\s*([^|]+)/i);
+  if (!match) return [];
+
+  return match[1]
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function getUserDisplayName(user: AuthUserLike | null) {
+  return user?.displayName || user?.name || "Usuário";
+}
+
+function buildUserCode(userId?: string) {
+  if (!userId) return "Não informado";
+  return `KATUÁ-${userId.slice(0, 8).toUpperCase()}`;
 }
 
 export default function ProfileScreen() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const currentUser = user as AuthUserLike | null;
+
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
 
-  const carregarPerfil = useCallback(async () => {
-    if (!user?.uid) {
-      setLoading(false);
-      return;
-    }
-
+  const loadProfileData = useCallback(async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
 
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const data = userSnap.data() as UserProfile;
-
-        setProfile({
-          uid: user.uid,
-          displayName: data.displayName || "",
-          email: data.email || user.email || "",
-          cpf: data.cpf || "",
-          phone: data.phone || "",
-          address: data.address || "",
-          createdAt: data.createdAt || null,
-          totalKg: data.totalKg || 0,
-          greenStreak: data.greenStreak || 0,
-          code: data.code || `KATU-${user.uid.slice(0, 8).toUpperCase()}`,
-          userType: data.userType || "",
-        });
-      } else {
-        setProfile({
-          uid: user.uid,
-          displayName: user.displayName || "Usuário",
-          email: user.email || "",
-          cpf: "",
-          phone: "",
-          address: "",
-          createdAt: null,
-          totalKg: 0,
-          greenStreak: 0,
-          code: `KATU-${user.uid.slice(0, 8).toUpperCase()}`,
-          userType: "",
-        });
-      }
+      const data = await scheduleService.list();
+      setSchedules(data);
     } catch (error) {
-      console.error("Erro ao carregar perfil:", error);
+      console.error("Erro ao carregar perfil da PF:", error);
+      setSchedules([]);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
+      setRefreshing(false);
     }
-  }, [user?.uid, user?.email, user?.displayName]);
+  }, []);
 
-  useEffect(() => {
-    carregarPerfil();
-  }, [carregarPerfil]);
+  useFocusEffect(
+    useCallback(() => {
+      loadProfileData(true);
+    }, [loadProfileData])
+  );
 
-  const formatDate = (createdAt: any) => {
-    if (!createdAt) return "Não informado";
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadProfileData(false);
+  }, [loadProfileData]);
 
-    try {
-      if (typeof createdAt?.toDate === "function") {
-        return createdAt.toDate().toLocaleDateString("pt-BR");
-      }
+  const metrics = useMemo(() => {
+    const totalSolicitacoes = schedules.length;
 
-      return new Date(createdAt).toLocaleDateString("pt-BR");
-    } catch {
-      return "Não informado";
-    }
-  };
+    const completed = schedules.filter((item) => item.status === "COMPLETED");
+    const agendadas = schedules.filter(
+      (item) => item.status === "REQUESTED" || item.status === "SCHEDULED"
+    );
+
+    const materialsMap: Record<string, number> = {};
+
+    schedules.forEach((item) => {
+      const materials = extractRequestedMaterials(item.notes);
+
+      materials.forEach((material) => {
+        const key = material.toUpperCase();
+        materialsMap[key] = (materialsMap[key] || 0) + 1;
+      });
+    });
+
+    const topMaterial =
+      Object.entries(materialsMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
+
+    return {
+      totalSolicitacoes,
+      completedCount: completed.length,
+      agendadasCount: agendadas.length,
+      topMaterial,
+    };
+  }, [schedules]);
 
   if (loading) {
     return (
       <View
         style={{
           flex: 1,
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "#F3F4F6",
           alignItems: "center",
           justifyContent: "center",
         }}
@@ -119,14 +141,21 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#F3F4F6" }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 28 }}
+    >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#16a34a", "#22c55e"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
-          paddingBottom: 30,
+          paddingTop: 28,
+          paddingBottom: 26,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
           borderBottomRightRadius: 30,
@@ -153,228 +182,355 @@ export default function ProfileScreen() {
             MEU PERFIL
           </Text>
 
-          <TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/(pf-tabs)/edit-profile")}
+          >
             <Ionicons name="create-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        <View style={{ alignItems: "center", marginTop: 20 }}>
+        <View style={{ alignItems: "center", marginTop: 22 }}>
           <View
             style={{
-              width: 100,
-              height: 100,
-              borderRadius: 50,
+              width: 96,
+              height: 96,
+              borderRadius: 48,
               backgroundColor: "#FFFFFF",
               alignItems: "center",
               justifyContent: "center",
-              marginBottom: 15,
+              marginBottom: 14,
             }}
           >
-            <Ionicons name="person" size={60} color="#028C56" />
+            <Ionicons name="person" size={56} color="#028C56" />
           </View>
 
           <Text
             style={{
-              fontSize: 20,
-              fontWeight: "700",
+              fontSize: 22,
+              fontWeight: "800",
               color: "#FFFFFF",
               textAlign: "center",
             }}
           >
-            {profile?.displayName || "Usuário"}
+            {getUserDisplayName(currentUser)}
           </Text>
 
           <Text
             style={{
               fontSize: 14,
-              color: "#FFFFFF",
-              opacity: 0.9,
+              color: "#E8FFF1",
               textAlign: "center",
-              marginTop: 5,
+              marginTop: 6,
             }}
           >
-            {profile?.address?.trim() ? profile.address : "Endereço não informado"}
+            {currentUser?.address?.trim()
+              ? currentUser.address
+              : "Endereço não informado"}
           </Text>
         </View>
       </LinearGradient>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        style={{ flex: 1, padding: 20 }}
-      >
-        <View style={{ marginBottom: 25 }}>
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "700",
-              color: "#111827",
-              marginBottom: 15,
-            }}
-          >
-            Meus dados
-          </Text>
+      <View style={{ paddingHorizontal: 16, paddingTop: 18 }}>
+        <SectionCard>
+          <Text style={sectionTitle}>Meus dados</Text>
 
-          <View
-            style={{
-              backgroundColor: "#F9FAFB",
-              borderRadius: 12,
-              padding: 15,
-            }}
-          >
-            <View style={{ flexDirection: "row", marginBottom: 12 }}>
-              <Text style={{ width: 120, fontSize: 14, color: "#6B7280" }}>
-                CPF:
-              </Text>
-              <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500", flex: 1 }}>
-                {profile?.cpf?.trim() ? profile.cpf : "Não informado"}
-              </Text>
-            </View>
+          <InfoRow
+            label="CPF"
+            value={currentUser?.cpf?.trim() || "Não informado"}
+          />
+          <InfoRow
+            label="Contato"
+            value={currentUser?.phone?.trim() || "Não informado"}
+          />
+          <InfoRow
+            label="Email"
+            value={currentUser?.email?.trim() || "Não informado"}
+          />
+          <InfoRow
+            label="Endereço"
+            value={currentUser?.address?.trim() || "Não informado"}
+          />
+          <InfoRow
+            label="Cadastro"
+            value={formatDate(currentUser?.createdAt)}
+            isLast
+          />
+        </SectionCard>
 
-            <View style={{ flexDirection: "row", marginBottom: 12 }}>
-              <Text style={{ width: 120, fontSize: 14, color: "#6B7280" }}>
-                Contato:
-              </Text>
-              <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500", flex: 1 }}>
-                {profile?.phone?.trim() ? profile.phone : "Não informado"}
-              </Text>
-            </View>
-
-            <View style={{ flexDirection: "row", marginBottom: 12 }}>
-              <Text style={{ width: 120, fontSize: 14, color: "#6B7280" }}>
-                Email:
-              </Text>
-              <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500", flex: 1 }}>
-                {profile?.email?.trim() ? profile.email : "Não informado"}
-              </Text>
-            </View>
-
-            <View style={{ flexDirection: "row", marginBottom: 12 }}>
-              <Text style={{ width: 120, fontSize: 14, color: "#6B7280" }}>
-                Endereço:
-              </Text>
-              <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500", flex: 1 }}>
-                {profile?.address?.trim() ? profile.address : "Não informado"}
-              </Text>
-            </View>
-
-            <View style={{ flexDirection: "row" }}>
-              <Text style={{ width: 120, fontSize: 14, color: "#6B7280" }}>
-                Cadastro:
-              </Text>
-              <Text style={{ fontSize: 14, color: "#111827", fontWeight: "500", flex: 1 }}>
-                {formatDate(profile?.createdAt)}
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity style={{ marginTop: 10 }}>
-            <Text
-              style={{
-                fontSize: 14,
-                color: "#028C56",
-                fontWeight: "600",
-                textAlign: "right",
-              }}
-            >
-              Editar informações
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ marginBottom: 25 }}>
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "700",
-              color: "#111827",
-              marginBottom: 15,
-            }}
-          >
-            Visão Geral
-          </Text>
+        <SectionCard>
+          <Text style={sectionTitle}>Visão geral</Text>
 
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: "#F0FDF4",
-                borderRadius: 16,
-                padding: 16,
-                marginRight: 10,
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 8 }}>
-                Kg Coletados
-              </Text>
-              <Text style={{ fontSize: 28, fontWeight: "800", color: "#028C56" }}>
-                {profile?.totalKg || 0}kg
-              </Text>
-            </View>
-
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: "#FEFCE8",
-                borderRadius: 16,
-                padding: 16,
-                marginLeft: 10,
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 8 }}>
-                Sequência Verde
-              </Text>
-              <Text style={{ fontSize: 28, fontWeight: "800", color: "#CA8A04" }}>
-                {profile?.greenStreak || 0}%
-              </Text>
-            </View>
+            <MetricCard
+              title="Solicitações"
+              value={String(metrics.totalSolicitacoes)}
+              icon="calendar-outline"
+            />
+            <MetricCard
+              title="Concluídas"
+              value={String(metrics.completedCount)}
+              icon="checkmark-done-outline"
+            />
           </View>
-        </View>
 
-        <View
-          style={{
-            backgroundColor: "#F9FAFB",
-            borderRadius: 12,
-            padding: 15,
-            marginBottom: 30,
-          }}
-        >
-          <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 5 }}>
-            Código do usuário
-          </Text>
-          <Text style={{ fontSize: 20, fontWeight: "700", color: "#028C56" }}>
-            {profile?.code || "Não informado"}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={{
-            backgroundColor: "#F0FDF4",
-            borderRadius: 12,
-            padding: 15,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 30,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Ionicons name="document-text-outline" size={24} color="#028C56" />
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "600",
-                color: "#028C56",
-                marginLeft: 10,
-              }}
-            >
-              Gerar comprovante
-            </Text>
+          <View style={{ marginTop: 12 }}>
+            <MetricCardFull
+              title="Material mais recorrente"
+              value={metrics.topMaterial}
+              icon="leaf-outline"
+            />
           </View>
-          <Ionicons name="download-outline" size={24} color="#028C56" />
-        </TouchableOpacity>
-      </ScrollView>
+
+          <View style={{ marginTop: 12 }}>
+            <MetricCardFull
+              title="Agendadas / pendentes"
+              value={String(metrics.agendadasCount)}
+              icon="time-outline"
+            />
+          </View>
+        </SectionCard>
+
+        <SectionCard>
+          <Text style={sectionTitle}>Código do usuário</Text>
+
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: "800",
+              color: "#028C56",
+            }}
+          >
+            {buildUserCode(currentUser?.id)}
+          </Text>
+        </SectionCard>
+
+        <SectionCard>
+          <Text style={sectionTitle}>Ações rápidas</Text>
+
+          <QuickAction
+            icon="create-outline"
+            title="Editar informações"
+            subtitle="Atualizar dados cadastrais da conta"
+            onPress={() => router.push("/(pf-tabs)/edit-profile")}
+          />
+          <QuickAction
+            icon="calendar-outline"
+            title="Agendar coleta"
+            subtitle="Criar uma nova solicitação"
+            onPress={() => router.push("/(pf-tabs)/schedule")}
+          />
+          <QuickAction
+            icon="time-outline"
+            title="Ver histórico"
+            subtitle="Consultar solicitações realizadas"
+            onPress={() => router.push("/(pf-tabs)/history")}
+            isLast
+          />
+        </SectionCard>
+      </View>
+    </ScrollView>
+  );
+}
+
+function SectionCard({ children }: { children: React.ReactNode }) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#FFFFFF",
+        borderRadius: 18,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        marginBottom: 14,
+      }}
+    >
+      {children}
     </View>
   );
 }
+
+function InfoRow({
+  label,
+  value,
+  isLast = false,
+}: {
+  label: string;
+  value: string;
+  isLast?: boolean;
+}) {
+  return (
+    <View
+      style={{
+        paddingBottom: isLast ? 0 : 12,
+        marginBottom: isLast ? 0 : 12,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: "#E5E7EB",
+      }}
+    >
+      <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
+        {label}
+      </Text>
+      <Text style={{ fontSize: 15, color: "#111827", fontWeight: "600" }}>
+        {value || "Não informado"}
+      </Text>
+    </View>
+  );
+}
+
+function MetricCard({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View
+      style={{
+        width: "48.5%",
+        backgroundColor: "#F9FAFB",
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+      }}
+    >
+      <View
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 21,
+          backgroundColor: "#DCFCE7",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 10,
+        }}
+      >
+        <Ionicons name={icon} size={20} color="#15803D" />
+      </View>
+
+      <Text style={{ fontSize: 13, color: "#6B7280" }}>{title}</Text>
+      <Text
+        style={{
+          marginTop: 4,
+          fontSize: 21,
+          fontWeight: "800",
+          color: "#111827",
+        }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function MetricCardFull({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#F9FAFB",
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+      }}
+    >
+      <View
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 21,
+          backgroundColor: "#DCFCE7",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 10,
+        }}
+      >
+        <Ionicons name={icon} size={20} color="#15803D" />
+      </View>
+
+      <Text style={{ fontSize: 13, color: "#6B7280" }}>{title}</Text>
+      <Text
+        style={{
+          marginTop: 4,
+          fontSize: 21,
+          fontWeight: "800",
+          color: "#111827",
+        }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function QuickAction({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  isLast = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  isLast?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingBottom: isLast ? 0 : 14,
+        marginBottom: isLast ? 0 : 14,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: "#E5E7EB",
+      }}
+    >
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: "#DCFCE7",
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 12,
+        }}
+      >
+        <Ionicons name={icon} size={20} color="#15803D" />
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: "700", color: "#111827" }}>
+          {title}
+        </Text>
+        <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>
+          {subtitle}
+        </Text>
+      </View>
+
+      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+    </TouchableOpacity>
+  );
+}
+
+const sectionTitle = {
+  fontSize: 18,
+  fontWeight: "700" as const,
+  color: "#111827",
+  marginBottom: 14,
+} as const;

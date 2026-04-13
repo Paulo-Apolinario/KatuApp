@@ -1,51 +1,134 @@
-import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
-  Image,
+  ScrollView,
   Text,
-  View,
   TouchableOpacity,
-  Alert,
-  Linking,
-  Platform,
+  View,
   ActivityIndicator,
+  Alert,
 } from "react-native";
-import { Ionicons, MaterialIcons, FontAwesome6 } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
-import { doc, getDoc } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
+import {
+  collectionService,
+  type Collection,
+  type CollectionMaterial,
+} from "@/src/services/collectionService";
 
-type ActionButtonProps = {
-  title: string;
-  icon: React.ReactNode;
-  onPress?: () => void;
-};
+function formatDateTime(dateString?: string | null) {
+  if (!dateString) return "-";
 
-function ActionButton({ title, icon, onPress }: ActionButtonProps) {
+  const parsed = new Date(dateString);
+  if (Number.isNaN(parsed.getTime())) return "-";
+
+  return parsed.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatMaterials(materials?: CollectionMaterial[]) {
+  if (!Array.isArray(materials) || materials.length === 0) return "-";
+
+  return materials
+    .map((item) => `${item.type}: ${Number(item.quantityKg || 0).toFixed(1)} kg`)
+    .join(" • ");
+}
+
+export default function HomeCatScreen() {
+  const [loading, setLoading] = useState(true);
+  const [collections, setCollections] = useState<Collection[]>([]);
+
+  const loadCollections = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await collectionService.list();
+      setCollections(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erro ao carregar painel do catador:", error);
+      Alert.alert("Erro", "Não foi possível carregar o painel do catador.");
+      setCollections([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadCollections();
+    }, [loadCollections])
+  );
+
+  const metrics = useMemo(() => {
+    const completedCollections = collections.filter(
+      (item) => item.status === "COMPLETED"
+    );
+
+    const inProgressCollections = collections.filter(
+      (item) => item.status === "IN_PROGRESS"
+    );
+
+    const pendingCollections = collections.filter(
+      (item) => item.status === "PENDING"
+    );
+
+    const totalCollectedKg = completedCollections.reduce(
+      (acc, item) => acc + Number(item.totalWeightKg || 0),
+      0
+    );
+
+    const activeOperation =
+      inProgressCollections[0] || pendingCollections[0] || null;
+
+    return {
+      totalCollectedKg,
+      completedCollections,
+      inProgressCollections,
+      pendingCollections,
+      activeOperation,
+      recentCollections: completedCollections.slice(0, 5),
+    };
+  }, [collections]);
+
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#F3F4F6",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color="#028C56" />
+        <Text style={{ marginTop: 12, color: "#6B7280" }}>
+          Carregando painel...
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.9}
-      style={{
-        marginBottom: 18,
-        borderRadius: 14,
-        overflow: "hidden",
-      }}
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#F3F4F6" }}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
-        colors={["#12F35E", "#028C56"]}
+        colors={["#16a34a", "#22c55e"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          minHeight: 76,
-          borderRadius: 14,
-          paddingHorizontal: 28,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
+          paddingTop: 30,
+          paddingBottom: 28,
+          paddingHorizontal: 20,
+          borderBottomLeftRadius: 30,
+          borderBottomRightRadius: 30,
         }}
       >
         <Text
@@ -53,308 +136,510 @@ function ActionButton({ title, icon, onPress }: ActionButtonProps) {
             color: "#FFFFFF",
             fontSize: 26,
             fontWeight: "800",
-            letterSpacing: 0.5,
           }}
         >
-          {title}
+          Painel do catador
         </Text>
 
-        <View>{icon}</View>
+        <Text
+          style={{
+            color: "#E8FFF1",
+            fontSize: 15,
+            marginTop: 8,
+            lineHeight: 22,
+          }}
+        >
+          Acompanhe coletas, rota atual, volume coletado e ações rápidas.
+        </Text>
+
+        <View style={{ flexDirection: "row", marginTop: 18 }}>
+          <ActionButton
+            icon="trash-outline"
+            label="Executar coleta"
+            onPress={() => router.push("/(catador)/collect")}
+            style={{ flex: 1, marginRight: 10 }}
+          />
+          <ActionButton
+            icon="map-outline"
+            label="Mapa"
+            onPress={() => router.push("../(catador)/mapas")}
+            style={{ flex: 1 }}
+          />
+        </View>
       </LinearGradient>
+
+      <View style={{ paddingHorizontal: 16, paddingTop: 18 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <MetricCard
+            title="Total coletado"
+            value={`${metrics.totalCollectedKg.toFixed(1)} kg`}
+            icon="scale-outline"
+          />
+          <MetricCard
+            title="Concluídas"
+            value={String(metrics.completedCollections.length)}
+            icon="checkmark-circle-outline"
+          />
+        </View>
+
+        <View style={{ marginTop: 12 }}>
+          <MetricCardFull
+            title="Em andamento"
+            value={String(metrics.inProgressCollections.length)}
+            icon="time-outline"
+          />
+        </View>
+
+        <SectionHeader title="Operação atual" />
+
+        <View style={sectionCard}>
+          {metrics.activeOperation ? (
+            <>
+              <Text style={itemTitle}>
+                {metrics.activeOperation.generator?.companyName ||
+                  metrics.activeOperation.generator?.name ||
+                  "Coleta operacional"}
+              </Text>
+
+              <Text style={itemText}>
+                Endereço: {metrics.activeOperation.generator?.address || "-"}
+              </Text>
+
+              <Text style={itemText}>
+                Status: {metrics.activeOperation.status}
+              </Text>
+
+              <Text style={itemText}>
+                Rota: {metrics.activeOperation.route?.name || "-"}
+              </Text>
+
+              <Text style={itemText}>
+                Motorista: {metrics.activeOperation.driver?.name || "-"}
+              </Text>
+
+              <Text style={itemText}>
+                Veículo:{" "}
+                {metrics.activeOperation.vehicle
+                  ? `${metrics.activeOperation.vehicle.model}${
+                      metrics.activeOperation.vehicle.plate
+                        ? ` • ${metrics.activeOperation.vehicle.plate}`
+                        : ""
+                    }`
+                  : "-"}
+              </Text>
+
+              <Text style={itemSubtext}>
+                Data:{" "}
+                {formatDateTime(
+                  metrics.activeOperation.schedule?.scheduledDate ||
+                    metrics.activeOperation.schedule?.preferredDate ||
+                    metrics.activeOperation.createdAt
+                )}
+              </Text>
+
+              <View style={{ marginTop: 14, flexDirection: "row", gap: 10 }}>
+                <QuickMiniButton
+                  icon="play-outline"
+                  label="Abrir execução"
+                  onPress={() => router.push("/(catador)/collect")}
+                />
+                <QuickMiniButton
+                  icon="map-outline"
+                  label="Ver mapa"
+                  onPress={() => router.push("../(catador)/mapas")}
+                />
+              </View>
+            </>
+          ) : (
+            <EmptyState
+              icon="trail-sign-outline"
+              title="Nenhuma operação ativa"
+              subtitle="Quando houver coleta pendente ou em andamento, a rota atual aparecerá aqui."
+            />
+          )}
+        </View>
+
+        <SectionHeader
+          title="Coletas recentes"
+          actionLabel="Ver dados"
+          onPress={() => router.push("/(catador)/data")}
+        />
+
+        <View style={sectionCard}>
+          {metrics.recentCollections.length > 0 ? (
+            metrics.recentCollections.map((item) => (
+              <View key={item.id} style={listItemCard}>
+                <Text style={itemTitle}>
+                  {item.generator?.companyName || item.generator?.name || "Coleta concluída"}
+                </Text>
+                <Text style={itemText}>
+                  Peso: {Number(item.totalWeightKg || 0).toFixed(1)} kg
+                </Text>
+                <Text style={itemSubtext}>
+                  Data: {formatDateTime(item.collectedAt || item.createdAt)}
+                </Text>
+                <Text style={itemSubtext}>
+                  Materiais: {formatMaterials(item.materials)}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <EmptyState
+              icon="clipboard-outline"
+              title="Nenhuma coleta recente"
+              subtitle="As coletas registradas aparecerão aqui conforme forem executadas."
+            />
+          )}
+        </View>
+
+        <SectionHeader title="Ações rápidas" />
+
+        <View style={sectionCard}>
+          <QuickAction
+            icon="trash-outline"
+            title="Executar coleta"
+            subtitle="Abrir a fila operacional delegada"
+            onPress={() => router.push("/(catador)/collect")}
+          />
+          <QuickAction
+            icon="map-outline"
+            title="Mapa do catador"
+            subtitle="Visualizar a operação atual no mapa"
+            onPress={() => router.push("../(catador)/mapas")}
+          />
+          <QuickAction
+            icon="bar-chart-outline"
+            title="Ver dados"
+            subtitle="Acompanhar total coletado e histórico"
+            onPress={() => router.push("/(catador)/data")}
+          />
+          <QuickAction
+            icon="document-text-outline"
+            title="Comprovantes"
+            subtitle="Gerar e consultar comprovantes"
+            onPress={() => router.push("/(catador)/receipts")}
+            isLast
+          />
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+function ActionButton({
+  icon,
+  label,
+  onPress,
+  style,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  style?: object;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={[
+        {
+          backgroundColor: "rgba(255,255,255,0.18)",
+          borderRadius: 16,
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        style,
+      ]}
+    >
+      <Ionicons name={icon} size={18} color="#FFFFFF" />
+      <Text
+        style={{
+          color: "#FFFFFF",
+          fontWeight: "700",
+          fontSize: 15,
+          marginLeft: 8,
+        }}
+      >
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
 
-export default function CatadorHomeScreen() {
-  const { user } = useAuth();
-
-  const [currentCity, setCurrentCity] = useState<string>("Carregando localização...");
-  const [locationError, setLocationError] = useState<boolean>(false);
-  const [isLoadingLocation, setIsLoadingLocation] = useState<boolean>(true);
-  const [loadingUser, setLoadingUser] = useState(true);
-
-  const [catadorData, setCatadorData] = useState({
-    nome: "",
-    totalKg: 0,
-    kgMes: 0,
-    coletasHoje: 0,
-  });
-
-  const loadCatador = useCallback(async () => {
-    if (!user?.uid) {
-      setLoadingUser(false);
-      return;
-    }
-
-    try {
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const data: any = userSnap.data();
-
-        setCatadorData({
-          nome: data.displayName || user.displayName || "",
-          totalKg: Number(data.totalKg || 0),
-          kgMes: Number(data.kgMes || 0),
-          coletasHoje: Number(data.coletasHoje || 0),
-        });
-      } else {
-        setCatadorData({
-          nome: user.displayName || "",
-          totalKg: 0,
-          kgMes: 0,
-          coletasHoje: 0,
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao carregar dados do catador:", error);
-    } finally {
-      setLoadingUser(false);
-    }
-  }, [user?.uid, user?.displayName]);
-
-  useEffect(() => {
-    loadCatador();
-  }, [loadCatador]);
-
-  useEffect(() => {
-    getUserLocation();
-  }, []);
-
-  async function getUserLocation() {
-    setIsLoadingLocation(true);
-
-    try {
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
-      if (!servicesEnabled) {
-        setCurrentCity("Localização desativada");
-        setLocationError(true);
-        return;
-      }
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") {
-        setCurrentCity("Permissão negada");
-        setLocationError(true);
-
-        Alert.alert(
-          "Permissão necessária",
-          "Precisamos da sua localização para mostrar a cidade atual. Deseja abrir as configurações?",
-          [
-            { text: "Agora não", style: "cancel" },
-            {
-              text: "Abrir Configurações",
-              onPress: () => {
-                if (Platform.OS === "ios") {
-                  Linking.openURL("app-settings:");
-                } else {
-                  Linking.openSettings();
-                }
-              },
-            },
-          ]
-        );
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const addresses = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-
-      if (addresses.length > 0) {
-        const address = addresses[0];
-        const city =
-          address.city ||
-          address.subregion ||
-          address.region ||
-          address.country ||
-          "Localização desconhecida";
-        setCurrentCity(city);
-        setLocationError(false);
-      } else {
-        setCurrentCity("Localização não encontrada");
-        setLocationError(true);
-      }
-    } catch (error) {
-      console.error("Erro ao obter localização:", error);
-      setCurrentCity("Erro ao carregar");
-      setLocationError(true);
-    } finally {
-      setIsLoadingLocation(false);
-    }
-  }
-
+function MetricCard({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
   return (
     <View
       style={{
-        flex: 1,
+        width: "48.5%",
         backgroundColor: "#FFFFFF",
+        borderRadius: 18,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
       }}
     >
-    
-
       <View
         style={{
-          flex: 1,
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: "#ECFDF5",
           alignItems: "center",
           justifyContent: "center",
-          paddingHorizontal: 18,
+          marginBottom: 12,
         }}
       >
-        <View style={{ width: "100%", maxWidth: 430 }}>
-          <View style={{ alignItems: "center", marginBottom: 28 }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 20,
-              }}
-            >
-              <Image
-                source={require("../../assets/images/logo.png")}
-                resizeMode="contain"
-                style={{
-                  width: 74,
-                  height: 74,
-                  marginRight: 12,
-                }}
-              />
+        <Ionicons name={icon} size={22} color="#028C56" />
+      </View>
 
-              <Text
-                style={{
-                  fontSize: 30,
-                  color: "#111827",
-                  fontWeight: "400",
-                }}
-              >
-                Katu<Text style={{ fontWeight: "800", color: "#028C56" }}>AI</Text>
-              </Text>
-            </View>
+      <Text style={{ color: "#6B7280", fontSize: 13 }}>{title}</Text>
+      <Text style={{ color: "#111827", fontSize: 20, fontWeight: "800", marginTop: 4 }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
 
-            <TouchableOpacity
-              onPress={locationError ? getUserLocation : undefined}
-              disabled={isLoadingLocation || !locationError}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: locationError ? "#FEE2E2" : "#F0FDF4",
-                paddingVertical: 8,
-                paddingHorizontal: 16,
-                borderRadius: 30,
-              }}
-            >
-              <Ionicons
-                name={locationError ? "alert-circle-outline" : "location-sharp"}
-                size={24}
-                color={locationError ? "#DC2626" : "#028C56"}
-                style={{ marginRight: 6 }}
-              />
-              <Text
-                style={{
-                  color: locationError ? "#DC2626" : "#028C56",
-                  fontSize: 16,
-                  fontWeight: "600",
-                  textAlign: "center",
-                }}
-              >
-                {isLoadingLocation ? "Carregando..." : currentCity}
-              </Text>
-              {locationError && !isLoadingLocation && (
-                <Ionicons
-                  name="refresh-outline"
-                  size={18}
-                  color="#DC2626"
-                  style={{ marginLeft: 6 }}
-                />
-              )}
-            </TouchableOpacity>
-          </View>
+function MetricCardFull({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#FFFFFF",
+        borderRadius: 18,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: "#FEF3C7",
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: 12,
+          }}
+        >
+          <Ionicons name={icon} size={22} color="#D97706" />
+        </View>
 
-          <View
-            style={{
-              backgroundColor: "#F9FAFB",
-              borderRadius: 18,
-              padding: 18,
-              marginBottom: 26,
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-            }}
-          >
-            {loadingUser ? (
-              <View style={{ alignItems: "center", paddingVertical: 12 }}>
-                <ActivityIndicator color="#028C56" />
-                <Text style={{ marginTop: 8, color: "#6B7280" }}>
-                  Carregando dados...
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Text
-                  style={{
-                    fontSize: 20,
-                    fontWeight: "700",
-                    color: "#111827",
-                    textAlign: "center",
-                    marginBottom: 12,
-                  }}
-                >
-                  {catadorData.nome || "Catador"}
-                </Text>
-
-                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <View style={{ alignItems: "center", flex: 1 }}>
-                    <Text style={{ fontSize: 12, color: "#6B7280" }}>TOTAL</Text>
-                    <Text style={{ fontSize: 20, fontWeight: "800", color: "#028C56" }}>
-                      {catadorData.totalKg} kg
-                    </Text>
-                  </View>
-
-                  <View style={{ alignItems: "center", flex: 1 }}>
-                    <Text style={{ fontSize: 12, color: "#6B7280" }}>NO MÊS</Text>
-                    <Text style={{ fontSize: 20, fontWeight: "800", color: "#028C56" }}>
-                      {catadorData.kgMes} kg
-                    </Text>
-                  </View>
-
-                  <View style={{ alignItems: "center", flex: 1 }}>
-                    <Text style={{ fontSize: 12, color: "#6B7280" }}>HOJE</Text>
-                    <Text style={{ fontSize: 20, fontWeight: "800", color: "#028C56" }}>
-                      {catadorData.coletasHoje}
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
-          </View>
-
-          <ActionButton
-            title="COLETAR"
-            icon={<Ionicons name="reload-circle-outline" size={42} color="#FFFFFF" />}
-            onPress={() => router.push("/(catador)/collect")}
-          />
-
-          <ActionButton
-            title="DADOS"
-            icon={<MaterialIcons name="storage" size={38} color="#FFFFFF" />}
-            onPress={() => router.push("/(catador)/data")}
-          />
-
-          <ActionButton
-            title="COMPROVANTES"
-            icon={<FontAwesome6 name="receipt" size={34} color="#FFFFFF" />}
-            onPress={() => router.push("/(catador)/receipts")}
-          />
+        <View>
+          <Text style={{ color: "#6B7280", fontSize: 13 }}>{title}</Text>
+          <Text style={{ color: "#111827", fontSize: 24, fontWeight: "800", marginTop: 2 }}>
+            {value}
+          </Text>
         </View>
       </View>
     </View>
   );
 }
+
+function SectionHeader({
+  title,
+  actionLabel,
+  onPress,
+}: {
+  title: string;
+  actionLabel?: string;
+  onPress?: () => void;
+}) {
+  return (
+    <View
+      style={{
+        marginTop: 20,
+        marginBottom: 12,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}
+    >
+      <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>
+        {title}
+      </Text>
+
+      {actionLabel && onPress ? (
+        <TouchableOpacity onPress={onPress}>
+          <Text style={{ color: "#028C56", fontWeight: "700" }}>{actionLabel}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
+function QuickAction({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  isLast = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  isLast?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingBottom: isLast ? 0 : 14,
+        marginBottom: isLast ? 0 : 14,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: "#E5E7EB",
+      }}
+    >
+      <View
+        style={{
+          width: 46,
+          height: 46,
+          borderRadius: 23,
+          backgroundColor: "#ECFDF5",
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 12,
+        }}
+      >
+        <Ionicons name={icon} size={22} color="#028C56" />
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: "#111827", fontSize: 15, fontWeight: "800" }}>
+          {title}
+        </Text>
+        <Text style={{ color: "#6B7280", fontSize: 13, marginTop: 2 }}>
+          {subtitle}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function QuickMiniButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        flex: 1,
+        backgroundColor: "#F8FAFC",
+        borderColor: "#E2E8F0",
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "row",
+      }}
+    >
+      <Ionicons name={icon} size={16} color="#028C56" />
+      <Text style={{ color: "#0F172A", fontWeight: "700", marginLeft: 8 }}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View style={{ alignItems: "center", paddingVertical: 16 }}>
+      <Ionicons name={icon} size={42} color="#9CA3AF" />
+      <Text
+        style={{
+          color: "#111827",
+          fontSize: 16,
+          fontWeight: "800",
+          marginTop: 12,
+        }}
+      >
+        {title}
+      </Text>
+      <Text
+        style={{
+          color: "#6B7280",
+          fontSize: 13,
+          textAlign: "center",
+          marginTop: 6,
+          lineHeight: 20,
+        }}
+      >
+        {subtitle}
+      </Text>
+    </View>
+  );
+}
+
+const sectionCard = {
+  backgroundColor: "#FFFFFF",
+  borderRadius: 18,
+  padding: 16,
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+} as const;
+
+const listItemCard = {
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+  borderRadius: 16,
+  padding: 14,
+  marginBottom: 12,
+  backgroundColor: "#F9FAFB",
+} as const;
+
+const itemTitle = {
+  color: "#111827",
+  fontSize: 15,
+  fontWeight: "800",
+} as const;
+
+const itemText = {
+  color: "#374151",
+  fontSize: 13,
+  marginTop: 6,
+} as const;
+
+const itemSubtext = {
+  color: "#6B7280",
+  fontSize: 12,
+  marginTop: 6,
+} as const;

@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Image,
   Text,
@@ -10,29 +10,35 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "@/src/services/firebaseConfig";
+
+import authService from "@/src/services/authService";
 
 type ProfileType = "pf" | "comercial" | "grande" | "cooperativa" | "catador";
 
 function getRouteByProfile(profile: ProfileType) {
   switch (profile) {
     case "pf":
-      return "/(pf-tabs)/home";
+      return "/(auth)/login?profile=pf";
+    case "cooperativa":
+      return "/(auth)/login?profile=cooperativa";
     case "comercial":
     case "grande":
-      return "/(gerador)/dashboard";
-    case "cooperativa":
-      return "/(cooperativa)/home";
     case "catador":
-      return "/(catador)/homecat";
     default:
       return "/(public)/access-type";
   }
+}
+
+function sanitizeDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function isValidEmail(value: string) {
+  return /\S+@\S+\.\S+/.test(value);
 }
 
 export default function RegisterScreen() {
@@ -52,64 +58,53 @@ export default function RegisterScreen() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const [cpf, setCpf] = useState("");
-  const [cnpj, setCnpj] = useState("");
-  const [companyName, setCompanyName] = useState("");
   const [cooperativeName, setCooperativeName] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
-  const [rg, setRg] = useState("");
-  const [birthDate, setBirthDate] = useState("");
+  const [address, setAddress] = useState("");
+
+  const isSupportedPublicProfile = useMemo(() => {
+    return profile === "pf" || profile === "cooperativa";
+  }, [profile]);
 
   const validateFields = () => {
+    const normalizedEmail = email.trim().toLowerCase();
+
     if (
       !name.trim() ||
-      !email.trim() ||
+      !normalizedEmail ||
       !password.trim() ||
       !confirmPassword.trim() ||
       !phone.trim()
     ) {
-      setErrorMessage("Preencha todos os campos obrigatórios");
+      setErrorMessage("Preencha todos os campos obrigatórios.");
+      return false;
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      setErrorMessage("Informe um e-mail válido.");
       return false;
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage("As senhas não coincidem");
+      setErrorMessage("As senhas não coincidem.");
       return false;
     }
 
     if (password.length < 6) {
-      setErrorMessage("A senha deve ter pelo menos 6 caracteres");
+      setErrorMessage("A senha deve ter pelo menos 6 caracteres.");
       return false;
     }
 
-    switch (profile) {
-      case "pf":
-        if (!cpf.trim()) {
-          setErrorMessage("CPF é obrigatório");
-          return false;
-        }
-        break;
+    if (profile === "pf" && !sanitizeDigits(cpf)) {
+      setErrorMessage("CPF é obrigatório.");
+      return false;
+    }
 
-      case "comercial":
-      case "grande":
-        if (!cnpj.trim() || !companyName.trim()) {
-          setErrorMessage("CNPJ e Nome da Empresa são obrigatórios");
-          return false;
-        }
-        break;
-
-      case "cooperativa":
-        if (!cooperativeName.trim() || !registrationNumber.trim()) {
-          setErrorMessage("Nome da Cooperativa e CNPJ são obrigatórios");
-          return false;
-        }
-        break;
-
-      case "catador":
-        if (!rg.trim() || !birthDate.trim()) {
-          setErrorMessage("RG e Data de Nascimento são obrigatórios");
-          return false;
-        }
-        break;
+    if (profile === "cooperativa") {
+      if (!cooperativeName.trim() || !sanitizeDigits(registrationNumber)) {
+        setErrorMessage("Nome da cooperativa e CNPJ são obrigatórios.");
+        return false;
+      }
     }
 
     return true;
@@ -132,126 +127,89 @@ export default function RegisterScreen() {
     }
   };
 
+  const getUnsupportedMessage = () => {
+    switch (profile) {
+      case "comercial":
+      case "grande":
+        return "O cadastro de geradores agora é feito pela cooperativa dentro do painel interno.";
+      case "catador":
+        return "O cadastro de catadores agora é feito pela cooperativa dentro do painel interno.";
+      default:
+        return "Este tipo de cadastro não está disponível nesta tela.";
+    }
+  };
+
   async function handleRegister() {
-    setErrorMessage("");
+  setErrorMessage("");
 
-    if (!validateFields()) return;
+  if (!isSupportedPublicProfile) {
+    Alert.alert("Cadastro interno", getUnsupportedMessage(), [
+      {
+        text: "OK",
+        onPress: () => router.replace("/(public)/access-type"),
+      },
+    ]);
+    return;
+  }
 
-    setLoading(true);
+  if (!validateFields()) return;
 
-    try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password
-      );
+  setLoading(true);
 
-      const user = userCredential.user;
+  try {
+    const normalizedEmail = email.trim().toLowerCase();
+    let result;
 
-      await updateProfile(user, {
+    if (profile === "pf") {
+      result = await authService.registerPf({
         displayName: name.trim(),
-      });
-
-      const baseUserData: any = {
-        uid: user.uid,
-        email: user.email,
-        displayName: name.trim(),
-        userType: profile,
+        email: normalizedEmail,
+        password,
         phone: phone.trim(),
         rememberMe,
-        createdAt: serverTimestamp(),
-      };
-
-      switch (profile) {
-        case "pf":
-          baseUserData.cpf = cpf.replace(/[^\d]/g, "");
-          baseUserData.documentType = "CPF";
-          baseUserData.totalKg = 0;
-          baseUserData.greenStreak = 0;
-          break;
-
-        case "comercial":
-        case "grande":
-          baseUserData.cnpj = cnpj.replace(/[^\d]/g, "");
-          baseUserData.companyName = companyName.trim();
-          baseUserData.documentType = "CNPJ";
-          baseUserData.companySize =
-            profile === "comercial" ? "pequeno" : "grande";
-          break;
-
-        case "cooperativa":
-          baseUserData.cooperativeName = cooperativeName.trim();
-          baseUserData.registrationNumber = registrationNumber.replace(
-            /[^\d]/g,
-            ""
-          );
-          baseUserData.documentType = "CNPJ";
-          break;
-
-        case "catador":
-          baseUserData.rg = rg.replace(/[^\d]/g, "");
-          baseUserData.birthDate = birthDate.trim();
-          baseUserData.status = "disponivel";
-          baseUserData.kgMes = 0;
-          baseUserData.coletasHoje = 0;
-          baseUserData.totalKg = 0;
-          break;
-      }
-
-      await setDoc(doc(db, "users", user.uid), baseUserData);
-
-      if (profile === "catador") {
-        const catadorData = {
-          uid: user.uid,
-          nome: name.trim(),
-          telefone: phone.trim(),
-          email: email.trim(),
-          status: "disponivel",
-          kgMes: 0,
-          coletasHoje: 0,
-          totalKg: 0,
-          rg: rg.replace(/[^\d]/g, ""),
-          birthDate: birthDate.trim(),
-          createdAt: serverTimestamp(),
-        };
-
-        await setDoc(doc(db, "catadores", user.uid), catadorData);
-      }
-
-      Alert.alert("Sucesso!", "Cadastro realizado com sucesso!", [
-        {
-          text: "OK",
-          onPress: () => {
-            router.replace(getRouteByProfile(profile));
-          },
-        },
-      ]);
-    } catch (error: any) {
-      console.error("ERRO COMPLETO:", error);
-      console.error("CODE:", error?.code);
-      console.error("MESSAGE:", error?.message);
-
-      let message = "Erro ao cadastrar";
-
-      if (error.code === "auth/email-already-in-use") {
-        message = "Este e-mail já está em uso";
-      } else if (error.code === "auth/invalid-email") {
-        message = "E-mail inválido";
-      } else if (error.code === "auth/weak-password") {
-        message = "Senha muito fraca";
-      } else if (error.code === "auth/network-request-failed") {
-        message = "Falha de rede ao comunicar com o Firebase";
-      } else if (error.code === "permission-denied") {
-        message = "Sem permissão para gravar no Firestore";
-      } else if (error.message) {
-        message = error.message;
-      }
-
-      setErrorMessage(message);
-    } finally {
-      setLoading(false);
+        cpf: sanitizeDigits(cpf),
+        address: address.trim() || undefined,
+      });
+    } else if (profile === "cooperativa") {
+      result = await authService.registerCooperative({
+        displayName: name.trim(),
+        email: normalizedEmail,
+        password,
+        phone: phone.trim(),
+        rememberMe,
+        cooperativeName: cooperativeName.trim(),
+        registrationNumber: sanitizeDigits(registrationNumber),
+        address: address.trim() || undefined,
+      });
     }
+
+    if (!result) {
+      setErrorMessage("Não foi possível concluir o cadastro.");
+      return;
+    }
+
+    if (result.success === false) {
+      setErrorMessage(result.error);
+      return;
+    }
+
+    Alert.alert("Sucesso!", "Cadastro realizado com sucesso!", [
+      {
+        text: "OK",
+        onPress: () => {
+          router.replace(getRouteByProfile(profile));
+        },
+      },
+    ]);
+  } catch (error: any) {
+    console.error("Erro no cadastro:", error);
+    setErrorMessage(
+      error?.message || "Não foi possível concluir o cadastro."
+    );
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <KeyboardAvoidingView
@@ -311,7 +269,7 @@ export default function RegisterScreen() {
                 marginBottom: 2,
               }}
             >
-              KATU
+              KATUÁ
             </Text>
 
             <View
@@ -341,530 +299,369 @@ export default function RegisterScreen() {
               style={{
                 backgroundColor: "#FEF2F2",
                 borderWidth: 1,
-                borderColor: "#EF4444",
-                borderRadius: 8,
-                padding: 10,
+                borderColor: "#FECACA",
+                borderRadius: 14,
+                padding: 12,
                 marginBottom: 16,
               }}
             >
-              <Text style={{ color: "#991B1B", fontSize: 13 }}>
+              <Text
+                style={{
+                  color: "#B91C1C",
+                  fontSize: 14,
+                  fontWeight: "600",
+                  textAlign: "center",
+                }}
+              >
                 {errorMessage}
               </Text>
             </View>
           ) : null}
 
-          <View style={{ marginBottom: 16 }}>
-            <View
-              style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}
-            >
-              <Ionicons name="person-outline" size={18} color="#028C56" />
-              <Text
-                style={{
-                  color: "#028C56",
-                  marginLeft: 6,
-                  fontWeight: "500",
-                  fontSize: 14,
-                }}
-              >
-                Nome Completo *
-              </Text>
-            </View>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Digite seu nome completo"
-              placeholderTextColor="#9CA3AF"
-              style={{
-                borderBottomWidth: 1,
-                borderBottomColor: "#D1D5DB",
-                paddingVertical: 8,
-                fontSize: 15,
-                color: "#111827",
-              }}
-            />
-          </View>
-
-          <View style={{ marginBottom: 16 }}>
-            <View
-              style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}
-            >
-              <Ionicons name="mail-outline" size={18} color="#028C56" />
-              <Text
-                style={{
-                  color: "#028C56",
-                  marginLeft: 6,
-                  fontWeight: "500",
-                  fontSize: 14,
-                }}
-              >
-                Email *
-              </Text>
-            </View>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholder="seu@email.com"
-              placeholderTextColor="#9CA3AF"
-              style={{
-                borderBottomWidth: 1,
-                borderBottomColor: "#D1D5DB",
-                paddingVertical: 8,
-                fontSize: 15,
-                color: "#111827",
-              }}
-            />
-          </View>
-
-          <View style={{ marginBottom: 16 }}>
-            <View
-              style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}
-            >
-              <Ionicons name="call-outline" size={18} color="#028C56" />
-              <Text
-                style={{
-                  color: "#028C56",
-                  marginLeft: 6,
-                  fontWeight: "500",
-                  fontSize: 14,
-                }}
-              >
-                Telefone *
-              </Text>
-            </View>
-            <TextInput
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              placeholder="(88) 90000-0000"
-              placeholderTextColor="#9CA3AF"
-              style={{
-                borderBottomWidth: 1,
-                borderBottomColor: "#D1D5DB",
-                paddingVertical: 8,
-                fontSize: 15,
-                color: "#111827",
-              }}
-            />
-          </View>
-
-          {profile === "pf" && (
-            <View style={{ marginBottom: 16 }}>
-              <View
-                style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}
-              >
-                <Ionicons name="card-outline" size={18} color="#028C56" />
-                <Text
-                  style={{
-                    color: "#028C56",
-                    marginLeft: 6,
-                    fontWeight: "500",
-                    fontSize: 14,
-                  }}
-                >
-                  CPF *
-                </Text>
-              </View>
-              <TextInput
-                value={cpf}
-                onChangeText={setCpf}
-                keyboardType="numeric"
-                placeholder="000.000.000-00"
-                placeholderTextColor="#9CA3AF"
-                maxLength={14}
-                style={{
-                  borderBottomWidth: 1,
-                  borderBottomColor: "#D1D5DB",
-                  paddingVertical: 8,
-                  fontSize: 15,
-                  color: "#111827",
-                }}
-              />
-            </View>
-          )}
-
-          {(profile === "comercial" || profile === "grande") && (
-            <>
-              <View style={{ marginBottom: 16 }}>
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}
-                >
-                  <Ionicons name="business-outline" size={18} color="#028C56" />
-                  <Text
-                    style={{
-                      color: "#028C56",
-                      marginLeft: 6,
-                      fontWeight: "500",
-                      fontSize: 14,
-                    }}
-                  >
-                    Nome da Empresa *
-                  </Text>
-                </View>
-                <TextInput
-                  value={companyName}
-                  onChangeText={setCompanyName}
-                  placeholder="Razão Social"
-                  placeholderTextColor="#9CA3AF"
-                  style={{
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#D1D5DB",
-                    paddingVertical: 8,
-                    fontSize: 15,
-                    color: "#111827",
-                  }}
-                />
-              </View>
-
-              <View style={{ marginBottom: 16 }}>
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}
-                >
-                  <Ionicons
-                    name="document-text-outline"
-                    size={18}
-                    color="#028C56"
-                  />
-                  <Text
-                    style={{
-                      color: "#028C56",
-                      marginLeft: 6,
-                      fontWeight: "500",
-                      fontSize: 14,
-                    }}
-                  >
-                    CNPJ *
-                  </Text>
-                </View>
-                <TextInput
-                  value={cnpj}
-                  onChangeText={setCnpj}
-                  keyboardType="numeric"
-                  placeholder="00.000.000/0001-00"
-                  placeholderTextColor="#9CA3AF"
-                  maxLength={18}
-                  style={{
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#D1D5DB",
-                    paddingVertical: 8,
-                    fontSize: 15,
-                    color: "#111827",
-                  }}
-                />
-              </View>
-            </>
-          )}
-
-          {profile === "cooperativa" && (
-            <>
-              <View style={{ marginBottom: 16 }}>
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}
-                >
-                  <Ionicons name="people-outline" size={18} color="#028C56" />
-                  <Text
-                    style={{
-                      color: "#028C56",
-                      marginLeft: 6,
-                      fontWeight: "500",
-                      fontSize: 14,
-                    }}
-                  >
-                    Nome da Cooperativa *
-                  </Text>
-                </View>
-                <TextInput
-                  value={cooperativeName}
-                  onChangeText={setCooperativeName}
-                  placeholder="Cooperativa de Reciclagem"
-                  placeholderTextColor="#9CA3AF"
-                  style={{
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#D1D5DB",
-                    paddingVertical: 8,
-                    fontSize: 15,
-                    color: "#111827",
-                  }}
-                />
-              </View>
-
-              <View style={{ marginBottom: 16 }}>
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}
-                >
-                  <Ionicons
-                    name="document-text-outline"
-                    size={18}
-                    color="#028C56"
-                  />
-                  <Text
-                    style={{
-                      color: "#028C56",
-                      marginLeft: 6,
-                      fontWeight: "500",
-                      fontSize: 14,
-                    }}
-                  >
-                    CNPJ / Registro *
-                  </Text>
-                </View>
-                <TextInput
-                  value={registrationNumber}
-                  onChangeText={setRegistrationNumber}
-                  keyboardType="numeric"
-                  placeholder="00.000.000/0001-00"
-                  placeholderTextColor="#9CA3AF"
-                  maxLength={18}
-                  style={{
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#D1D5DB",
-                    paddingVertical: 8,
-                    fontSize: 15,
-                    color: "#111827",
-                  }}
-                />
-              </View>
-            </>
-          )}
-
-          {profile === "catador" && (
-            <>
-              <View style={{ marginBottom: 16 }}>
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}
-                >
-                  <Ionicons name="card-outline" size={18} color="#028C56" />
-                  <Text
-                    style={{
-                      color: "#028C56",
-                      marginLeft: 6,
-                      fontWeight: "500",
-                      fontSize: 14,
-                    }}
-                  >
-                    RG *
-                  </Text>
-                </View>
-                <TextInput
-                  value={rg}
-                  onChangeText={setRg}
-                  keyboardType="numeric"
-                  placeholder="00.000.000-0"
-                  placeholderTextColor="#9CA3AF"
-                  style={{
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#D1D5DB",
-                    paddingVertical: 8,
-                    fontSize: 15,
-                    color: "#111827",
-                  }}
-                />
-              </View>
-
-              <View style={{ marginBottom: 16 }}>
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}
-                >
-                  <Ionicons name="calendar-outline" size={18} color="#028C56" />
-                  <Text
-                    style={{
-                      color: "#028C56",
-                      marginLeft: 6,
-                      fontWeight: "500",
-                      fontSize: 14,
-                    }}
-                  >
-                    Data de Nascimento *
-                  </Text>
-                </View>
-                <TextInput
-                  value={birthDate}
-                  onChangeText={setBirthDate}
-                  placeholder="DD/MM/AAAA"
-                  placeholderTextColor="#9CA3AF"
-                  maxLength={10}
-                  style={{
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#D1D5DB",
-                    paddingVertical: 8,
-                    fontSize: 15,
-                    color: "#111827",
-                  }}
-                />
-              </View>
-            </>
-          )}
-
-          <View style={{ marginBottom: 16 }}>
+          {!isSupportedPublicProfile ? (
             <View
               style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 4,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Ionicons name="lock-closed-outline" size={18} color="#028C56" />
-                <Text
-                  style={{
-                    color: "#028C56",
-                    marginLeft: 6,
-                    fontWeight: "500",
-                    fontSize: 14,
-                  }}
-                >
-                  Senha *
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons
-                  name={showPassword ? "eye-outline" : "eye-off-outline"}
-                  size={18}
-                  color="#028C56"
-                />
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              placeholder="••••••••"
-              placeholderTextColor="#9CA3AF"
-              style={{
-                borderBottomWidth: 1,
-                borderBottomColor: "#D1D5DB",
-                paddingVertical: 8,
-                fontSize: 15,
-                color: "#111827",
-              }}
-            />
-          </View>
-
-          <View style={{ marginBottom: 16 }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 4,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Ionicons name="lock-closed-outline" size={18} color="#028C56" />
-                <Text
-                  style={{
-                    color: "#028C56",
-                    marginLeft: 6,
-                    fontWeight: "500",
-                    fontSize: 14,
-                  }}
-                >
-                  Confirmar Senha *
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Ionicons
-                  name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
-                  size={18}
-                  color="#028C56"
-                />
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirmPassword}
-              placeholder="••••••••"
-              placeholderTextColor="#9CA3AF"
-              style={{
-                borderBottomWidth: 1,
-                borderBottomColor: "#D1D5DB",
-                paddingVertical: 8,
-                fontSize: 15,
-                color: "#111827",
-              }}
-            />
-          </View>
-
-          <View
-            style={{ flexDirection: "row", alignItems: "center", marginBottom: 24 }}
-          >
-            <TouchableOpacity
-              onPress={() => setRememberMe(!rememberMe)}
-              style={{ flexDirection: "row", alignItems: "center" }}
-            >
-              <View
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderWidth: 1,
-                  borderColor: "#028C56",
-                  borderRadius: 4,
-                  marginRight: 8,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: rememberMe ? "#028C56" : "transparent",
-                }}
-              >
-                {rememberMe && (
-                  <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-                )}
-              </View>
-              <Text style={{ fontSize: 13, color: "#4B5563" }}>Lembre-me</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={handleRegister}
-            disabled={loading}
-            style={{ width: "100%", marginBottom: 16 }}
-          >
-            <LinearGradient
-              colors={["#10F35D", "#028C56"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{
-                height: 48,
-                borderRadius: 8,
-                alignItems: "center",
-                justifyContent: "center",
-                opacity: loading ? 0.7 : 1,
+                backgroundColor: "#FFF7ED",
+                borderWidth: 1,
+                borderColor: "#FED7AA",
+                borderRadius: 16,
+                padding: 18,
               }}
             >
               <Text
-                style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "800" }}
-              >
-                {loading ? "CADASTRANDO..." : "CADASTRAR"}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <View style={{ flexDirection: "row", justifyContent: "center" }}>
-            <Text style={{ color: "#4B5563", fontSize: 13 }}>
-              Já tem uma conta?{" "}
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.push(`/(auth)/login?profile=${profile}`)}
-            >
-              <Text
                 style={{
-                  color: "#028C56",
-                  fontSize: 13,
+                  fontSize: 16,
                   fontWeight: "700",
-                  textDecorationLine: "underline",
+                  color: "#9A3412",
+                  textAlign: "center",
                 }}
               >
-                Faça login
+                Cadastro interno
               </Text>
-            </TouchableOpacity>
-          </View>
+
+              <Text
+                style={{
+                  marginTop: 10,
+                  fontSize: 14,
+                  color: "#7C2D12",
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
+                {getUnsupportedMessage()}
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => router.replace("/(public)/access-type")}
+                style={{
+                  marginTop: 16,
+                  backgroundColor: "#028C56",
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#FFFFFF",
+                    fontSize: 15,
+                    fontWeight: "700",
+                  }}
+                >
+                  VOLTAR
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <FormInput
+                label="Nome completo"
+                value={name}
+                onChangeText={setName}
+                placeholder="Digite seu nome"
+                icon="person-outline"
+              />
+
+              <FormInput
+                label="E-mail"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Digite seu e-mail"
+                icon="mail-outline"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <PasswordInput
+                label="Senha"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Digite sua senha"
+                secureTextEntry={!showPassword}
+                onToggleVisibility={() => setShowPassword((prev) => !prev)}
+                icon={showPassword ? "eye-off-outline" : "eye-outline"}
+              />
+
+              <PasswordInput
+                label="Confirmar senha"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Confirme sua senha"
+                secureTextEntry={!showConfirmPassword}
+                onToggleVisibility={() =>
+                  setShowConfirmPassword((prev) => !prev)
+                }
+                icon={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+              />
+
+              <FormInput
+                label="Telefone"
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Digite seu telefone"
+                icon="call-outline"
+                keyboardType="phone-pad"
+              />
+
+              <FormInput
+                label="Endereço"
+                value={address}
+                onChangeText={setAddress}
+                placeholder="Digite seu endereço"
+                icon="location-outline"
+              />
+
+              {profile === "pf" && (
+                <FormInput
+                  label="CPF"
+                  value={cpf}
+                  onChangeText={setCpf}
+                  placeholder="Digite seu CPF"
+                  icon="card-outline"
+                  keyboardType="numeric"
+                />
+              )}
+
+              {profile === "cooperativa" && (
+                <>
+                  <FormInput
+                    label="Nome da cooperativa"
+                    value={cooperativeName}
+                    onChangeText={setCooperativeName}
+                    placeholder="Digite o nome da cooperativa"
+                    icon="business-outline"
+                  />
+
+                  <FormInput
+                    label="CNPJ"
+                    value={registrationNumber}
+                    onChangeText={setRegistrationNumber}
+                    placeholder="Digite o CNPJ"
+                    icon="document-text-outline"
+                    keyboardType="numeric"
+                  />
+                </>
+              )}
+
+              <TouchableOpacity
+                onPress={() => setRememberMe((prev) => !prev)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginTop: 8,
+                  marginBottom: 18,
+                }}
+              >
+                <View
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 6,
+                    borderWidth: 2,
+                    borderColor: rememberMe ? "#028C56" : "#D1D5DB",
+                    backgroundColor: rememberMe ? "#028C56" : "#FFFFFF",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {rememberMe ? (
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                  ) : null}
+                </View>
+
+                <Text
+                  style={{
+                    marginLeft: 10,
+                    color: "#374151",
+                    fontSize: 14,
+                    fontWeight: "500",
+                  }}
+                >
+                  Lembrar de mim
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                disabled={loading}
+                onPress={handleRegister}
+                activeOpacity={0.9}
+                style={{ borderRadius: 18, overflow: "hidden" }}
+              >
+                <LinearGradient
+                  colors={["#10F35D", "#028C56"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{
+                    paddingVertical: 16,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text
+                      style={{
+                        color: "#FFFFFF",
+                        fontSize: 16,
+                        fontWeight: "800",
+                      }}
+                    >
+                      CADASTRAR
+                    </Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+function FormInput({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  icon,
+  keyboardType,
+  autoCapitalize,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  keyboardType?: "default" | "email-address" | "numeric" | "phone-pad";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+}) {
+  return (
+    <View style={{ marginBottom: 14 }}>
+      <Text
+        style={{
+          fontSize: 14,
+          fontWeight: "600",
+          color: "#374151",
+          marginBottom: 8,
+        }}
+      >
+        {label}
+      </Text>
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: "#F9FAFB",
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: "#E5E7EB",
+          paddingHorizontal: 14,
+        }}
+      >
+        <Ionicons name={icon} size={18} color="#6B7280" />
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#9CA3AF"
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          style={{
+            flex: 1,
+            paddingVertical: 14,
+            paddingHorizontal: 10,
+            color: "#111827",
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
+function PasswordInput({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  secureTextEntry,
+  onToggleVisibility,
+  icon,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  secureTextEntry: boolean;
+  onToggleVisibility: () => void;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View style={{ marginBottom: 14 }}>
+      <Text
+        style={{
+          fontSize: 14,
+          fontWeight: "600",
+          color: "#374151",
+          marginBottom: 8,
+        }}
+      >
+        {label}
+      </Text>
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: "#F9FAFB",
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: "#E5E7EB",
+          paddingHorizontal: 14,
+        }}
+      >
+        <Ionicons name="lock-closed-outline" size={18} color="#6B7280" />
+
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#9CA3AF"
+          secureTextEntry={secureTextEntry}
+          style={{
+            flex: 1,
+            paddingVertical: 14,
+            paddingHorizontal: 10,
+            color: "#111827",
+          }}
+        />
+
+        <TouchableOpacity onPress={onToggleVisibility}>
+          <Ionicons name={icon} size={20} color="#6B7280" />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }

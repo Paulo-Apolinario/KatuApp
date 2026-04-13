@@ -13,31 +13,28 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
-
-type CatadorStatus = "disponivel" | "em_coleta" | "inativo";
+import { collectorService } from "@/src/services/collectorService";
 
 export default function NovoCatadorScreen() {
-  const { user } = useAuth();
-
-  const [nome, setNome] = useState("");
-  const [telefone, setTelefone] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [cpf, setCpf] = useState("");
-  const [endereco, setEndereco] = useState("");
-  const [status, setStatus] = useState<CatadorStatus>("disponivel");
+  const [document, setDocument] = useState("");
+  const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSalvar = async () => {
-    if (!user?.uid) {
-      Alert.alert("Erro", "Cooperativa não autenticada.");
-      return;
-    }
+  function formatCpf(value: string) {
+    return value
+      .replace(/\D/g, "")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2")
+      .slice(0, 14);
+  }
 
-    if (!nome.trim() || !telefone.trim() || !email.trim()) {
+  async function handleSalvar() {
+    if (!name.trim() || !phone.trim() || !email.trim()) {
       Alert.alert("Atenção", "Preencha nome, telefone e email.");
       return;
     }
@@ -45,20 +42,12 @@ export default function NovoCatadorScreen() {
     try {
       setLoading(true);
 
-      await addDoc(collection(db, "catadores"), {
-        uid: null,
-        cooperativaId: user.uid,
-        nome: nome.trim(),
-        telefone: telefone.trim(),
-        email: email.trim().toLowerCase(),
-        cpf: cpf.trim(),
-        endereco: endereco.trim(),
-        status,
-        kgMes: 0,
-        coletasHoje: 0,
-        totalKg: 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+      await collectorService.create({
+        name,
+        email,
+        phone,
+        document,
+        address,
       });
 
       Alert.alert("Sucesso", "Catador cadastrado com sucesso!", [
@@ -67,13 +56,16 @@ export default function NovoCatadorScreen() {
           onPress: () => router.replace("/(cooperativa)/catadores"),
         },
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao cadastrar catador:", error);
-      Alert.alert("Erro", "Não foi possível cadastrar o catador.");
+      Alert.alert(
+        "Erro",
+        error?.message || "Não foi possível cadastrar o catador."
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <KeyboardAvoidingView
@@ -91,7 +83,10 @@ export default function NovoCatadorScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
+          <TouchableOpacity
+            onPress={() => router.replace("/(cooperativa)/catadores")}
+            style={{ marginRight: 15 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -107,8 +102,8 @@ export default function NovoCatadorScreen() {
             Nome Completo *
           </Text>
           <TextInput
-            value={nome}
-            onChangeText={setNome}
+            value={name}
+            onChangeText={setName}
             placeholder="Digite o nome completo"
             placeholderTextColor="#9CA3AF"
             style={{
@@ -127,8 +122,8 @@ export default function NovoCatadorScreen() {
             Telefone *
           </Text>
           <TextInput
-            value={telefone}
-            onChangeText={setTelefone}
+            value={phone}
+            onChangeText={setPhone}
             placeholder="(88) 99999-9999"
             placeholderTextColor="#9CA3AF"
             keyboardType="phone-pad"
@@ -170,8 +165,8 @@ export default function NovoCatadorScreen() {
             CPF
           </Text>
           <TextInput
-            value={cpf}
-            onChangeText={setCpf}
+            value={document}
+            onChangeText={(text) => setDocument(formatCpf(text))}
             placeholder="000.000.000-00"
             placeholderTextColor="#9CA3AF"
             keyboardType="numeric"
@@ -186,13 +181,13 @@ export default function NovoCatadorScreen() {
           />
         </View>
 
-        <View style={{ marginBottom: 20 }}>
+        <View style={{ marginBottom: 30 }}>
           <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
             Endereço
           </Text>
           <TextInput
-            value={endereco}
-            onChangeText={setEndereco}
+            value={address}
+            onChangeText={setAddress}
             placeholder="Rua, bairro, número..."
             placeholderTextColor="#9CA3AF"
             style={{
@@ -204,46 +199,6 @@ export default function NovoCatadorScreen() {
               color: "#111827",
             }}
           />
-        </View>
-
-        <View style={{ marginBottom: 30 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 10 }}>
-            Status Inicial
-          </Text>
-
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            {[
-              { label: "Disponível", value: "disponivel" },
-              { label: "Em coleta", value: "em_coleta" },
-              { label: "Inativo", value: "inativo" },
-            ].map((item) => {
-              const selected = status === item.value;
-
-              return (
-                <TouchableOpacity
-                  key={item.value}
-                  onPress={() => setStatus(item.value as CatadorStatus)}
-                  style={{
-                    backgroundColor: selected ? "#028C56" : "#F3F4F6",
-                    paddingHorizontal: 14,
-                    paddingVertical: 8,
-                    borderRadius: 20,
-                    marginRight: 10,
-                    marginBottom: 10,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: selected ? "#FFFFFF" : "#4B5563",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
         </View>
 
         <TouchableOpacity

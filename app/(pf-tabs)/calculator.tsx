@@ -1,11 +1,11 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  Text,
-  View,
-  TouchableOpacity,
   ScrollView,
+  Text,
   TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -26,31 +26,33 @@ export default function CalculatorScreen() {
     { name: "OUTRO", value: "" },
   ]);
 
-  const [total, setTotal] = useState<number | null>(null);
-
   const updateMaterial = (index: number, value: string) => {
-    const newMaterials = [...materials];
-    newMaterials[index].value = value;
-    setMaterials(newMaterials);
+    const updated = [...materials];
+    updated[index].value = value;
+    setMaterials(updated);
   };
 
-  const calculateTotal = () => {
-    let sum = 0;
-    materials.forEach(material => {
-      if (material.value) {
-        sum += parseFloat(material.value) || 0;
-      }
-    });
-    setTotal(sum);
-  };
+  const total = useMemo(() => {
+    return materials.reduce((sum, material) => {
+      const parsed = Number(material.value.replace(",", "."));
+      return sum + (Number.isNaN(parsed) ? 0 : parsed);
+    }, 0);
+  }, [materials]);
+
+  const rankedMaterials = useMemo(() => {
+    return materials
+      .map((item) => ({
+        ...item,
+        numeric: Number(item.value.replace(",", ".")) || 0,
+      }))
+      .filter((item) => item.numeric > 0)
+      .sort((a, b) => b.numeric - a.numeric);
+  }, [materials]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-      {/* Header */}
       <LinearGradient
         colors={["#10F35D", "#028C56"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
         style={{
           paddingTop: 50,
           paddingBottom: 20,
@@ -67,37 +69,35 @@ export default function CalculatorScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
-        {/* Mês */}
-        <View style={{ marginBottom: 25 }}>
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 10 }}>
-            Mês de geração
-          </Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+        contentContainerStyle={{ paddingBottom: 30 }}
+      >
+        <SectionCard>
+          <Text style={sectionTitle}>Mês de geração</Text>
           <TextInput
             value={month}
             onChangeText={setMonth}
             placeholder="Ex: Março/2026"
             placeholderTextColor="#9CA3AF"
-            style={{
-              borderWidth: 1,
-              borderColor: "#D1D5DB",
-              borderRadius: 8,
-              padding: 15,
-              fontSize: 16,
-              color: "#111827",
-            }}
+            style={inputStyle}
           />
-        </View>
+        </SectionCard>
 
-        {/* Materiais */}
-        <View style={{ marginBottom: 30 }}>
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 15 }}>
-            QUANTIDADE DE RESÍDUOS GERADOS (kg):
-          </Text>
+        <SectionCard>
+          <Text style={sectionTitle}>Quantidade de resíduos (kg)</Text>
 
           {materials.map((material, index) => (
-            <View key={index} style={{ marginBottom: 15 }}>
-              <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5, fontWeight: "500" }}>
+            <View key={material.name} style={{ marginBottom: 14 }}>
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: "#028C56",
+                  marginBottom: 6,
+                  fontWeight: "600",
+                }}
+              >
                 {material.name}
               </Text>
               <TextInput
@@ -106,52 +106,102 @@ export default function CalculatorScreen() {
                 placeholder="0.00 kg"
                 placeholderTextColor="#9CA3AF"
                 keyboardType="numeric"
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#D1D5DB",
-                  borderRadius: 8,
-                  padding: 12,
-                  fontSize: 16,
-                  color: "#111827",
-                }}
+                style={inputStyle}
               />
             </View>
           ))}
-        </View>
+        </SectionCard>
 
-        {/* Botão Calcular */}
-        <TouchableOpacity activeOpacity={0.9} onPress={calculateTotal} style={{ marginBottom: 20 }}>
-          <LinearGradient
-            colors={["#10F35D", "#028C56"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+        <SectionCard>
+          <Text style={sectionTitle}>Resumo</Text>
+
+          <View
             style={{
-              height: 52,
-              borderRadius: 8,
+              backgroundColor: "#F0FDF4",
+              borderRadius: 16,
+              padding: 20,
               alignItems: "center",
-              justifyContent: "center",
             }}
           >
-            <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
-              CALCULAR
+            <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
+              Total estimado
             </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {/* Resultado */}
-        {total !== null && (
-          <View style={{
-            backgroundColor: "#F0FDF4",
-            borderRadius: 16,
-            padding: 20,
-            alignItems: "center",
-            marginBottom: 30,
-          }}>
-            <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>Total de Resíduos</Text>
-            <Text style={{ fontSize: 36, fontWeight: "800", color: "#028C56" }}>{total.toFixed(2)} kg</Text>
+            <Text style={{ fontSize: 36, fontWeight: "800", color: "#028C56" }}>
+              {total.toFixed(2)} kg
+            </Text>
+            <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 8 }}>
+              {month ? `Referente a ${month}` : "Informe o mês de referência"}
+            </Text>
           </View>
-        )}
+        </SectionCard>
+
+        <SectionCard>
+          <Text style={sectionTitle}>Materiais com maior volume</Text>
+
+          {rankedMaterials.length > 0 ? (
+            rankedMaterials.map((item, index) => (
+              <View
+                key={item.name}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingBottom: index === rankedMaterials.length - 1 ? 0 : 12,
+                  marginBottom: index === rankedMaterials.length - 1 ? 0 : 12,
+                  borderBottomWidth:
+                    index === rankedMaterials.length - 1 ? 0 : 1,
+                  borderBottomColor: "#E5E7EB",
+                }}
+              >
+                <Text style={{ fontSize: 15, color: "#111827", fontWeight: "600" }}>
+                  {item.name}
+                </Text>
+                <Text style={{ fontSize: 15, color: "#028C56", fontWeight: "800" }}>
+                  {item.numeric.toFixed(2)} kg
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={{ color: "#6B7280" }}>
+              Preencha os valores para visualizar o resumo dos materiais.
+            </Text>
+          )}
+        </SectionCard>
       </ScrollView>
     </View>
   );
 }
+
+function SectionCard({ children }: { children: React.ReactNode }) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#FFFFFF",
+        borderRadius: 18,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        marginBottom: 14,
+      }}
+    >
+      {children}
+    </View>
+  );
+}
+
+const sectionTitle = {
+  fontSize: 16,
+  fontWeight: "700" as const,
+  color: "#111827",
+  marginBottom: 12,
+};
+
+const inputStyle = {
+  borderWidth: 1,
+  borderColor: "#D1D5DB",
+  borderRadius: 12,
+  padding: 14,
+  fontSize: 16,
+  color: "#111827",
+  backgroundColor: "#FFFFFF",
+} as const;

@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,119 +13,161 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  addDoc,
-  collection,
-  serverTimestamp,
-  query,
-  where,
-  getDocs,
-  limit,
-} from "firebase/firestore";
+import * as Location from "expo-location";
+import { generatorService } from "@/src/services/generatorService";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
+function buildAddress(params: {
+  street: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zipCode: string;
+}) {
+  return [
+    params.street.trim(),
+    params.number.trim(),
+    params.neighborhood.trim(),
+    params.city.trim(),
+    params.state.trim(),
+    params.zipCode.trim(),
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
 
-type GeradorStatus = "ativo" | "pendente" | "inativo";
+function formatCep(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
 
 export default function NovoGrandeGeradorScreen() {
-  const { user } = useAuth();
-
   const [nome, setNome] = useState("");
-  const [endereco, setEndereco] = useState("");
   const [contato, setContato] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<GeradorStatus>("ativo");
+
+  const [cep, setCep] = useState("");
+  const [rua, setRua] = useState("");
+  const [numero, setNumero] = useState("");
+  const [bairro, setBairro] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [estado, setEstado] = useState("");
+
+  const [loadingCep, setLoadingCep] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  async function handleSalvar() {
-    if (!user?.uid) {
-      Alert.alert("Erro", "Cooperativa não autenticada.");
-      return;
+  const enderecoCompleto = useMemo(() => {
+    return buildAddress({
+      street: rua,
+      number: numero,
+      neighborhood: bairro,
+      city: cidade,
+      state: estado,
+      zipCode: cep,
+    });
+  }, [rua, numero, bairro, cidade, estado, cep]);
+
+  async function buscarCep(value: string) {
+    const cleanCep = value.replace(/\D/g, "");
+
+    if (cleanCep.length !== 8) return;
+
+    try {
+      setLoadingCep(true);
+
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await response.json();
+
+      if (data.erro) {
+        Alert.alert("CEP não encontrado", "Verifique o CEP informado.");
+        return;
+      }
+
+      setRua(data.logradouro || "");
+      setBairro(data.bairro || "");
+      setCidade(data.localidade || "");
+      setEstado(data.uf || "");
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+      Alert.alert("Erro", "Não foi possível consultar o CEP.");
+    } finally {
+      setLoadingCep(false);
     }
+  }
 
+  async function getCoordinatesFromAddress(address: string) {
+    try {
+      const results = await Location.geocodeAsync(address);
+
+      if (!results.length) {
+        return { latitude: undefined, longitude: undefined };
+      }
+
+      return {
+        latitude: results[0].latitude,
+        longitude: results[0].longitude,
+      };
+    } catch (error) {
+      console.error("Erro ao geocodificar endereço:", error);
+      return { latitude: undefined, longitude: undefined };
+    }
+  }
+
+  async function handleSalvar() {
+    const companyName = nome.trim();
+    const responsibleName = contato.trim();
     const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = telefone.trim();
 
-    if (!nome.trim() || !endereco.trim() || !contato.trim() || !telefone.trim() || !normalizedEmail) {
-      Alert.alert("Atenção", "Preencha nome, endereço, contato, telefone e email.");
+    if (
+      !companyName ||
+      !responsibleName ||
+      !normalizedPhone ||
+      !normalizedEmail ||
+      !rua.trim() ||
+      !numero.trim() ||
+      !bairro.trim() ||
+      !cidade.trim() ||
+      !estado.trim()
+    ) {
+      Alert.alert(
+        "Atenção",
+        "Preencha nome, contato, telefone, email, rua, número, bairro, cidade e estado."
+      );
       return;
     }
 
     try {
       setSaving(true);
 
-      const existingGeradorQuery = query(
-        collection(db, "geradores"),
-        where("email", "==", normalizedEmail),
-        limit(1)
-      );
+      const { latitude, longitude } =
+        await getCoordinatesFromAddress(enderecoCompleto);
 
-      const existingGeradorSnap = await getDocs(existingGeradorQuery);
-
-      if (!existingGeradorSnap.empty) {
-        Alert.alert("Atenção", "Já existe um gerador cadastrado com este e-mail.");
-        return;
-      }
-
-      const existingUserQuery = query(
-        collection(db, "users"),
-        where("email", "==", normalizedEmail),
-        limit(1)
-      );
-
-      const existingUserSnap = await getDocs(existingUserQuery);
-
-      if (!existingUserSnap.empty) {
-        Alert.alert("Atenção", "Já existe um acesso pendente ou ativo com este e-mail.");
-        return;
-      }
-
-      const geradorRef = await addDoc(collection(db, "geradores"), {
-        nome: nome.trim(),
-        endereco: endereco.trim(),
-        contato: contato.trim(),
-        telefone: telefone.trim(),
+      const response = await generatorService.createGenerator({
+        name: responsibleName,
+        companyName,
         email: normalizedEmail,
-        tipo: "grande",
-        status,
-        ultimaColeta: null,
-        kgColetado: 0,
-        kgTotal: 0,
-        kgMes: 0,
-        coletasRealizadas: 0,
-        sequenciaVerde: 0,
-        cooperativaId: user.uid,
-        materiais: [],
-        hasAccess: false,
-        accessReleased: false,
-        accessStatus: "pendente",
-        uid: "",
-        userId: "",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-
-      await addDoc(collection(db, "users"), {
-        uid: "",
-        email: normalizedEmail,
-        displayName: nome.trim(),
-        userType: "grande",
-        geradorId: geradorRef.id,
-        cooperativaId: user.uid,
-        phone: telefone.trim(),
-        address: endereco.trim(),
-        companyName: nome.trim(),
-        accessReleased: false,
-        accessStatus: "pendente",
-        rememberMe: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        phone: normalizedPhone,
+        address: enderecoCompleto,
+        zipCode: cep.trim(),
+        street: rua.trim(),
+        number: numero.trim(),
+        neighborhood: bairro.trim(),
+        city: cidade.trim(),
+        state: estado.trim(),
+        latitude,
+        longitude,
+        type: "LARGE",
       });
 
       Alert.alert(
         "Gerador salvo com sucesso",
-        "O grande gerador foi cadastrado. Agora ele precisa clicar em 'Já fui cadastrado pela cooperativa' para liberar o acesso com o e-mail informado.",
+        response.temporaryPassword
+          ? `O grande gerador foi cadastrado.\n\nSenha provisória: ${response.temporaryPassword}\n\nAgora ele pode ativar o acesso na tela de liberação.`
+          : "O grande gerador foi cadastrado com sucesso.",
         [
           {
             text: "OK",
@@ -133,9 +175,11 @@ export default function NovoGrandeGeradorScreen() {
           },
         ]
       );
-    } catch (error) {
-      console.error("Erro ao salvar grande gerador:", error);
-      Alert.alert("Erro", "Não foi possível cadastrar o grande gerador.");
+    } catch (error: any) {
+      Alert.alert(
+        "Erro",
+        error.message || "Não foi possível cadastrar o grande gerador."
+      );
     } finally {
       setSaving(false);
     }
@@ -164,148 +208,130 @@ export default function NovoGrandeGeradorScreen() {
       </LinearGradient>
 
       <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
-        <View style={{ marginBottom: 18 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 6 }}>
-            Nome da empresa *
-          </Text>
-          <TextInput
-            value={nome}
-            onChangeText={setNome}
-            placeholder="Ex: Indústria de Plásticos JP"
-            placeholderTextColor="#9CA3AF"
-            style={{
-              borderWidth: 1,
-              borderColor: "#D1D5DB",
-              borderRadius: 10,
-              padding: 12,
-              color: "#111827",
-              fontSize: 16,
-            }}
-          />
-        </View>
+        <Field
+          label="Nome da empresa *"
+          value={nome}
+          onChangeText={setNome}
+          placeholder="Ex: Indústria de Plásticos JP"
+        />
+        <Field
+          label="Contato responsável *"
+          value={contato}
+          onChangeText={setContato}
+          placeholder="Nome do responsável"
+        />
+        <Field
+          label="Telefone *"
+          value={telefone}
+          onChangeText={setTelefone}
+          placeholder="(85) 99999-9999"
+          keyboardType="phone-pad"
+        />
+        <Field
+          label="Email *"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="empresa@email.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
 
-        <View style={{ marginBottom: 18 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 6 }}>
-            Endereço *
-          </Text>
-          <TextInput
-            value={endereco}
-            onChangeText={setEndereco}
-            placeholder="Rua, número, bairro..."
-            placeholderTextColor="#9CA3AF"
-            style={{
-              borderWidth: 1,
-              borderColor: "#D1D5DB",
-              borderRadius: 10,
-              padding: 12,
-              color: "#111827",
-              fontSize: 16,
-            }}
-          />
-        </View>
+        <Text
+          style={{
+            fontSize: 16,
+            fontWeight: "800",
+            color: "#111827",
+            marginTop: 10,
+            marginBottom: 14,
+          }}
+        >
+          Endereço para mapa
+        </Text>
 
-        <View style={{ marginBottom: 18 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 6 }}>
-            Contato responsável *
-          </Text>
-          <TextInput
-            value={contato}
-            onChangeText={setContato}
-            placeholder="Nome do responsável"
-            placeholderTextColor="#9CA3AF"
-            style={{
-              borderWidth: 1,
-              borderColor: "#D1D5DB",
-              borderRadius: 10,
-              padding: 12,
-              color: "#111827",
-              fontSize: 16,
-            }}
-          />
-        </View>
+        <Field
+          label="CEP"
+          value={cep}
+          onChangeText={(text: string) => {
+            const formatted = formatCep(text);
+            setCep(formatted);
 
-        <View style={{ marginBottom: 18 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 6 }}>
-            Telefone *
-          </Text>
-          <TextInput
-            value={telefone}
-            onChangeText={setTelefone}
-            placeholder="(88) 99999-9999"
-            placeholderTextColor="#9CA3AF"
-            keyboardType="phone-pad"
-            style={{
-              borderWidth: 1,
-              borderColor: "#D1D5DB",
-              borderRadius: 10,
-              padding: 12,
-              color: "#111827",
-              fontSize: 16,
-            }}
-          />
-        </View>
+            const clean = formatted.replace(/\D/g, "");
+            if (clean.length === 8) {
+              buscarCep(clean);
+            }
+          }}
+          onBlur={() => buscarCep(cep)}
+          placeholder="Ex: 60000-000"
+          keyboardType="numeric"
+        />
 
-        <View style={{ marginBottom: 24 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 6 }}>
-            Email *
-          </Text>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="empresa@email.com"
-            placeholderTextColor="#9CA3AF"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            style={{
-              borderWidth: 1,
-              borderColor: "#D1D5DB",
-              borderRadius: 10,
-              padding: 12,
-              color: "#111827",
-              fontSize: 16,
-            }}
-          />
-        </View>
-
-        <View style={{ marginBottom: 28 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 10 }}>
-            Status inicial
-          </Text>
-
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            {[
-              { label: "ATIVO", value: "ativo" },
-              { label: "PENDENTE", value: "pendente" },
-              { label: "INATIVO", value: "inativo" },
-            ].map((item) => {
-              const selected = status === item.value;
-
-              return (
-                <TouchableOpacity
-                  key={item.value}
-                  onPress={() => setStatus(item.value as GeradorStatus)}
-                  style={{
-                    backgroundColor: selected ? "#028C56" : "#F3F4F6",
-                    paddingHorizontal: 16,
-                    paddingVertical: 10,
-                    borderRadius: 20,
-                    marginRight: 10,
-                    marginBottom: 10,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: selected ? "#FFFFFF" : "#4B5563",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+        {loadingCep && (
+          <View style={{ marginBottom: 14 }}>
+            <ActivityIndicator color="#028C56" />
+            <Text
+              style={{
+                fontSize: 12,
+                color: "#64748B",
+                marginTop: 6,
+              }}
+            >
+              Buscando endereço pelo CEP...
+            </Text>
           </View>
+        )}
+
+        <Field
+          label="Rua *"
+          value={rua}
+          onChangeText={setRua}
+          placeholder="Ex: Avenida Santos Dumont"
+        />
+        <Field
+          label="Número *"
+          value={numero}
+          onChangeText={setNumero}
+          placeholder="Ex: 1500"
+        />
+        <Field
+          label="Bairro *"
+          value={bairro}
+          onChangeText={setBairro}
+          placeholder="Ex: Aldeota"
+        />
+        <Field
+          label="Cidade *"
+          value={cidade}
+          onChangeText={setCidade}
+          placeholder="Ex: Fortaleza"
+        />
+        <Field
+          label="Estado *"
+          value={estado}
+          onChangeText={setEstado}
+          placeholder="Ex: CE"
+        />
+
+        <View
+          style={{
+            backgroundColor: "#F8FAFC",
+            borderRadius: 12,
+            padding: 14,
+            marginBottom: 24,
+            borderWidth: 1,
+            borderColor: "#E5E7EB",
+          }}
+        >
+          <Text style={{ fontSize: 13, color: "#64748B", marginBottom: 6 }}>
+            Endereço consolidado
+          </Text>
+          <Text style={{ fontSize: 14, color: "#111827", fontWeight: "600" }}>
+            {enderecoCompleto || "Preencha os campos acima"}
+          </Text>
         </View>
+
+        <Text style={{ color: "#6B7280", fontSize: 12, marginBottom: 20 }}>
+          Ao informar um CEP válido, o sistema tenta preencher rua, bairro, cidade e estado automaticamente e gerar coordenadas para o mapa no momento do cadastro.
+        </Text>
 
         <TouchableOpacity onPress={handleSalvar} disabled={saving} activeOpacity={0.9}>
           <LinearGradient
@@ -345,5 +371,32 @@ export default function NovoGrandeGeradorScreen() {
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+function Field(props: any) {
+  return (
+    <View style={{ marginBottom: 18 }}>
+      <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 6 }}>
+        {props.label}
+      </Text>
+      <TextInput
+        value={props.value}
+        onChangeText={props.onChangeText}
+        onBlur={props.onBlur}
+        placeholder={props.placeholder}
+        placeholderTextColor="#9CA3AF"
+        keyboardType={props.keyboardType}
+        autoCapitalize={props.autoCapitalize}
+        style={{
+          borderWidth: 1,
+          borderColor: "#D1D5DB",
+          borderRadius: 10,
+          padding: 12,
+          color: "#111827",
+          fontSize: 16,
+        }}
+      />
+    </View>
   );
 }

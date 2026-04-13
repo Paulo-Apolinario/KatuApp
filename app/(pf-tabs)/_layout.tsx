@@ -6,7 +6,7 @@ import ProtectedRoute from "@/src/components/ProtectedRoute";
 
 export default function PFLayout() {
   return (
-    <ProtectedRoute allowedUserTypes={["pf"]}>
+    <ProtectedRoute allowedUserTypes={["PF"]}>
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: "#028C56",
@@ -90,6 +90,34 @@ export default function PFLayout() {
 
         <Tabs.Screen
           name="edit-profile"
+          options={{
+            href: null,
+          }}
+        />
+
+        <Tabs.Screen
+          name="calculator"
+          options={{
+            href: null,
+          }}
+        />
+
+        <Tabs.Screen
+          name="nfc"
+          options={{
+            href: null,
+          }}
+        />
+
+        <Tabs.Screen
+          name="store"
+          options={{
+            href: null,
+          }}
+        />
+
+        <Tabs.Screen
+          name="chat"
           options={{
             href: null,
           }}

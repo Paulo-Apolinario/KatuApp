@@ -11,56 +11,28 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { collection, query, where, getDocs } from "firebase/firestore";
 
-import { db } from "@/src/services/firebaseConfig";
-import { useAuth } from "@/src/contexts/AuthContext";
-
-interface Veiculo {
-  id: string;
-  placa: string;
-  modelo: string;
-  motoristaId?: string;
-  status: "ativo" | "manutencao" | "inativo";
-  capacidade: number;
-  totalColetado?: number;
-}
+import {
+  vehicleService,
+  type Vehicle,
+} from "@/src/services/vehicleService";
 
 export default function VeiculosScreen() {
-  const { user } = useAuth();
-  const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
+  const [veiculos, setVeiculos] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
 
   const carregarVeiculos = useCallback(async () => {
-    if (!user?.uid) {
-      setVeiculos([]);
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-
-      const q = query(
-        collection(db, "veiculos"),
-        where("cooperativaId", "==", user.uid)
-      );
-
-      const querySnapshot = await getDocs(q);
-
-      const lista: Veiculo[] = querySnapshot.docs.map((item) => ({
-        id: item.id,
-        ...(item.data() as Omit<Veiculo, "id">),
-      }));
-
-      setVeiculos(lista);
+      const data = await vehicleService.list();
+      setVeiculos(data);
     } catch (error) {
       console.error("Erro ao carregar veículos:", error);
       Alert.alert("Erro", "Não foi possível carregar os veículos.");
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -70,11 +42,11 @@ export default function VeiculosScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "ativo":
+      case "ACTIVE":
         return "#10B981";
-      case "manutencao":
+      case "MAINTENANCE":
         return "#F59E0B";
-      case "inativo":
+      case "INACTIVE":
         return "#6B7280";
       default:
         return "#6B7280";
@@ -83,11 +55,11 @@ export default function VeiculosScreen() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "ativo":
+      case "ACTIVE":
         return "ATIVO";
-      case "manutencao":
+      case "MAINTENANCE":
         return "MANUTENÇÃO";
-      case "inativo":
+      case "INACTIVE":
         return "INATIVO";
       default:
         return status.toUpperCase();
@@ -126,11 +98,11 @@ export default function VeiculosScreen() {
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
             <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
-              KATU
+              KATUÁ
             </Text>
           </View>
 
-          <TouchableOpacity onPress={() => router.push("../(cooperativa)/veiculos/novo")}>
+          <TouchableOpacity onPress={() => router.push("/(cooperativa)/veiculos/novo")}>
             <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -171,7 +143,7 @@ export default function VeiculosScreen() {
             <TouchableOpacity
               key={veiculo.id}
               onPress={() =>
-                router.push(`/(cooperativa)/veiculos/editar/${veiculo.id}` as any)
+                router.push(`/(cooperativa)/veiculos/${veiculo.id}` as any)
               }
               activeOpacity={0.85}
               style={{
@@ -198,16 +170,26 @@ export default function VeiculosScreen() {
                       color: "#111827",
                     }}
                   >
-                    {veiculo.modelo} - {veiculo.placa}
+                    {veiculo.model} - {veiculo.plate}
                   </Text>
 
-                  <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}>
-                    Capacidade: {veiculo.capacidade} kg
-                  </Text>
+                  {!!veiculo.brand && (
+                    <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}>
+                      Marca: {veiculo.brand}
+                    </Text>
+                  )}
 
-                  <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
-                    Coletado: {veiculo.totalColetado || 0} kg
-                  </Text>
+                  {veiculo.year !== null && veiculo.year !== undefined && (
+                    <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}>
+                      Ano: {veiculo.year}
+                    </Text>
+                  )}
+
+                  {veiculo.capacityKg !== null && veiculo.capacityKg !== undefined && (
+                    <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}>
+                      Capacidade: {veiculo.capacityKg} kg
+                    </Text>
+                  )}
                 </View>
 
                 <View
