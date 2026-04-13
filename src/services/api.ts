@@ -88,6 +88,27 @@ async function request<T>(
   return data as T;
 }
 
+async function getExternalJson<T>(url: string): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+  } catch {
+    throw new Error("Não foi possível consultar o serviço externo.");
+  }
+
+  if (!response.ok) {
+    throw new Error(`Serviço externo respondeu com erro ${response.status}.`);
+  }
+
+  return (await response.json()) as T;
+}
+
 export const api = {
   get: <T>(endpoint: string, auth = false) =>
     request<T>(endpoint, { method: "GET", auth }),
@@ -103,6 +124,8 @@ export const api = {
 
   delete: <T>(endpoint: string, auth = false) =>
     request<T>(endpoint, { method: "DELETE", auth }),
+
+  getExternalJson,
 };
 
 export default api;

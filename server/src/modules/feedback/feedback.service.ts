@@ -1,7 +1,5 @@
 import nodemailer from "nodemailer";
-import {
-  FeedbackCategory as PrismaFeedbackCategory,
-} from "@prisma/client";
+import { FeedbackCategory as PrismaFeedbackCategory } from "@prisma/client";
 
 import { prisma } from "../../lib/prisma";
 
@@ -20,6 +18,12 @@ type ResolvedCooperative = {
   cooperativeName: string;
   cooperativeEmail: string;
   scheduleId?: string;
+};
+
+type SenderIdentity = {
+  senderName: string;
+  senderEmail: string;
+  senderType: "COOPERATIVE" | "GENERATOR" | "COLLECTOR" | "DRIVER" | "PF";
 };
 
 function normalizeOptionalText(value?: string | null) {
@@ -132,6 +136,60 @@ async function resolveTargetCooperative(userId: string): Promise<ResolvedCoopera
   throw new Error("Não foi possível localizar a cooperativa vinculada a este usuário.");
 }
 
+async function resolveSenderIdentity(userId: string): Promise<SenderIdentity> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      cooperative: true,
+      generator: true,
+      collector: true,
+      driver: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("Usuário autenticado não encontrado.");
+  }
+
+  if (user.generator) {
+    return {
+      senderName: user.generator.companyName || user.generator.name || user.displayName,
+      senderEmail: user.generator.email || user.email,
+      senderType: "GENERATOR",
+    };
+  }
+
+  if (user.collector) {
+    return {
+      senderName: user.collector.name || user.displayName,
+      senderEmail: user.collector.email || user.email,
+      senderType: "COLLECTOR",
+    };
+  }
+
+  if (user.driver) {
+    return {
+      senderName: user.driver.name || user.displayName,
+      senderEmail: user.driver.email || user.email,
+      senderType: "DRIVER",
+    };
+  }
+
+  if (user.cooperative) {
+    return {
+      senderName: user.cooperative.name || user.displayName,
+      senderEmail: user.cooperative.email || user.email,
+      senderType: "COOPERATIVE",
+    };
+  }
+
+  return {
+    senderName: user.displayName,
+    senderEmail: user.email,
+    senderType: "PF",
+  };
+}
+
 function buildCategoriesLabel(categories: PrismaFeedbackCategory[]) {
   if (!categories?.length) {
     return "Nenhuma categoria informada";
@@ -163,6 +221,22 @@ function buildNpsLabel(score: number) {
   return "Excelente experiência";
 }
 
+function buildSenderTypeLabel(senderType: SenderIdentity["senderType"]) {
+  switch (senderType) {
+    case "GENERATOR":
+      return "Gerador";
+    case "COOPERATIVE":
+      return "Cooperativa";
+    case "COLLECTOR":
+      return "Catador";
+    case "DRIVER":
+      return "Motorista";
+    case "PF":
+    default:
+      return "Usuário";
+  }
+}
+
 function escapeHtml(value?: string | null) {
   if (!value) return "-";
 
@@ -175,8 +249,9 @@ function escapeHtml(value?: string | null) {
 async function sendFeedbackEmail(params: {
   to: string;
   cooperativeName: string;
-  userName: string;
-  userEmail: string;
+  senderName: string;
+  senderEmail: string;
+  senderType: SenderIdentity["senderType"];
   npsScore: number;
   categories: PrismaFeedbackCategory[];
   reason?: string | null;
@@ -202,9 +277,9 @@ async function sendFeedbackEmail(params: {
   }
 
   const bcc = process.env.FEEDBACK_BCC?.trim() || undefined;
-
   const categoriesLabel = buildCategoriesLabel(params.categories);
   const npsLabel = buildNpsLabel(params.npsScore);
+  const senderTypeLabel = buildSenderTypeLabel(params.senderType);
 
   const subject = `Novo feedback recebido no KATU - ${params.cooperativeName}`;
 
@@ -217,8 +292,9 @@ async function sendFeedbackEmail(params: {
       </p>
 
       <div style="margin: 20px 0; padding: 16px; border: 1px solid #E5E7EB; border-radius: 12px;">
-        <p><strong>Usuário:</strong> ${escapeHtml(params.userName)}</p>
-        <p><strong>Email do usuário:</strong> ${escapeHtml(params.userEmail)}</p>
+        <p><strong>Tipo de remetente:</strong> ${escapeHtml(senderTypeLabel)}</p>
+        <p><strong>Nome de quem enviou:</strong> ${escapeHtml(params.senderName)}</p>
+        <p><strong>Email de quem enviou:</strong> ${escapeHtml(params.senderEmail)}</p>
         <p><strong>Nota NPS:</strong> ${params.npsScore} - ${escapeHtml(npsLabel)}</p>
         <p><strong>Categorias:</strong> ${escapeHtml(categoriesLabel)}</p>
         <p><strong>Motivo principal:</strong><br />${escapeHtml(params.reason)}</p>
@@ -237,6 +313,7 @@ async function sendFeedbackEmail(params: {
     from,
     to: params.to,
     bcc,
+    replyTo: params.senderEmail,
     subject,
     html,
   });
@@ -246,14 +323,7 @@ async function sendFeedbackEmail(params: {
 
 export async function createFeedback(input: CreateFeedbackInput) {
   const target = await resolveTargetCooperative(input.userId);
-
-  const user = await prisma.user.findUnique({
-    where: { id: input.userId },
-  });
-
-  if (!user) {
-    throw new Error("Usuário autenticado não encontrado.");
-  }
+  const sender = await resolveSenderIdentity(input.userId);
 
   const normalizedReason = normalizeOptionalText(input.reason);
   const normalizedImprovement = normalizeOptionalText(input.improvement);
@@ -280,8 +350,9 @@ export async function createFeedback(input: CreateFeedbackInput) {
     emailSent = await sendFeedbackEmail({
       to: target.cooperativeEmail,
       cooperativeName: target.cooperativeName,
-      userName: user.displayName,
-      userEmail: user.email,
+      senderName: sender.senderName,
+      senderEmail: sender.senderEmail,
+      senderType: sender.senderType,
       npsScore: input.npsScore,
       categories: input.categories,
       reason: normalizedReason,
@@ -311,5 +382,6 @@ export async function createFeedback(input: CreateFeedbackInput) {
     feedbackId: feedback.id,
     emailSent,
     destinationEmail: target.cooperativeEmail,
+    senderEmail: sender.senderEmail,
   };
 }
