@@ -17,8 +17,19 @@ export const registerCooperativeSchema = z.object({
   phone: z.string().min(8, "Telefone inválido"),
   cooperativeName: z.string().min(3, "Nome da cooperativa inválido"),
   registrationNumber: z.string().min(11, "Registro/CNPJ inválido"),
+
   address: z.string().optional(),
   rememberMe: z.boolean().optional().default(false),
+
+  zipCode: z.string().optional(),
+  street: z.string().optional(),
+  number: z.string().optional(),
+  neighborhood: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+
+  latitude: z.coerce.number().optional(),
+  longitude: z.coerce.number().optional(),
 });
 
 export const loginSchema = z.object({

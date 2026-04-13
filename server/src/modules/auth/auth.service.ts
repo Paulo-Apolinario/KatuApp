@@ -26,6 +26,31 @@ function sanitizeDocument(value: string) {
   return value.replace(/\D/g, "");
 }
 
+function buildAddress(data: {
+  address?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+}) {
+  if (data.address?.trim()) {
+    return data.address.trim();
+  }
+
+  const parts = [
+    data.street?.trim(),
+    data.number?.trim(),
+    data.neighborhood?.trim(),
+    data.city?.trim(),
+    data.state?.trim(),
+    data.zipCode?.trim(),
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(", ") : null;
+}
+
 export class AuthService {
   async registerPf(data: RegisterPfInput) {
     const email = normalizeEmail(data.email);
@@ -111,6 +136,16 @@ export class AuthService {
 
     const passwordHash = await hashPassword(data.password);
 
+    const address = buildAddress({
+      address: data.address,
+      zipCode: data.zipCode,
+      street: data.street,
+      number: data.number,
+      neighborhood: data.neighborhood,
+      city: data.city,
+      state: data.state,
+    });
+
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -132,11 +167,46 @@ export class AuthService {
           registrationNumber,
           email,
           phone: data.phone.trim(),
-          address: data.address?.trim() || null,
+
+          address,
+
+          zipCode: data.zipCode?.trim() || null,
+          street: data.street?.trim() || null,
+          number: data.number?.trim() || null,
+          neighborhood: data.neighborhood?.trim() || null,
+          city: data.city?.trim() || null,
+          state: data.state?.trim() || null,
+
+          latitude:
+            typeof data.latitude === "number" && !Number.isNaN(data.latitude)
+              ? data.latitude
+              : null,
+          longitude:
+            typeof data.longitude === "number" && !Number.isNaN(data.longitude)
+              ? data.longitude
+              : null,
         },
       });
 
-      return { user, cooperative };
+      const hydratedUser = await tx.user.findUnique({
+        where: { id: user.id },
+        include: {
+          personProfile: true,
+          generator: true,
+          collector: true,
+          cooperative: true,
+          driver: true,
+        },
+      });
+
+      if (!hydratedUser) {
+        throw new Error("Erro ao carregar o usuário da cooperativa.");
+      }
+
+      return {
+        user: hydratedUser,
+        cooperative,
+      };
     });
 
     return result;

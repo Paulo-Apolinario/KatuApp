@@ -49,6 +49,36 @@ type ResetPasswordResponse = {
   message?: string;
 };
 
+type RegisterPfPayload = {
+  displayName: string;
+  email: string;
+  password: string;
+  phone: string;
+  cpf: string;
+  address?: string;
+  rememberMe?: boolean;
+};
+
+type RegisterCooperativePayload = {
+  displayName: string;
+  email: string;
+  password: string;
+  phone: string;
+  cooperativeName: string;
+  registrationNumber: string;
+  address?: string;
+  rememberMe?: boolean;
+
+  zipCode?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -98,15 +128,7 @@ class AuthService {
     await AsyncStorage.multiRemove([STORAGE_KEYS.token, STORAGE_KEYS.user]);
   }
 
-  async registerPf(data: {
-    displayName: string;
-    email: string;
-    password: string;
-    phone: string;
-    cpf: string;
-    address?: string;
-    rememberMe?: boolean;
-  }): Promise<AuthResult> {
+  async registerPf(data: RegisterPfPayload): Promise<AuthResult> {
     try {
       const payload = {
         ...data,
@@ -151,16 +173,9 @@ class AuthService {
     }
   }
 
-  async registerCooperative(data: {
-    displayName: string;
-    email: string;
-    password: string;
-    phone: string;
-    cooperativeName: string;
-    registrationNumber: string;
-    address?: string;
-    rememberMe?: boolean;
-  }): Promise<AuthResult> {
+  async registerCooperative(
+    data: RegisterCooperativePayload
+  ): Promise<AuthResult> {
     try {
       const payload = {
         ...data,

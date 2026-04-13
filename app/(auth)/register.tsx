@@ -60,7 +60,17 @@ export default function RegisterScreen() {
   const [cpf, setCpf] = useState("");
   const [cooperativeName, setCooperativeName] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
+
+  const [zipCode, setZipCode] = useState("");
+  const [street, setStreet] = useState("");
+  const [number, setNumber] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [city, setCity] = useState("");
+  const [stateName, setStateName] = useState("");
   const [address, setAddress] = useState("");
+
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
 
   const isSupportedPublicProfile = useMemo(() => {
     return profile === "pf" || profile === "cooperativa";
@@ -105,6 +115,33 @@ export default function RegisterScreen() {
         setErrorMessage("Nome da cooperativa e CNPJ são obrigatórios.");
         return false;
       }
+
+      const hasStructuredAddress =
+        street.trim() ||
+        number.trim() ||
+        neighborhood.trim() ||
+        city.trim() ||
+        stateName.trim() ||
+        zipCode.trim() ||
+        address.trim();
+
+      const hasManualCoordinates =
+        latitude.trim().length > 0 && longitude.trim().length > 0;
+
+      if (!hasStructuredAddress && !hasManualCoordinates) {
+        setErrorMessage(
+          "Informe ao menos um endereço ou marque a localização com latitude e longitude."
+        );
+        return false;
+      }
+
+      if (
+        (latitude.trim() && Number.isNaN(Number(latitude))) ||
+        (longitude.trim() && Number.isNaN(Number(longitude)))
+      ) {
+        setErrorMessage("Latitude e longitude devem ser números válidos.");
+        return false;
+      }
     }
 
     return true;
@@ -140,76 +177,88 @@ export default function RegisterScreen() {
   };
 
   async function handleRegister() {
-  setErrorMessage("");
+    setErrorMessage("");
 
-  if (!isSupportedPublicProfile) {
-    Alert.alert("Cadastro interno", getUnsupportedMessage(), [
-      {
-        text: "OK",
-        onPress: () => router.replace("/(public)/access-type"),
-      },
-    ]);
-    return;
-  }
-
-  if (!validateFields()) return;
-
-  setLoading(true);
-
-  try {
-    const normalizedEmail = email.trim().toLowerCase();
-    let result;
-
-    if (profile === "pf") {
-      result = await authService.registerPf({
-        displayName: name.trim(),
-        email: normalizedEmail,
-        password,
-        phone: phone.trim(),
-        rememberMe,
-        cpf: sanitizeDigits(cpf),
-        address: address.trim() || undefined,
-      });
-    } else if (profile === "cooperativa") {
-      result = await authService.registerCooperative({
-        displayName: name.trim(),
-        email: normalizedEmail,
-        password,
-        phone: phone.trim(),
-        rememberMe,
-        cooperativeName: cooperativeName.trim(),
-        registrationNumber: sanitizeDigits(registrationNumber),
-        address: address.trim() || undefined,
-      });
-    }
-
-    if (!result) {
-      setErrorMessage("Não foi possível concluir o cadastro.");
-      return;
-    }
-
-    if (result.success === false) {
-      setErrorMessage(result.error);
-      return;
-    }
-
-    Alert.alert("Sucesso!", "Cadastro realizado com sucesso!", [
-      {
-        text: "OK",
-        onPress: () => {
-          router.replace(getRouteByProfile(profile));
+    if (!isSupportedPublicProfile) {
+      Alert.alert("Cadastro interno", getUnsupportedMessage(), [
+        {
+          text: "OK",
+          onPress: () => router.replace("/(public)/access-type"),
         },
-      },
-    ]);
-  } catch (error: any) {
-    console.error("Erro no cadastro:", error);
-    setErrorMessage(
-      error?.message || "Não foi possível concluir o cadastro."
-    );
-  } finally {
-    setLoading(false);
+      ]);
+      return;
+    }
+
+    if (!validateFields()) return;
+
+    setLoading(true);
+
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      let result;
+
+      if (profile === "pf") {
+        result = await authService.registerPf({
+          displayName: name.trim(),
+          email: normalizedEmail,
+          password,
+          phone: phone.trim(),
+          rememberMe,
+          cpf: sanitizeDigits(cpf),
+          address: address.trim() || undefined,
+        });
+      } else if (profile === "cooperativa") {
+        result = await authService.registerCooperative({
+          displayName: name.trim(),
+          email: normalizedEmail,
+          password,
+          phone: phone.trim(),
+          rememberMe,
+          cooperativeName: cooperativeName.trim(),
+          registrationNumber: sanitizeDigits(registrationNumber),
+          address: address.trim() || undefined,
+          zipCode: sanitizeDigits(zipCode) || undefined,
+          street: street.trim() || undefined,
+          number: number.trim() || undefined,
+          neighborhood: neighborhood.trim() || undefined,
+          city: city.trim() || undefined,
+          state: stateName.trim() || undefined,
+          latitude: latitude.trim() ? Number(latitude) : undefined,
+          longitude: longitude.trim() ? Number(longitude) : undefined,
+        });
+      }
+
+      if (!result) {
+        setErrorMessage("Não foi possível concluir o cadastro.");
+        return;
+      }
+
+      if (result.success === false) {
+        setErrorMessage(
+         (result as any).error ||
+         (result as any).message ||
+           "Erro ao cadastrar."
+       );
+        return;
+      }
+
+      Alert.alert("Sucesso!", "Cadastro realizado com sucesso!", [
+        {
+          text: "OK",
+          onPress: () => {
+            router.replace(getRouteByProfile(profile));
+          },
+        },
+      ]);
+    } catch (error: any) {
+      console.error("Erro no cadastro:", error);
+      setErrorMessage(
+        error?.message || "Não foi possível concluir o cadastro."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
   return (
     <KeyboardAvoidingView
@@ -253,7 +302,7 @@ export default function RegisterScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ width: "100%", maxWidth: 400, alignSelf: "center" }}>
+        <View style={{ width: "100%", maxWidth: 440, alignSelf: "center" }}>
           <View style={{ alignItems: "center", marginBottom: 24 }}>
             <Image
               source={require("../../assets/images/logo.png")}
@@ -424,10 +473,10 @@ export default function RegisterScreen() {
               />
 
               <FormInput
-                label="Endereço"
+                label="Endereço resumido"
                 value={address}
                 onChangeText={setAddress}
-                placeholder="Digite seu endereço"
+                placeholder="Digite o endereço principal"
                 icon="location-outline"
               />
 
@@ -459,6 +508,89 @@ export default function RegisterScreen() {
                     placeholder="Digite o CNPJ"
                     icon="document-text-outline"
                     keyboardType="numeric"
+                  />
+
+                  <SectionTitle title="Endereço estruturado" />
+
+                  <FormInput
+                    label="CEP"
+                    value={zipCode}
+                    onChangeText={setZipCode}
+                    placeholder="Digite o CEP, se existir"
+                    icon="mail-open-outline"
+                    keyboardType="numeric"
+                  />
+
+                  <FormInput
+                    label="Rua / Logradouro"
+                    value={street}
+                    onChangeText={setStreet}
+                    placeholder="Digite a rua ou logradouro"
+                    icon="navigate-outline"
+                  />
+
+                  <FormInput
+                    label="Número"
+                    value={number}
+                    onChangeText={setNumber}
+                    placeholder="Digite o número"
+                    icon="home-outline"
+                  />
+
+                  <FormInput
+                    label="Bairro"
+                    value={neighborhood}
+                    onChangeText={setNeighborhood}
+                    placeholder="Digite o bairro"
+                    icon="map-outline"
+                  />
+
+                  <FormInput
+                    label="Cidade"
+                    value={city}
+                    onChangeText={setCity}
+                    placeholder="Digite a cidade"
+                    icon="business-outline"
+                  />
+
+                  <FormInput
+                    label="Estado"
+                    value={stateName}
+                    onChangeText={setStateName}
+                    placeholder="Digite o estado"
+                    icon="flag-outline"
+                  />
+
+                  <SectionTitle title="Localização manual" />
+
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: "#6B7280",
+                      marginBottom: 10,
+                      lineHeight: 20,
+                    }}
+                  >
+                    Caso o local não tenha CEP ou o endereço não seja preciso,
+                    registre latitude e longitude para posicionar corretamente no mapa.
+                  </Text>
+
+                  <FormInput
+                    label="Latitude"
+                    value={latitude}
+                    onChangeText={setLatitude}
+                    placeholder="Ex.: -3.7319"
+                    icon="locate-outline"
+                    keyboardType="default"
+                  />
+
+                  <FormInput
+                    label="Longitude"
+                    value={longitude}
+                    onChangeText={setLongitude}
+                    placeholder="Ex.: -38.5267"
+                    icon="locate-outline"
+                    keyboardType="default"
                   />
                 </>
               )}
@@ -537,6 +669,22 @@ export default function RegisterScreen() {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+function SectionTitle({ title }: { title: string }) {
+  return (
+    <View style={{ marginTop: 8, marginBottom: 10 }}>
+      <Text
+        style={{
+          fontSize: 15,
+          fontWeight: "800",
+          color: "#111827",
+        }}
+      >
+        {title}
+      </Text>
+    </View>
   );
 }
 

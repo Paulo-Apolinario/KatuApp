@@ -38,9 +38,20 @@ model Cooperative {
   registrationNumber String?      @unique
   email              String?      @unique
   phone              String?
+
+  // endereço estruturado
+  zipCode            String?
+  street             String?
+  number             String?
+  neighborhood       String?
+  city               String?
+  state              String?
   address            String?
+
+  // coordenadas para mapa
   latitude           Float?
   longitude          Float?
+
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   userId             String       @unique
@@ -55,6 +66,8 @@ model Cooperative {
   feedbacks          Feedback[]
 
   @@index([name])
+  @@index([city])
+  @@index([state])
 }
 
 model DriverReport {
