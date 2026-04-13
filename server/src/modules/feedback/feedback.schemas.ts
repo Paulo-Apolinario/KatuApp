@@ -13,6 +13,7 @@ export const createFeedbackSchema = {
       },
       categories: {
         type: "array",
+        minItems: 1,
         items: {
           type: "string",
           enum: [
@@ -38,6 +39,21 @@ export const createFeedbackSchema = {
         message: { type: "string" },
         feedbackId: { type: "string" },
         emailSent: { type: "boolean" },
+        destinationEmail: { type: "string" },
+      },
+    },
+    400: {
+      type: "object",
+      properties: {
+        success: { type: "boolean" },
+        message: { type: "string" },
+      },
+    },
+    401: {
+      type: "object",
+      properties: {
+        success: { type: "boolean" },
+        message: { type: "string" },
       },
     },
   },

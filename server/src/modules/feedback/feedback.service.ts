@@ -1,7 +1,9 @@
 import nodemailer from "nodemailer";
-import { PrismaClient, FeedbackCategory as PrismaFeedbackCategory } from "@prisma/client";
+import {
+  FeedbackCategory as PrismaFeedbackCategory,
+} from "@prisma/client";
 
-const prisma = new PrismaClient();
+import { prisma } from "../../lib/prisma";
 
 type CreateFeedbackInput = {
   userId: string;
@@ -20,14 +22,19 @@ type ResolvedCooperative = {
   scheduleId?: string;
 };
 
+function normalizeOptionalText(value?: string | null) {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
 function getSmtpTransport() {
-  const host = process.env.SMTP_HOST;
+  const host = process.env.SMTP_HOST?.trim();
   const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim();
   const secure = process.env.SMTP_SECURE === "true";
 
-  if (!host || !port || !user || !pass) {
+  if (!host || !user || !pass) {
     return null;
   }
 
@@ -77,7 +84,7 @@ async function resolveTargetCooperative(userId: string): Promise<ResolvedCoopera
     };
   }
 
-  if (user.generator?.cooperative?.id && user.generator?.cooperative?.email) {
+  if (user.generator?.cooperative?.id && user.generator.cooperative?.email) {
     return {
       cooperativeId: user.generator.cooperative.id,
       cooperativeName: user.generator.cooperative.name,
@@ -85,7 +92,7 @@ async function resolveTargetCooperative(userId: string): Promise<ResolvedCoopera
     };
   }
 
-  if (user.collector?.cooperative?.id && user.collector?.cooperative?.email) {
+  if (user.collector?.cooperative?.id && user.collector.cooperative?.email) {
     return {
       cooperativeId: user.collector.cooperative.id,
       cooperativeName: user.collector.cooperative.name,
@@ -93,7 +100,7 @@ async function resolveTargetCooperative(userId: string): Promise<ResolvedCoopera
     };
   }
 
-  if (user.driver?.cooperative?.id && user.driver?.cooperative?.email) {
+  if (user.driver?.cooperative?.id && user.driver.cooperative?.email) {
     return {
       cooperativeId: user.driver.cooperative.id,
       cooperativeName: user.driver.cooperative.name,
@@ -113,7 +120,7 @@ async function resolveTargetCooperative(userId: string): Promise<ResolvedCoopera
     },
   });
 
-  if (latestSchedule?.cooperative?.id && latestSchedule?.cooperative?.email) {
+  if (latestSchedule?.cooperative?.id && latestSchedule.cooperative?.email) {
     return {
       cooperativeId: latestSchedule.cooperative.id,
       cooperativeName: latestSchedule.cooperative.name,
@@ -126,7 +133,9 @@ async function resolveTargetCooperative(userId: string): Promise<ResolvedCoopera
 }
 
 function buildCategoriesLabel(categories: PrismaFeedbackCategory[]) {
-  if (!categories?.length) return "Nenhuma categoria informada";
+  if (!categories?.length) {
+    return "Nenhuma categoria informada";
+  }
 
   return categories
     .map((item) => {
@@ -156,6 +165,7 @@ function buildNpsLabel(score: number) {
 
 function escapeHtml(value?: string | null) {
   if (!value) return "-";
+
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -169,19 +179,29 @@ async function sendFeedbackEmail(params: {
   userEmail: string;
   npsScore: number;
   categories: PrismaFeedbackCategory[];
-  reason?: string;
-  improvement?: string;
-  likes?: string;
-  continuity?: string;
+  reason?: string | null;
+  improvement?: string | null;
+  likes?: string | null;
+  continuity?: string | null;
 }) {
   const transporter = getSmtpTransport();
 
   if (!transporter) {
+    console.warn("[FEEDBACK] SMTP não configurado. Email não será enviado.");
     return false;
   }
 
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER!;
-  const bcc = process.env.FEEDBACK_BCC || undefined;
+  const from =
+    process.env.SMTP_FROM?.trim() ||
+    process.env.SMTP_USER?.trim() ||
+    "";
+
+  if (!from) {
+    console.warn("[FEEDBACK] SMTP_FROM/SMTP_USER ausente. Email não será enviado.");
+    return false;
+  }
+
+  const bcc = process.env.FEEDBACK_BCC?.trim() || undefined;
 
   const categoriesLabel = buildCategoriesLabel(params.categories);
   const npsLabel = buildNpsLabel(params.npsScore);
@@ -191,13 +211,14 @@ async function sendFeedbackEmail(params: {
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; color: #111827; line-height: 1.6;">
       <h2 style="margin-bottom: 8px;">Novo feedback recebido</h2>
+
       <p style="margin-top: 0;">
         A cooperativa <strong>${escapeHtml(params.cooperativeName)}</strong> recebeu um novo feedback no KATU.
       </p>
 
       <div style="margin: 20px 0; padding: 16px; border: 1px solid #E5E7EB; border-radius: 12px;">
         <p><strong>Usuário:</strong> ${escapeHtml(params.userName)}</p>
-        <p><strong>Email:</strong> ${escapeHtml(params.userEmail)}</p>
+        <p><strong>Email do usuário:</strong> ${escapeHtml(params.userEmail)}</p>
         <p><strong>Nota NPS:</strong> ${params.npsScore} - ${escapeHtml(npsLabel)}</p>
         <p><strong>Categorias:</strong> ${escapeHtml(categoriesLabel)}</p>
         <p><strong>Motivo principal:</strong><br />${escapeHtml(params.reason)}</p>
@@ -234,6 +255,11 @@ export async function createFeedback(input: CreateFeedbackInput) {
     throw new Error("Usuário autenticado não encontrado.");
   }
 
+  const normalizedReason = normalizeOptionalText(input.reason);
+  const normalizedImprovement = normalizeOptionalText(input.improvement);
+  const normalizedLikes = normalizeOptionalText(input.likes);
+  const normalizedContinuity = normalizeOptionalText(input.continuity);
+
   const feedback = await prisma.feedback.create({
     data: {
       userId: input.userId,
@@ -241,10 +267,10 @@ export async function createFeedback(input: CreateFeedbackInput) {
       scheduleId: target.scheduleId,
       npsScore: input.npsScore,
       categories: input.categories,
-      reason: input.reason?.trim() || null,
-      improvement: input.improvement?.trim() || null,
-      likes: input.likes?.trim() || null,
-      continuity: input.continuity?.trim() || null,
+      reason: normalizedReason,
+      improvement: normalizedImprovement,
+      likes: normalizedLikes,
+      continuity: normalizedContinuity,
     },
   });
 
@@ -258,10 +284,10 @@ export async function createFeedback(input: CreateFeedbackInput) {
       userEmail: user.email,
       npsScore: input.npsScore,
       categories: input.categories,
-      reason: input.reason,
-      improvement: input.improvement,
-      likes: input.likes,
-      continuity: input.continuity,
+      reason: normalizedReason,
+      improvement: normalizedImprovement,
+      likes: normalizedLikes,
+      continuity: normalizedContinuity,
     });
 
     if (emailSent) {
@@ -284,5 +310,6 @@ export async function createFeedback(input: CreateFeedbackInput) {
       : "Feedback salvo com sucesso, mas o envio de email não foi concluído.",
     feedbackId: feedback.id,
     emailSent,
+    destinationEmail: target.cooperativeEmail,
   };
 }
