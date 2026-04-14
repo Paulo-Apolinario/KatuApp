@@ -61,13 +61,45 @@ const cooperativeSelect = {
   registrationNumber: true,
   email: true,
   phone: true,
+  zipCode: true,
+  street: true,
+  number: true,
+  neighborhood: true,
+  city: true,
+  state: true,
   address: true,
+  latitude: true,
+  longitude: true,
   createdAt: true,
   updatedAt: true,
   userId: true,
 } as const;
 
-const generatorInclude = {
+const generatorSelect = {
+  id: true,
+  cooperativeId: true,
+  userId: true,
+  type: true,
+  name: true,
+  companyName: true,
+  email: true,
+  phone: true,
+  zipCode: true,
+  street: true,
+  number: true,
+  neighborhood: true,
+  city: true,
+  state: true,
+  address: true,
+  latitude: true,
+  longitude: true,
+  status: true,
+  accessReleased: true,
+  accessStatus: true,
+  totalKg: true,
+  createdAt: true,
+  updatedAt: true,
+  activatedAt: true,
   user: {
     select: userSelect,
   },
@@ -138,7 +170,7 @@ const routeInclude = {
 
 const collectionInclude = {
   generator: {
-    include: generatorInclude,
+    select: generatorSelect,
   },
   collector: {
     include: collectorInclude,
@@ -158,7 +190,7 @@ const collectionInclude = {
         select: userSelect,
       },
       generator: {
-        include: generatorInclude,
+        select: generatorSelect,
       },
       cooperative: {
         include: cooperativeInclude,
@@ -198,6 +230,16 @@ const collectionInclude = {
               name: true,
               status: true,
               scheduledDate: true,
+            },
+          },
+          generator: {
+            select: {
+              id: true,
+              name: true,
+              companyName: true,
+              address: true,
+              latitude: true,
+              longitude: true,
             },
           },
         },
