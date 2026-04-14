@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -9,10 +9,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 
+import OperationalMap from "@/src/components/maps/OperationalMap";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
   routeService,
@@ -102,20 +102,6 @@ function SummaryLine({
   );
 }
 
-function getInitialRegion(points: MarkerPoint[]) {
-  const first = points[0] || {
-    latitude: -3.7319,
-    longitude: -38.5267,
-  };
-
-  return {
-    latitude: first.latitude,
-    longitude: first.longitude,
-    latitudeDelta: 0.08,
-    longitudeDelta: 0.08,
-  };
-}
-
 function openExternalNavigation(params: {
   latitude: number;
   longitude: number;
@@ -145,8 +131,6 @@ export default function MotoristaMapaScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams<{ routeId?: string; collectionId?: string }>();
   const driverId = user?.driver?.id ?? null;
-
-  const mapRef = useRef<MapView | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -253,24 +237,27 @@ export default function MotoristaMapaScreen() {
   );
 
   const cooperativeMarker = useMemo<MarkerPoint | null>(() => {
-    if (
-      !isValidCoordinate(
-        profile?.cooperative?.latitude,
-        profile?.cooperative?.longitude
-      )
-    ) {
-      return null;
-    }
+  if (
+    !profile?.cooperative ||
+    !isValidCoordinate(
+      profile.cooperative.latitude,
+      profile.cooperative.longitude
+    )
+  ) {
+    return null;
+  }
 
-    return {
-      id: profile!.cooperative.id,
-      title: profile!.cooperative.name,
-      description: profile!.cooperative.address || "Cooperativa",
-      latitude: Number(profile!.cooperative.latitude),
-      longitude: Number(profile!.cooperative.longitude),
-      type: "cooperative",
-    };
-  }, [profile]);
+  const cooperative = profile.cooperative;
+
+  return {
+    id: cooperative.id,
+    title: cooperative.name,
+    description: cooperative.address || "Cooperativa",
+    latitude: Number(cooperative.latitude),
+    longitude: Number(cooperative.longitude),
+    type: "cooperative",
+  };
+}, [profile]);
 
   const collectionMarkers = useMemo<MarkerPoint[]>(() => {
     return collections
@@ -357,46 +344,16 @@ export default function MotoristaMapaScreen() {
     return fallback.length >= 2 ? fallback : [];
   }, [allMarkers, selectedRouteCoordinates]);
 
-  const focusMapOnCoordinates = useCallback((coords: Coordinates[]) => {
-    if (!mapRef.current || coords.length === 0) return;
-
-    if (coords.length === 1) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: coords[0].latitude,
-          longitude: coords[0].longitude,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        },
-        500
-      );
-      return;
-    }
-
-    mapRef.current.fitToCoordinates(coords, {
-      edgePadding: {
-        top: 80,
-        right: 60,
-        bottom: 80,
-        left: 60,
-      },
-      animated: true,
-    });
-  }, []);
-
   const handleFocusSelectedRoute = useCallback(() => {
-    if (selectedRouteCoordinates.length > 0) {
-      focusMapOnCoordinates(selectedRouteCoordinates);
+    if (selectedRoute?.collections?.length) {
+      const firstCollection = selectedRoute.collections[0] ?? null;
+      setSelectedCollection(firstCollection);
     }
-  }, [focusMapOnCoordinates, selectedRouteCoordinates]);
+  }, [selectedRoute]);
 
   const handleFocusAll = useCallback(() => {
-    const coords = allMarkers.map((item) => ({
-      latitude: item.latitude,
-      longitude: item.longitude,
-    }));
-    focusMapOnCoordinates(coords);
-  }, [allMarkers, focusMapOnCoordinates]);
+    setSelectedCollection(null);
+  }, []);
 
   const handleSelectCollection = useCallback(
     async (collection: Collection | null) => {
@@ -408,20 +365,8 @@ export default function MotoristaMapaScreen() {
           setSelectedRoute(detail);
         } catch {}
       }
-
-      if (
-        collection?.generator &&
-        isValidCoordinate(collection.generator.latitude, collection.generator.longitude)
-      ) {
-        focusMapOnCoordinates([
-          {
-            latitude: Number(collection.generator.latitude),
-            longitude: Number(collection.generator.longitude),
-          },
-        ]);
-      }
     },
-    [focusMapOnCoordinates]
+    []
   );
 
   const handleSelectRoute = useCallback(
@@ -430,37 +375,11 @@ export default function MotoristaMapaScreen() {
         const detail = await routeService.getById(route.id);
         setSelectedRoute(detail);
         setSelectedCollection(detail.collections?.[0] ?? null);
-
-        const coords: Coordinates[] = [];
-
-        if (currentLocation) {
-          coords.push(currentLocation);
-        }
-
-        if (cooperativeMarker) {
-          coords.push({
-            latitude: cooperativeMarker.latitude,
-            longitude: cooperativeMarker.longitude,
-          });
-        }
-
-        detail.collections?.forEach((item) => {
-          if (
-            isValidCoordinate(item.generator?.latitude, item.generator?.longitude)
-          ) {
-            coords.push({
-              latitude: Number(item.generator?.latitude),
-              longitude: Number(item.generator?.longitude),
-            });
-          }
-        });
-
-        focusMapOnCoordinates(coords);
       } catch {
         setSelectedRoute(route);
       }
     },
-    [cooperativeMarker, currentLocation, focusMapOnCoordinates]
+    []
   );
 
   if (loading) {
@@ -545,64 +464,46 @@ export default function MotoristaMapaScreen() {
             backgroundColor: "#FFFFFF",
           }}
         >
-          <MapView
-            ref={mapRef}
-            provider={PROVIDER_GOOGLE}
-            style={{ flex: 1 }}
-            initialRegion={getInitialRegion(allMarkers)}
-            showsUserLocation
-            showsMyLocationButton
-            toolbarEnabled={false}
-          >
-            {driverMarker && (
-              <Marker
-                coordinate={{
-                  latitude: driverMarker.latitude,
-                  longitude: driverMarker.longitude,
-                }}
-                title={driverMarker.title}
-                description={driverMarker.description}
-                pinColor="blue"
-              />
-            )}
+          <OperationalMap
+            baseLatitude={
+              currentLocation?.latitude ??
+              cooperativeMarker?.latitude ??
+              -3.7319
+            }
+            baseLongitude={
+              currentLocation?.longitude ??
+              cooperativeMarker?.longitude ??
+              -38.5267
+            }
+            points={allMarkers.map((item) => ({
+              id: item.id,
+              latitude: item.latitude,
+              longitude: item.longitude,
+              title: item.title,
+              description: item.description,
+              color:
+                item.type === "driver"
+                  ? "#2563EB"
+                  : item.type === "cooperative"
+                  ? "#028C56"
+                  : selectedCollection?.id === item.id
+                  ? "#111827"
+                  : "#F59E0B",
+            }))}
+            routeCoordinates={polylineCoordinates}
+            selectedPointId={selectedCollection?.id ?? driverMarker?.id ?? null}
+            onSelectPoint={(pointId: string) => {
+              if (pointId === "__base__") return;
 
-            {cooperativeMarker && (
-              <Marker
-                coordinate={{
-                  latitude: cooperativeMarker.latitude,
-                  longitude: cooperativeMarker.longitude,
-                }}
-                title={cooperativeMarker.title}
-                description={cooperativeMarker.description}
-                pinColor="green"
-              />
-            )}
+              if (pointId === driverMarker?.id) {
+                setSelectedCollection(null);
+                return;
+              }
 
-            {collectionMarkers.map((item) => (
-              <Marker
-                key={item.id}
-                coordinate={{
-                  latitude: item.latitude,
-                  longitude: item.longitude,
-                }}
-                title={item.title}
-                description={item.description}
-                onPress={() => {
-                  const collection = collections.find((c) => c.id === item.id) || null;
-                  void handleSelectCollection(collection);
-                }}
-              />
-            ))}
-
-            {polylineCoordinates.length >= 2 && (
-              <Polyline
-                coordinates={polylineCoordinates}
-                strokeWidth={4}
-                lineCap="round"
-                lineJoin="round"
-              />
-            )}
-          </MapView>
+              const collection = collections.find((c) => c.id === pointId) || null;
+              void handleSelectCollection(collection);
+            }}
+          />
         </View>
 
         <View

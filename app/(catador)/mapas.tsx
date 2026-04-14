@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,17 +8,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, {
-  Marker,
-  Polyline,
-  PROVIDER_DEFAULT,
-  Region,
-} from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import * as Linking from "expo-linking";
 
+import OperationalMap from "@/src/components/maps/OperationalMap";
 import {
   collectionService,
   type Collection,
@@ -36,7 +31,14 @@ type MapPoint = {
   vehicleLabel?: string | null;
 };
 
-const INITIAL_REGION: Region = {
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
+
+const INITIAL_REGION: Coordinates = {
   latitude: -3.7319,
   longitude: -38.5267,
   latitudeDelta: 0.08,
@@ -57,8 +59,6 @@ function getStatusColor(status: "PENDING" | "IN_PROGRESS") {
 }
 
 export default function CatadorMapScreen() {
-  const mapRef = useRef<MapView | null>(null);
-
   const [loading, setLoading] = useState(true);
   const [region, setRegion] = useState(INITIAL_REGION);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -135,26 +135,9 @@ export default function CatadorMapScreen() {
       }));
   }, [collections]);
 
-  useEffect(() => {
-    if (mapRef.current && points.length > 0) {
-      mapRef.current.fitToCoordinates(
-        [
-          { latitude: region.latitude, longitude: region.longitude },
-          ...points.map((point) => ({
-            latitude: point.latitude,
-            longitude: point.longitude,
-          })),
-        ],
-        {
-          edgePadding: { top: 90, right: 90, bottom: 240, left: 90 },
-          animated: true,
-        }
-      );
-    }
-  }, [points, region]);
-
   const selectedLine = useMemo(() => {
     if (!selected) return [];
+
     return [
       { latitude: region.latitude, longitude: region.longitude },
       { latitude: selected.latitude, longitude: selected.longitude },
@@ -261,48 +244,29 @@ export default function CatadorMapScreen() {
             </Text>
           </View>
         ) : (
-          <MapView
-            ref={(ref) => {
-              mapRef.current = ref;
+          <OperationalMap
+            baseLatitude={region.latitude}
+            baseLongitude={region.longitude}
+            points={points.map((point) => ({
+              id: point.id,
+              latitude: point.latitude,
+              longitude: point.longitude,
+              title: point.title,
+              description: point.address,
+              color: getStatusColor(point.status),
+            }))}
+            routeCoordinates={selectedLine}
+            selectedPointId={selected?.id ?? null}
+            onSelectPoint={(pointId: string) => {
+              if (pointId === "__base__") {
+                setSelected(null);
+                return;
+              }
+
+              const found = points.find((item) => item.id === pointId) || null;
+              setSelected(found);
             }}
-            provider={PROVIDER_DEFAULT}
-            style={{ flex: 1, minHeight: 380 }}
-            initialRegion={region}
-            showsUserLocation
-            showsMyLocationButton
-          >
-            {selected && (
-              <Polyline
-                coordinates={selectedLine}
-                strokeWidth={5}
-                strokeColor="#028C56"
-              />
-            )}
-
-            <Marker
-              coordinate={{
-                latitude: region.latitude,
-                longitude: region.longitude,
-              }}
-              title="Minha posição"
-              description="Catador / localização atual"
-              pinColor="#028C56"
-            />
-
-            {points.map((point) => (
-              <Marker
-                key={point.id}
-                coordinate={{
-                  latitude: point.latitude,
-                  longitude: point.longitude,
-                }}
-                title={point.title}
-                description={point.address}
-                pinColor={getStatusColor(point.status)}
-                onPress={() => setSelected(point)}
-              />
-            ))}
-          </MapView>
+          />
         )}
       </View>
 
