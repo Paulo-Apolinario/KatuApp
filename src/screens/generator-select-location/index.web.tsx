@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -26,6 +27,12 @@ const DEFAULT_REGION: Region = {
   longitudeDelta: 0.02,
 };
 
+function parseCoordinate(value?: string) {
+  if (!value) return undefined;
+  const parsed = Number(String(value).replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export default function GeneratorSelectLocationWebScreen() {
   const params = useLocalSearchParams<{
     kind?: "SMALL" | "LARGE";
@@ -37,10 +44,13 @@ export default function GeneratorSelectLocationWebScreen() {
   const draft = generatorDraftStore.get(kind);
 
   const initialRegion = useMemo<Region>(() => {
-    const latFromParams = params.latitude ? Number(params.latitude) : NaN;
-    const lngFromParams = params.longitude ? Number(params.longitude) : NaN;
+    const latFromParams = parseCoordinate(params.latitude);
+    const lngFromParams = parseCoordinate(params.longitude);
 
-    if (!Number.isNaN(latFromParams) && !Number.isNaN(lngFromParams)) {
+    if (
+      typeof latFromParams === "number" &&
+      typeof lngFromParams === "number"
+    ) {
       return {
         latitude: latFromParams,
         longitude: lngFromParams,
@@ -49,10 +59,13 @@ export default function GeneratorSelectLocationWebScreen() {
       };
     }
 
-    const latFromDraft = draft.latitude ? Number(draft.latitude) : NaN;
-    const lngFromDraft = draft.longitude ? Number(draft.longitude) : NaN;
+    const latFromDraft = parseCoordinate(draft.latitude);
+    const lngFromDraft = parseCoordinate(draft.longitude);
 
-    if (!Number.isNaN(latFromDraft) && !Number.isNaN(lngFromDraft)) {
+    if (
+      typeof latFromDraft === "number" &&
+      typeof lngFromDraft === "number"
+    ) {
       return {
         latitude: latFromDraft,
         longitude: lngFromDraft,
@@ -101,10 +114,13 @@ export default function GeneratorSelectLocationWebScreen() {
   }
 
   function handleConfirm() {
+    const latitude = String(selectedPoint.latitude);
+    const longitude = String(selectedPoint.longitude);
+
     generatorDraftStore.set({
       kind,
-      latitude: String(selectedPoint.latitude),
-      longitude: String(selectedPoint.longitude),
+      latitude,
+      longitude,
     });
 
     router.replace({
@@ -113,8 +129,8 @@ export default function GeneratorSelectLocationWebScreen() {
           ? "/(cooperativa)/geradores/novo-grande"
           : "/(cooperativa)/geradores/novo-pequeno",
       params: {
-        selectedLatitude: String(selectedPoint.latitude),
-        selectedLongitude: String(selectedPoint.longitude),
+        selectedLatitude: latitude,
+        selectedLongitude: longitude,
       },
     });
   }
@@ -150,6 +166,61 @@ export default function GeneratorSelectLocationWebScreen() {
           </View>
         </View>
       </LinearGradient>
+
+      <View style={{ padding: 16, backgroundColor: "#FFFFFF" }}>
+        <Text style={{ fontSize: 14, color: "#111827", fontWeight: "700", marginBottom: 8 }}>
+          Ajuste manual no navegador
+        </Text>
+
+        <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 12 }}>
+          Na versão web, você pode usar sua localização atual ou editar latitude e longitude manualmente.
+        </Text>
+
+        <Text style={{ fontSize: 13, color: "#111827", marginBottom: 6 }}>Latitude</Text>
+        <TextInput
+          value={String(selectedPoint.latitude)}
+          onChangeText={(value) => {
+            const parsed = parseCoordinate(value);
+            setSelectedPoint((prev) => ({
+              ...prev,
+              latitude: parsed ?? prev.latitude,
+            }));
+          }}
+          placeholder="-3.7319"
+          keyboardType="numeric"
+          style={{
+            borderWidth: 1,
+            borderColor: "#D1D5DB",
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            marginBottom: 12,
+            color: "#111827",
+          }}
+        />
+
+        <Text style={{ fontSize: 13, color: "#111827", marginBottom: 6 }}>Longitude</Text>
+        <TextInput
+          value={String(selectedPoint.longitude)}
+          onChangeText={(value) => {
+            const parsed = parseCoordinate(value);
+            setSelectedPoint((prev) => ({
+              ...prev,
+              longitude: parsed ?? prev.longitude,
+            }));
+          }}
+          placeholder="-38.5267"
+          keyboardType="numeric"
+          style={{
+            borderWidth: 1,
+            borderColor: "#D1D5DB",
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            color: "#111827",
+          }}
+        />
+      </View>
 
       <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
         <iframe

@@ -127,6 +127,11 @@ function isValidCoordinate(latitude?: any, longitude?: any) {
   );
 }
 
+function getCollectionGenerator(collection?: Collection | null) {
+  if (!collection) return null;
+  return collection.generator ?? collection.schedule?.generator ?? null;
+}
+
 export default function MotoristaMapaScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams<{ routeId?: string; collectionId?: string }>();
@@ -237,40 +242,53 @@ export default function MotoristaMapaScreen() {
   );
 
   const cooperativeMarker = useMemo<MarkerPoint | null>(() => {
-  if (
-    !profile?.cooperative ||
-    !isValidCoordinate(
-      profile.cooperative.latitude,
-      profile.cooperative.longitude
-    )
-  ) {
-    return null;
-  }
+    if (
+      !profile?.cooperative ||
+      !isValidCoordinate(
+        profile.cooperative.latitude,
+        profile.cooperative.longitude
+      )
+    ) {
+      return null;
+    }
 
-  const cooperative = profile.cooperative;
+    const cooperative = profile.cooperative;
 
-  return {
-    id: cooperative.id,
-    title: cooperative.name,
-    description: cooperative.address || "Cooperativa",
-    latitude: Number(cooperative.latitude),
-    longitude: Number(cooperative.longitude),
-    type: "cooperative",
-  };
-}, [profile]);
+    return {
+      id: cooperative.id,
+      title: cooperative.name,
+      description: cooperative.address || "Cooperativa",
+      latitude: Number(cooperative.latitude),
+      longitude: Number(cooperative.longitude),
+      type: "cooperative",
+    };
+  }, [profile]);
 
   const collectionMarkers = useMemo<MarkerPoint[]>(() => {
     return collections
-      .filter((item) =>
-        isValidCoordinate(item.generator?.latitude, item.generator?.longitude)
+      .map((item) => {
+        const generator = getCollectionGenerator(item);
+
+        return {
+          raw: item,
+          generator,
+        };
+      })
+      .filter(
+        ({ generator }) =>
+          !!generator &&
+          isValidCoordinate(generator.latitude, generator.longitude)
       )
-      .map((item) => ({
-        id: item.id,
+      .map(({ raw, generator }) => ({
+        id: raw.id,
         title:
-          item.generator?.companyName || item.generator?.name || "Ponto de coleta",
-        description: item.generator?.address || "Endereço não informado",
-        latitude: Number(item.generator?.latitude),
-        longitude: Number(item.generator?.longitude),
+          generator?.companyName ||
+          generator?.businessName ||
+          generator?.name ||
+          "Ponto de coleta",
+        description: generator?.address || "Endereço não informado",
+        latitude: Number(generator?.latitude),
+        longitude: Number(generator?.longitude),
         type: "collection" as const,
       }));
   }, [collections]);
@@ -317,12 +335,12 @@ export default function MotoristaMapaScreen() {
 
     if (selectedRoute?.collections?.length) {
       selectedRoute.collections.forEach((item) => {
-        if (
-          isValidCoordinate(item.generator?.latitude, item.generator?.longitude)
-        ) {
+        const generator = getCollectionGenerator(item);
+
+        if (isValidCoordinate(generator?.latitude, generator?.longitude)) {
           coordinates.push({
-            latitude: Number(item.generator?.latitude),
-            longitude: Number(item.generator?.longitude),
+            latitude: Number(generator?.latitude),
+            longitude: Number(generator?.longitude),
           });
         }
       });
@@ -332,6 +350,25 @@ export default function MotoristaMapaScreen() {
   }, [currentLocation, cooperativeMarker, selectedRoute]);
 
   const polylineCoordinates = useMemo(() => {
+    if (selectedCollection) {
+      const generator = getCollectionGenerator(selectedCollection);
+
+      if (isValidCoordinate(generator?.latitude, generator?.longitude)) {
+        const coords: Coordinates[] = [];
+
+        if (currentLocation) {
+          coords.push(currentLocation);
+        }
+
+        coords.push({
+          latitude: Number(generator?.latitude),
+          longitude: Number(generator?.longitude),
+        });
+
+        return coords;
+      }
+    }
+
     if (selectedRouteCoordinates.length >= 2) {
       return selectedRouteCoordinates;
     }
@@ -342,7 +379,7 @@ export default function MotoristaMapaScreen() {
     }));
 
     return fallback.length >= 2 ? fallback : [];
-  }, [allMarkers, selectedRouteCoordinates]);
+  }, [allMarkers, currentLocation, selectedCollection, selectedRouteCoordinates]);
 
   const handleFocusSelectedRoute = useCallback(() => {
     if (selectedRoute?.collections?.length) {
@@ -381,6 +418,10 @@ export default function MotoristaMapaScreen() {
     },
     []
   );
+
+  const selectedGenerator = useMemo(() => {
+    return getCollectionGenerator(selectedCollection);
+  }, [selectedCollection]);
 
   if (loading) {
     return (
@@ -491,7 +532,7 @@ export default function MotoristaMapaScreen() {
                   : "#F59E0B",
             }))}
             routeCoordinates={polylineCoordinates}
-            selectedPointId={selectedCollection?.id ?? driverMarker?.id ?? null}
+            selectedPointId={selectedCollection?.id ?? null}
             onSelectPoint={(pointId: string) => {
               if (pointId === "__base__") return;
 
@@ -670,29 +711,28 @@ export default function MotoristaMapaScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {!!selectedCollection?.generator?.latitude &&
-                !!selectedCollection?.generator?.longitude && (
-                  <TouchableOpacity
-                    onPress={() =>
-                      openExternalNavigation({
-                        latitude: Number(selectedCollection.generator?.latitude),
-                        longitude: Number(selectedCollection.generator?.longitude),
-                        originLatitude: currentLocation?.latitude,
-                        originLongitude: currentLocation?.longitude,
-                      })
-                    }
-                    style={{
-                      backgroundColor: "#028C56",
-                      paddingHorizontal: 14,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                    }}
-                  >
-                    <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
-                      TRAÇAR ROTA
-                    </Text>
-                  </TouchableOpacity>
-                )}
+              {isValidCoordinate(selectedGenerator?.latitude, selectedGenerator?.longitude) && (
+                <TouchableOpacity
+                  onPress={() =>
+                    openExternalNavigation({
+                      latitude: Number(selectedGenerator?.latitude),
+                      longitude: Number(selectedGenerator?.longitude),
+                      originLatitude: currentLocation?.latitude,
+                      originLongitude: currentLocation?.longitude,
+                    })
+                  }
+                  style={{
+                    backgroundColor: "#028C56",
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    borderRadius: 12,
+                  }}
+                >
+                  <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
+                    TRAÇAR ROTA
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </InfoCard>
         )}
@@ -700,8 +740,8 @@ export default function MotoristaMapaScreen() {
         {selectedCollection && (
           <InfoCard title="Coleta selecionada">
             <Text style={{ color: "#111827", fontWeight: "800", fontSize: 15 }}>
-              {selectedCollection.generator?.companyName ||
-                selectedCollection.generator?.name ||
+              {selectedGenerator?.companyName ||
+                selectedGenerator?.name ||
                 "Ponto de coleta"}
             </Text>
 
@@ -710,38 +750,37 @@ export default function MotoristaMapaScreen() {
             </Text>
 
             <Text style={{ color: "#6B7280", lineHeight: 22 }}>
-              Endereço: {selectedCollection.generator?.address || "Não informado"}
+              Endereço: {selectedGenerator?.address || "Não informado"}
             </Text>
 
             <Text style={{ color: "#6B7280", lineHeight: 22 }}>
               Rota: {selectedCollection.route?.name || selectedRoute?.name || "Não vinculada"}
             </Text>
 
-            {selectedCollection.generator?.latitude != null &&
-              selectedCollection.generator?.longitude != null && (
-                <TouchableOpacity
-                  onPress={() =>
-                    openExternalNavigation({
-                      latitude: Number(selectedCollection.generator?.latitude),
-                      longitude: Number(selectedCollection.generator?.longitude),
-                      originLatitude: currentLocation?.latitude,
-                      originLongitude: currentLocation?.longitude,
-                    })
-                  }
-                  style={{
-                    marginTop: 12,
-                    alignSelf: "flex-start",
-                    backgroundColor: "#028C56",
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                    borderRadius: 12,
-                  }}
-                >
-                  <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
-                    ABRIR NAVEGAÇÃO
-                  </Text>
-                </TouchableOpacity>
-              )}
+            {isValidCoordinate(selectedGenerator?.latitude, selectedGenerator?.longitude) && (
+              <TouchableOpacity
+                onPress={() =>
+                  openExternalNavigation({
+                    latitude: Number(selectedGenerator?.latitude),
+                    longitude: Number(selectedGenerator?.longitude),
+                    originLatitude: currentLocation?.latitude,
+                    originLongitude: currentLocation?.longitude,
+                  })
+                }
+                style={{
+                  marginTop: 12,
+                  alignSelf: "flex-start",
+                  backgroundColor: "#028C56",
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
+                  ABRIR NAVEGAÇÃO
+                </Text>
+              </TouchableOpacity>
+            )}
           </InfoCard>
         )}
       </ScrollView>

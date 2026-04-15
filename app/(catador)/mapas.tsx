@@ -58,6 +58,11 @@ function getStatusColor(status: "PENDING" | "IN_PROGRESS") {
   return status === "IN_PROGRESS" ? "#8B5CF6" : "#2563EB";
 }
 
+function getCollectionGenerator(collection?: Collection | null) {
+  if (!collection) return null;
+  return collection.generator ?? collection.schedule?.generator ?? null;
+}
+
 export default function CatadorMapScreen() {
   const [loading, setLoading] = useState(true);
   const [region, setRegion] = useState(INITIAL_REGION);
@@ -110,26 +115,35 @@ export default function CatadorMapScreen() {
 
   const points = useMemo(() => {
     return collections
-      .filter((item) => item.status === "PENDING" || item.status === "IN_PROGRESS")
-      .filter((item) =>
-        hasValidCoordinates(item.generator?.latitude, item.generator?.longitude)
+      .map((item) => {
+        const generator = getCollectionGenerator(item);
+
+        return {
+          raw: item,
+          generator,
+        };
+      })
+      .filter(
+        ({ generator }) =>
+          !!generator &&
+          hasValidCoordinates(generator.latitude, generator.longitude)
       )
-      .map((item) => ({
-        id: item.id,
+      .map(({ raw, generator }) => ({
+        id: raw.id,
         title:
-          item.generator?.companyName ||
-          item.generator?.businessName ||
-          item.generator?.name ||
+          generator?.companyName ||
+          generator?.businessName ||
+          generator?.name ||
           "Coleta operacional",
-        address: item.generator?.address || "Endereço não informado",
-        latitude: item.generator?.latitude as number,
-        longitude: item.generator?.longitude as number,
-        status: item.status as "PENDING" | "IN_PROGRESS",
-        routeName: item.route?.name || null,
-        driverName: item.driver?.name || null,
-        vehicleLabel: item.vehicle
-          ? `${item.vehicle.model || "Veículo"}${
-              item.vehicle.plate ? ` • ${item.vehicle.plate}` : ""
+        address: generator?.address || "Endereço não informado",
+        latitude: Number(generator?.latitude),
+        longitude: Number(generator?.longitude),
+        status: raw.status as "PENDING" | "IN_PROGRESS",
+        routeName: raw.route?.name || null,
+        driverName: raw.driver?.name || null,
+        vehicleLabel: raw.vehicle
+          ? `${raw.vehicle.model || "Veículo"}${
+              raw.vehicle.plate ? ` • ${raw.vehicle.plate}` : ""
             }`
           : null,
       }));

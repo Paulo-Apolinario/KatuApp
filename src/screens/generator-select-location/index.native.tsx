@@ -25,6 +25,12 @@ const DEFAULT_REGION: Region = {
   longitudeDelta: 0.02,
 };
 
+function parseCoordinate(value?: string) {
+  if (!value) return undefined;
+  const parsed = Number(String(value).replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export default function GeneratorSelectLocationScreen() {
   const params = useLocalSearchParams<{
     kind?: "SMALL" | "LARGE";
@@ -36,10 +42,13 @@ export default function GeneratorSelectLocationScreen() {
   const draft = generatorDraftStore.get(kind);
 
   const initialRegion = useMemo<Region>(() => {
-    const latFromParams = params.latitude ? Number(params.latitude) : NaN;
-    const lngFromParams = params.longitude ? Number(params.longitude) : NaN;
+    const latFromParams = parseCoordinate(params.latitude);
+    const lngFromParams = parseCoordinate(params.longitude);
 
-    if (!Number.isNaN(latFromParams) && !Number.isNaN(lngFromParams)) {
+    if (
+      typeof latFromParams === "number" &&
+      typeof lngFromParams === "number"
+    ) {
       return {
         latitude: latFromParams,
         longitude: lngFromParams,
@@ -48,10 +57,13 @@ export default function GeneratorSelectLocationScreen() {
       };
     }
 
-    const latFromDraft = draft.latitude ? Number(draft.latitude) : NaN;
-    const lngFromDraft = draft.longitude ? Number(draft.longitude) : NaN;
+    const latFromDraft = parseCoordinate(draft.latitude);
+    const lngFromDraft = parseCoordinate(draft.longitude);
 
-    if (!Number.isNaN(latFromDraft) && !Number.isNaN(lngFromDraft)) {
+    if (
+      typeof latFromDraft === "number" &&
+      typeof lngFromDraft === "number"
+    ) {
       return {
         latitude: latFromDraft,
         longitude: lngFromDraft,
@@ -67,6 +79,7 @@ export default function GeneratorSelectLocationScreen() {
     latitude: initialRegion.latitude,
     longitude: initialRegion.longitude,
   });
+  const [region, setRegion] = useState<Region>(initialRegion);
   const [loadingLocation, setLoadingLocation] = useState(false);
 
   async function handleUseCurrentLocation() {
@@ -87,9 +100,16 @@ export default function GeneratorSelectLocationScreen() {
         accuracy: Location.Accuracy.High,
       });
 
-      setSelectedPoint({
+      const nextPoint = {
         latitude: current.coords.latitude,
         longitude: current.coords.longitude,
+      };
+
+      setSelectedPoint(nextPoint);
+      setRegion({
+        ...nextPoint,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
       });
     } catch (error) {
       console.error("Erro ao obter localização atual:", error);
@@ -105,10 +125,13 @@ export default function GeneratorSelectLocationScreen() {
   }
 
   function handleConfirm() {
+    const latitude = String(selectedPoint.latitude);
+    const longitude = String(selectedPoint.longitude);
+
     generatorDraftStore.set({
       kind,
-      latitude: String(selectedPoint.latitude),
-      longitude: String(selectedPoint.longitude),
+      latitude,
+      longitude,
     });
 
     router.replace({
@@ -117,8 +140,8 @@ export default function GeneratorSelectLocationScreen() {
           ? "/(cooperativa)/geradores/novo-grande"
           : "/(cooperativa)/geradores/novo-pequeno",
       params: {
-        selectedLatitude: String(selectedPoint.latitude),
-        selectedLongitude: String(selectedPoint.longitude),
+        selectedLatitude: latitude,
+        selectedLongitude: longitude,
       },
     });
   }
@@ -158,6 +181,8 @@ export default function GeneratorSelectLocationScreen() {
           provider={PROVIDER_GOOGLE}
           style={{ flex: 1 }}
           initialRegion={initialRegion}
+          region={region}
+          onRegionChangeComplete={setRegion}
           onPress={handleMapPress}
           showsUserLocation
           showsMyLocationButton

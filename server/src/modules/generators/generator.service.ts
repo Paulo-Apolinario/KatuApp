@@ -15,6 +15,10 @@ function normalizeText(value?: string | null) {
   return normalized ? normalized : null;
 }
 
+function normalizeCoordinate(value?: number | null) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function buildFullAddress(data: CreateGeneratorInput) {
   if (data.address?.trim()) {
     return data.address.trim();
@@ -61,6 +65,8 @@ export class GeneratorService {
     }
 
     const fullAddress = buildFullAddress(data);
+    const latitude = normalizeCoordinate(data.latitude);
+    const longitude = normalizeCoordinate(data.longitude);
 
     const generator = await prisma.generator.create({
       data: {
@@ -79,10 +85,8 @@ export class GeneratorService {
         state: normalizeText(data.state),
         address: fullAddress,
 
-        latitude:
-          typeof data.latitude === "number" ? data.latitude : null,
-        longitude:
-          typeof data.longitude === "number" ? data.longitude : null,
+        latitude,
+        longitude,
 
         status: normalizeText(data.status) || "ativo",
         accessReleased: false,

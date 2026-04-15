@@ -52,6 +52,14 @@ function formatCep(value: string) {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
+function parseCoordinate(value: string): number | undefined {
+  const normalized = value.replace(",", ".").trim();
+  if (!normalized) return undefined;
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export default function NovoPequenoGeradorScreen() {
   const params = useLocalSearchParams<{
     selectedLatitude?: string;
@@ -105,6 +113,8 @@ export default function NovoPequenoGeradorScreen() {
   }, [params.selectedLatitude, params.selectedLongitude]);
 
   useEffect(() => {
+    const nextAddress = address.trim() || enderecoCompleto;
+
     generatorDraftStore.set({
       kind: "SMALL",
       nome,
@@ -117,7 +127,7 @@ export default function NovoPequenoGeradorScreen() {
       bairro,
       cidade,
       estado,
-      address,
+      address: nextAddress,
       latitude,
       longitude,
     });
@@ -135,6 +145,7 @@ export default function NovoPequenoGeradorScreen() {
     address,
     latitude,
     longitude,
+    enderecoCompleto,
   ]);
 
   async function buscarCep(value: string) {
@@ -154,21 +165,24 @@ export default function NovoPequenoGeradorScreen() {
         return;
       }
 
-      setRua(data.logradouro || "");
-      setBairro(data.bairro || "");
-      setCidade(data.localidade || "");
-      setEstado(data.uf || "");
+      const nextRua = data.logradouro || "";
+      const nextBairro = data.bairro || "";
+      const nextCidade = data.localidade || "";
+      const nextEstado = data.uf || "";
 
-      const nextAddress = [
-        data.logradouro || "",
-        numero.trim(),
-        data.bairro || "",
-        data.localidade || "",
-        data.uf || "",
-        cleanCep,
-      ]
-        .filter(Boolean)
-        .join(", ");
+      setRua(nextRua);
+      setBairro(nextBairro);
+      setCidade(nextCidade);
+      setEstado(nextEstado);
+
+      const nextAddress = buildAddress({
+        street: nextRua,
+        number: numero,
+        neighborhood: nextBairro,
+        city: nextCidade,
+        state: nextEstado,
+        zipCode: cleanCep,
+      });
 
       setAddress(nextAddress);
     } catch (error) {
@@ -192,7 +206,7 @@ export default function NovoPequenoGeradorScreen() {
       bairro,
       cidade,
       estado,
-      address,
+      address: address.trim() || enderecoCompleto,
       latitude,
       longitude,
     });
@@ -212,6 +226,8 @@ export default function NovoPequenoGeradorScreen() {
     const responsibleName = contato.trim();
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedPhone = telefone.trim();
+    const parsedLatitude = parseCoordinate(latitude);
+    const parsedLongitude = parseCoordinate(longitude);
 
     if (!companyName || !normalizedPhone || !normalizedEmail) {
       Alert.alert(
@@ -225,7 +241,7 @@ export default function NovoPequenoGeradorScreen() {
       !rua.trim() &&
       !bairro.trim() &&
       !cidade.trim() &&
-      !(latitude.trim() && longitude.trim())
+      !(parsedLatitude !== undefined && parsedLongitude !== undefined)
     ) {
       Alert.alert(
         "Atenção",
@@ -251,8 +267,8 @@ export default function NovoPequenoGeradorScreen() {
         neighborhood: bairro.trim() || undefined,
         city: cidade.trim() || undefined,
         state: estado.trim() || undefined,
-        latitude: latitude.trim() ? Number(latitude) : undefined,
-        longitude: longitude.trim() ? Number(longitude) : undefined,
+        latitude: parsedLatitude,
+        longitude: parsedLongitude,
         type: "SMALL",
       });
 
@@ -364,7 +380,19 @@ export default function NovoPequenoGeradorScreen() {
         <Field
           label="Rua"
           value={rua}
-          onChangeText={setRua}
+          onChangeText={(value) => {
+            setRua(value);
+            setAddress(
+              buildAddress({
+                street: value,
+                number: numero,
+                neighborhood: bairro,
+                city: cidade,
+                state: estado,
+                zipCode: cep,
+              })
+            );
+          }}
           placeholder="Ex: Rua das Flores"
         />
         <Field
@@ -372,36 +400,71 @@ export default function NovoPequenoGeradorScreen() {
           value={numero}
           onChangeText={(value: string) => {
             setNumero(value);
-
-            const nextAddress = buildAddress({
-              street: rua,
-              number: value,
-              neighborhood: bairro,
-              city: cidade,
-              state: estado,
-              zipCode: cep,
-            });
-
-            setAddress(nextAddress);
+            setAddress(
+              buildAddress({
+                street: rua,
+                number: value,
+                neighborhood: bairro,
+                city: cidade,
+                state: estado,
+                zipCode: cep,
+              })
+            );
           }}
           placeholder="Ex: 250"
         />
         <Field
           label="Bairro"
           value={bairro}
-          onChangeText={setBairro}
+          onChangeText={(value) => {
+            setBairro(value);
+            setAddress(
+              buildAddress({
+                street: rua,
+                number: numero,
+                neighborhood: value,
+                city: cidade,
+                state: estado,
+                zipCode: cep,
+              })
+            );
+          }}
           placeholder="Ex: Centro"
         />
         <Field
           label="Cidade"
           value={cidade}
-          onChangeText={setCidade}
+          onChangeText={(value) => {
+            setCidade(value);
+            setAddress(
+              buildAddress({
+                street: rua,
+                number: numero,
+                neighborhood: bairro,
+                city: value,
+                state: estado,
+                zipCode: cep,
+              })
+            );
+          }}
           placeholder="Ex: Fortaleza"
         />
         <Field
           label="Estado"
           value={estado}
-          onChangeText={setEstado}
+          onChangeText={(value) => {
+            setEstado(value);
+            setAddress(
+              buildAddress({
+                street: rua,
+                number: numero,
+                neighborhood: bairro,
+                city: cidade,
+                state: value,
+                zipCode: cep,
+              })
+            );
+          }}
           placeholder="Ex: CE"
         />
 
@@ -442,7 +505,7 @@ export default function NovoPequenoGeradorScreen() {
           </Text>
         </TouchableOpacity>
 
-        {(latitude || longitude) ? (
+        {latitude || longitude ? (
           <View
             style={{
               backgroundColor: "#ECFDF5",
@@ -465,7 +528,6 @@ export default function NovoPequenoGeradorScreen() {
           </View>
         ) : null}
 
-        
         <Text style={{ color: "#6B7280", fontSize: 12, marginBottom: 20 }}>
           Você pode usar o CEP para preenchimento automático e, se necessário,
           marcar o ponto exato no mapa.

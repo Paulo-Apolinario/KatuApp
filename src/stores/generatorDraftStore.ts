@@ -19,13 +19,12 @@ export type GeneratorDraft = {
   longitude: string;
 };
 
-const baseDraft: GeneratorDraft = {
-  kind: "SMALL",
+const createBaseDraft = (kind: GeneratorDraftKind): GeneratorDraft => ({
+  kind,
   nome: "",
   contato: "",
   telefone: "",
   email: "",
-
   cep: "",
   rua: "",
   numero: "",
@@ -33,33 +32,33 @@ const baseDraft: GeneratorDraft = {
   cidade: "",
   estado: "",
   address: "",
-
   latitude: "",
   longitude: "",
-};
+});
 
-let currentDraft: GeneratorDraft = { ...baseDraft };
+let currentDraft: GeneratorDraft = createBaseDraft("SMALL");
 
 export const generatorDraftStore = {
   get(kind?: GeneratorDraftKind): GeneratorDraft {
     if (kind && currentDraft.kind !== kind) {
-      return { ...baseDraft, kind };
+      return createBaseDraft(kind);
     }
 
     return { ...currentDraft };
   },
 
   set(patch: Partial<GeneratorDraft>) {
+    const nextKind = patch.kind ?? currentDraft.kind;
+
     currentDraft = {
+      ...createBaseDraft(nextKind),
       ...currentDraft,
       ...patch,
+      kind: nextKind,
     };
   },
 
   clear(kind?: GeneratorDraftKind) {
-    currentDraft = {
-      ...baseDraft,
-      kind: kind ?? "SMALL",
-    };
+    currentDraft = createBaseDraft(kind ?? "SMALL");
   },
 };
