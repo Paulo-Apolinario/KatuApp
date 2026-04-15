@@ -5,8 +5,8 @@ export const STORAGE_KEYS = {
   user: "@katu:user",
 };
 
-// DEBUG TEMPORÁRIO: hardcoded para eliminar dúvida de .env
-const API_BASE_URL = "http://178.104.40.124";
+// Produção web via Nginx
+const API_BASE_URL = "/api";
 
 type RequestMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
