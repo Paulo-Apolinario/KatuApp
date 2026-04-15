@@ -36,6 +36,83 @@ function buildFullAddress(data: CreateGeneratorInput) {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
+function buildStreetLine(data: CreateGeneratorInput) {
+  const street = data.street?.trim();
+  const number = data.number?.trim();
+
+  if (street && number) return `${number} ${street}`;
+  if (street) return street;
+  return undefined;
+}
+
+async function geocodeAddress(data: CreateGeneratorInput) {
+  const street = buildStreetLine(data);
+  const city = data.city?.trim();
+  const state = data.state?.trim();
+  const postalcode = data.zipCode?.trim();
+
+  const hasEnoughAddress =
+    !!street || !!city || !!state || !!postalcode || !!data.address?.trim();
+
+  if (!hasEnoughAddress) {
+    return {
+      latitude: null,
+      longitude: null,
+    };
+  }
+
+  const params = new URLSearchParams({
+    format: "jsonv2",
+    limit: "1",
+    countrycodes: "br",
+  });
+
+  if (street) params.set("street", street);
+  if (city) params.set("city", city);
+  if (state) params.set("state", state);
+  if (postalcode) params.set("postalcode", postalcode);
+
+  if (!street && data.address?.trim()) {
+    params.set("q", data.address.trim());
+  }
+
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+    {
+      headers: {
+        "User-Agent": "KATU/1.0 (geocoding generators)",
+        Accept: "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Não foi possível geocodificar o endereço do gerador.");
+  }
+
+  const results = (await response.json()) as Array<{
+    lat?: string;
+    lon?: string;
+  }>;
+
+  const first = results?.[0];
+
+  if (!first?.lat || !first?.lon) {
+    return {
+      latitude: null,
+      longitude: null,
+    };
+  }
+
+  const latitude = Number(first.lat);
+  const longitude = Number(first.lon);
+
+  return {
+    latitude: Number.isFinite(latitude) ? latitude : null,
+    longitude: Number.isFinite(longitude) ? longitude : null,
+  };
+}
+
 export class GeneratorService {
   async create(cooperativeUserId: string, data: CreateGeneratorInput) {
     const cooperative = await prisma.cooperative.findUnique({
@@ -65,8 +142,19 @@ export class GeneratorService {
     }
 
     const fullAddress = buildFullAddress(data);
-    const latitude = normalizeCoordinate(data.latitude);
-    const longitude = normalizeCoordinate(data.longitude);
+
+    let latitude = normalizeCoordinate(data.latitude);
+    let longitude = normalizeCoordinate(data.longitude);
+
+    if (latitude === null || longitude === null) {
+      const geocoded = await geocodeAddress({
+        ...data,
+        address: fullAddress ?? data.address,
+      });
+
+      latitude = geocoded.latitude;
+      longitude = geocoded.longitude;
+    }
 
     const generator = await prisma.generator.create({
       data: {
