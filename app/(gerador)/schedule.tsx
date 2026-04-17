@@ -32,6 +32,48 @@ type AuthUserLike = {
   } | null;
 };
 
+function formatDateInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function formatTimeInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+function isValidDateString(value: string) {
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value)) return false;
+
+  const [day, month, year] = value.split("/").map(Number);
+  if (!day || !month || !year) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+
+  const date = new Date(year, month - 1, day);
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
+
+function isValidTimeString(value: string) {
+  if (!/^\d{2}:\d{2}$/.test(value)) return false;
+
+  const [hour, minute] = value.split(":").map(Number);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return false;
+  if (hour < 0 || hour > 23) return false;
+  if (minute < 0 || minute > 59) return false;
+
+  return true;
+}
+
 function parseDateTimeToIso(date: string, time: string): string | null {
   try {
     const [day, month, year] = date.split("/");
@@ -103,6 +145,16 @@ export default function ScheduleScreen() {
         "Atenção",
         "Preencha data, horário e selecione pelo menos um material."
       );
+      return;
+    }
+
+    if (!isValidDateString(selectedDate)) {
+      Alert.alert("Data inválida", "Informe a data no formato DD/MM/AAAA.");
+      return;
+    }
+
+    if (!isValidTimeString(selectedTime)) {
+      Alert.alert("Horário inválido", "Informe o horário no formato HH:MM.");
       return;
     }
 
@@ -219,9 +271,11 @@ export default function ScheduleScreen() {
 
           <TextInput
             value={selectedDate}
-            onChangeText={setSelectedDate}
-            placeholder="Ex: 12/03/2026"
+            onChangeText={(text) => setSelectedDate(formatDateInput(text))}
+            placeholder="DD/MM/AAAA"
             placeholderTextColor="#9CA3AF"
+            keyboardType="numeric"
+            maxLength={10}
             style={{
               borderWidth: 1,
               borderColor: "#D1D5DB",
@@ -255,9 +309,11 @@ export default function ScheduleScreen() {
 
           <TextInput
             value={selectedTime}
-            onChangeText={setSelectedTime}
-            placeholder="Ex: 13:00"
+            onChangeText={(text) => setSelectedTime(formatTimeInput(text))}
+            placeholder="HH:MM"
             placeholderTextColor="#9CA3AF"
+            keyboardType="numeric"
+            maxLength={5}
             style={{
               borderWidth: 1,
               borderColor: "#D1D5DB",
