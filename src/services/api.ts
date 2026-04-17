@@ -5,8 +5,8 @@ export const STORAGE_KEYS = {
   user: "@katu:user",
 };
 
-// Produção web via Nginx
-const API_BASE_URL = "/api";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL!;
+console.log("API_BASE_URL:", API_BASE_URL);
 
 type RequestMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
