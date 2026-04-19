@@ -13,6 +13,9 @@ import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 
 import OperationalMap from "@/src/components/maps/OperationalMap";
+import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { LastSyncBadge } from "@/src/components/LastSyncBadge";
+import { useConnectivity } from "@/src/hooks/useConnectivity";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
   routeService,
@@ -134,6 +137,7 @@ function getCollectionGenerator(collection?: Collection | null) {
 
 export default function MotoristaMapaScreen() {
   const { user } = useAuth();
+  const { isOffline } = useConnectivity();
   const params = useLocalSearchParams<{ routeId?: string; collectionId?: string }>();
   const driverId = user?.driver?.id ?? null;
 
@@ -150,6 +154,7 @@ export default function MotoristaMapaScreen() {
   );
   const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadMapData = useCallback(
     async (showRefresh = false) => {
@@ -181,6 +186,7 @@ export default function MotoristaMapaScreen() {
         setVehicle(currentVehicle);
         setCollections(driverCollections);
         setProfile(myProfile);
+        setLastSyncAt(new Date().toISOString());
 
         const highlightedRouteId = params.routeId ? String(params.routeId) : null;
         const highlightedCollectionId = params.collectionId
@@ -392,32 +398,26 @@ export default function MotoristaMapaScreen() {
     setSelectedCollection(null);
   }, []);
 
-  const handleSelectCollection = useCallback(
-    async (collection: Collection | null) => {
-      setSelectedCollection(collection);
+  const handleSelectCollection = useCallback(async (collection: Collection | null) => {
+    setSelectedCollection(collection);
 
-      if (collection?.routeId) {
-        try {
-          const detail = await routeService.getById(collection.routeId);
-          setSelectedRoute(detail);
-        } catch {}
-      }
-    },
-    []
-  );
-
-  const handleSelectRoute = useCallback(
-    async (route: RouteItem) => {
+    if (collection?.routeId) {
       try {
-        const detail = await routeService.getById(route.id);
+        const detail = await routeService.getById(collection.routeId);
         setSelectedRoute(detail);
-        setSelectedCollection(detail.collections?.[0] ?? null);
-      } catch {
-        setSelectedRoute(route);
-      }
-    },
-    []
-  );
+      } catch {}
+    }
+  }, []);
+
+  const handleSelectRoute = useCallback(async (route: RouteItem) => {
+    try {
+      const detail = await routeService.getById(route.id);
+      setSelectedRoute(detail);
+      setSelectedCollection(detail.collections?.[0] ?? null);
+    } catch {
+      setSelectedRoute(route);
+    }
+  }, []);
 
   const selectedGenerator = useMemo(() => {
     return getCollectionGenerator(selectedCollection);
@@ -479,6 +479,14 @@ export default function MotoristaMapaScreen() {
           />
         }
       >
+        <View style={{ marginBottom: 14 }}>
+          <OfflineBanner visible={isOffline} />
+        </View>
+
+        <View style={{ marginBottom: 14 }}>
+          <LastSyncBadge value={lastSyncAt} />
+        </View>
+
         {!!error && (
           <View
             style={{
@@ -507,14 +515,10 @@ export default function MotoristaMapaScreen() {
         >
           <OperationalMap
             baseLatitude={
-              currentLocation?.latitude ??
-              cooperativeMarker?.latitude ??
-              -3.7319
+              currentLocation?.latitude ?? cooperativeMarker?.latitude ?? -3.7319
             }
             baseLongitude={
-              currentLocation?.longitude ??
-              cooperativeMarker?.longitude ??
-              -38.5267
+              currentLocation?.longitude ?? cooperativeMarker?.longitude ?? -38.5267
             }
             points={allMarkers.map((item) => ({
               id: item.id,

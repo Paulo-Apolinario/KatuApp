@@ -1,4 +1,9 @@
-import { api } from "./api";
+import { api, isApiNetworkError } from "./api";
+import {
+  getAllSchedules,
+  getScheduleById,
+  upsertSchedules,
+} from "../database/repositories/scheduleRepository";
 
 export type ScheduleStatus =
   | "REQUESTED"
@@ -68,16 +73,13 @@ export interface ScheduleCollection {
   vehicleId?: string | null;
   routeId?: string | null;
   scheduleId?: string | null;
-
   collectedAt?: string | null;
   totalWeightKg?: number | null;
   materials?: ScheduleCollectionMaterial[];
   notes?: string | null;
   status: CollectionStatus;
-
   createdAt?: string;
   updatedAt?: string;
-
   collector?: ScheduleCollector | null;
   driver?: ScheduleDriver | null;
   vehicle?: ScheduleVehicle | null;
@@ -89,16 +91,12 @@ export interface Schedule {
   cooperativeId: string;
   generatorId?: string | null;
   requestedByUserId?: string | null;
-
   preferredDate?: string | null;
   scheduledDate?: string | null;
-
   status: ScheduleStatus;
   notes?: string | null;
-
   createdAt?: string;
   updatedAt?: string;
-
   generator?: {
     id: string;
     name?: string | null;
@@ -108,7 +106,6 @@ export interface Schedule {
     latitude?: number | null;
     longitude?: number | null;
   } | null;
-
   cooperative?: {
     id: string;
     name?: string | null;
@@ -116,14 +113,12 @@ export interface Schedule {
     phone?: string | null;
     address?: string | null;
   } | null;
-
   requestedBy?: {
     id: string;
     displayName?: string | null;
     email?: string | null;
     role?: string | null;
   } | null;
-
   collections?: ScheduleCollection[];
 }
 
@@ -214,19 +209,75 @@ function normalizeSchedule(schedule: Schedule): Schedule {
   };
 }
 
-async function list(): Promise<Schedule[]> {
-  const response = await api.get<ListSchedulesApiResponse>(
-    "/schedules",
-    true
+async function saveSchedulesToCache(schedules: Schedule[]) {
+  await upsertSchedules(
+    schedules.map((schedule) => ({
+      id: schedule.id,
+      status: schedule.status,
+      generatorId: schedule.generatorId ?? schedule.generator?.id ?? null,
+      payload: schedule,
+      updatedAt: schedule.updatedAt ?? null,
+    }))
   );
+}
 
-  const schedules = Array.isArray(response)
-    ? response
-    : Array.isArray(response?.schedules)
-    ? response.schedules
-    : [];
+async function readSchedulesFromCache(): Promise<Schedule[]> {
+  const rows = await getAllSchedules();
 
-  return schedules.map(normalizeSchedule);
+  return rows
+    .map((row) => row?.payload)
+    .filter((item): item is Schedule => !!item)
+    .map(normalizeSchedule);
+}
+
+async function readScheduleByIdFromCache(id: string): Promise<Schedule | null> {
+  const row = await getScheduleById(id);
+
+  if (!row?.payload) return null;
+
+  return normalizeSchedule(row.payload as Schedule);
+}
+
+async function list(): Promise<Schedule[]> {
+  try {
+    const response = await api.get<ListSchedulesApiResponse>("/schedules", true);
+
+    const schedules = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.schedules)
+      ? response.schedules
+      : [];
+
+    const normalized = schedules.map(normalizeSchedule);
+    await saveSchedulesToCache(normalized);
+
+    return normalized;
+  } catch (error) {
+    if (isApiNetworkError(error)) {
+      return readSchedulesFromCache();
+    }
+
+    throw error;
+  }
+}
+
+async function getById(id: string): Promise<Schedule> {
+  try {
+    const schedules = await list();
+    const found = schedules.find((item) => item.id === id);
+
+    if (found) return found;
+
+    throw new Error("Agendamento não encontrado.");
+  } catch (error) {
+    if (isApiNetworkError(error)) {
+      const cached = await readScheduleByIdFromCache(id);
+
+      if (cached) return cached;
+    }
+
+    throw error;
+  }
 }
 
 async function create(payload: CreateSchedulePayload): Promise<Schedule> {
@@ -247,7 +298,10 @@ async function create(payload: CreateSchedulePayload): Promise<Schedule> {
     throw new Error("Agendamento não retornado pela API.");
   }
 
-  return normalizeSchedule(response.schedule);
+  const normalized = normalizeSchedule(response.schedule);
+  await saveSchedulesToCache([normalized]);
+
+  return normalized;
 }
 
 async function updateStatus(
@@ -266,14 +320,17 @@ async function updateStatus(
     throw new Error("Agendamento não retornado pela API.");
   }
 
-  return normalizeSchedule(response.schedule);
+  const normalized = normalizeSchedule(response.schedule);
+  await saveSchedulesToCache([normalized]);
+
+  return normalized;
 }
 
 export const scheduleService = {
   list,
+  getById,
   create,
   updateStatus,
 };
 
-// compatibilidade total com import default
 export default scheduleService;

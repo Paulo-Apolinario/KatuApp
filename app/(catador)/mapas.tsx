@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -14,6 +15,9 @@ import * as Location from "expo-location";
 import * as Linking from "expo-linking";
 
 import OperationalMap from "@/src/components/maps/OperationalMap";
+import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { LastSyncBadge } from "@/src/components/LastSyncBadge";
+import { useConnectivity } from "@/src/hooks/useConnectivity";
 import {
   collectionService,
   type Collection,
@@ -45,7 +49,10 @@ const INITIAL_REGION: Coordinates = {
   longitudeDelta: 0.08,
 };
 
-function hasValidCoordinates(latitude?: number | null, longitude?: number | null) {
+function hasValidCoordinates(
+  latitude?: number | null,
+  longitude?: number | null
+) {
   return (
     typeof latitude === "number" &&
     typeof longitude === "number" &&
@@ -64,10 +71,14 @@ function getCollectionGenerator(collection?: Collection | null) {
 }
 
 export default function CatadorMapScreen() {
+  const { isOffline } = useConnectivity();
+
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [region, setRegion] = useState(INITIAL_REGION);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selected, setSelected] = useState<MapPoint | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadLocation = useCallback(async () => {
     try {
@@ -89,28 +100,44 @@ export default function CatadorMapScreen() {
     }
   }, []);
 
-  const loadCollections = useCallback(async () => {
+  const loadCollections = useCallback(async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) {
+        setLoading(true);
+      }
+
       const data = await collectionService.list();
       setCollections(data);
+      setLastSyncAt(new Date().toISOString());
     } catch (error) {
       console.error("Erro ao carregar mapa do catador:", error);
       Alert.alert("Erro", "Não foi possível carregar o mapa do catador.");
       setCollections([]);
     } finally {
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
+      setRefreshing(false);
     }
   }, []);
 
+  const refreshAll = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await Promise.all([loadLocation(), loadCollections(false)]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadCollections, loadLocation]);
+
   useFocusEffect(
     useCallback(() => {
-      loadCollections();
+      void loadCollections(true);
     }, [loadCollections])
   );
 
   useEffect(() => {
-    loadLocation();
+    void loadLocation();
   }, [loadLocation]);
 
   const points = useMemo(() => {
@@ -194,146 +221,189 @@ export default function CatadorMapScreen() {
           borderBottomRightRadius: 26,
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14 }}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ marginRight: 14 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
 
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 22, fontWeight: "900", color: "#FFFFFF" }}>
-              MAPA DO CATADOR
-            </Text>
-            <Text style={{ fontSize: 13, color: "#E8FFF1", marginTop: 4 }}>
-              Visualização da coleta, rota e deslocamento atual
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 22, fontWeight: "900", color: "#FFFFFF" }}>
+                MAPA DO CATADOR
+              </Text>
+              <Text style={{ fontSize: 13, color: "#E8FFF1", marginTop: 4 }}>
+                Visualização da coleta, rota e deslocamento atual
+              </Text>
+            </View>
           </View>
+
+          <TouchableOpacity
+            onPress={() => void refreshAll()}
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 21,
+              backgroundColor: "rgba(255,255,255,0.18)",
+              alignItems: "center",
+              justifyContent: "center",
+              marginLeft: 12,
+            }}
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Ionicons name="refresh-outline" size={22} color="#FFFFFF" />
+            )}
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      <View
-        style={{
-          flex: 1,
-          marginTop: 14,
-          marginHorizontal: 16,
-          borderRadius: 22,
-          overflow: "hidden",
-          backgroundColor: "#FFFFFF",
-        }}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 18 }}
+        showsVerticalScrollIndicator={false}
       >
-        {loading ? (
-          <View
-            style={{
-              flex: 1,
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: 320,
-            }}
-          >
-            <ActivityIndicator size="large" color="#028C56" />
-            <Text style={{ marginTop: 10, color: "#64748B" }}>
-              Carregando mapa...
-            </Text>
-          </View>
-        ) : points.length === 0 ? (
-          <View
-            style={{
-              flex: 1,
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: 320,
-              paddingHorizontal: 24,
-            }}
-          >
-            <Ionicons name="map-outline" size={46} color="#94A3B8" />
-            <Text
-              style={{
-                marginTop: 12,
-                fontSize: 17,
-                fontWeight: "800",
-                color: "#0F172A",
-                textAlign: "center",
-              }}
-            >
-              Nenhuma coleta ativa para exibir
-            </Text>
-          </View>
-        ) : (
-          <OperationalMap
-            baseLatitude={region.latitude}
-            baseLongitude={region.longitude}
-            points={points.map((point) => ({
-              id: point.id,
-              latitude: point.latitude,
-              longitude: point.longitude,
-              title: point.title,
-              description: point.address,
-              color: getStatusColor(point.status),
-            }))}
-            routeCoordinates={selectedLine}
-            selectedPointId={selected?.id ?? null}
-            onSelectPoint={(pointId: string) => {
-              if (pointId === "__base__") {
-                setSelected(null);
-                return;
-              }
+        <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
+          <OfflineBanner visible={isOffline} />
+        </View>
 
-              const found = points.find((item) => item.id === pointId) || null;
-              setSelected(found);
-            }}
-          />
-        )}
-      </View>
+        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+          <LastSyncBadge value={lastSyncAt} />
+        </View>
 
-      <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 18 }}>
         <View
           style={{
+            marginTop: 14,
+            marginHorizontal: 16,
+            borderRadius: 22,
+            overflow: "hidden",
             backgroundColor: "#FFFFFF",
-            borderRadius: 20,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: "#E5E7EB",
           }}
         >
-          {selected ? (
-            <>
-              <Text style={{ fontSize: 17, fontWeight: "900", color: "#0F172A" }}>
-                {selected.title}
+          {loading ? (
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: 320,
+              }}
+            >
+              <ActivityIndicator size="large" color="#028C56" />
+              <Text style={{ marginTop: 10, color: "#64748B" }}>
+                Carregando mapa...
               </Text>
-              <Text style={{ fontSize: 13, color: "#64748B", marginTop: 8 }}>
-                Endereço: {selected.address}
-              </Text>
-              <Text style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
-                Rota: {selected.routeName || "-"}
-              </Text>
-              <Text style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
-                Motorista: {selected.driverName || "-"}
-              </Text>
-              <Text style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
-                Veículo: {selected.vehicleLabel || "-"}
-              </Text>
-
-              <TouchableOpacity
-                onPress={openExternalRoute}
+            </View>
+          ) : points.length === 0 ? (
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: 320,
+                paddingHorizontal: 24,
+              }}
+            >
+              <Ionicons name="map-outline" size={46} color="#94A3B8" />
+              <Text
                 style={{
-                  marginTop: 16,
-                  backgroundColor: "#028C56",
-                  borderRadius: 12,
-                  paddingVertical: 12,
-                  alignItems: "center",
+                  marginTop: 12,
+                  fontSize: 17,
+                  fontWeight: "800",
+                  color: "#0F172A",
+                  textAlign: "center",
                 }}
               >
-                <Text style={{ color: "#FFFFFF", fontWeight: "900", fontSize: 13 }}>
-                  ABRIR ROTA
-                </Text>
-              </TouchableOpacity>
-            </>
+                Nenhuma coleta ativa para exibir
+              </Text>
+            </View>
           ) : (
-            <Text style={{ color: "#64748B", textAlign: "center" }}>
-              Selecione um ponto para ver a rota.
-            </Text>
+            <OperationalMap
+              baseLatitude={region.latitude}
+              baseLongitude={region.longitude}
+              points={points.map((point) => ({
+                id: point.id,
+                latitude: point.latitude,
+                longitude: point.longitude,
+                title: point.title,
+                description: point.address,
+                color: getStatusColor(point.status),
+              }))}
+              routeCoordinates={selectedLine}
+              selectedPointId={selected?.id ?? null}
+              onSelectPoint={(pointId: string) => {
+                if (pointId === "__base__") {
+                  setSelected(null);
+                  return;
+                }
+
+                const found = points.find((item) => item.id === pointId) || null;
+                setSelected(found);
+              }}
+            />
           )}
         </View>
-      </View>
+
+        <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 18 }}>
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 20,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+            }}
+          >
+            {selected ? (
+              <>
+                <Text style={{ fontSize: 17, fontWeight: "900", color: "#0F172A" }}>
+                  {selected.title}
+                </Text>
+                <Text style={{ fontSize: 13, color: "#64748B", marginTop: 8 }}>
+                  Endereço: {selected.address}
+                </Text>
+                <Text style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+                  Rota: {selected.routeName || "-"}
+                </Text>
+                <Text style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+                  Motorista: {selected.driverName || "-"}
+                </Text>
+                <Text style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+                  Veículo: {selected.vehicleLabel || "-"}
+                </Text>
+
+                <TouchableOpacity
+                  onPress={openExternalRoute}
+                  style={{
+                    marginTop: 16,
+                    backgroundColor: "#028C56",
+                    borderRadius: 12,
+                    paddingVertical: 12,
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ color: "#FFFFFF", fontWeight: "900", fontSize: 13 }}>
+                    ABRIR ROTA
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <Text style={{ color: "#64748B", textAlign: "center" }}>
+                Selecione um ponto para ver a rota.
+              </Text>
+            )}
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }

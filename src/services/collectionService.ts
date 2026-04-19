@@ -1,4 +1,15 @@
-import { api } from "./api";
+import { api, isApiNetworkError } from "./api";
+import {
+  getAllCollections,
+  getCollectionById,
+  getCollectionsByDriver as getCollectionsByDriverFromCache,
+  getCollectionsByRoute as getCollectionsByRouteFromCache,
+  upsertCollections,
+} from "../database/repositories/collectionRepository";
+import {
+  enqueueSyncItem,
+} from "../database/repositories/syncQueueRepository";
+import { SYNC_ENTITY, SYNC_OPERATION } from "../database/schema";
 import type {
   Collection,
   CollectionMaterial,
@@ -160,44 +171,212 @@ function serializeMaterials(
   return normalized.length > 0 ? normalized : undefined;
 }
 
-async function list(): Promise<Collection[]> {
-  const response = await api.get<ListCollectionsApiResponse>(
-    "/collections",
-    true
+function createSyncQueueId(prefix: string, entityId: string) {
+  return `${prefix}_${entityId}_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+}
+
+async function saveCollectionsToCache(collections: Collection[]) {
+  await upsertCollections(
+    collections.map((collection) => ({
+      id: collection.id,
+      status: collection.status,
+      routeId: collection.routeId ?? collection.route?.id ?? null,
+      driverId: collection.driverId ?? collection.route?.driverId ?? null,
+      collectorId: collection.collectorId ?? collection.collector?.id ?? null,
+      totalWeightKg: Number(collection.totalWeightKg ?? 0),
+      payload: collection,
+      updatedAt: collection.updatedAt ?? null,
+    }))
   );
+}
 
-  const collections = Array.isArray(response)
-    ? response
-    : Array.isArray(response?.collections)
-    ? response.collections
-    : [];
+async function readCollectionsFromCache(): Promise<Collection[]> {
+  const rows = await getAllCollections();
 
-  return collections.map(normalizeCollection);
+  return rows
+    .map((row) => row?.payload)
+    .filter((item): item is Collection => !!item)
+    .map(normalizeCollection);
+}
+
+async function readCollectionByIdFromCache(
+  id: string
+): Promise<Collection | null> {
+  const row = await getCollectionById(id);
+
+  if (!row?.payload) return null;
+
+  return normalizeCollection(row.payload as Collection);
+}
+
+async function saveCollectionStatusOffline(
+  id: string,
+  payload: UpdateCollectionStatusPayload
+): Promise<Collection> {
+  const existing = await readCollectionByIdFromCache(id);
+
+  if (!existing) {
+    throw new Error(
+      "Coleta não encontrada no cache local para atualização offline."
+    );
+  }
+
+  const updatedCollection: Collection = normalizeCollection({
+    ...existing,
+    status: payload.status,
+    collectedAt:
+      payload.collectedAt !== undefined
+        ? payload.collectedAt
+        : existing.collectedAt ?? null,
+    totalWeightKg:
+      typeof payload.totalWeightKg === "number"
+        ? Number(payload.totalWeightKg)
+        : Number(existing.totalWeightKg ?? 0),
+    materials:
+      payload.materials !== undefined
+        ? normalizeMaterials(payload.materials)
+        : normalizeMaterials(existing.materials),
+    notes:
+      payload.notes !== undefined
+        ? payload.notes?.trim() || null
+        : existing.notes ?? null,
+    updatedAt: new Date().toISOString(),
+  });
+
+  await saveCollectionsToCache([updatedCollection]);
+
+  const operationType =
+    payload.status === "COMPLETED"
+      ? SYNC_OPERATION.COMPLETE_COLLECTION
+      : SYNC_OPERATION.UPDATE_COLLECTION_STATUS;
+
+  await enqueueSyncItem({
+    id: createSyncQueueId("collection_status", id),
+    operationType,
+    entityType: SYNC_ENTITY.COLLECTION,
+    entityId: id,
+    payload: {
+      id,
+      status: payload.status,
+      collectedAt: payload.collectedAt || undefined,
+      totalWeightKg:
+        typeof payload.totalWeightKg === "number"
+          ? payload.totalWeightKg
+          : undefined,
+      materials: serializeMaterials(payload.materials),
+      notes: payload.notes?.trim() || undefined,
+    },
+  });
+
+  return updatedCollection;
+}
+
+async function list(): Promise<Collection[]> {
+  try {
+    const response = await api.get<ListCollectionsApiResponse>(
+      "/collections",
+      true
+    );
+
+    const collections = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.collections)
+      ? response.collections
+      : [];
+
+    const normalized = collections.map(normalizeCollection);
+    await saveCollectionsToCache(normalized);
+
+    return normalized;
+  } catch (error) {
+    if (isApiNetworkError(error)) {
+      return readCollectionsFromCache();
+    }
+
+    throw error;
+  }
 }
 
 async function listByDriver(driverId?: string | null): Promise<Collection[]> {
-  const collections = await list();
+  if (!driverId) {
+    return list();
+  }
 
-  if (!driverId) return collections;
+  try {
+    const collections = await list();
 
-  const filtered = collections.filter((collection) => {
-    const directMatch = collection.driverId === driverId;
-    const routeMatch = collection.route?.driverId === driverId;
+    const filtered = collections.filter((collection) => {
+      const directMatch = collection.driverId === driverId;
+      const routeMatch = collection.route?.driverId === driverId;
 
-    return directMatch || routeMatch;
-  });
+      return directMatch || routeMatch;
+    });
 
-  // fallback: quando o backend do motorista já entrega só as coletas dele
-  return filtered.length > 0 ? filtered : collections;
+    return filtered.length > 0 ? filtered : collections;
+  } catch (error) {
+    if (isApiNetworkError(error)) {
+      const rows = await getCollectionsByDriverFromCache(driverId);
+
+      return rows
+        .map((row) => row?.payload)
+        .filter((item): item is Collection => !!item)
+        .map(normalizeCollection);
+    }
+
+    throw error;
+  }
 }
 
-async function listActiveByDriver(driverId?: string | null): Promise<Collection[]> {
+async function listByRoute(routeId?: string | null): Promise<Collection[]> {
+  if (!routeId) return list();
+
+  try {
+    const collections = await list();
+    return collections.filter((collection) => collection.routeId === routeId);
+  } catch (error) {
+    if (isApiNetworkError(error)) {
+      const rows = await getCollectionsByRouteFromCache(routeId);
+
+      return rows
+        .map((row) => row?.payload)
+        .filter((item): item is Collection => !!item)
+        .map(normalizeCollection);
+    }
+
+    throw error;
+  }
+}
+
+async function listActiveByDriver(
+  driverId?: string | null
+): Promise<Collection[]> {
   const collections = await listByDriver(driverId);
 
   return collections.filter(
     (collection) =>
       collection.status === "PENDING" || collection.status === "IN_PROGRESS"
   );
+}
+
+async function getById(id: string): Promise<Collection> {
+  try {
+    const collections = await list();
+    const found = collections.find((item) => item.id === id);
+
+    if (found) return found;
+
+    throw new Error("Coleta não encontrada.");
+  } catch (error) {
+    if (isApiNetworkError(error)) {
+      const cached = await readCollectionByIdFromCache(id);
+
+      if (cached) return cached;
+    }
+
+    throw error;
+  }
 }
 
 async function create(payload: CreateCollectionPayload): Promise<Collection> {
@@ -224,39 +403,55 @@ async function create(payload: CreateCollectionPayload): Promise<Collection> {
     throw new Error("Coleta não retornada pela API.");
   }
 
-  return normalizeCollection(response.collection);
+  const normalized = normalizeCollection(response.collection);
+  await saveCollectionsToCache([normalized]);
+
+  return normalized;
 }
 
 async function updateStatus(
   id: string,
   payload: UpdateCollectionStatusPayload
 ): Promise<Collection> {
-  const response = await api.patch<UpdateCollectionStatusApiResponse>(
-    `/collections/${id}/status`,
-    {
-      status: payload.status,
-      collectedAt: payload.collectedAt || undefined,
-      totalWeightKg:
-        typeof payload.totalWeightKg === "number"
-          ? payload.totalWeightKg
-          : undefined,
-      materials: serializeMaterials(payload.materials),
-      notes: payload.notes?.trim() || undefined,
-    },
-    true
-  );
+  try {
+    const response = await api.patch<UpdateCollectionStatusApiResponse>(
+      `/collections/${id}/status`,
+      {
+        status: payload.status,
+        collectedAt: payload.collectedAt || undefined,
+        totalWeightKg:
+          typeof payload.totalWeightKg === "number"
+            ? payload.totalWeightKg
+            : undefined,
+        materials: serializeMaterials(payload.materials),
+        notes: payload.notes?.trim() || undefined,
+      },
+      true
+    );
 
-  if (!response?.collection) {
-    throw new Error("Coleta não retornada pela API.");
+    if (!response?.collection) {
+      throw new Error("Coleta não retornada pela API.");
+    }
+
+    const normalized = normalizeCollection(response.collection);
+    await saveCollectionsToCache([normalized]);
+
+    return normalized;
+  } catch (error) {
+    if (isApiNetworkError(error)) {
+      return saveCollectionStatusOffline(id, payload);
+    }
+
+    throw error;
   }
-
-  return normalizeCollection(response.collection);
 }
 
 export const collectionService = {
   list,
   listByDriver,
+  listByRoute,
   listActiveByDriver,
+  getById,
   create,
   updateStatus,
 };

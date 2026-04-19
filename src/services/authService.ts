@@ -1,6 +1,6 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { api, STORAGE_KEYS } from "./api";
+import { api } from "./api";
 import { UserDoc } from "../types/user";
+import { sessionService } from "./sessionService";
 
 export type AuthSuccess = {
   success: true;
@@ -68,7 +68,6 @@ type RegisterCooperativePayload = {
   registrationNumber: string;
   address?: string;
   rememberMe?: boolean;
-
   zipCode?: string;
   street?: string;
   number?: string;
@@ -85,47 +84,74 @@ function normalizeEmail(email: string) {
 
 class AuthService {
   async saveSession(token: string, user?: UserDoc): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.token, token);
-
-    if (user) {
-      await AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
-    }
+    await sessionService.saveSession({
+      token,
+      user: user ?? null,
+      userId: user?.id ?? null,
+    });
   }
 
   async saveToken(token: string): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.token, token);
+    const currentUser = await this.getStoredUser();
+
+    await sessionService.saveSession({
+      token,
+      user: currentUser ?? null,
+      userId: currentUser?.id ?? null,
+    });
   }
 
   async getToken(): Promise<string | null> {
-    return AsyncStorage.getItem(STORAGE_KEYS.token);
+    return sessionService.getToken();
   }
 
   async removeToken(): Promise<void> {
-    await AsyncStorage.removeItem(STORAGE_KEYS.token);
+    const currentUser = await this.getStoredUser();
+
+    if (currentUser) {
+      await sessionService.clearSession();
+      return;
+    }
+
+    await sessionService.clearSession();
   }
 
   async saveUser(user: UserDoc): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    const token = await this.getToken();
+
+    if (!token) {
+      return;
+    }
+
+    await sessionService.saveSession({
+      token,
+      user,
+      userId: user?.id ?? null,
+    });
   }
 
   async getStoredUser(): Promise<UserDoc | null> {
-    const raw = await AsyncStorage.getItem(STORAGE_KEYS.user);
-
-    if (!raw) return null;
-
-    try {
-      return JSON.parse(raw) as UserDoc;
-    } catch {
-      return null;
-    }
+    const user = await sessionService.getUser();
+    return (user as UserDoc | null) ?? null;
   }
 
   async removeUser(): Promise<void> {
-    await AsyncStorage.removeItem(STORAGE_KEYS.user);
+    const token = await this.getToken();
+
+    if (!token) {
+      await sessionService.clearSession();
+      return;
+    }
+
+    await sessionService.saveSession({
+      token,
+      user: null,
+      userId: null,
+    });
   }
 
   async clearSession(): Promise<void> {
-    await AsyncStorage.multiRemove([STORAGE_KEYS.token, STORAGE_KEYS.user]);
+    await sessionService.clearSession();
   }
 
   async registerPf(data: RegisterPfPayload): Promise<AuthResult> {
@@ -390,7 +416,6 @@ class AuthService {
         return storedUser;
       }
 
-      await this.clearSession();
       return null;
     }
   }

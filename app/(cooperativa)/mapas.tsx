@@ -15,6 +15,9 @@ import * as Location from "expo-location";
 import * as Linking from "expo-linking";
 
 import OperationalMap from "@/src/components/maps/OperationalMap";
+import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { LastSyncBadge } from "@/src/components/LastSyncBadge";
+import { useConnectivity } from "@/src/hooks/useConnectivity";
 import {
   scheduleService,
   type Schedule,
@@ -230,6 +233,8 @@ function normalizeCollectionPoints(
 }
 
 export default function CooperativeMapScreen() {
+  const { isOffline } = useConnectivity();
+
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [loadingData, setLoadingData] = useState(true);
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
@@ -241,6 +246,7 @@ export default function CooperativeMapScreen() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("ALL");
   const [points, setPoints] = useState<MapOperationalPoint[]>([]);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadLocation = useCallback(async () => {
     try {
@@ -286,7 +292,15 @@ export default function CooperativeMapScreen() {
       ];
 
       setPoints(mergedPoints);
-      setSelectedPoint(null);
+      setSelectedPoint((currentSelected) => {
+        if (!currentSelected) return null;
+
+        const stillExists =
+          mergedPoints.find((item) => item.id === currentSelected.id) || null;
+
+        return stillExists;
+      });
+      setLastSyncAt(new Date().toISOString());
     } catch (error) {
       console.error("Erro ao carregar mapa operacional:", error);
       Alert.alert(
@@ -506,6 +520,11 @@ export default function CooperativeMapScreen() {
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={{ paddingHorizontal: 16, paddingTop: 14, gap: 12 }}>
+          <OfflineBanner visible={isOffline} />
+          <LastSyncBadge value={lastSyncAt} />
+        </View>
+
         <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
           <ScrollView
             horizontal

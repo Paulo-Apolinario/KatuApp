@@ -13,6 +13,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
+import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { LastSyncBadge } from "@/src/components/LastSyncBadge";
+import { useConnectivity } from "@/src/hooks/useConnectivity";
 import {
   collectionService,
   type Collection,
@@ -66,7 +69,10 @@ function getCollectionStatusColor(status: Collection["status"]) {
 
 function getOriginLabel(item: Collection) {
   if (item.generatorId) return "Gerador";
-  if (item.schedule?.requestedBy?.displayName || item.schedule?.requestedBy?.email) {
+  if (
+    item.schedule?.requestedBy?.displayName ||
+    item.schedule?.requestedBy?.email
+  ) {
     return "Pessoa física";
   }
   return "Solicitação";
@@ -75,7 +81,9 @@ function getOriginLabel(item: Collection) {
 function getSourceName(item: Collection) {
   if (item.generator?.companyName) return item.generator.companyName;
   if (item.generator?.name) return item.generator.name;
-  if (item.schedule?.requestedBy?.displayName) return item.schedule.requestedBy.displayName;
+  if (item.schedule?.requestedBy?.displayName) {
+    return item.schedule.requestedBy.displayName;
+  }
   if (item.schedule?.requestedBy?.email) return item.schedule.requestedBy.email;
   return "Origem não identificada";
 }
@@ -119,6 +127,8 @@ function formatMaterials(materials?: CollectionMaterial[]) {
 }
 
 export default function CollectScreen() {
+  const { isOffline } = useConnectivity();
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -126,13 +136,28 @@ export default function CollectScreen() {
   const [selectedCollectionId, setSelectedCollectionId] = useState("");
   const [materialsDraft, setMaterialsDraft] = useState<CollectionMaterial[]>([]);
   const [notesDraft, setNotesDraft] = useState("");
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadCollections = useCallback(async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true);
 
       const response = await collectionService.list();
-      setCollections(Array.isArray(response) ? response : []);
+      const nextCollections = Array.isArray(response) ? response : [];
+      setCollections(nextCollections);
+      setLastSyncAt(new Date().toISOString());
+
+      setSelectedCollectionId((currentId) => {
+        if (!currentId) return currentId;
+
+        const stillExists = nextCollections.some(
+          (item) =>
+            item.id === currentId &&
+            (item.status === "PENDING" || item.status === "IN_PROGRESS")
+        );
+
+        return stillExists ? currentId : "";
+      });
     } catch (error) {
       console.error("Erro ao carregar coletas delegadas:", error);
       Alert.alert("Erro", "Não foi possível carregar as coletas delegadas.");
@@ -145,7 +170,7 @@ export default function CollectScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadCollections(true);
+      void loadCollections(true);
     }, [loadCollections])
   );
 
@@ -211,6 +236,10 @@ export default function CollectScreen() {
     );
   };
 
+  const showOperationSuccess = (messageOnline: string, messageOffline: string) => {
+    Alert.alert("Sucesso", isOffline ? messageOffline : messageOnline);
+  };
+
   const handleStartCollection = async () => {
     if (!selectedCollection) {
       Alert.alert("Atenção", "Selecione uma coleta delegada.");
@@ -226,7 +255,10 @@ export default function CollectScreen() {
       });
 
       await loadCollections(false);
-      Alert.alert("Sucesso", "Coleta iniciada com sucesso.");
+      showOperationSuccess(
+        "Coleta iniciada com sucesso.",
+        "Coleta iniciada e salva no dispositivo. Será sincronizada quando a internet voltar."
+      );
     } catch (error: any) {
       Alert.alert(
         "Erro",
@@ -275,7 +307,10 @@ export default function CollectScreen() {
       });
 
       await loadCollections(false);
-      Alert.alert("Sucesso", "Coleta concluída com sucesso.");
+      showOperationSuccess(
+        "Coleta concluída com sucesso.",
+        "Coleta concluída e salva no dispositivo. Será sincronizada quando a internet voltar."
+      );
     } catch (error: any) {
       Alert.alert(
         "Erro",
@@ -303,7 +338,10 @@ export default function CollectScreen() {
       });
 
       await loadCollections(false);
-      Alert.alert("Sucesso", "Problema registrado e coleta cancelada.");
+      showOperationSuccess(
+        "Problema registrado e coleta cancelada.",
+        "Problema registrado no dispositivo. Será sincronizado quando a internet voltar."
+      );
     } catch (error: any) {
       Alert.alert(
         "Erro",
@@ -374,7 +412,24 @@ export default function CollectScreen() {
             Coletas delegadas
           </Text>
 
-          <View style={{ width: 24 }} />
+          <TouchableOpacity
+            onPress={() => void onRefresh()}
+            disabled={refreshing}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: "rgba(255,255,255,0.18)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Ionicons name="refresh-outline" size={20} color="#FFFFFF" />
+            )}
+          </TouchableOpacity>
         </View>
 
         <Text
@@ -388,6 +443,14 @@ export default function CollectScreen() {
           Aqui aparecem as coletas atribuídas para este catador com contexto operacional completo.
         </Text>
       </LinearGradient>
+
+      <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+        <OfflineBanner visible={isOffline} />
+      </View>
+
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+        <LastSyncBadge value={lastSyncAt} />
+      </View>
 
       <View style={{ paddingHorizontal: 16, paddingTop: 18 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>

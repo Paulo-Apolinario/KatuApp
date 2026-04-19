@@ -1,4 +1,12 @@
-import { api } from "./api";
+import { api, isApiNetworkError } from "./api";
+import {
+  getAllRoutes,
+  getRouteById as getRouteByIdFromCache,
+  getRoutesByDriver as getRoutesByDriverFromCache,
+  upsertRoutes,
+} from "../database/repositories/routeRepository";
+import { enqueueSyncItem } from "../database/repositories/syncQueueRepository";
+import { SYNC_ENTITY, SYNC_OPERATION } from "../database/schema";
 import type { Collection, CollectionStatus } from "../types/collection";
 
 export type RouteStatus =
@@ -27,7 +35,6 @@ export interface RouteItem {
   status: RouteStatus;
   createdAt?: string;
   updatedAt?: string;
-
   driver?: {
     id: string;
     name?: string | null;
@@ -38,7 +45,6 @@ export interface RouteItem {
     cnhCategory?: string | null;
     status?: string | null;
   } | null;
-
   vehicle?: {
     id: string;
     plate?: string | null;
@@ -48,7 +54,6 @@ export interface RouteItem {
     capacityKg?: number | null;
     status?: string | null;
   } | null;
-
   cooperative?: {
     id: string;
     name?: string | null;
@@ -58,7 +63,6 @@ export interface RouteItem {
     latitude?: number | null;
     longitude?: number | null;
   } | null;
-
   collections?: Collection[];
   activeCollections?: Collection[];
   stats?: RouteStats | null;
@@ -76,7 +80,6 @@ type BackendRoute = {
   status?: string;
   createdAt?: string;
   updatedAt?: string;
-
   driver?: {
     id: string;
     name?: string | null;
@@ -87,7 +90,6 @@ type BackendRoute = {
     cnhCategory?: string | null;
     status?: string | null;
   } | null;
-
   vehicle?: {
     id: string;
     plate?: string | null;
@@ -97,7 +99,6 @@ type BackendRoute = {
     capacityKg?: number | null;
     status?: string | null;
   } | null;
-
   cooperative?: {
     id: string;
     name?: string | null;
@@ -107,7 +108,6 @@ type BackendRoute = {
     latitude?: number | null;
     longitude?: number | null;
   } | null;
-
   collections?: BackendCollection[] | null;
   activeCollections?: BackendCollection[] | null;
   stats?: Partial<RouteStats> | null;
@@ -129,7 +129,6 @@ type BackendCollection = {
   status?: string;
   createdAt?: string;
   updatedAt?: string;
-
   generator?: {
     id: string;
     name?: string | null;
@@ -140,14 +139,12 @@ type BackendCollection = {
     city?: string | null;
     state?: string | null;
   } | null;
-
   collector?: {
     id: string;
     name?: string | null;
     email?: string | null;
     phone?: string | null;
   } | null;
-
   driver?: {
     id: string;
     name?: string | null;
@@ -157,7 +154,6 @@ type BackendCollection = {
     cnhCategory?: string | null;
     status?: string | null;
   } | null;
-
   vehicle?: {
     id: string;
     plate?: string | null;
@@ -167,7 +163,6 @@ type BackendCollection = {
     capacityKg?: number | null;
     status?: string | null;
   } | null;
-
   route?: {
     id: string;
     name?: string | null;
@@ -177,7 +172,6 @@ type BackendCollection = {
     status?: string | null;
     driverId?: string | null;
   } | null;
-
   schedule?: {
     id: string;
     scheduledDate?: string | null;
@@ -424,6 +418,76 @@ function sortByScheduledDateAsc(items: RouteItem[]): RouteItem[] {
   });
 }
 
+function createSyncQueueId(prefix: string, entityId: string) {
+  return `${prefix}_${entityId}_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+}
+
+async function saveRoutesToCache(routes: RouteItem[]) {
+  await upsertRoutes(
+    routes.map((route) => ({
+      id: route.id,
+      status: route.status,
+      driverId: route.driverId ?? null,
+      scheduledDate: route.scheduledDate ?? null,
+      payload: route,
+      updatedAt: route.updatedAt ?? null,
+    }))
+  );
+}
+
+async function readRoutesFromCache(): Promise<RouteItem[]> {
+  const rows = await getAllRoutes();
+
+  return rows
+    .map((row) => row?.payload)
+    .filter((item): item is RouteItem => !!item)
+    .map((item) => item);
+}
+
+async function readRouteByIdFromCache(id: string): Promise<RouteItem | null> {
+  const row = await getRouteByIdFromCache(id);
+
+  if (!row?.payload) return null;
+
+  return row.payload as RouteItem;
+}
+
+async function saveRouteStatusOffline(
+  id: string,
+  status: RouteStatus
+): Promise<RouteItem> {
+  const existing = await readRouteByIdFromCache(id);
+
+  if (!existing) {
+    throw new Error(
+      "Rota não encontrada no cache local para atualização offline."
+    );
+  }
+
+  const updatedRoute: RouteItem = {
+    ...existing,
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await saveRoutesToCache([updatedRoute]);
+
+  await enqueueSyncItem({
+    id: createSyncQueueId("route_status", id),
+    operationType: SYNC_OPERATION.UPDATE_ROUTE_STATUS,
+    entityType: SYNC_ENTITY.ROUTE,
+    entityId: id,
+    payload: {
+      id,
+      status,
+    },
+  });
+
+  return updatedRoute;
+}
+
 export const routeService = {
   async create(payload: CreateRoutePayload): Promise<RouteItem> {
     const response = await api.post<GetRouteByIdResponse>(
@@ -443,24 +507,55 @@ export const routeService = {
       throw new Error("Resposta inválida ao criar rota.");
     }
 
-    return normalizeRoute(response.route);
+    const normalized = normalizeRoute(response.route);
+    await saveRoutesToCache([normalized]);
+
+    return normalized;
   },
 
   async list(): Promise<RouteItem[]> {
-    const response = await api.get<GetRoutesResponse>("/routes", true);
-    const items = Array.isArray(response?.routes) ? response.routes : [];
-    return items.map(normalizeRoute);
+    try {
+      const response = await api.get<GetRoutesResponse>("/routes", true);
+      const items = Array.isArray(response?.routes) ? response.routes : [];
+      const normalized = items.map(normalizeRoute);
+
+      await saveRoutesToCache(normalized);
+
+      return normalized;
+    } catch (error) {
+      if (isApiNetworkError(error)) {
+        return readRoutesFromCache();
+      }
+
+      throw error;
+    }
   },
 
   async listByDriver(driverId?: string | null): Promise<RouteItem[]> {
-    const routes = await this.list();
+    if (!driverId) {
+      const routes = await this.list();
+      return sortByScheduledDateAsc(routes);
+    }
 
-    if (!driverId) return sortByScheduledDateAsc(routes);
+    try {
+      const routes = await this.list();
 
-    const filtered = routes.filter((route) => route.driverId === driverId);
+      const filtered = routes.filter((route) => route.driverId === driverId);
 
-    // fallback: quando o backend do motorista já retorna só as rotas dele
-    return sortByScheduledDateAsc(filtered.length > 0 ? filtered : routes);
+      return sortByScheduledDateAsc(filtered.length > 0 ? filtered : routes);
+    } catch (error) {
+      if (isApiNetworkError(error)) {
+        const rows = await getRoutesByDriverFromCache(driverId);
+
+        const routes = rows
+          .map((row) => row?.payload)
+          .filter((item): item is RouteItem => !!item);
+
+        return sortByScheduledDateAsc(routes);
+      }
+
+      throw error;
+    }
   },
 
   async listActiveByDriver(driverId?: string | null): Promise<RouteItem[]> {
@@ -477,13 +572,26 @@ export const routeService = {
   },
 
   async getById(id: string): Promise<RouteItem> {
-    const response = await api.get<GetRouteByIdResponse>(`/routes/${id}`, true);
+    try {
+      const response = await api.get<GetRouteByIdResponse>(`/routes/${id}`, true);
 
-    if (!response?.route) {
-      throw new Error("Rota não encontrada.");
+      if (!response?.route) {
+        throw new Error("Rota não encontrada.");
+      }
+
+      const normalized = normalizeRoute(response.route);
+      await saveRoutesToCache([normalized]);
+
+      return normalized;
+    } catch (error) {
+      if (isApiNetworkError(error)) {
+        const cached = await readRouteByIdFromCache(id);
+
+        if (cached) return cached;
+      }
+
+      throw error;
     }
-
-    return normalizeRoute(response.route);
   },
 
   async update(id: string, payload: UpdateRoutePayload): Promise<RouteItem> {
@@ -512,21 +620,35 @@ export const routeService = {
       throw new Error("Resposta inválida ao atualizar rota.");
     }
 
-    return normalizeRoute(response.route);
+    const normalized = normalizeRoute(response.route);
+    await saveRoutesToCache([normalized]);
+
+    return normalized;
   },
 
   async updateStatus(id: string, status: RouteStatus): Promise<RouteItem> {
-    const response = await api.patch<GetRouteByIdResponse>(
-      `/routes/${id}/status`,
-      { status },
-      true
-    );
+    try {
+      const response = await api.patch<GetRouteByIdResponse>(
+        `/routes/${id}/status`,
+        { status },
+        true
+      );
 
-    if (!response?.route) {
-      throw new Error("Resposta inválida ao atualizar rota.");
+      if (!response?.route) {
+        throw new Error("Resposta inválida ao atualizar rota.");
+      }
+
+      const normalized = normalizeRoute(response.route);
+      await saveRoutesToCache([normalized]);
+
+      return normalized;
+    } catch (error) {
+      if (isApiNetworkError(error)) {
+        return saveRouteStatusOffline(id, status);
+      }
+
+      throw error;
     }
-
-    return normalizeRoute(response.route);
   },
 
   async listAvailableCollections(): Promise<Collection[]> {
