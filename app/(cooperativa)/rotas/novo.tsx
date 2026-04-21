@@ -22,6 +22,20 @@ function isBrazilianDate(value: string) {
   return /^\d{2}\/\d{2}\/\d{4}$/.test(value.trim());
 }
 
+function formatDateInput(value: string) {
+  const numbers = value.replace(/\D/g, "").slice(0, 8);
+
+  if (numbers.length <= 2) {
+    return numbers;
+  }
+
+  if (numbers.length <= 4) {
+    return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
+  }
+
+  return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4)}`;
+}
+
 function normalizeStopsInput(value: string) {
   return value
     .split(",")
@@ -250,10 +264,11 @@ export default function NovaRotaScreen() {
           <FieldLabel label="Data programada *" />
           <TextInput
             value={scheduledDate}
-            onChangeText={setScheduledDate}
-            placeholder="Ex: 16/03/2026"
+            onChangeText={(text) => setScheduledDate(formatDateInput(text))}
+            placeholder="DD/MM/AAAA"
             placeholderTextColor="#9CA3AF"
-            keyboardType="numbers-and-punctuation"
+            keyboardType="numeric"
+            maxLength={10}
             style={inputStyle}
           />
 
