@@ -2,7 +2,6 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   Text,
@@ -22,6 +21,7 @@ import {
   collectionService,
   type Collection,
 } from "@/src/services/collectionService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type MapPoint = {
   id: string;
@@ -72,6 +72,7 @@ function getCollectionGenerator(collection?: Collection | null) {
 
 export default function CatadorMapScreen() {
   const { isOffline } = useConnectivity();
+  const { notifyError } = useNotification();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -111,7 +112,7 @@ export default function CatadorMapScreen() {
       setLastSyncAt(new Date().toISOString());
     } catch (error) {
       console.error("Erro ao carregar mapa do catador:", error);
-      Alert.alert("Erro", "Não foi possível carregar o mapa do catador.");
+      notifyError("Erro", "Não foi possível carregar o mapa do catador.");
       setCollections([]);
     } finally {
       if (showLoader) {
@@ -119,7 +120,7 @@ export default function CatadorMapScreen() {
       }
       setRefreshing(false);
     }
-  }, []);
+  }, [notifyError]);
 
   const refreshAll = useCallback(async () => {
     try {
@@ -196,16 +197,16 @@ export default function CatadorMapScreen() {
 
       const supported = await Linking.canOpenURL(urlToOpen);
       if (!supported) {
-        Alert.alert("Erro", "Não foi possível abrir o aplicativo de mapas.");
+        notifyError("Erro", "Não foi possível abrir o aplicativo de mapas.");
         return;
       }
 
       await Linking.openURL(urlToOpen);
     } catch (error) {
       console.error("Erro ao abrir rota externa:", error);
-      Alert.alert("Erro", "Não foi possível abrir a rota externa.");
+      notifyError("Erro", "Não foi possível abrir a rota externa.");
     }
-  }, [selected]);
+  }, [selected, notifyError]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>

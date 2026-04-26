@@ -5,12 +5,12 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   scheduleService,
@@ -127,24 +127,23 @@ export default function ScheduleScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const { notifyError, notifySuccess } = useNotification();
 
   const loadSchedules = useCallback(async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true);
+      
 
       const response = await scheduleService.list();
       setSchedules(response);
-    } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível carregar os agendamentos."
-      );
+    } catch {
+      notifyError("Não foi possível carregar os agendamentos.");
       setSchedules([]);
     } finally {
       if (showLoader) setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {
@@ -177,12 +176,9 @@ export default function ScheduleScreen() {
       await scheduleService.updateStatus(scheduleId, { status });
       await loadSchedules(false);
 
-      Alert.alert("Sucesso", "Status do agendamento atualizado.");
-    } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível atualizar o status."
-      );
+      notifySuccess("Sucesso", "Status do agendamento atualizado.");
+    } catch{
+      notifyError("Não foi possível atualizar o status.");
     } finally {
       setUpdatingId(null);
     }

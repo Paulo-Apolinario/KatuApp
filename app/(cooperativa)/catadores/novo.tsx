@@ -6,18 +6,19 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { collectorService } from "@/src/services/collectorService";
 
 export default function NovoCatadorScreen() {
   const [name, setName] = useState("");
+  const { notifyError, notifySuccess } = useNotification();
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [document, setDocument] = useState("");
@@ -35,7 +36,7 @@ export default function NovoCatadorScreen() {
 
   async function handleSalvar() {
     if (!name.trim() || !phone.trim() || !email.trim()) {
-      Alert.alert("Atenção", "Preencha nome, telefone e email.");
+      notifyError("Atenção", "Preencha nome, telefone e email.");
       return;
     }
 
@@ -50,18 +51,10 @@ export default function NovoCatadorScreen() {
         address,
       });
 
-      Alert.alert("Sucesso", "Catador cadastrado com sucesso!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/catadores"),
-        },
-      ]);
+      notifySuccess("Sucesso", "Catador cadastrado com sucesso!");
     } catch (error: any) {
       console.error("Erro ao cadastrar catador:", error);
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível cadastrar o catador."
-      );
+      notifyError("Erro", error?.message || "Não foi possível cadastrar o catador.");
     } finally {
       setLoading(false);
     }

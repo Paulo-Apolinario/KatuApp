@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   vehicleService,
@@ -20,6 +20,7 @@ import {
 export default function VeiculoDetalheScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const routeId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { notifyError, notifySuccess } = useNotification();
 
   const [veiculo, setVeiculo] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,16 +38,12 @@ export default function VeiculoDetalheScreen() {
       setVeiculo(data);
     } catch (error) {
       console.error("Erro ao carregar veículo:", error);
-      Alert.alert("Erro", "Não foi possível carregar o veículo.", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/veiculos"),
-        },
-      ]);
+      notifyError("Erro", "Não foi possível carregar o veículo.");
+      router.replace("/(cooperativa)/veiculos");
     } finally {
       setLoading(false);
     }
-  }, [routeId]);
+  }, [routeId, notifyError]);
 
   useEffect(() => {
     loadVeiculo();
@@ -59,10 +56,10 @@ export default function VeiculoDetalheScreen() {
       setSavingStatus(true);
       const updated = await vehicleService.updateStatus(routeId, status);
       setVeiculo(updated);
-      Alert.alert("Sucesso", "Status do veículo atualizado com sucesso.");
+      notifySuccess("Sucesso", "Status do veículo atualizado com sucesso.");
     } catch (error) {
       console.error("Erro ao atualizar status do veículo:", error);
-      Alert.alert("Erro", "Não foi possível atualizar o status do veículo.");
+      notifyError("Erro", "Não foi possível atualizar o status do veículo.");
     } finally {
       setSavingStatus(false);
     }

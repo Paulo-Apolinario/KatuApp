@@ -8,11 +8,11 @@ import {
   ScrollView,
   TextInput,
   Platform,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   collectorService,
@@ -23,6 +23,8 @@ export default function CatadoresScreen() {
   const [searchText, setSearchText] = useState("");
   const [catadores, setCatadores] = useState<Collector[]>([]);
   const [loading, setLoading] = useState(true);
+  const { notifyError } = useNotification();
+
 
   const carregarCatadores = useCallback(async () => {
     try {
@@ -31,11 +33,11 @@ export default function CatadoresScreen() {
       setCatadores(data);
     } catch (error) {
       console.error("Erro ao carregar catadores:", error);
-      Alert.alert("Erro", "Não foi possível carregar os catadores.");
+      notifyError("Erro", "Não foi possível carregar os catadores.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

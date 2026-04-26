@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   collectionService,
@@ -43,6 +43,7 @@ function formatMaterials(materials?: CollectionMaterial[]) {
 export default function HomeCatScreen() {
   const [loading, setLoading] = useState(true);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const { notifyError } = useNotification();
 
   const loadCollections = useCallback(async () => {
     try {
@@ -51,12 +52,12 @@ export default function HomeCatScreen() {
       setCollections(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao carregar painel do catador:", error);
-      Alert.alert("Erro", "Não foi possível carregar o painel do catador.");
+      notifyError("Erro", "Não foi possível carregar o painel do catador.");
       setCollections([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

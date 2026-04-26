@@ -1,6 +1,6 @@
-import * as FileSystem from "expo-file-system/legacy";
+import { Alert, Platform } from "react-native";
+import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { Alert } from "react-native";
 import type { CollectionMaterial } from "@/src/types/collection";
 
 type TopMaterial = {
@@ -33,6 +33,7 @@ interface ReceiptData {
 interface GenerateReceiptResult {
   success: boolean;
   filePath?: string;
+  mode?: "share" | "print";
 }
 
 const escapeHtml = (value: string | number | null | undefined): string => {
@@ -46,41 +47,598 @@ const escapeHtml = (value: string | number | null | undefined): string => {
 
 const formatKg = (value?: number) => Number(value ?? 0).toFixed(1);
 
-const renderMaterials = (materials?: CollectionMaterial[]) => {
+const sanitizeFileNamePart = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const renderMaterialsTable = (materials?: CollectionMaterial[]) => {
   if (!materials || materials.length === 0) {
-    return `<div class="empty-text">Nenhum material informado</div>`;
+    return `
+      <tr>
+        <td colspan="2" class="empty-cell">Nenhum material informado</td>
+      </tr>
+    `;
   }
 
   return materials
     .map(
       (item) => `
-        <div class="material-line">
-          <div class="material-name">${escapeHtml(item.type)}</div>
-          <div class="material-kg">${escapeHtml(formatKg(item.quantityKg))} kg</div>
-        </div>
+        <tr>
+          <td>${escapeHtml(item.type)}</td>
+          <td class="text-right">${escapeHtml(formatKg(item.quantityKg))} kg</td>
+        </tr>
       `
     )
     .join("");
 };
 
-const renderTopMaterials = (materials?: TopMaterial[]) => {
+const renderTopMaterialsTable = (materials?: TopMaterial[]) => {
   if (!materials || materials.length === 0) {
-    return `<div class="empty-text">Nenhum material consolidado até o momento</div>`;
+    return `
+      <tr>
+        <td colspan="3" class="empty-cell">Nenhum material consolidado até o momento</td>
+      </tr>
+    `;
   }
 
   return materials
     .map(
       (item, index) => `
-        <div class="ranking-item">
-          <div class="ranking-left">
-            <div class="ranking-badge">${index + 1}</div>
-            <div class="ranking-name">${escapeHtml(item.type)}</div>
-          </div>
-          <div class="ranking-value">${escapeHtml(formatKg(item.quantityKg))} kg</div>
-        </div>
+        <tr>
+          <td class="text-center">${index + 1}</td>
+          <td>${escapeHtml(item.type)}</td>
+          <td class="text-right">${escapeHtml(formatKg(item.quantityKg))} kg</td>
+        </tr>
       `
     )
     .join("");
+};
+
+const buildReceiptHtml = (
+  userData: UserData,
+  receipt?: ReceiptData
+): { html: string; fileName: string } => {
+  const now = new Date();
+  const currentDate = now.toLocaleDateString("pt-BR");
+  const currentTime = now.toLocaleTimeString("pt-BR");
+
+  const safeName = userData.name ?? "Catador";
+  const safeLocation = userData.location ?? "-";
+  const safeCpf = userData.cpf ?? "-";
+  const safePhone = userData.phone ?? "-";
+  const safeEmail = userData.email ?? "-";
+  const safeCode = userData.code ?? "-";
+  const safeSince = userData.since ?? "-";
+  const safeTotalKg = Number(userData.totalKg ?? 0);
+  const safeTopMaterials = userData.topMaterials ?? [];
+
+  const documentTitle = receipt
+    ? "Comprovante Operacional de Coleta"
+    : "Comprovante Consolidado de Serviço";
+
+  const documentNumber = receipt
+    ? `COL-${receipt.id.slice(0, 8).toUpperCase()}`
+    : `CON-${String(safeCode || "GERAL").slice(0, 8).toUpperCase()}`;
+
+  const fileName = receipt
+    ? `Comprovante_KATUA_Coleta_${sanitizeFileNamePart(
+        receipt.id.slice(0, 8)
+      )}_${currentDate.replace(/\//g, "-")}.pdf`
+    : `Comprovante_KATUA_Consolidado_${sanitizeFileNamePart(
+        String(safeCode || "geral")
+      )}_${currentDate.replace(/\//g, "-")}.pdf`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+        />
+        <title>${escapeHtml(documentTitle)}</title>
+        <style>
+          @page {
+            size: A4;
+            margin: 20mm 14mm 18mm 14mm;
+          }
+
+          * {
+            box-sizing: border-box;
+          }
+
+          body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #111827;
+            background: #ffffff;
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          .document {
+            width: 100%;
+          }
+
+          .header {
+            background: linear-gradient(135deg, #10f35d 0%, #028c56 100%);
+            color: #ffffff;
+            border-radius: 18px;
+            padding: 22px 24px;
+            margin-bottom: 18px;
+          }
+
+          .header-top {
+            display: table;
+            width: 100%;
+          }
+
+          .header-left,
+          .header-right {
+            display: table-cell;
+            vertical-align: top;
+          }
+
+          .header-right {
+            text-align: right;
+          }
+
+          .brand {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            margin: 0 0 6px 0;
+          }
+
+          .brand-subtitle {
+            font-size: 12px;
+            line-height: 1.5;
+            opacity: 0.95;
+            margin: 0;
+          }
+
+          .doc-badge {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            border: 1px solid rgba(255,255,255,0.28);
+            background: rgba(255,255,255,0.14);
+          }
+
+          .doc-meta {
+            font-size: 11px;
+            line-height: 1.7;
+            margin-top: 6px;
+          }
+
+          .summary-hero {
+            border: 1px solid #bbf7d0;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border-radius: 16px;
+            padding: 18px;
+            text-align: center;
+            margin-bottom: 18px;
+          }
+
+          .summary-label {
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #166534;
+            font-weight: 700;
+          }
+
+          .summary-value {
+            margin-top: 8px;
+            font-size: 34px;
+            font-weight: 900;
+            color: #047857;
+            line-height: 1.1;
+          }
+
+          .summary-unit {
+            font-size: 16px;
+            font-weight: 700;
+            margin-left: 4px;
+          }
+
+          .section-grid {
+            display: table;
+            width: 100%;
+            border-spacing: 0 14px;
+          }
+
+          .row {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+          }
+
+          .col {
+            display: table-cell;
+            width: 50%;
+            vertical-align: top;
+          }
+
+          .col.left {
+            padding-right: 7px;
+          }
+
+          .col.right {
+            padding-left: 7px;
+          }
+
+          .card {
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 16px;
+            background: #ffffff;
+            height: 100%;
+          }
+
+          .card-title {
+            margin: 0 0 12px 0;
+            font-size: 12px;
+            font-weight: 800;
+            color: #028c56;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+          }
+
+          .info-table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+
+          .info-table tr:not(:last-child) td {
+            border-bottom: 1px solid #eef2f7;
+          }
+
+          .info-label,
+          .info-value {
+            padding: 9px 0;
+            font-size: 12px;
+            vertical-align: top;
+          }
+
+          .info-label {
+            width: 42%;
+            color: #6b7280;
+          }
+
+          .info-value {
+            color: #111827;
+            font-weight: 700;
+            text-align: right;
+            word-break: break-word;
+          }
+
+          .full-card {
+            margin-top: 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 16px;
+            background: #ffffff;
+          }
+
+          .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+          }
+
+          .data-table thead th {
+            background: #f8fafc;
+            color: #374151;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+          }
+
+          .data-table tbody td {
+            padding: 11px 12px;
+            border-bottom: 1px solid #eef2f7;
+            font-size: 12px;
+            color: #111827;
+          }
+
+          .data-table tbody tr:last-child td {
+            border-bottom: none;
+          }
+
+          .text-right {
+            text-align: right;
+          }
+
+          .text-center {
+            text-align: center;
+          }
+
+          .empty-cell {
+            text-align: center;
+            color: #6b7280 !important;
+            font-style: italic;
+            padding: 16px !important;
+          }
+
+          .legal-box {
+            margin-top: 16px;
+            border: 1px solid #fde68a;
+            background: #fffbeb;
+            border-radius: 16px;
+            padding: 16px;
+          }
+
+          .legal-title {
+            margin: 0 0 8px 0;
+            font-size: 12px;
+            font-weight: 800;
+            color: #92400e;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+          }
+
+          .legal-text {
+            margin: 0;
+            color: #78350f;
+            font-size: 12px;
+            line-height: 1.7;
+            text-align: justify;
+          }
+
+          .signature-area {
+            margin-top: 30px;
+            text-align: center;
+          }
+
+          .signature-line {
+            width: 260px;
+            max-width: 100%;
+            margin: 0 auto 8px auto;
+            border-top: 1px solid #9ca3af;
+            height: 1px;
+          }
+
+          .signature-label {
+            font-size: 12px;
+            color: #6b7280;
+          }
+
+          .footer {
+            margin-top: 22px;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 12px;
+            color: #6b7280;
+            font-size: 10px;
+            line-height: 1.7;
+          }
+
+          .footer-strong {
+            color: #374151;
+            font-weight: 700;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="document">
+          <div class="header">
+            <div class="header-top">
+              <div class="header-left">
+                <div class="brand">KATUÁ</div>
+                <p class="brand-subtitle">
+                  Plataforma inteligente para gestão de resíduos recicláveis
+                </p>
+                <div class="doc-badge">${escapeHtml(documentTitle)}</div>
+              </div>
+
+              <div class="header-right">
+                <div class="doc-meta">
+                  <div><strong>Nº do documento:</strong> ${escapeHtml(documentNumber)}</div>
+                  <div><strong>Emissão:</strong> ${escapeHtml(currentDate)} às ${escapeHtml(currentTime)}</div>
+                  <div><strong>Canal:</strong> Sistema KATUÁ</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="summary-hero">
+            <div class="summary-label">Peso total comprovado</div>
+            <div class="summary-value">
+              ${escapeHtml(formatKg(receipt ? receipt.kg : safeTotalKg))}
+              <span class="summary-unit">kg</span>
+            </div>
+          </div>
+
+          <div class="section-grid">
+            <div class="row">
+              <div class="col left">
+                <div class="card">
+                  <h2 class="card-title">Identificação do catador</h2>
+                  <table class="info-table">
+                    <tr>
+                      <td class="info-label">Nome</td>
+                      <td class="info-value">${escapeHtml(safeName)}</td>
+                    </tr>
+                    <tr>
+                      <td class="info-label">Código</td>
+                      <td class="info-value">${escapeHtml(safeCode)}</td>
+                    </tr>
+                    <tr>
+                      <td class="info-label">CPF</td>
+                      <td class="info-value">${escapeHtml(safeCpf)}</td>
+                    </tr>
+                    <tr>
+                      <td class="info-label">Telefone</td>
+                      <td class="info-value">${escapeHtml(safePhone)}</td>
+                    </tr>
+                    <tr>
+                      <td class="info-label">E-mail</td>
+                      <td class="info-value">${escapeHtml(safeEmail)}</td>
+                    </tr>
+                    <tr>
+                      <td class="info-label">Localidade</td>
+                      <td class="info-value">${escapeHtml(safeLocation)}</td>
+                    </tr>
+                    <tr>
+                      <td class="info-label">Atuação desde</td>
+                      <td class="info-value">${escapeHtml(safeSince)}</td>
+                    </tr>
+                  </table>
+                </div>
+              </div>
+
+              <div class="col right">
+                <div class="card">
+                  <h2 class="card-title">
+                    ${receipt ? "Dados da coleta" : "Resumo consolidado"}
+                  </h2>
+                  <table class="info-table">
+                    ${
+                      receipt
+                        ? `
+                          <tr>
+                            <td class="info-label">Data da coleta</td>
+                            <td class="info-value">${escapeHtml(receipt.date)}</td>
+                          </tr>
+                          <tr>
+                            <td class="info-label">Código da coleta</td>
+                            <td class="info-value">${escapeHtml(receipt.id)}</td>
+                          </tr>
+                          <tr>
+                            <td class="info-label">Peso total</td>
+                            <td class="info-value">${escapeHtml(formatKg(receipt.kg))} kg</td>
+                          </tr>
+                          <tr>
+                            <td class="info-label">Observações</td>
+                            <td class="info-value">${escapeHtml(receipt.local || "-")}</td>
+                          </tr>
+                          <tr>
+                            <td class="info-label">Tipo</td>
+                            <td class="info-value">Comprovante individual</td>
+                          </tr>
+                        `
+                        : `
+                          <tr>
+                            <td class="info-label">Data de emissão</td>
+                            <td class="info-value">${escapeHtml(currentDate)}</td>
+                          </tr>
+                          <tr>
+                            <td class="info-label">Hora da emissão</td>
+                            <td class="info-value">${escapeHtml(currentTime)}</td>
+                          </tr>
+                          <tr>
+                            <td class="info-label">Peso consolidado</td>
+                            <td class="info-value">${escapeHtml(formatKg(safeTotalKg))} kg</td>
+                          </tr>
+                          <tr>
+                            <td class="info-label">Materiais em destaque</td>
+                            <td class="info-value">${escapeHtml(String(safeTopMaterials.length))}</td>
+                          </tr>
+                          <tr>
+                            <td class="info-label">Tipo</td>
+                            <td class="info-value">Comprovante consolidado</td>
+                          </tr>
+                        `
+                    }
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="full-card">
+            <h2 class="card-title">
+              ${receipt ? "Materiais da coleta" : "Materiais com maior volume"}
+            </h2>
+
+            <table class="data-table">
+              <thead>
+                ${
+                  receipt
+                    ? `
+                      <tr>
+                        <th>Material</th>
+                        <th class="text-right">Quantidade</th>
+                      </tr>
+                    `
+                    : `
+                      <tr>
+                        <th class="text-center" style="width: 72px;">Posição</th>
+                        <th>Material</th>
+                        <th class="text-right">Quantidade</th>
+                      </tr>
+                    `
+                }
+              </thead>
+              <tbody>
+                ${
+                  receipt
+                    ? renderMaterialsTable(receipt.materials)
+                    : renderTopMaterialsTable(safeTopMaterials)
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="legal-box">
+            <h3 class="legal-title">Declaração operacional</h3>
+            <p class="legal-text">
+              Declaramos, para os devidos fins, que
+              <strong> ${escapeHtml(safeName)}</strong>
+              está vinculado às operações registradas no sistema KATUÁ para coleta
+              e destinação adequada de resíduos recicláveis.
+              ${
+                receipt
+                  ? ` Este documento comprova a execução da coleta identificada por
+                  <strong>${escapeHtml(receipt.id)}</strong>, realizada em
+                  <strong>${escapeHtml(receipt.date)}</strong>, com volume total de
+                  <strong>${escapeHtml(formatKg(receipt.kg))} kg</strong>.`
+                  : ` Este documento consolida o histórico operacional do usuário
+                  até a data de emissão, totalizando
+                  <strong>${escapeHtml(formatKg(safeTotalKg))} kg</strong>
+                  registrados no sistema.`
+              }
+            </p>
+          </div>
+
+          <div class="signature-area">
+            <div class="signature-line"></div>
+            <div class="signature-label">
+              Assinatura do responsável / representante operacional
+            </div>
+          </div>
+
+          <div class="footer">
+            <div>
+              <span class="footer-strong">Documento gerado automaticamente</span>
+              pelo sistema KATUÁ em ${escapeHtml(currentDate)} às
+              ${escapeHtml(currentTime)}.
+            </div>
+            <div>
+              Este comprovante é destinado à comprovação operacional, registro
+              digital e apresentação institucional da atividade executada.
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return { html, fileName };
 };
 
 export const generateReceiptPDF = async (
@@ -93,460 +651,56 @@ export const generateReceiptPDF = async (
       return { success: false };
     }
 
-    if (!FileSystem.documentDirectory) {
-      Alert.alert("Erro", "Não foi possível acessar o armazenamento do dispositivo.");
-      return { success: false };
+    const { html } = buildReceiptHtml(userData, receipt);
+
+    if (Platform.OS === "web") {
+      await Print.printAsync({
+        html,
+      });
+
+      Alert.alert(
+        "PDF pronto para salvar",
+        "Na web, o comprovante foi aberto no fluxo de impressão do navegador. Selecione 'Salvar como PDF' para concluir."
+      );
+
+      return {
+        success: true,
+        mode: "print",
+      };
     }
 
-    const now = new Date();
-    const currentDate = now.toLocaleDateString("pt-BR");
-    const currentTime = now.toLocaleTimeString("pt-BR");
-
-    const safeName = userData.name ?? "Catador";
-    const safeLocation = userData.location ?? "-";
-    const safeCpf = userData.cpf ?? "-";
-    const safePhone = userData.phone ?? "-";
-    const safeEmail = userData.email ?? "-";
-    const safeCode = userData.code ?? "-";
-    const safeSince = userData.since ?? "-";
-    const safeTotalKg = Number(userData.totalKg ?? 0);
-    const safeTopMaterials = userData.topMaterials ?? [];
-
-    const documentTitle = receipt
-      ? "Comprovante Individual de Coleta"
-      : "Comprovante Consolidado de Serviço";
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>${escapeHtml(documentTitle)}</title>
-        <style>
-          * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-          }
-
-          body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #eef2f7;
-            color: #111827;
-            padding: 24px;
-          }
-
-          .page {
-            max-width: 900px;
-            margin: 0 auto;
-            background: #ffffff;
-            border-radius: 24px;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
-          }
-
-          .header {
-            background: linear-gradient(135deg, #10f35d 0%, #028c56 100%);
-            padding: 32px;
-            color: #ffffff;
-          }
-
-          .brand {
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: 1px;
-          }
-
-          .subtitle {
-            margin-top: 8px;
-            font-size: 15px;
-            opacity: 0.95;
-          }
-
-          .document-tag {
-            display: inline-block;
-            margin-top: 18px;
-            background: rgba(255, 255, 255, 0.18);
-            border: 1px solid rgba(255, 255, 255, 0.28);
-            padding: 10px 16px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-          }
-
-          .content {
-            padding: 28px;
-          }
-
-          .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 18px;
-            margin-bottom: 18px;
-          }
-
-          .card {
-            background: #f8fafc;
-            border: 1px solid #e5e7eb;
-            border-radius: 18px;
-            padding: 20px;
-          }
-
-          .card.full {
-            grid-column: 1 / -1;
-          }
-
-          .card-title {
-            font-size: 14px;
-            font-weight: 800;
-            color: #028c56;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin-bottom: 16px;
-          }
-
-          .info-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 10px 0;
-            border-bottom: 1px solid #e5e7eb;
-          }
-
-          .info-row:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-          }
-
-          .info-label {
-            color: #6b7280;
-            font-size: 13px;
-          }
-
-          .info-value {
-            color: #111827;
-            font-size: 13px;
-            font-weight: 700;
-            text-align: right;
-          }
-
-          .hero {
-            background: linear-gradient(135deg, #ecfdf5 0%, #dcfce7 100%);
-            border: 1px solid #bbf7d0;
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 18px;
-            text-align: center;
-          }
-
-          .hero-label {
-            font-size: 13px;
-            font-weight: 700;
-            color: #166534;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-          }
-
-          .hero-value {
-            font-size: 42px;
-            line-height: 1.1;
-            font-weight: 900;
-            color: #047857;
-            margin-top: 10px;
-          }
-
-          .hero-unit {
-            font-size: 22px;
-            margin-left: 4px;
-          }
-
-          .material-line,
-          .ranking-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 0;
-            border-bottom: 1px solid #e5e7eb;
-          }
-
-          .material-line:last-child,
-          .ranking-item:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-          }
-
-          .material-name,
-          .ranking-name {
-            font-size: 14px;
-            color: #111827;
-            font-weight: 700;
-          }
-
-          .material-kg,
-          .ranking-value {
-            font-size: 14px;
-            color: #028c56;
-            font-weight: 800;
-            white-space: nowrap;
-          }
-
-          .ranking-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-          }
-
-          .ranking-badge {
-            width: 28px;
-            height: 28px;
-            border-radius: 14px;
-            background: #dcfce7;
-            color: #166534;
-            font-size: 13px;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-
-          .declaration {
-            margin-top: 18px;
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            border-radius: 18px;
-            padding: 20px;
-            color: #7c2d12;
-            line-height: 1.7;
-            font-size: 14px;
-          }
-
-          .signature {
-            margin-top: 28px;
-            text-align: center;
-            padding-top: 18px;
-          }
-
-          .signature-line {
-            width: 280px;
-            max-width: 100%;
-            height: 1px;
-            background: #9ca3af;
-            margin: 0 auto 8px auto;
-          }
-
-          .signature-text {
-            font-size: 13px;
-            color: #6b7280;
-          }
-
-          .footer {
-            margin-top: 28px;
-            padding: 20px 28px 28px 28px;
-            background: #f8fafc;
-            color: #6b7280;
-            font-size: 12px;
-            line-height: 1.7;
-            border-top: 1px solid #e5e7eb;
-          }
-
-          .empty-text {
-            font-size: 14px;
-            color: #6b7280;
-          }
-
-          @media print {
-            body {
-              background: #ffffff;
-              padding: 0;
-            }
-
-            .page {
-              box-shadow: none;
-              border-radius: 0;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="page">
-          <div class="header">
-            <div class="brand">KATUÁ</div>
-            <div class="subtitle">Sistema inteligente de gestão de resíduos recicláveis</div>
-            <div class="document-tag">${escapeHtml(documentTitle)}</div>
-          </div>
-
-          <div class="content">
-            <div class="hero">
-              <div class="hero-label">Total registrado</div>
-              <div class="hero-value">${escapeHtml(formatKg(receipt ? receipt.kg : safeTotalKg))}<span class="hero-unit">kg</span></div>
-            </div>
-
-            <div class="grid">
-              <div class="card">
-                <div class="card-title">Dados do catador</div>
-                <div class="info-row">
-                  <span class="info-label">Nome</span>
-                  <span class="info-value">${escapeHtml(safeName)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Código</span>
-                  <span class="info-value">${escapeHtml(safeCode)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Localidade</span>
-                  <span class="info-value">${escapeHtml(safeLocation)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">CPF</span>
-                  <span class="info-value">${escapeHtml(safeCpf)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Contato</span>
-                  <span class="info-value">${escapeHtml(safePhone)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">E-mail</span>
-                  <span class="info-value">${escapeHtml(safeEmail)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Atuação desde</span>
-                  <span class="info-value">${escapeHtml(safeSince)}</span>
-                </div>
-              </div>
-
-              ${
-                receipt
-                  ? `
-                    <div class="card">
-                      <div class="card-title">Detalhes da coleta</div>
-                      <div class="info-row">
-                        <span class="info-label">Data</span>
-                        <span class="info-value">${escapeHtml(receipt.date)}</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Código da coleta</span>
-                        <span class="info-value">${escapeHtml(receipt.id)}</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Peso total</span>
-                        <span class="info-value">${escapeHtml(formatKg(receipt.kg))} kg</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Observações</span>
-                        <span class="info-value">${escapeHtml(receipt.local || "-")}</span>
-                      </div>
-                    </div>
-                  `
-                  : `
-                    <div class="card">
-                      <div class="card-title">Resumo consolidado</div>
-                      <div class="info-row">
-                        <span class="info-label">Data de emissão</span>
-                        <span class="info-value">${escapeHtml(currentDate)}</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Hora</span>
-                        <span class="info-value">${escapeHtml(currentTime)}</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Total geral</span>
-                        <span class="info-value">${escapeHtml(formatKg(safeTotalKg))} kg</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Materiais em destaque</span>
-                        <span class="info-value">${escapeHtml(String(safeTopMaterials.length))}</span>
-                      </div>
-                    </div>
-                  `
-              }
-
-              ${
-                receipt
-                  ? `
-                    <div class="card full">
-                      <div class="card-title">Materiais da coleta</div>
-                      ${renderMaterials(receipt.materials)}
-                    </div>
-                  `
-                  : `
-                    <div class="card full">
-                      <div class="card-title">Materiais com maior volume</div>
-                      ${renderTopMaterials(safeTopMaterials)}
-                    </div>
-                  `
-              }
-            </div>
-
-            <div class="declaration">
-              Declaramos, para os devidos fins, que <strong>${escapeHtml(
-                safeName
-              )}</strong> atua na coleta e destinação adequada de resíduos recicláveis por meio do sistema KATUÁ. ${
-                receipt
-                  ? `Este documento comprova a execução da coleta registrada em <strong>${escapeHtml(
-                      receipt.date
-                    )}</strong>, com volume total de <strong>${escapeHtml(
-                      formatKg(receipt.kg)
-                    )} kg</strong>.`
-                  : `Este documento resume o histórico consolidado de atuação até a data de emissão, totalizando <strong>${escapeHtml(
-                      formatKg(safeTotalKg)
-                    )} kg</strong> coletados.`
-              }
-            </div>
-
-            <div class="signature">
-              <div class="signature-line"></div>
-              <div class="signature-text">Assinatura do responsável / representante</div>
-            </div>
-          </div>
-
-          <div class="footer">
-            <div>Documento gerado pelo sistema KATUÁ em ${escapeHtml(currentDate)} às ${escapeHtml(currentTime)}.</div>
-            <div>Arquivo preparado para compartilhamento digital e comprovação operacional.</div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const fileName = receipt
-      ? `Comprovante_KATUA_Coleta_${receipt.id.slice(0, 8)}_${currentDate.replace(
-          /\//g,
-          "-"
-        )}.html`
-      : `Comprovante_KATUA_Consolidado_${(safeCode || "geral").replace(
-          /\s+/g,
-          "_"
-        )}_${currentDate.replace(/\//g, "-")}.html`;
-
-    const filePath = `${FileSystem.documentDirectory}${fileName}`;
-
-    await FileSystem.writeAsStringAsync(filePath, htmlContent, {
-      encoding: FileSystem.EncodingType.UTF8,
+    const { uri } = await Print.printToFileAsync({
+      html,
+      base64: false,
     });
 
-    const isAvailable = await Sharing.isAvailableAsync();
+    const canShare = await Sharing.isAvailableAsync();
 
-    if (isAvailable) {
-      await Sharing.shareAsync(filePath, {
-        mimeType: "text/html",
-        dialogTitle: "Comprovante KATUÁ",
-        UTI: "public.html",
+    if (canShare) {
+      await Sharing.shareAsync(uri, {
+        mimeType: "application/pdf",
+        dialogTitle: "Compartilhar comprovante KATUÁ",
+        UTI: ".pdf",
       });
     } else {
       Alert.alert(
-        "Comprovante gerado",
-        "O comprovante foi salvo, mas o compartilhamento não está disponível neste dispositivo."
+        "PDF gerado",
+        "O comprovante em PDF foi gerado, mas o compartilhamento não está disponível neste dispositivo."
       );
     }
 
-    return { success: true, filePath };
+    return {
+      success: true,
+      filePath: uri,
+      mode: "share",
+    };
   } catch (error) {
-    console.error("Erro ao gerar comprovante:", error);
-    Alert.alert("Erro", "Não foi possível gerar o comprovante. Tente novamente.");
+    console.error("Erro ao gerar comprovante PDF:", error);
+    Alert.alert(
+      "Erro",
+      "Não foi possível gerar o comprovante em PDF. Tente novamente."
+    );
+
     return { success: false };
   }
 };

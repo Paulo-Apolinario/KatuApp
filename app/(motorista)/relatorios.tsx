@@ -2,7 +2,6 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -17,6 +16,7 @@ import {
   type DriverReport,
   type DriverReportType,
 } from "@/src/services/driverService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 const occurrenceOptions: {
   label: string;
@@ -46,6 +46,7 @@ function formatReportType(type: DriverReportType) {
 export default function MotoristaRelatoriosScreen() {
   const [selectedType, setSelectedType] = useState<DriverReportType>("DELAY");
   const [description, setDescription] = useState("");
+  const { notifyError, notifySuccess, notifyWarning } = useNotification();
 
   const [loading, setLoading] = useState(false);
   const [listLoading, setListLoading] = useState(true);
@@ -81,7 +82,7 @@ export default function MotoristaRelatoriosScreen() {
 
   async function handleSubmit() {
     if (!description.trim()) {
-      Alert.alert("Atenção", "Descreva a ocorrência.");
+      notifyWarning("Descreva a ocorrência.");
       return;
     }
 
@@ -98,12 +99,9 @@ export default function MotoristaRelatoriosScreen() {
 
       await loadReports();
 
-      Alert.alert("Sucesso", "Ocorrência registrada com sucesso.");
+      notifySuccess("Ocorrência registrada com sucesso.");
     } catch (err: any) {
-      Alert.alert(
-        "Erro",
-        err?.message || "Não foi possível registrar a ocorrência."
-      );
+      notifyError(err?.message || "Não foi possível registrar a ocorrência.");
     } finally {
       setLoading(false);
     }

@@ -2,7 +2,6 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -11,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { api } from "@/src/services/api";
 import {
@@ -132,6 +132,7 @@ async function fetchCollectors(): Promise<CollectorOption[]> {
 export default function CooperativeScheduleDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const scheduleId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { notifyError, notifySuccess } = useNotification();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -194,7 +195,7 @@ export default function CooperativeScheduleDetailScreen() {
           setSelectedRouteId((current) => current || routeList[0].id);
         }
       } catch (error: any) {
-        Alert.alert(
+        notifyError(
           "Erro",
           error?.message || "Não foi possível carregar os detalhes do agendamento."
         );
@@ -208,7 +209,7 @@ export default function CooperativeScheduleDetailScreen() {
         setRefreshing(false);
       }
     },
-    [scheduleId]
+    [scheduleId, notifyError]
   );
 
   useFocusEffect(
@@ -248,9 +249,9 @@ export default function CooperativeScheduleDetailScreen() {
       const updated = await scheduleService.updateStatus(schedule.id, { status });
       setSchedule(updated);
 
-      Alert.alert("Sucesso", "Status do agendamento atualizado.");
+      notifySuccess("Sucesso", "Status do agendamento atualizado.");
     } catch (error: any) {
-      Alert.alert(
+      notifyError(
         "Erro",
         error?.message || "Não foi possível atualizar o status."
       );
@@ -263,22 +264,22 @@ export default function CooperativeScheduleDetailScreen() {
     if (!schedule?.id) return;
 
     if (!selectedCollectorId) {
-      Alert.alert("Atenção", "Selecione um catador para delegar a coleta.");
+      notifyError("Atenção", "Selecione um catador para delegar a coleta.");
       return;
     }
 
     if (!selectedDriverId) {
-      Alert.alert("Atenção", "Selecione um motorista.");
+      notifyError("Atenção", "Selecione um motorista.");
       return;
     }
 
     if (!selectedVehicleId) {
-      Alert.alert("Atenção", "Selecione um veículo.");
+      notifyError("Atenção", "Selecione um veículo.");
       return;
     }
 
     if (!selectedRouteId) {
-      Alert.alert("Atenção", "Selecione uma rota.");
+      notifyError("Atenção", "Selecione uma rota.");
       return;
     }
 
@@ -297,9 +298,9 @@ export default function CooperativeScheduleDetailScreen() {
       const found = refreshed.find((item) => item.id === schedule.id) || null;
       setSchedule(found);
 
-      Alert.alert("Sucesso", "Coleta delegada com logística completa.");
+      notifySuccess("Sucesso", "Coleta delegada com logística completa.");
     } catch (error: any) {
-      Alert.alert(
+      notifyError(
         "Erro",
         error?.message || "Não foi possível delegar a coleta."
       );

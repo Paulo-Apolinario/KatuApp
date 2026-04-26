@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  Alert,
   ActivityIndicator,
   ScrollView,
   Text,
@@ -11,6 +10,7 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 
@@ -27,6 +27,7 @@ type AuthUserLike = {
 export default function EditProfileScreen() {
   const { user } = useAuth();
   const currentUser = user as AuthUserLike | null;
+  const { notifyError, notifySuccess, notifyWarning } = useNotification();
 
   const [saving, setSaving] = useState(false);
 
@@ -58,14 +59,14 @@ export default function EditProfileScreen() {
 
   async function handleSave() {
     if (!displayName.trim()) {
-      Alert.alert("Campo obrigatório", "Informe seu nome.");
+      notifyWarning("Informe seu nome.");
       return;
     }
 
     try {
       setSaving(true);
 
-      Alert.alert(
+      notifySuccess(
         "Próxima etapa",
         "A tela já está pronta no frontend. A atualização real do perfil será conectada ao endpoint definitivo na próxima etapa."
       );
@@ -73,7 +74,7 @@ export default function EditProfileScreen() {
       router.back();
     } catch (error) {
       console.error("Erro ao salvar dados:", error);
-      Alert.alert("Erro", "Não foi possível salvar suas informações.");
+      notifyError("Não foi possível salvar suas informações.");
     } finally {
       setSaving(false);
     }

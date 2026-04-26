@@ -6,8 +6,8 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,6 +16,7 @@ import { generateReceiptPDF } from "@/src/services/pdfGenerator";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { collectionService } from "@/src/services/collectionService";
 import type { Collection, CollectionMaterial } from "@/src/types/collection";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type AuthUser = {
   id?: string;
@@ -47,16 +48,10 @@ function normalizeMaterials(materials: unknown): CollectionMaterial[] {
         return { type: item, quantityKg: 0 };
       }
 
-      if (
-        item &&
-        typeof item === "object" &&
-        "type" in item
-      ) {
+      if (item && typeof item === "object" && "type" in item) {
         return {
           type: String((item as { type?: unknown }).type ?? "Não informado"),
-          quantityKg: Number(
-            (item as { quantityKg?: unknown }).quantityKg ?? 0
-          ),
+          quantityKg: Number((item as { quantityKg?: unknown }).quantityKg ?? 0),
         };
       }
 
@@ -86,11 +81,14 @@ function getMaterialsSummary(materials?: CollectionMaterial[]) {
 export default function ReceiptsScreen() {
   const { user } = useAuth();
   const currentUser = user as AuthUser | null;
+  const { notifyError, notifySuccess } = useNotification();
 
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingReceipt, setLoadingReceipt] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<Collection[]>([]);
+
+  const isWeb = Platform.OS === "web";
 
   const loadData = async () => {
     try {
@@ -110,7 +108,7 @@ export default function ReceiptsScreen() {
       setReceipts(completed);
     } catch (error) {
       console.error("Erro ao carregar comprovantes:", error);
-      Alert.alert("Erro", "Não foi possível carregar os comprovantes.");
+      notifyError("Erro", "Não foi possível carregar os comprovantes.");
     } finally {
       setLoading(false);
     }
@@ -118,7 +116,7 @@ export default function ReceiptsScreen() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, );
 
   const receiptsOrdenados = useMemo(() => {
     return [...receipts].sort((a, b) => {
@@ -180,6 +178,14 @@ export default function ReceiptsScreen() {
     };
   }, [currentUser, receiptsOrdenados]);
 
+  const getSuccessMessage = (mode?: "share" | "print", label?: string) => {
+    if (mode === "print" && isWeb) {
+      return `${label} preparado com sucesso. Use o diálogo do navegador para salvar em PDF.`;
+    }
+
+    return `${label} gerado com sucesso!`;
+  };
+
   const handleGenerateFullReceipt = async () => {
     setLoadingReceipt("full");
 
@@ -187,13 +193,13 @@ export default function ReceiptsScreen() {
       const result = await generateReceiptPDF(userData);
 
       if (result.success) {
-        Alert.alert("Sucesso", "Comprovante consolidado gerado com sucesso!");
+        notifySuccess("Sucesso", getSuccessMessage(result.mode, "Comprovante consolidado"));
       } else {
-        Alert.alert("Erro", "Não foi possível gerar o comprovante.");
+        notifyError("Erro", "Não foi possível gerar o comprovante.");
       }
     } catch (error) {
       console.error("Erro ao gerar comprovante completo:", error);
-      Alert.alert("Erro", "Ocorreu um erro ao gerar o comprovante.");
+      notifyError("Erro", "Ocorreu um erro ao gerar o comprovante.");
     } finally {
       setLoadingReceipt(null);
     }
@@ -212,18 +218,18 @@ export default function ReceiptsScreen() {
       });
 
       if (result.success) {
-        Alert.alert(
-          "Sucesso",
+        notifySuccess("Sucesso", getSuccessMessage(
+          result.mode,
           `Comprovante da coleta de ${formatDate(
             receipt.collectedAt || receipt.createdAt
-          )} gerado com sucesso!`
-        );
+          )}`
+        ));
       } else {
-        Alert.alert("Erro", "Não foi possível gerar o comprovante.");
+        notifyError("Erro", "Não foi possível gerar o comprovante.");
       }
     } catch (error) {
       console.error("Erro ao gerar comprovante da coleta:", error);
-      Alert.alert("Erro", "Ocorreu um erro ao gerar o comprovante.");
+      notifyError("Erro", "Ocorreu um erro ao gerar o comprovante.");
     } finally {
       setLoadingReceipt(null);
     }
@@ -259,7 +265,7 @@ export default function ReceiptsScreen() {
             style={{ width: 30, height: 30, marginRight: 8 }}
           />
           <Text style={{ fontSize: 16, color: "#FFFFFF", opacity: 0.9 }}>
-            Documentos oficiais
+            Documentos operacionais em PDF
           </Text>
         </View>
       </LinearGradient>
@@ -274,6 +280,26 @@ export default function ReceiptsScreen() {
           </View>
         ) : (
           <>
+            <View
+              style={{
+                backgroundColor: "#F8FAFC",
+                borderRadius: 16,
+                padding: 14,
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+              }}
+            >
+              <Text style={{ color: "#111827", fontWeight: "800", fontSize: 14 }}>
+                {isWeb ? "Modo Web" : "Modo Aplicativo"}
+              </Text>
+              <Text style={{ color: "#6B7280", marginTop: 6, lineHeight: 21 }}>
+                {isWeb
+                  ? "Na web, o comprovante será aberto no fluxo de impressão do navegador para salvar em PDF."
+                  : "No aplicativo, o comprovante será gerado em PDF e aberto no compartilhamento do dispositivo."}
+              </Text>
+            </View>
+
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={handleGenerateFullReceipt}
@@ -296,7 +322,7 @@ export default function ReceiptsScreen() {
                   marginBottom: 15,
                 }}
               >
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
                   <Ionicons name="document-text" size={24} color="#028C56" />
                   <Text
                     style={{
@@ -304,28 +330,40 @@ export default function ReceiptsScreen() {
                       fontWeight: "700",
                       color: "#028C56",
                       marginLeft: 10,
+                      flexShrink: 1,
                     }}
                   >
-                    Comprovante de Serviço
+                    Comprovante Consolidado
                   </Text>
                 </View>
 
                 {loadingReceipt === "full" ? (
                   <ActivityIndicator size="small" color="#028C56" />
                 ) : (
-                  <Ionicons name="download-outline" size={24} color="#028C56" />
+                  <Ionicons
+                    name={isWeb ? "print-outline" : "share-social-outline"}
+                    size={24}
+                    color="#028C56"
+                  />
                 )}
               </View>
 
-              <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
+              <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
                 Gerar comprovante consolidado com o histórico real das coletas
               </Text>
               <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
-                Formato: HTML profissional para compartilhamento
+                Formato: PDF profissional para operação e apresentação
               </Text>
             </TouchableOpacity>
 
-            <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 15 }}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: "#111827",
+                marginBottom: 15,
+              }}
+            >
               Histórico de Coletas
             </Text>
 
@@ -338,6 +376,8 @@ export default function ReceiptsScreen() {
                     borderRadius: 12,
                     padding: 15,
                     marginBottom: 10,
+                    borderWidth: 1,
+                    borderColor: "#F3F4F6",
                   }}
                 >
                   <TouchableOpacity
@@ -346,7 +386,11 @@ export default function ReceiptsScreen() {
                     }
                   >
                     <View
-                      style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
                     >
                       <View style={{ flex: 1, paddingRight: 12 }}>
                         <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
@@ -364,6 +408,16 @@ export default function ReceiptsScreen() {
                         <Text style={{ fontSize: 16, fontWeight: "700", color: "#028C56" }}>
                           {getCollectionTotalKg(receipt).toFixed(1)} kg
                         </Text>
+                        <Ionicons
+                          name={
+                            selectedReceipt === receipt.id
+                              ? "chevron-up-outline"
+                              : "chevron-down-outline"
+                          }
+                          size={16}
+                          color="#6B7280"
+                          style={{ marginTop: 6 }}
+                        />
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -380,6 +434,7 @@ export default function ReceiptsScreen() {
                       <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 10 }}>
                         Detalhes da coleta:
                       </Text>
+
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
                         • Peso: {getCollectionTotalKg(receipt).toFixed(1)} kg
                       </Text>
@@ -398,7 +453,7 @@ export default function ReceiptsScreen() {
                         disabled={loadingReceipt === receipt.id}
                         style={{
                           backgroundColor: "#028C56",
-                          borderRadius: 8,
+                          borderRadius: 10,
                           padding: 12,
                           alignItems: "center",
                           flexDirection: "row",
@@ -417,12 +472,16 @@ export default function ReceiptsScreen() {
                                 marginLeft: 8,
                               }}
                             >
-                              GERANDO...
+                              GERANDO PDF...
                             </Text>
                           </>
                         ) : (
                           <>
-                            <Ionicons name="download-outline" size={18} color="#FFFFFF" />
+                            <Ionicons
+                              name={isWeb ? "print-outline" : "share-social-outline"}
+                              size={18}
+                              color="#FFFFFF"
+                            />
                             <Text
                               style={{
                                 color: "#FFFFFF",
@@ -431,7 +490,7 @@ export default function ReceiptsScreen() {
                                 marginLeft: 8,
                               }}
                             >
-                              GERAR COMPROVANTE
+                              {isWeb ? "GERAR / IMPRIMIR PDF" : "GERAR / COMPARTILHAR PDF"}
                             </Text>
                           </>
                         )}
@@ -461,7 +520,7 @@ export default function ReceiptsScreen() {
               disabled={loadingReceipt === "full"}
               style={{
                 backgroundColor: "#028C56",
-                borderRadius: 8,
+                borderRadius: 10,
                 padding: 16,
                 alignItems: "center",
                 marginTop: 10,
@@ -474,15 +533,35 @@ export default function ReceiptsScreen() {
               {loadingReceipt === "full" ? (
                 <>
                   <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600", marginLeft: 8 }}>
-                    GERANDO...
+                  <Text
+                    style={{
+                      color: "#FFFFFF",
+                      fontSize: 16,
+                      fontWeight: "600",
+                      marginLeft: 8,
+                    }}
+                  >
+                    GERANDO PDF...
                   </Text>
                 </>
               ) : (
                 <>
-                  <Ionicons name="document-text-outline" size={20} color="#FFFFFF" />
-                  <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600", marginLeft: 8 }}>
-                    GERAR COMPROVANTE COMPLETO
+                  <Ionicons
+                    name={isWeb ? "print-outline" : "document-text-outline"}
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                  <Text
+                    style={{
+                      color: "#FFFFFF",
+                      fontSize: 16,
+                      fontWeight: "600",
+                      marginLeft: 8,
+                    }}
+                  >
+                    {isWeb
+                      ? "GERAR / IMPRIMIR COMPROVANTE"
+                      : "GERAR / COMPARTILHAR COMPROVANTE"}
                   </Text>
                 </>
               )}

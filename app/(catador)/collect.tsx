@@ -2,7 +2,6 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { OfflineBanner } from "@/src/components/OfflineBanner";
 import { LastSyncBadge } from "@/src/components/LastSyncBadge";
@@ -137,6 +137,7 @@ export default function CollectScreen() {
   const [materialsDraft, setMaterialsDraft] = useState<CollectionMaterial[]>([]);
   const [notesDraft, setNotesDraft] = useState("");
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const { notifyError, notifySuccess } = useNotification();
 
   const loadCollections = useCallback(async (showLoader = true) => {
     try {
@@ -160,13 +161,13 @@ export default function CollectScreen() {
       });
     } catch (error) {
       console.error("Erro ao carregar coletas delegadas:", error);
-      Alert.alert("Erro", "Não foi possível carregar as coletas delegadas.");
+      notifyError("Erro", "Não foi possível carregar as coletas delegadas.");
       setCollections([]);
     } finally {
       if (showLoader) setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {
@@ -237,12 +238,12 @@ export default function CollectScreen() {
   };
 
   const showOperationSuccess = (messageOnline: string, messageOffline: string) => {
-    Alert.alert("Sucesso", isOffline ? messageOffline : messageOnline);
+    notifySuccess("Sucesso", isOffline ? messageOffline : messageOnline);
   };
 
   const handleStartCollection = async () => {
     if (!selectedCollection) {
-      Alert.alert("Atenção", "Selecione uma coleta delegada.");
+      notifyError("Atenção", "Selecione uma coleta delegada.");
       return;
     }
 
@@ -260,10 +261,7 @@ export default function CollectScreen() {
         "Coleta iniciada e salva no dispositivo. Será sincronizada quando a internet voltar."
       );
     } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível iniciar a coleta."
-      );
+      notifyError("Erro", error?.message || "Não foi possível iniciar a coleta.");
     } finally {
       setUpdatingId(null);
     }
@@ -271,15 +269,12 @@ export default function CollectScreen() {
 
   const handleCompleteCollection = async () => {
     if (!selectedCollection) {
-      Alert.alert("Atenção", "Selecione uma coleta delegada.");
+      notifyError("Atenção", "Selecione uma coleta delegada.");
       return;
     }
 
     if (materialsDraft.length === 0) {
-      Alert.alert(
-        "Atenção",
-        "Informe ao menos um material com quantidade para concluir."
-      );
+      notifyError("Atenção", "Informe ao menos um material com quantidade para concluir.");
       return;
     }
 
@@ -288,10 +283,7 @@ export default function CollectScreen() {
     );
 
     if (hasInvalidQuantity) {
-      Alert.alert(
-        "Atenção",
-        "Todas as quantidades dos materiais devem ser maiores que zero."
-      );
+      notifyError("Atenção", "Todas as quantidades dos materiais devem ser maiores que zero.");
       return;
     }
 
@@ -312,10 +304,7 @@ export default function CollectScreen() {
         "Coleta concluída e salva no dispositivo. Será sincronizada quando a internet voltar."
       );
     } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível concluir a coleta."
-      );
+      notifyError("Erro", error?.message || "Não foi possível concluir a coleta.");
     } finally {
       setUpdatingId(null);
     }
@@ -323,7 +312,7 @@ export default function CollectScreen() {
 
   const handleReportProblem = async () => {
     if (!selectedCollection) {
-      Alert.alert("Atenção", "Selecione uma coleta delegada.");
+      notifyError("Atenção", "Selecione uma coleta delegada.");
       return;
     }
 
@@ -343,10 +332,7 @@ export default function CollectScreen() {
         "Problema registrado no dispositivo. Será sincronizado quando a internet voltar."
       );
     } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível atualizar a coleta."
-      );
+      notifyError("Erro", error?.message || "Não foi possível atualizar a coleta.");
     } finally {
       setUpdatingId(null);
     }

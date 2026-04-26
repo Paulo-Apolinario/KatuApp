@@ -2,7 +2,6 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   Text,
@@ -18,6 +17,7 @@ import OperationalMap from "@/src/components/maps/OperationalMap";
 import { OfflineBanner } from "@/src/components/OfflineBanner";
 import { LastSyncBadge } from "@/src/components/LastSyncBadge";
 import { useConnectivity } from "@/src/hooks/useConnectivity";
+import { useNotification } from "@/src/contexts/NotificationContext";
 import {
   scheduleService,
   type Schedule,
@@ -234,6 +234,7 @@ function normalizeCollectionPoints(
 
 export default function CooperativeMapScreen() {
   const { isOffline } = useConnectivity();
+  const { notifyError, notifyWarning, notifyInfo } = useNotification();
 
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [loadingData, setLoadingData] = useState(true);
@@ -249,28 +250,35 @@ export default function CooperativeMapScreen() {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadLocation = useCallback(async () => {
-    try {
-      setLoadingLocation(true);
+  try {
+    setLoadingLocation(true);
 
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
+    const { status } = await Location.requestForegroundPermissionsAsync();
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      setRegion({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        latitudeDelta: 0.08,
-        longitudeDelta: 0.08,
-      });
-    } catch (error) {
-      console.error("Erro ao carregar localização:", error);
-    } finally {
-      setLoadingLocation(false);
+    if (status !== "granted") {
+      notifyWarning(
+        "Permissão de localização negada. O mapa será aberto usando a região padrão."
+      );
+      return;
     }
-  }, []);
+
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+
+    setRegion({
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      latitudeDelta: 0.08,
+      longitudeDelta: 0.08,
+    });
+  } catch (error) {
+    console.error("Erro ao carregar localização:", error);
+    notifyWarning("Não foi possível carregar sua localização atual.");
+  } finally {
+    setLoadingLocation(false);
+  }
+}, [notifyWarning]);
 
   const loadOperationalData = useCallback(async () => {
     try {
@@ -303,22 +311,27 @@ export default function CooperativeMapScreen() {
       setLastSyncAt(new Date().toISOString());
     } catch (error) {
       console.error("Erro ao carregar mapa operacional:", error);
-      Alert.alert(
-        "Erro",
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar os dados operacionais do mapa."
-      );
+      notifyError(
+  error instanceof Error
+    ? error.message
+    : "Não foi possível carregar os dados operacionais do mapa."
+);
       setPoints([]);
       setSelectedPoint(null);
     } finally {
       setLoadingData(false);
     }
-  }, []);
+  }, [notifyError]);
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([loadLocation(), loadOperationalData()]);
-  }, [loadLocation, loadOperationalData]);
+  notifyInfo(
+    isOffline
+      ? "Atualizando com dados salvos no dispositivo..."
+      : "Atualizando mapa operacional..."
+  );
+
+  await Promise.all([loadLocation(), loadOperationalData()]);
+}, [isOffline, loadLocation, loadOperationalData, notifyInfo]);
 
   useEffect(() => {
     refreshAll();
@@ -446,16 +459,16 @@ export default function CooperativeMapScreen() {
       const supported = await Linking.canOpenURL(urlToOpen);
 
       if (!supported) {
-        Alert.alert("Erro", "Não foi possível abrir o aplicativo de mapas.");
+        notifyError("Não foi possível abrir o aplicativo de mapas.");
         return;
       }
 
       await Linking.openURL(urlToOpen);
     } catch (error) {
       console.error("Erro ao abrir rota externa:", error);
-      Alert.alert("Erro", "Não foi possível abrir a rota externa.");
+      notifyError("Não foi possível abrir a rota externa.");
     }
-  }, []);
+  }, [notifyError]);
 
   const isLoading = loadingLocation || loadingData;
 
@@ -499,7 +512,7 @@ export default function CooperativeMapScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={refreshAll}
+            onPress={() => void refreshAll()}
             style={{
               width: 42,
               height: 42,

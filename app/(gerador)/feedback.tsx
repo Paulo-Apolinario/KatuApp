@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { sendFeedback } from "@/src/services/feedbackService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type FeedbackCategory =
   | "ATENDIMENTO"
@@ -44,6 +44,7 @@ export default function FeedbackScreen() {
   const [likes, setLikes] = useState("");
   const [continuity, setContinuity] = useState("");
   const [sending, setSending] = useState(false);
+  const { notifyError, notifySuccess } = useNotification();
 
   const categories: FeedbackCategory[] = [
     "ATENDIMENTO",
@@ -76,7 +77,7 @@ export default function FeedbackScreen() {
 
   const handleSubmit = async () => {
     if (npsScore === null) {
-      Alert.alert("Atenção", "Selecione uma nota de 0 a 10.");
+      notifyError("Atenção", "Selecione uma nota de 0 a 10.");
       return;
     }
 
@@ -92,25 +93,18 @@ export default function FeedbackScreen() {
         continuity: continuity.trim() || undefined,
       });
 
-      Alert.alert(
-        result.emailSent ? "Feedback enviado" : "Feedback registrado",
-        result.emailSent
-          ? "Seu feedback foi enviado com sucesso para a cooperativa."
-          : "Seu feedback foi salvo, mas o envio do email ainda não foi concluído.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              resetForm();
-              router.back();
-            },
-          },
-        ]
-      );
+      notifySuccess(
+  result.emailSent
+    ? "Seu feedback foi enviado com sucesso para a cooperativa."
+    : "Seu feedback foi registrado, mas o envio do email ainda não foi concluído."
+);
+
+resetForm();
+router.back();
     } catch (error: any) {
       console.error("Erro ao enviar feedback:", error);
 
-      Alert.alert(
+      notifyError(
         "Erro",
         error?.message || "Não foi possível enviar seu feedback."
       );

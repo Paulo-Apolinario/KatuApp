@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { vehicleService, type Vehicle } from "@/src/services/vehicleService";
 
@@ -33,6 +33,7 @@ function mapVehicleStatus(status?: string | null): VehicleStatusCard {
 export default function FleetScreen() {
   const [vehicles, setVehicles] = useState<VehicleCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const { notifyError } = useNotification();
 
   const loadFleet = useCallback(async () => {
     try {
@@ -52,11 +53,11 @@ export default function FleetScreen() {
       setVehicles(list);
     } catch (error: any) {
       console.error("Erro ao carregar frota:", error);
-      Alert.alert("Erro", error?.message || "Não foi possível carregar a frota.");
+      notifyError("Não foi possível carregar a frota.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

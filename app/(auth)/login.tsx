@@ -6,12 +6,12 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type ProfileType =
   | "pf"
@@ -42,6 +42,7 @@ export default function LoginScreen() {
   const profile = normalizeProfile(params.profile);
 
   const { signIn } = useAuth();
+  const { notifySuccess, notifyError, notifyWarning } = useNotification();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -72,7 +73,7 @@ export default function LoginScreen() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail || !password.trim()) {
-      Alert.alert("Atenção", "Preencha e-mail e senha.");
+      notifyWarning("Preencha e-mail e senha.");
       return;
     }
 
@@ -83,15 +84,15 @@ export default function LoginScreen() {
 
       if (result.success) {
         if (!result.requiresActivation) {
-          Alert.alert("Sucesso", "Login realizado com sucesso!");
+          notifySuccess("Login realizado com sucesso!");
         }
         return;
       }
 
-      Alert.alert("Erro", result.error || "Não foi possível realizar o login.");
+      notifyError(result.error || "Não foi possível realizar o login.");
     } catch (error) {
       console.error("Erro no login:", error);
-      Alert.alert("Erro", "Ocorreu um erro inesperado ao fazer login.");
+      notifyError("Ocorreu um erro inesperado ao fazer login.");
     } finally {
       setLoading(false);
     }

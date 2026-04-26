@@ -9,11 +9,11 @@ import {
   TextInput,
   Platform,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { generatorService, Generator } from "@/src/services/generatorService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type GeradorStatus = "ativo" | "pendente" | "inativo";
 
@@ -54,6 +54,7 @@ export default function GrandeGeradorScreen() {
   const [filterStatus, setFilterStatus] = useState<GeradorStatus | "todos">("todos");
   const [loading, setLoading] = useState(true);
   const [geradores, setGeradores] = useState<GrandeGerador[]>([]);
+  const { notifyError } = useNotification();
 
   const carregarGeradores = useCallback(async () => {
     try {
@@ -67,14 +68,11 @@ export default function GrandeGeradorScreen() {
 
       setGeradores(lista);
     } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error.message || "Não foi possível carregar os grandes geradores."
-      );
+      notifyError("Erro", error.message || "Não foi possível carregar os grandes geradores.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

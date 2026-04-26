@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,6 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { api } from "@/src/services/api";
 import { generatorService } from "@/src/services/generatorService";
 import { generatorDraftStore } from "@/src/stores/generatorDraftStore";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type ViaCepResponse = {
   cep?: string;
@@ -67,6 +67,7 @@ export default function NovoPequenoGeradorScreen() {
   }>();
 
   const draft = generatorDraftStore.get("SMALL");
+  const { notifyError, notifySuccess } = useNotification();
 
   const [nome, setNome] = useState(draft.nome);
   const [contato, setContato] = useState(draft.contato);
@@ -161,7 +162,7 @@ export default function NovoPequenoGeradorScreen() {
       );
 
       if (data.erro) {
-        Alert.alert("CEP não encontrado", "Verifique o CEP informado.");
+        notifyError("CEP não encontrado", "Verifique o CEP informado.");
         return;
       }
 
@@ -187,7 +188,7 @@ export default function NovoPequenoGeradorScreen() {
       setAddress(nextAddress);
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
-      Alert.alert("Erro", "Não foi possível consultar o CEP.");
+      notifyError("Erro", "Não foi possível consultar o CEP.");
     } finally {
       setLoadingCep(false);
     }
@@ -230,7 +231,7 @@ export default function NovoPequenoGeradorScreen() {
     const parsedLongitude = parseCoordinate(longitude);
 
     if (!companyName || !normalizedPhone || !normalizedEmail) {
-      Alert.alert(
+      notifyError(
         "Atenção",
         "Preencha nome do estabelecimento, telefone e email."
       );
@@ -243,7 +244,7 @@ export default function NovoPequenoGeradorScreen() {
       !cidade.trim() &&
       !(parsedLatitude !== undefined && parsedLongitude !== undefined)
     ) {
-      Alert.alert(
+      notifyError(
         "Atenção",
         "Informe o endereço ou selecione a localização no mapa."
       );
@@ -274,20 +275,14 @@ export default function NovoPequenoGeradorScreen() {
 
       generatorDraftStore.clear("SMALL");
 
-      Alert.alert(
+      notifySuccess(
         "Gerador salvo com sucesso",
         response.temporaryPassword
           ? `O pequeno gerador foi cadastrado.\n\nSenha provisória: ${response.temporaryPassword}\n\nAgora ele precisa acessar a opção de ativação de acesso com o e-mail informado.`
-          : "O pequeno gerador foi cadastrado com sucesso.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/(cooperativa)/geradores/pequeno"),
-          },
-        ]
+          : "O pequeno gerador foi cadastrado com sucesso."
       );
     } catch (error: any) {
-      Alert.alert(
+      notifyError(
         "Erro",
         error.message || "Não foi possível cadastrar o pequeno gerador."
       );

@@ -7,10 +7,10 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
@@ -143,6 +143,7 @@ function getCollectionBadgeColor(status: Collection["status"]) {
 export default function GeneratorDashboardScreen() {
   const { user } = useAuth();
   const currentUser = user as AuthUserLike | null;
+  const { notifyError } = useNotification();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -177,11 +178,9 @@ export default function GeneratorDashboardScreen() {
       setCollections(Array.isArray(collectionResponse) ? collectionResponse : []);
     } catch (error) {
       console.error("Erro ao carregar dashboard do gerador:", error);
-      Alert.alert(
-        "Erro",
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar o dashboard do gerador."
+      notifyError("Erro", error instanceof Error
+        ? error.message
+        : "Não foi possível carregar o dashboard do gerador."
       );
       setSchedules([]);
       setCollections([]);
@@ -189,7 +188,7 @@ export default function GeneratorDashboardScreen() {
       if (showLoader) setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

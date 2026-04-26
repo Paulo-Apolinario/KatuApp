@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,6 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { api } from "@/src/services/api";
 import { generatorService } from "@/src/services/generatorService";
 import { generatorDraftStore } from "@/src/stores/generatorDraftStore";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type ViaCepResponse = {
   cep?: string;
@@ -65,6 +65,7 @@ export default function NovoGrandeGeradorScreen() {
     selectedLatitude?: string;
     selectedLongitude?: string;
   }>();
+  const { notifyError, notifySuccess } = useNotification();
 
   const draft = generatorDraftStore.get("LARGE");
 
@@ -161,7 +162,7 @@ export default function NovoGrandeGeradorScreen() {
       );
 
       if (data.erro) {
-        Alert.alert("CEP não encontrado", "Verifique o CEP informado.");
+        notifyError("CEP não encontrado", "Verifique o CEP informado.");
         return;
       }
 
@@ -187,7 +188,7 @@ export default function NovoGrandeGeradorScreen() {
       setAddress(nextAddress);
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
-      Alert.alert("Erro", "Não foi possível consultar o CEP.");
+      notifyError("Erro", "Não foi possível consultar o CEP.");
     } finally {
       setLoadingCep(false);
     }
@@ -235,7 +236,7 @@ export default function NovoGrandeGeradorScreen() {
       !normalizedPhone ||
       !normalizedEmail
     ) {
-      Alert.alert(
+      notifyError(
         "Atenção",
         "Preencha nome da empresa, contato responsável, telefone e email."
       );
@@ -248,7 +249,7 @@ export default function NovoGrandeGeradorScreen() {
       !cidade.trim() &&
       !(parsedLatitude !== undefined && parsedLongitude !== undefined)
     ) {
-      Alert.alert(
+      notifyError(
         "Atenção",
         "Informe o endereço ou selecione a localização no mapa."
       );
@@ -279,20 +280,16 @@ export default function NovoGrandeGeradorScreen() {
 
       generatorDraftStore.clear("LARGE");
 
-      Alert.alert(
+      notifySuccess(
         "Gerador salvo com sucesso",
         response.temporaryPassword
           ? `O grande gerador foi cadastrado.\n\nSenha provisória: ${response.temporaryPassword}\n\nAgora ele pode ativar o acesso na tela de liberação.`
-          : "O grande gerador foi cadastrado com sucesso.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/(cooperativa)/geradores/grande"),
-          },
-        ]
+          : "O grande gerador foi cadastrado com sucesso."
       );
+
+      router.replace("/(cooperativa)/geradores/grande");
     } catch (error: any) {
-      Alert.alert(
+      notifyError(
         "Erro",
         error.message || "Não foi possível cadastrar o grande gerador."
       );

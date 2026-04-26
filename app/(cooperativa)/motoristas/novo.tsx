@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -15,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { driverService } from "@/src/services/driverService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 export default function NovoMotoristaScreen() {
   const [nome, setNome] = useState("");
@@ -25,6 +25,7 @@ export default function NovoMotoristaScreen() {
   const [cnhCategoria, setCnhCategoria] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [loading, setLoading] = useState(false);
+  const { notifyError, notifySuccess } = useNotification();
 
   function formatCpf(value: string) {
     return value
@@ -45,7 +46,7 @@ export default function NovoMotoristaScreen() {
 
   async function handleSalvar() {
     if (!nome.trim() || !email.trim()) {
-      Alert.alert("Atenção", "Preencha nome e email do motorista.");
+      notifyError("Atenção", "Preencha nome e email do motorista.");
       return;
     }
 
@@ -62,15 +63,11 @@ export default function NovoMotoristaScreen() {
         notes: observacoes,
       });
 
-      Alert.alert("Sucesso", "Motorista cadastrado com sucesso!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/motoristas"),
-        },
-      ]);
+      notifySuccess("Sucesso", "Motorista cadastrado com sucesso!");
+      router.replace("/(cooperativa)/motoristas");
     } catch (error: any) {
       console.error("Erro ao cadastrar motorista:", error);
-      Alert.alert(
+      notifyError(
         "Erro",
         error?.message || "Não foi possível cadastrar o motorista."
       );

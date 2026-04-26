@@ -1,7 +1,6 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-  Alert,
   Linking,
   Platform,
   RefreshControl,
@@ -15,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type AuthUserLike = {
   id?: string;
@@ -30,6 +30,7 @@ function getUserDisplayName(user: AuthUserLike | null) {
 export default function PFHomeScreen() {
   const { user } = useAuth();
   const currentUser = user as AuthUserLike | null;
+  const { notifyWarning } = useNotification();
 
   const [refreshing, setRefreshing] = useState(false);
   const [currentCity, setCurrentCity] = useState("Carregando localização...");
@@ -37,6 +38,14 @@ export default function PFHomeScreen() {
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
   const displayName = getUserDisplayName(currentUser);
+
+  const openAppSettings = useCallback(() => {
+    if (Platform.OS === "ios") {
+      Linking.openURL("app-settings:");
+    } else {
+      Linking.openSettings();
+    }
+  }, []);
 
   const getUserLocation = useCallback(async () => {
     setIsLoadingLocation(true);
@@ -47,6 +56,7 @@ export default function PFHomeScreen() {
       if (!servicesEnabled) {
         setCurrentCity("Localização desativada");
         setLocationError(true);
+        notifyWarning("Ative a localização do aparelho para mostrar a cidade atual.");
         return;
       }
 
@@ -56,23 +66,8 @@ export default function PFHomeScreen() {
         setCurrentCity("Permissão negada");
         setLocationError(true);
 
-        Alert.alert(
-          "Permissão necessária",
-          "Precisamos da sua localização para mostrar a cidade atual. Deseja abrir as configurações?",
-          [
-            { text: "Agora não", style: "cancel" },
-            {
-              text: "Abrir Configurações",
-              onPress: () => {
-                if (Platform.OS === "ios") {
-                  Linking.openURL("app-settings:");
-                } else {
-                  Linking.openSettings();
-                }
-              },
-            },
-          ]
-        );
+        notifyWarning("Precisamos da sua localização para mostrar a cidade atual.");
+        openAppSettings();
         return;
       }
 
@@ -108,7 +103,7 @@ export default function PFHomeScreen() {
       setIsLoadingLocation(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [notifyWarning, openAppSettings]);
 
   useFocusEffect(
     useCallback(() => {
@@ -210,7 +205,8 @@ export default function PFHomeScreen() {
             lineHeight: 22,
           }}
         >
-          Solicite sua coleta, acompanhe seu histórico e participe da rede de reciclagem do KATUÁ.
+          Solicite sua coleta, acompanhe seu histórico e participe da rede de
+          reciclagem do KATUÁ.
         </Text>
 
         <View style={{ flexDirection: "row", marginTop: 18 }}>

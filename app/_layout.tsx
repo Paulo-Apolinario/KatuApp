@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Text, View } from "react-native";
 import { AuthProvider } from "../src/contexts/AuthContext";
+import { NotificationProvider } from "../src/contexts/NotificationContext";
 import { runMigrations } from "../src/database/migrations";
 import { subscribeToConnectivity } from "../src/offline/connectivity";
 import { syncManager } from "../src/offline/syncManager";
@@ -117,8 +118,10 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }} />
-    </AuthProvider>
+    <NotificationProvider>
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </AuthProvider>
+    </NotificationProvider>
   );
 }

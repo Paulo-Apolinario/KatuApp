@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { scheduleService } from "@/src/services/scheduleService";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -100,6 +100,8 @@ function parseDateTimeToIso(date: string, time: string): string | null {
 export default function ScheduleScreen() {
   const { user } = useAuth();
   const currentUser = user as AuthUserLike | null;
+  const { notifyError, notifySuccess, notifyWarning } = useNotification();
+
 
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
@@ -128,79 +130,61 @@ export default function ScheduleScreen() {
   };
 
   const handleSchedule = async () => {
-    if (!currentUser?.id) {
-      Alert.alert("Erro", "Usuário não autenticado.");
-      return;
-    }
+  if (!currentUser?.id) {
+    notifyError("Usuário não autenticado.");
+    return;
+  }
 
-    const cooperativeId = currentUser?.generator?.cooperativeId;
+  const cooperativeId = currentUser?.generator?.cooperativeId;
 
-    if (!cooperativeId) {
-      Alert.alert("Erro", "Cooperativa do gerador não encontrada.");
-      return;
-    }
+  if (!cooperativeId) {
+    notifyError("Cooperativa do gerador não encontrada.");
+    return;
+  }
 
-    if (!selectedDate || !selectedTime || selectedMaterials.length === 0) {
-      Alert.alert(
-        "Atenção",
-        "Preencha data, horário e selecione pelo menos um material."
-      );
-      return;
-    }
+  if (!selectedDate || !selectedTime || selectedMaterials.length === 0) {
+    notifyWarning("Preencha data, horário e selecione pelo menos um material.");
+    return;
+  }
 
-    if (!isValidDateString(selectedDate)) {
-      Alert.alert("Data inválida", "Informe a data no formato DD/MM/AAAA.");
-      return;
-    }
+  if (!isValidDateString(selectedDate)) {
+    notifyWarning("Informe a data no formato DD/MM/AAAA.");
+    return;
+  }
 
-    if (!isValidTimeString(selectedTime)) {
-      Alert.alert("Horário inválido", "Informe o horário no formato HH:MM.");
-      return;
-    }
+  if (!isValidTimeString(selectedTime)) {
+    notifyWarning("Informe o horário no formato HH:MM.");
+    return;
+  }
 
-    const scheduledDate = parseDateTimeToIso(selectedDate, selectedTime);
+  const scheduledDate = parseDateTimeToIso(selectedDate, selectedTime);
 
-    if (!scheduledDate) {
-      Alert.alert(
-        "Data inválida",
-        "Informe uma data e horário válidos. Ex.: 12/03/2026 e 13:00"
-      );
-      return;
-    }
+  if (!scheduledDate) {
+    notifyWarning("Informe uma data e horário válidos.");
+    return;
+  }
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      await scheduleService.create({
-        cooperativeId,
-        scheduledDate,
-        requestedMaterials: selectedMaterials,
-        notes: extraNotes.trim() || undefined,
-      });
+    await scheduleService.create({
+      cooperativeId,
+      scheduledDate,
+      requestedMaterials: selectedMaterials,
+      notes: extraNotes.trim() || undefined,
+    });
 
-      Alert.alert(
-        "Sucesso!",
-        "Solicitação de coleta registrada com sucesso. A cooperativa poderá organizar esse agendamento.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              resetForm();
-              router.replace("/(gerador)/dashboard");
-            },
-          },
-        ]
-      );
-    } catch (error: any) {
-      console.error("Erro ao agendar coleta:", error);
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível registrar o agendamento."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    notifySuccess("Solicitação de coleta registrada com sucesso!");
+
+    resetForm();
+    router.replace("/(gerador)/dashboard");
+  } catch (error: any) {
+    console.error("Erro ao agendar coleta:", error);
+    notifyError(error?.message || "Não foi possível registrar o agendamento.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
