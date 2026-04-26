@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Text,
@@ -67,6 +67,7 @@ function getCollectionTotalKg(collection: Collection) {
   );
 
   if (materialsKg > 0) return materialsKg;
+
   return Number(collection.totalWeightKg ?? 0);
 }
 
@@ -90,7 +91,7 @@ export default function ReceiptsScreen() {
 
   const isWeb = Platform.OS === "web";
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -105,18 +106,19 @@ export default function ReceiptsScreen() {
         : [];
 
       const completed = normalized.filter((item) => item.status === "COMPLETED");
+
       setReceipts(completed);
     } catch (error) {
       console.error("Erro ao carregar comprovantes:", error);
-      notifyError("Erro", "Não foi possível carregar os comprovantes.");
+      notifyError("Não foi possível carregar os comprovantes.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [notifyError]);
 
   useEffect(() => {
     loadData();
-  }, );
+  }, [loadData]);
 
   const receiptsOrdenados = useMemo(() => {
     return [...receipts].sort((a, b) => {
@@ -193,13 +195,13 @@ export default function ReceiptsScreen() {
       const result = await generateReceiptPDF(userData);
 
       if (result.success) {
-        notifySuccess("Sucesso", getSuccessMessage(result.mode, "Comprovante consolidado"));
+        notifySuccess(getSuccessMessage(result.mode, "Comprovante consolidado"));
       } else {
-        notifyError("Erro", "Não foi possível gerar o comprovante.");
+        notifyError("Não foi possível gerar o comprovante.");
       }
     } catch (error) {
       console.error("Erro ao gerar comprovante completo:", error);
-      notifyError("Erro", "Ocorreu um erro ao gerar o comprovante.");
+      notifyError("Ocorreu um erro ao gerar o comprovante.");
     } finally {
       setLoadingReceipt(null);
     }
@@ -218,18 +220,20 @@ export default function ReceiptsScreen() {
       });
 
       if (result.success) {
-        notifySuccess("Sucesso", getSuccessMessage(
-          result.mode,
-          `Comprovante da coleta de ${formatDate(
-            receipt.collectedAt || receipt.createdAt
-          )}`
-        ));
+        notifySuccess(
+          getSuccessMessage(
+            result.mode,
+            `Comprovante da coleta de ${formatDate(
+              receipt.collectedAt || receipt.createdAt
+            )}`
+          )
+        );
       } else {
-        notifyError("Erro", "Não foi possível gerar o comprovante.");
+        notifyError("Não foi possível gerar o comprovante.");
       }
     } catch (error) {
       console.error("Erro ao gerar comprovante da coleta:", error);
-      notifyError("Erro", "Ocorreu um erro ao gerar o comprovante.");
+      notifyError("Ocorreu um erro ao gerar o comprovante.");
     } finally {
       setLoadingReceipt(null);
     }
@@ -250,9 +254,13 @@ export default function ReceiptsScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 15 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
+
           <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>
             COMPROVANTES
           </Text>
@@ -264,13 +272,17 @@ export default function ReceiptsScreen() {
             resizeMode="contain"
             style={{ width: 30, height: 30, marginRight: 8 }}
           />
+
           <Text style={{ fontSize: 16, color: "#FFFFFF", opacity: 0.9 }}>
             Documentos operacionais em PDF
           </Text>
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+      >
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 40 }}>
             <ActivityIndicator size="large" color="#028C56" />
@@ -293,6 +305,7 @@ export default function ReceiptsScreen() {
               <Text style={{ color: "#111827", fontWeight: "800", fontSize: 14 }}>
                 {isWeb ? "Modo Web" : "Modo Aplicativo"}
               </Text>
+
               <Text style={{ color: "#6B7280", marginTop: 6, lineHeight: 21 }}>
                 {isWeb
                   ? "Na web, o comprovante será aberto no fluxo de impressão do navegador para salvar em PDF."
@@ -351,6 +364,7 @@ export default function ReceiptsScreen() {
               <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
                 Gerar comprovante consolidado com o histórico real das coletas
               </Text>
+
               <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
                 Formato: PDF profissional para operação e apresentação
               </Text>
@@ -382,7 +396,9 @@ export default function ReceiptsScreen() {
                 >
                   <TouchableOpacity
                     onPress={() =>
-                      setSelectedReceipt(selectedReceipt === receipt.id ? null : receipt.id)
+                      setSelectedReceipt(
+                        selectedReceipt === receipt.id ? null : receipt.id
+                      )
                     }
                   >
                     <View
@@ -393,21 +409,48 @@ export default function ReceiptsScreen() {
                       }}
                     >
                       <View style={{ flex: 1, paddingRight: 12 }}>
-                        <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: "600",
+                            color: "#111827",
+                          }}
+                        >
                           {formatDate(receipt.collectedAt || receipt.createdAt)}
                         </Text>
-                        <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 2 }}>
+
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            color: "#6B7280",
+                            marginTop: 2,
+                          }}
+                        >
                           {getMaterialsSummary(receipt.materials)}
                         </Text>
-                        <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
+
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: "#9CA3AF",
+                            marginTop: 2,
+                          }}
+                        >
                           {receipt.notes || "-"}
                         </Text>
                       </View>
 
                       <View style={{ alignItems: "flex-end" }}>
-                        <Text style={{ fontSize: 16, fontWeight: "700", color: "#028C56" }}>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: "700",
+                            color: "#028C56",
+                          }}
+                        >
                           {getCollectionTotalKg(receipt).toFixed(1)} kg
                         </Text>
+
                         <Ionicons
                           name={
                             selectedReceipt === receipt.id
@@ -438,12 +481,15 @@ export default function ReceiptsScreen() {
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
                         • Peso: {getCollectionTotalKg(receipt).toFixed(1)} kg
                       </Text>
+
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
                         • Materiais: {getMaterialsSummary(receipt.materials)}
                       </Text>
+
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
                         • Observações: {receipt.notes || "-"}
                       </Text>
+
                       <Text style={{ fontSize: 14, color: "#111827", marginBottom: 15 }}>
                         • Catador: {userData?.name || "-"}
                       </Text>
@@ -490,7 +536,9 @@ export default function ReceiptsScreen() {
                                 marginLeft: 8,
                               }}
                             >
-                              {isWeb ? "GERAR / IMPRIMIR PDF" : "GERAR / COMPARTILHAR PDF"}
+                              {isWeb
+                                ? "GERAR / IMPRIMIR PDF"
+                                : "GERAR / COMPARTILHAR PDF"}
                             </Text>
                           </>
                         )}
@@ -508,8 +556,19 @@ export default function ReceiptsScreen() {
                   alignItems: "center",
                 }}
               >
-                <Ionicons name="document-text-outline" size={42} color="#9CA3AF" />
-                <Text style={{ color: "#6B7280", marginTop: 10, textAlign: "center" }}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={42}
+                  color="#9CA3AF"
+                />
+
+                <Text
+                  style={{
+                    color: "#6B7280",
+                    marginTop: 10,
+                    textAlign: "center",
+                  }}
+                >
                   Nenhuma coleta concluída ainda.
                 </Text>
               </View>
@@ -551,6 +610,7 @@ export default function ReceiptsScreen() {
                     size={20}
                     color="#FFFFFF"
                   />
+
                   <Text
                     style={{
                       color: "#FFFFFF",
