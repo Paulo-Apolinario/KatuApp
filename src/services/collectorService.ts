@@ -88,32 +88,124 @@ function hasCollectorsArray(
   return typeof data === "object" && data !== null && "collectors" in data;
 }
 
+function getCollectionCollectorId(collection: any) {
+  return (
+    collection?.collectorId ||
+    collection?.collector?.id ||
+    collection?.assignedCollectorId ||
+    null
+  );
+}
+
+function getCollectionDate(collection: any) {
+  return (
+    collection?.collectedAt ||
+    collection?.completedAt ||
+    collection?.updatedAt ||
+    collection?.createdAt ||
+    null
+  );
+}
+
+function isSameMonth(dateValue?: string | null) {
+  if (!dateValue) return false;
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const now = new Date();
+
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth()
+  );
+}
+
+function isToday(dateValue?: string | null) {
+  if (!dateValue) return false;
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const now = new Date();
+
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
+
+async function enrichCollectorsWithStats(
+  collectors: Collector[]
+): Promise<Collector[]> {
+  try {
+    const collections = await collectionService.list();
+
+    return collectors.map((collector) => {
+      const collectorCollections = collections.filter((collection: any) => {
+        return getCollectionCollectorId(collection) === collector.id;
+      });
+
+      const completedCollections = collectorCollections.filter(
+        (collection: any) => collection.status === "COMPLETED"
+      );
+
+      const totalKg = completedCollections.reduce((acc: number, item: any) => {
+        return acc + Number(item.totalWeightKg ?? 0);
+      }, 0);
+
+      const kgMonth = completedCollections
+        .filter((item: any) => isSameMonth(getCollectionDate(item)))
+        .reduce((acc: number, item: any) => {
+          return acc + Number(item.totalWeightKg ?? 0);
+        }, 0);
+
+      const collectionsToday = completedCollections.filter((item: any) =>
+        isToday(getCollectionDate(item))
+      ).length;
+
+      return {
+        ...collector,
+        totalKg,
+        kgMonth,
+        collectionsToday,
+      };
+    });
+  } catch (error) {
+    console.error("Erro ao calcular estatísticas dos catadores:", error);
+    return collectors;
+  }
+}
+
 async function readCollectorsFromCollections(): Promise<Collector[]> {
   try {
     const collections = await collectionService.list();
     const map = new Map<string, Collector>();
 
-    for (const collection of collections) {
+    for (const collection of collections as any[]) {
       const collector = collection.collector;
 
       if (!collector?.id) continue;
 
-      map.set(collector.id, {
-        id: collector.id,
-        name: collector.name || collector.displayName || "Catador",
-        email: collector.email || "",
-        phone: collector.phone ?? null,
-        document: null,
-        status: "AVAILABLE",
-        totalKg: 0,
-        kgMonth: 0,
-        collectionsToday: 0,
-        createdAt: undefined,
-        updatedAt: undefined,
-      });
+      if (!map.has(collector.id)) {
+        map.set(collector.id, {
+          id: collector.id,
+          name: collector.name || collector.displayName || "Catador",
+          email: collector.email || "",
+          phone: collector.phone ?? null,
+          document: null,
+          status: "AVAILABLE",
+          totalKg: 0,
+          kgMonth: 0,
+          collectionsToday: 0,
+          createdAt: undefined,
+          updatedAt: undefined,
+        });
+      }
     }
 
-    return Array.from(map.values());
+    return enrichCollectorsWithStats(Array.from(map.values()));
   } catch {
     return [];
   }
@@ -158,16 +250,16 @@ export const collectorService = {
         true
       );
 
+      let collectors: Collector[] = [];
+
       if (Array.isArray(data)) {
-        return data.map(normalizeCollector);
-      }
-
-      if (hasCollectorsArray(data)) {
+        collectors = data.map(normalizeCollector);
+      } else if (hasCollectorsArray(data)) {
         const items = Array.isArray(data.collectors) ? data.collectors : [];
-        return items.map(normalizeCollector);
+        collectors = items.map(normalizeCollector);
       }
 
-      return [];
+      return enrichCollectorsWithStats(collectors);
     } catch (error) {
       if (isApiNetworkError(error)) {
         return readCollectorsFromCollections();
@@ -184,15 +276,20 @@ export const collectorService = {
         true
       );
 
+      let collector: Collector;
+
       if (hasCollectorObject(data)) {
         if (!data.collector) {
           throw new Error("Catador não encontrado.");
         }
 
-        return normalizeCollector(data.collector);
+        collector = normalizeCollector(data.collector);
+      } else {
+        collector = normalizeCollector(data as BackendCollector);
       }
 
-      return normalizeCollector(data as BackendCollector);
+      const enriched = await enrichCollectorsWithStats([collector]);
+      return enriched[0];
     } catch (error) {
       if (isApiNetworkError(error)) {
         const cached = await readCollectorByIdFromCollections(id);

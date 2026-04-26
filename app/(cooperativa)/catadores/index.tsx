@@ -33,7 +33,7 @@ export default function CatadoresScreen() {
       setCatadores(data);
     } catch (error) {
       console.error("Erro ao carregar catadores:", error);
-      notifyError("Erro", "Não foi possível carregar os catadores.");
+      notifyError("Não foi possível carregar os catadores.");
     } finally {
       setLoading(false);
     }
