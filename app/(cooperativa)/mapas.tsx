@@ -159,35 +159,64 @@ function hasValidCoordinates(
   );
 }
 
+function toNumberCoordinate(value: unknown) {
+  if (typeof value === "number") return value;
+
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(",", "."));
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  return null;
+}
+
+function getGeneratorCoordinates(generator?: any) {
+  const latitude = toNumberCoordinate(generator?.latitude);
+  const longitude = toNumberCoordinate(generator?.longitude);
+
+  if (hasValidCoordinates(latitude, longitude)) {
+    return {
+      latitude: latitude as number,
+      longitude: longitude as number,
+    };
+  }
+
+  return null;
+}
+
 function normalizeSchedulePoints(schedules: Schedule[]): MapOperationalPoint[] {
   return schedules
     .filter((item) =>
       ["REQUESTED", "SCHEDULED", "IN_PROGRESS"].includes(item.status)
     )
-    .filter((item) =>
-      hasValidCoordinates(item.generator?.latitude, item.generator?.longitude)
-    )
-    .map((item) => ({
-      id: `schedule-${item.id}`,
-      scheduleId: item.id,
-      sourceType: "SCHEDULE" as const,
-      title:
-        item.generator?.companyName ||
-        item.generator?.businessName ||
-        item.generator?.name ||
-        item.requestedBy?.displayName ||
-        "Solicitação operacional",
-      address: item.generator?.address || "Endereço não informado",
-      latitude: item.generator?.latitude as number,
-      longitude: item.generator?.longitude as number,
-      status: item.status as PointStatus,
-      dateLabel: item.scheduledDate || item.preferredDate || item.createdAt,
-      routeName: null,
-      routeId: null,
-      driverName: null,
-      vehicleLabel: null,
-      collectorName: null,
-    }));
+    .map((item) => {
+      const coordinates = getGeneratorCoordinates(item.generator);
+
+      if (!coordinates) return null;
+
+      return {
+        id: `schedule-${item.id}`,
+        scheduleId: item.id,
+        sourceType: "SCHEDULE" as const,
+        title:
+          item.generator?.companyName ||
+          item.generator?.businessName ||
+          item.generator?.name ||
+          item.requestedBy?.displayName ||
+          "Solicitação operacional",
+        address: item.generator?.address || "Endereço não informado",
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        status: item.status as PointStatus,
+        dateLabel: item.scheduledDate || item.preferredDate || item.createdAt,
+        routeName: null,
+        routeId: null,
+        driverName: null,
+        vehicleLabel: null,
+        collectorName: null,
+      };
+    })
+    .filter(Boolean) as MapOperationalPoint[];
 }
 
 function normalizeCollectionPoints(
@@ -197,39 +226,45 @@ function normalizeCollectionPoints(
     .filter(
       (item) => item.status === "PENDING" || item.status === "IN_PROGRESS"
     )
-    .filter((item) =>
-      hasValidCoordinates(item.generator?.latitude, item.generator?.longitude)
-    )
-    .map((item) => ({
-      id: `collection-${item.id}`,
-      scheduleId: item.scheduleId || item.schedule?.id || "",
-      collectionId: item.id,
-      sourceType: "COLLECTION" as const,
-      title:
-        item.generator?.companyName ||
-        item.generator?.businessName ||
-        item.generator?.name ||
-        item.schedule?.requestedBy?.displayName ||
-        "Coleta delegada",
-      address: item.generator?.address || "Endereço não informado",
-      latitude: item.generator?.latitude as number,
-      longitude: item.generator?.longitude as number,
-      status: item.status === "IN_PROGRESS" ? "IN_PROGRESS" : "SCHEDULED",
-      dateLabel:
-        item.schedule?.scheduledDate ||
-        item.schedule?.preferredDate ||
-        item.createdAt,
-      routeName: item.route?.name || null,
-      routeId: item.route?.id || null,
-      driverName: item.driver?.name || null,
-      vehicleLabel: item.vehicle
-        ? `${item.vehicle.model || "Veículo"}${
-            item.vehicle.plate ? ` • ${item.vehicle.plate}` : ""
-          }`
-        : null,
-      collectorName:
-        item.collector?.name || item.collector?.displayName || null,
-    }));
+    .map((item) => {
+      const generator = item.generator || item.schedule?.generator;
+      const coordinates = getGeneratorCoordinates(generator);
+
+      if (!coordinates) return null;
+
+      return {
+        id: `collection-${item.id}`,
+        scheduleId: item.scheduleId || item.schedule?.id || "",
+        collectionId: item.id,
+        sourceType: "COLLECTION" as const,
+        title:
+          generator?.companyName ||
+          generator?.businessName ||
+          generator?.name ||
+          item.schedule?.requestedBy?.displayName ||
+          "Coleta delegada",
+        address: generator?.address || "Endereço não informado",
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        status: item.status === "IN_PROGRESS" ? "IN_PROGRESS" : "SCHEDULED",
+        dateLabel:
+          item.schedule?.scheduledDate ||
+          item.schedule?.preferredDate ||
+          item.createdAt,
+        routeName: item.route?.name || null,
+        routeId: item.route?.id || null,
+        driverName: item.driver?.name || null,
+        vehicleLabel: item.vehicle
+          ? `${item.vehicle.model || "Veículo"}${
+              item.vehicle.plate ? ` • ${item.vehicle.plate}` : ""
+            }`
+          : null,
+        collectorName:
+          item.collector?.name || item.collector?.displayName || null,
+      };
+    })
+    .filter(Boolean) as MapOperationalPoint[];
+
 }
 
 export default function CooperativeMapScreen() {
@@ -666,30 +701,9 @@ export default function CooperativeMapScreen() {
                 Carregando mapa operacional...
               </Text>
             </View>
-          ) : orderedPoints.length === 0 ? (
-            <View
-              style={{
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "center",
-                height: "100%",
-                paddingHorizontal: 24,
-              }}
-            >
-              <Ionicons name="map-outline" size={46} color="#94A3B8" />
-              <Text
-                style={{
-                  marginTop: 12,
-                  fontSize: 17,
-                  fontWeight: "800",
-                  color: "#0F172A",
-                  textAlign: "center",
-                }}
-              >
-                Nenhum ponto operacional disponível
-              </Text>
-            </View>
-          ) : (
+          ) : 
+          
+          (
             <OperationalMap
               baseLatitude={region.latitude}
               baseLongitude={region.longitude}

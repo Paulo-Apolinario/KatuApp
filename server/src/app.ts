@@ -7,6 +7,7 @@ import { env } from "./config/env";
 import { appRoutes } from "./routes/index";
 import { cooperativesRoutes } from "./modules/cooperatives/cooperatives.routes";
 import { feedbackRoutes } from "./modules/feedback/feedback.routes";
+import { wasteStockRoutes } from "./modules/waste-stock/waste-stock.routes";
 
 function parseCorsOrigins(origins: string): string[] | boolean {
   if (!origins || origins.trim() === "*") {
@@ -89,6 +90,7 @@ export async function buildApp() {
   await app.register(appRoutes);
   await app.register(cooperativesRoutes);
   await app.register(feedbackRoutes);
+  await app.register(wasteStockRoutes);
 
   return app;
 }

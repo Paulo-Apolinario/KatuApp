@@ -64,6 +64,8 @@ model Cooperative {
   schedules          Schedule[]
   vehicles           Vehicle[]
   feedbacks          Feedback[]
+  wasteStockItems WasteStockItem[]
+  wasteStockLots  WasteStockLot[]
 
   @@index([name])
   @@index([city])
@@ -344,6 +346,48 @@ model Feedback {
   @@index([createdAt])
 }
 
+model WasteStockItem {
+  id            String           @id @default(cuid())
+  cooperativeId String
+  name          String
+  category      String
+  description   String?
+  status        WasteStockStatus @default(ACTIVE)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  cooperative Cooperative      @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  lots        WasteStockLot[]
+
+  @@index([cooperativeId])
+  @@index([name])
+  @@index([category])
+  @@index([status])
+}
+
+model WasteStockLot {
+  id              String               @id @default(cuid())
+  cooperativeId   String
+  stockItemId     String
+  lotCode         String
+  quantityKg      Float                @default(0)
+  storageLocation String?
+  processingStage WasteProcessingStage @default(TRIADO)
+  origin          String?
+  notes           String?
+  status          WasteLotStatus       @default(AVAILABLE)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  stockItem   WasteStockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  @@index([cooperativeId])
+  @@index([stockItemId])
+  @@index([lotCode])
+  @@index([status])
+}
+
 enum UserRole {
   PF
   GENERATOR_SMALL
@@ -426,4 +470,25 @@ enum FeedbackCategory {
   COLETA
   APLICATIVO
   COMUNICACAO
+}
+
+enum WasteStockStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum WasteLotStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  DISCARDED
+}
+
+enum WasteProcessingStage {
+  TRIADO
+  TRITURADO
+  PRENSADO
+  ENFARDADO
+  ARMAZENADO
+  DESTINADO
 }
