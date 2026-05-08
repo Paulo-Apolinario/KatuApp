@@ -14,6 +14,7 @@ type AuthActionResult = {
 type ResetPasswordInput = {
   email: string;
   token: string;
+  temporaryPassword: string;
   newPassword: string;
   confirmPassword: string;
 };
@@ -290,44 +291,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const forgotPassword = async (email: string): Promise<AuthActionResult> => {
-    const result = await authService.forgotPassword(email);
+  const result = await authService.forgotPassword(email);
 
-    if (result.success === false) {
-      return {
-        success: false,
-        error: result.error,
-      };
-    }
-
+  if (result.success === false) {
     return {
-      success: true,
-      message: result.message,
-      resetToken: result.resetToken,
+      success: false,
+      error: result.error,
     };
+  }
+
+  return {
+    success: true,
+    message:
+      result.message ||
+      "Se o e-mail existir em nossa base, enviamos as instruções de recuperação.",
   };
+};
 
-  const resetPassword = async (
-    data: ResetPasswordInput
-  ): Promise<AuthActionResult> => {
-    const result = await authService.resetPassword({
-      email: data.email,
-      token: data.token,
-      newPassword: data.newPassword,
-      confirmPassword: data.confirmPassword,
-    });
+const resetPassword = async (
+  data: ResetPasswordInput
+): Promise<AuthActionResult> => {
+  const result = await authService.resetPassword({
+    email: data.email,
+    token: data.token,
+    temporaryPassword: data.temporaryPassword,
+    newPassword: data.newPassword,
+    confirmPassword: data.confirmPassword,
+  });
 
-    if (result.success === false) {
-      return {
-        success: false,
-        error: result.error,
-      };
-    }
-
+  if (result.success === false) {
     return {
-      success: true,
-      message: result.message,
+      success: false,
+      error: result.error,
     };
+  }
+
+  return {
+    success: true,
+    message: result.message,
   };
+};
 
   return (
     <AuthContext.Provider

@@ -10,7 +10,6 @@ export type AuthSuccess = {
   firstAccess?: boolean;
   mustChangePassword?: boolean;
   message?: string;
-  resetToken?: string;
 };
 
 export type AuthError = {
@@ -41,8 +40,7 @@ type ActivateAccessResponse = {
 
 type ForgotPasswordResponse = {
   message?: string;
-  token?: string;
-  resetToken?: string;
+  expiresAt?: string | null;
 };
 
 type ResetPasswordResponse = {
@@ -78,6 +76,14 @@ type RegisterCooperativePayload = {
   longitude?: number;
 };
 
+type ResetPasswordPayload = {
+  email: string;
+  token: string;
+  temporaryPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -106,22 +112,13 @@ class AuthService {
   }
 
   async removeToken(): Promise<void> {
-    const currentUser = await this.getStoredUser();
-
-    if (currentUser) {
-      await sessionService.clearSession();
-      return;
-    }
-
     await sessionService.clearSession();
   }
 
   async saveUser(user: UserDoc): Promise<void> {
     const token = await this.getToken();
 
-    if (!token) {
-      return;
-    }
+    if (!token) return;
 
     await sessionService.saveSession({
       token,
@@ -284,8 +281,7 @@ class AuthService {
     } catch (error: unknown) {
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Erro ao fazer login.",
+        error: error instanceof Error ? error.message : "Erro ao fazer login.",
       };
     }
   }
@@ -347,8 +343,7 @@ class AuthService {
         success: true,
         message:
           response.message ||
-          "Se o e-mail existir, a recuperação foi iniciada.",
-        resetToken: response.resetToken || response.token,
+          "Se o e-mail existir, enviaremos as instruções de recuperação.",
       };
     } catch (error: unknown) {
       return {
@@ -361,20 +356,22 @@ class AuthService {
     }
   }
 
-  async resetPassword(data: {
-    email: string;
-    token: string;
-    newPassword: string;
-    confirmPassword: string;
-  }): Promise<AuthResult> {
+  async resetPassword(data: ResetPasswordPayload): Promise<AuthResult> {
     try {
       const response = await api.post<ResetPasswordResponse>(
         "/auth/reset-password",
         {
           email: normalizeEmail(data.email),
           token: data.token.trim(),
+
+          temporaryPassword: data.temporaryPassword,
+          temporary_password: data.temporaryPassword,
+
           newPassword: data.newPassword,
+          password: data.newPassword,
+
           confirmPassword: data.confirmPassword,
+          password_confirmation: data.confirmPassword,
         }
       );
 
@@ -412,9 +409,7 @@ class AuthService {
       console.error("Erro ao buscar usuário atual:", error);
 
       const storedUser = await this.getStoredUser();
-      if (storedUser) {
-        return storedUser;
-      }
+      if (storedUser) return storedUser;
 
       return null;
     }
