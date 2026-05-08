@@ -28,12 +28,16 @@ export default function ResetPasswordScreen() {
   const profile = params.profile as ProfileType | undefined;
   const { resetPassword } = useAuth();
 
-  const [email] = useState(params.email || "");
-  const [token] = useState(params.token || "");
+  const [email] = useState(String(params.email || ""));
+  const [token] = useState(String(params.token || ""));
+  const [temporaryPassword, setTemporaryPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showTemporaryPassword, setShowTemporaryPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [loading, setLoading] = useState(false);
 
   const profileLabel = useMemo(() => {
@@ -54,23 +58,38 @@ export default function ResetPasswordScreen() {
   }, [profile]);
 
   async function handleReset() {
-    if (!email || !token) {
-      Alert.alert("Erro", "Dados de redefinição inválidos.");
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedToken = token.trim();
+    const normalizedTemporaryPassword = temporaryPassword.trim();
+
+    if (!normalizedEmail || !normalizedToken) {
+      Alert.alert(
+        "Link inválido",
+        "O link de redefinição está incompleto ou expirado. Solicite uma nova recuperação de senha."
+      );
+      return;
+    }
+
+    if (!normalizedTemporaryPassword) {
+      Alert.alert(
+        "Atenção",
+        "Informe a senha temporária recebida por e-mail."
+      );
       return;
     }
 
     if (!newPassword || !confirmPassword) {
-      Alert.alert("Erro", "Preencha todos os campos.");
+      Alert.alert("Atenção", "Preencha a nova senha e a confirmação.");
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert("Erro", "A nova senha deve ter pelo menos 6 caracteres.");
+      Alert.alert("Atenção", "A nova senha deve ter pelo menos 6 caracteres.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert("Erro", "As senhas não coincidem.");
+      Alert.alert("Atenção", "As senhas não coincidem.");
       return;
     }
 
@@ -78,20 +97,24 @@ export default function ResetPasswordScreen() {
       setLoading(true);
 
       const result = await resetPassword({
-        email,
-        token,
+        email: normalizedEmail,
+        token: normalizedToken,
+        temporaryPassword: normalizedTemporaryPassword,
         newPassword,
         confirmPassword,
       });
 
       if (!result.success) {
-        Alert.alert("Erro", result.error || "Não foi possível redefinir a senha.");
+        Alert.alert(
+          "Erro",
+          result.error || "Não foi possível redefinir a senha."
+        );
         return;
       }
 
       Alert.alert(
-        "Sucesso",
-        result.message || "Senha redefinida com sucesso.",
+        "Senha redefinida",
+        result.message || "Sua senha foi redefinida com sucesso.",
         [
           {
             text: "Ir para login",
@@ -195,7 +218,8 @@ export default function ResetPasswordScreen() {
                 lineHeight: 20,
               }}
             >
-              Informe sua nova senha para concluir a recuperação de acesso.
+              Digite a senha temporária recebida por e-mail e cadastre uma nova
+              senha de acesso.
             </Text>
 
             <View
@@ -256,23 +280,48 @@ export default function ResetPasswordScreen() {
                 fontSize: 14,
               }}
             >
-              Token
+              Senha temporária *
             </Text>
 
-            <TextInput
-              value={token}
-              editable={false}
+            <View
               style={{
                 borderWidth: 1,
                 borderColor: "#D1D5DB",
                 borderRadius: 14,
                 paddingHorizontal: 16,
-                paddingVertical: 14,
-                fontSize: 16,
-                color: "#6B7280",
-                backgroundColor: "#F9FAFB",
+                flexDirection: "row",
+                alignItems: "center",
               }}
-            />
+            >
+              <TextInput
+                value={temporaryPassword}
+                onChangeText={setTemporaryPassword}
+                secureTextEntry={!showTemporaryPassword}
+                placeholder="Digite a senha recebida por e-mail"
+                placeholderTextColor="#9CA3AF"
+                autoCapitalize="characters"
+                editable={!loading}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  fontSize: 16,
+                  color: "#111827",
+                }}
+              />
+
+              <TouchableOpacity
+                onPress={() => setShowTemporaryPassword((prev) => !prev)}
+                disabled={loading}
+              >
+                <Ionicons
+                  name={
+                    showTemporaryPassword ? "eye-outline" : "eye-off-outline"
+                  }
+                  size={20}
+                  color="#028C56"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={{ marginBottom: 14 }}>
@@ -303,6 +352,7 @@ export default function ResetPasswordScreen() {
                 secureTextEntry={!showNewPassword}
                 placeholder="Digite a nova senha"
                 placeholderTextColor="#9CA3AF"
+                editable={!loading}
                 style={{
                   flex: 1,
                   paddingVertical: 14,
@@ -310,8 +360,10 @@ export default function ResetPasswordScreen() {
                   color: "#111827",
                 }}
               />
+
               <TouchableOpacity
                 onPress={() => setShowNewPassword((prev) => !prev)}
+                disabled={loading}
               >
                 <Ionicons
                   name={showNewPassword ? "eye-outline" : "eye-off-outline"}
@@ -350,6 +402,7 @@ export default function ResetPasswordScreen() {
                 secureTextEntry={!showConfirmPassword}
                 placeholder="Confirme a nova senha"
                 placeholderTextColor="#9CA3AF"
+                editable={!loading}
                 style={{
                   flex: 1,
                   paddingVertical: 14,
@@ -357,8 +410,10 @@ export default function ResetPasswordScreen() {
                   color: "#111827",
                 }}
               />
+
               <TouchableOpacity
                 onPress={() => setShowConfirmPassword((prev) => !prev)}
+                disabled={loading}
               >
                 <Ionicons
                   name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
