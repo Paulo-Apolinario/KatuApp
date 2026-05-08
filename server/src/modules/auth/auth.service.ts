@@ -6,7 +6,9 @@ import {
   GeneratorType,
   UserRole,
 } from "@prisma/client";
+import nodemailer from "nodemailer";
 
+import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import {
@@ -49,6 +51,72 @@ function buildAddress(data: {
   ].filter(Boolean);
 
   return parts.length ? parts.join(", ") : null;
+}
+
+function generateTemporaryPassword() {
+  return crypto.randomBytes(4).toString("hex").toUpperCase();
+}
+
+async function sendPasswordResetEmail(data: {
+  to: string;
+  name: string;
+  resetToken: string;
+  temporaryPassword: string;
+  expiresAt: Date;
+}) {
+  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS || !env.SMTP_FROM) {
+    console.warn("SMTP não configurado. Email de recuperação não será enviado.");
+    return;
+  }
+
+  const resetUrl = `${env.APP_WEB_URL}/reset-password?email=${encodeURIComponent(
+    data.to
+  )}&token=${encodeURIComponent(data.resetToken)}`;
+
+  const transporter = nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure: env.SMTP_SECURE,
+    auth: {
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: env.SMTP_FROM,
+    to: data.to,
+    subject: "Redefinição de senha - KATUÁ",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #111827;">
+        <h2 style="color: #028C56;">Redefinição de senha - KATUÁ</h2>
+
+        <p>Olá, <strong>${data.name}</strong>.</p>
+
+        <p>Recebemos uma solicitação para redefinir sua senha de acesso ao sistema KATUÁ.</p>
+
+        <p><strong>Senha temporária:</strong></p>
+
+        <div style="font-size: 22px; font-weight: bold; letter-spacing: 2px; background: #F3F4F6; padding: 14px; border-radius: 10px; margin: 16px 0;">
+          ${data.temporaryPassword}
+        </div>
+
+        <p>Clique no botão abaixo para criar sua nova senha:</p>
+
+        <p>
+          <a href="${resetUrl}" style="display: inline-block; background: #028C56; color: #FFFFFF; padding: 12px 18px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            Redefinir minha senha
+          </a>
+        </p>
+
+        <p>Esse link expira em 15 minutos.</p>
+
+        <p style="color: #6B7280; font-size: 13px;">
+          Se você não solicitou essa recuperação, ignore este e-mail.
+        </p>
+      </div>
+    `,
+  });
 }
 
 export class AuthService {
@@ -469,9 +537,8 @@ export class AuthService {
 
     if (!user) {
       return {
-        message:
-          "Se o e-mail existir em nossa base, a recuperação foi iniciada.",
-        resetToken: null,
+        message: "Se o e-mail existir em nossa base, a recuperação foi iniciada.",
+        expiresAt: null,
       };
     }
 
@@ -479,27 +546,44 @@ export class AuthService {
       throw new Error("Conta inativa ou bloqueada.");
     }
 
-    const resetToken = crypto.randomBytes(3).toString("hex").toUpperCase();
+    const resetToken = crypto.randomBytes(16).toString("hex");
+    const temporaryPassword = generateTemporaryPassword();
     const resetPasswordExpiresAt = new Date(Date.now() + 1000 * 60 * 15);
+
+    const temporaryPasswordHash = await hashPassword(temporaryPassword);
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
         resetPasswordToken: resetToken,
         resetPasswordExpiresAt,
+        passwordHash: temporaryPasswordHash,
       },
     });
 
-    return {
-      message: "Token de redefinição gerado com sucesso.",
+    await sendPasswordResetEmail({
+      to: user.email,
+      name: user.displayName,
       resetToken,
+      temporaryPassword,
+      expiresAt: resetPasswordExpiresAt,
+    });
+
+    return {
+      message:
+        "Se o e-mail existir em nossa base, enviamos as instruções de recuperação.",
       expiresAt: resetPasswordExpiresAt,
     };
   }
 
   async resetPassword(data: ResetPasswordInput) {
     const email = normalizeEmail(data.email);
-    const token = data.token.trim().toUpperCase();
+    const token = data.token.trim();
+
+    const temporaryPassword =
+      data.temporaryPassword || data.temporary_password || "";
+
+    const newPassword = data.newPassword || data.password || "";
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -521,7 +605,16 @@ export class AuthService {
       throw new Error("Token expirado.");
     }
 
-    const passwordHash = await hashPassword(data.newPassword);
+    const temporaryPasswordMatches = await comparePassword(
+      temporaryPassword,
+      user.passwordHash
+    );
+
+    if (!temporaryPasswordMatches) {
+      throw new Error("Senha temporária inválida.");
+    }
+
+    const passwordHash = await hashPassword(newPassword);
 
     await prisma.user.update({
       where: { id: user.id },

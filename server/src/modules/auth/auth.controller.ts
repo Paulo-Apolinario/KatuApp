@@ -160,24 +160,23 @@ export class AuthController {
   }
 
   async forgotPassword(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const body = forgotPasswordSchema.parse(request.body);
+  try {
+    const body = forgotPasswordSchema.parse(request.body);
 
-      const result = await authService.forgotPassword(body);
+    const result = await authService.forgotPassword(body);
 
-      return reply.send({
-        success: true,
-        message: result.message,
-        resetToken: result.resetToken,
-        expiresAt: result.expiresAt ?? null,
-      });
-    } catch (error: any) {
-      return reply.status(400).send({
-        success: false,
-        error: error.message || "Erro ao solicitar redefinição de senha.",
-      });
-    }
+    return reply.send({
+      success: true,
+      message: result.message,
+      expiresAt: result.expiresAt ?? null,
+    });
+  } catch (error: any) {
+    return reply.status(400).send({
+      success: false,
+      error: error.message || "Erro ao solicitar redefinição de senha.",
+    });
   }
+}
 
   async resetPassword(request: FastifyRequest, reply: FastifyReply) {
     try {
