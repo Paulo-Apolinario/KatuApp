@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,6 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type ProfileType = "pf" | "comercial" | "grande" | "cooperativa" | "catador";
 
@@ -33,6 +33,8 @@ export default function ResetPasswordScreen() {
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const { notifyError, notifySuccess } = useNotification();
+  
 
   const [showTemporaryPassword, setShowTemporaryPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -63,7 +65,7 @@ export default function ResetPasswordScreen() {
     const normalizedTemporaryPassword = temporaryPassword.trim();
 
     if (!normalizedEmail || !normalizedToken) {
-      Alert.alert(
+      notifyError(
         "Link inválido",
         "O link de redefinição está incompleto ou expirado. Solicite uma nova recuperação de senha."
       );
@@ -71,7 +73,7 @@ export default function ResetPasswordScreen() {
     }
 
     if (!normalizedTemporaryPassword) {
-      Alert.alert(
+      notifyError(
         "Atenção",
         "Informe a senha temporária recebida por e-mail."
       );
@@ -79,17 +81,17 @@ export default function ResetPasswordScreen() {
     }
 
     if (!newPassword || !confirmPassword) {
-      Alert.alert("Atenção", "Preencha a nova senha e a confirmação.");
+      notifyError("Atenção", "Preencha a nova senha e a confirmação.");
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert("Atenção", "A nova senha deve ter pelo menos 6 caracteres.");
+      notifyError("Atenção", "A nova senha deve ter pelo menos 6 caracteres.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert("Atenção", "As senhas não coincidem.");
+      notifyError("Atenção", "As senhas não coincidem.");
       return;
     }
 
@@ -105,29 +107,26 @@ export default function ResetPasswordScreen() {
       });
 
       if (!result.success) {
-        Alert.alert(
+        notifyError(
           "Erro",
           result.error || "Não foi possível redefinir a senha."
         );
         return;
       }
 
-      Alert.alert(
-        "Senha redefinida",
-        result.message || "Sua senha foi redefinida com sucesso.",
-        [
-          {
-            text: "Ir para login",
-            onPress: () => {
-              const query = profile ? `?profile=${profile}` : "";
-              router.replace(`/(auth)/login${query}` as any);
-            },
-          },
-        ]
-      );
+      notifySuccess(
+  "Senha redefinida",
+  result.message || "Sua senha foi redefinida com sucesso."
+);
+
+const query = profile ? `?profile=${profile}` : "";
+
+setTimeout(() => {
+  router.replace(`/(auth)/login${query}` as any);
+}, 1200);
     } catch (error: any) {
       console.error("Erro ao redefinir senha:", error);
-      Alert.alert(
+      notifyError(
         "Erro",
         error?.message || "Não foi possível redefinir a senha."
       );
