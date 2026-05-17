@@ -333,6 +333,173 @@ export class AuthService {
     return user;
   }
 
+  async updateProfile(
+    userId: string,
+    data: {
+      displayName: string;
+    }
+  ) {
+    const displayName = data.displayName.trim();
+
+    if (!displayName) {
+      throw new Error("Informe o nome completo.");
+    }
+
+    if (displayName.length < 3) {
+      throw new Error("O nome precisa ter pelo menos 3 caracteres.");
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        personProfile: true,
+        generator: true,
+        collector: true,
+        cooperative: true,
+        driver: true,
+      },
+    });
+
+    if (!currentUser) {
+      throw new Error("Usuário não encontrado.");
+    }
+
+    if (!currentUser.isActive || currentUser.accountStatus !== AccountStatus.ACTIVE) {
+      throw new Error("Conta inativa ou bloqueada.");
+    }
+
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          displayName,
+        },
+      });
+
+      if (currentUser.role === UserRole.COOPERATIVE && currentUser.cooperative) {
+        await tx.cooperative.update({
+          where: { id: currentUser.cooperative.id },
+          data: {
+            name: displayName,
+          },
+        });
+      }
+
+      if (
+        (currentUser.role === UserRole.GENERATOR_SMALL ||
+          currentUser.role === UserRole.GENERATOR_LARGE) &&
+        currentUser.generator
+      ) {
+        await tx.generator.update({
+          where: { id: currentUser.generator.id },
+          data: {
+            name: displayName,
+          },
+        });
+      }
+
+      if (currentUser.role === UserRole.COLLECTOR && currentUser.collector) {
+        await tx.collector.update({
+          where: { id: currentUser.collector.id },
+          data: {
+            name: displayName,
+          },
+        });
+      }
+
+      if (currentUser.role === UserRole.DRIVER && currentUser.driver) {
+        await tx.driver.update({
+          where: { id: currentUser.driver.id },
+          data: {
+            name: displayName,
+          },
+        });
+      }
+
+      const hydratedUser = await tx.user.findUnique({
+        where: { id: userId },
+        include: {
+          personProfile: true,
+          generator: true,
+          collector: true,
+          cooperative: true,
+          driver: true,
+        },
+      });
+
+      if (!hydratedUser) {
+        throw new Error("Erro ao carregar usuário atualizado.");
+      }
+
+      return hydratedUser;
+    });
+
+    return updatedUser;
+  }
+
+  async changePassword(
+    userId: string,
+    data: {
+      currentPassword: string;
+      newPassword: string;
+    }
+  ) {
+    const currentPassword = data.currentPassword;
+    const newPassword = data.newPassword;
+
+    if (!currentPassword) {
+      throw new Error("Informe a senha atual.");
+    }
+
+    if (!newPassword) {
+      throw new Error("Informe a nova senha.");
+    }
+
+    if (newPassword.length < 6) {
+      throw new Error("A nova senha precisa ter pelo menos 6 caracteres.");
+    }
+
+    if (currentPassword === newPassword) {
+      throw new Error("A nova senha precisa ser diferente da senha atual.");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error("Usuário não encontrado.");
+    }
+
+    if (!user.isActive || user.accountStatus !== AccountStatus.ACTIVE) {
+      throw new Error("Conta inativa ou bloqueada.");
+    }
+
+    const passwordMatches = await comparePassword(
+      currentPassword,
+      user.passwordHash
+    );
+
+    if (!passwordMatches) {
+      throw new Error("Senha atual inválida.");
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        resetPasswordToken: null,
+        resetPasswordExpiresAt: null,
+      },
+    });
+
+    return {
+      message: "Senha alterada com sucesso.",
+    };
+  }
+
   async activateGeneratorAccess(data: ActivateGeneratorAccessInput) {
     const email = normalizeEmail(data.email);
 
@@ -537,7 +704,8 @@ export class AuthService {
 
     if (!user) {
       return {
-        message: "Se o e-mail existir em nossa base, a recuperação foi iniciada.",
+        message:
+          "Se o e-mail existir em nossa base, a recuperação foi iniciada.",
         expiresAt: null,
       };
     }

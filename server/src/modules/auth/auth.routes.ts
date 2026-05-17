@@ -18,4 +18,20 @@ export async function authRoutes(app: FastifyInstance) {
     },
     authController.me
   );
+
+  app.patch(
+    "/profile",
+    {
+      preHandler: [app.authenticate],
+    },
+    authController.updateProfile
+  );
+
+  app.patch(
+    "/change-password",
+    {
+      preHandler: [app.authenticate],
+    },
+    authController.changePassword
+  );
 }
