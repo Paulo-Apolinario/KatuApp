@@ -33,39 +33,42 @@ model User {
 }
 
 model Cooperative {
-  id                 String       @id @default(cuid())
+  id                 String  @id @default(cuid())
   name               String
-  registrationNumber String?      @unique
-  email              String?      @unique
+  registrationNumber String? @unique
+  email              String? @unique
   phone              String?
 
   // endereço estruturado
-  zipCode            String?
-  street             String?
-  number             String?
-  neighborhood       String?
-  city               String?
-  state              String?
-  address            String?
+  zipCode      String?
+  street       String?
+  number       String?
+  neighborhood String?
+  city         String?
+  state        String?
+  address      String?
 
   // coordenadas para mapa
-  latitude           Float?
-  longitude          Float?
+  latitude  Float?
+  longitude Float?
 
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  userId             String       @unique
-  collections        Collection[]
-  collectors         Collector[]
-  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  drivers            Driver[]
-  generators         Generator[]
-  routes             Route[]
-  schedules          Schedule[]
-  vehicles           Vehicle[]
-  feedbacks          Feedback[]
-  wasteStockItems WasteStockItem[]
-  wasteStockLots  WasteStockLot[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  userId           String            @unique
+  collections      Collection[]
+  collectors       Collector[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drivers          Driver[]
+  generators       Generator[]
+  routes           Route[]
+  schedules        Schedule[]
+  vehicles         Vehicle[]
+  feedbacks        Feedback[]
+  wasteStockItems  WasteStockItem[]
+  wasteStockLots   WasteStockLot[]
+  bins             Bin[]
+  vehicleDocuments VehicleDocument[]
+  maintenanceLogs  MaintenanceLog[]
 
   @@index([name])
   @@index([city])
@@ -282,11 +285,15 @@ model Vehicle {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  routes      Route[]
-  collections Collection[]
-  reports     DriverReport[]
-  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  driver      Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  routes          Route[]
+  collections     Collection[]
+  reports         DriverReport[]
+  documents       VehicleDocument[]
+  maintenanceLogs MaintenanceLog[]
+  bins            Bin[]
+
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  driver      Driver?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
 
   @@index([cooperativeId])
   @@index([driverId])
@@ -356,7 +363,7 @@ model WasteStockItem {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  cooperative Cooperative      @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  cooperative Cooperative     @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
   lots        WasteStockLot[]
 
   @@index([cooperativeId])
@@ -386,6 +393,79 @@ model WasteStockLot {
   @@index([stockItemId])
   @@index([lotCode])
   @@index([status])
+}
+
+model Bin {
+  id                 String    @id @default(cuid())
+  cooperativeId      String
+  vehicleId          String?
+  binId              String
+  binType            String?
+  location           String?
+  capacityKg         Float?
+  notes              String?
+  photoUrl           String?
+  lastCollectionDate DateTime?
+  status             BinStatus @default(ACTIVE)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  @@unique([cooperativeId, binId])
+  @@index([cooperativeId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([binType])
+}
+
+model VehicleDocument {
+  id             String    @id @default(cuid())
+  cooperativeId  String
+  vehicleId      String?
+  documentType   String
+  documentNumber String
+  issueDate      DateTime?
+  expiryDate     DateTime?
+  fileUrl        String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  @@index([cooperativeId])
+  @@index([vehicleId])
+  @@index([documentType])
+  @@index([expiryDate])
+}
+
+model MaintenanceLog {
+  id                  String            @id @default(cuid())
+  cooperativeId       String
+  vehicleId           String
+  maintenanceType     String
+  maintenanceDate     DateTime
+  location            String?
+  cost                Float?
+  performedBy         String?
+  nextMaintenanceDate DateTime?
+  notes               String?
+  fileUrl             String?
+  status              MaintenanceStatus @default(COMPLETED)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle     @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([cooperativeId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([maintenanceDate])
+  @@index([nextMaintenanceDate])
 }
 
 enum UserRole {
@@ -491,4 +571,18 @@ enum WasteProcessingStage {
   ENFARDADO
   ARMAZENADO
   DESTINADO
+}
+
+enum BinStatus {
+  ACTIVE
+  INACTIVE
+  FULL
+  MAINTENANCE
+}
+
+enum MaintenanceStatus {
+  COMPLETED
+  PENDING
+  SCHEDULED
+  OVERDUE
 }

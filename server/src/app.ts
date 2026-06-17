@@ -2,17 +2,21 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import sensible from "@fastify/sensible";
 import jwt from "@fastify/jwt";
+import multipart from "@fastify/multipart";
+import fastifyStatic from "@fastify/static";
+import path from "node:path";
 
 import { env } from "./config/env";
 import { appRoutes } from "./routes/index";
 import { cooperativesRoutes } from "./modules/cooperatives/cooperatives.routes";
 import { feedbackRoutes } from "./modules/feedback/feedback.routes";
 import { wasteStockRoutes } from "./modules/waste-stock/waste-stock.routes";
+import { binsRoutes } from "./modules/bins/bins.routes";
+import { vehicleDocumentsRoutes } from "./modules/vehicle-documents/vehicle-documents.routes";
+import { maintenanceLogsRoutes } from "./modules/maintenance-logs/maintenance-logs.routes";
 
 function parseCorsOrigins(origins: string): string[] | boolean {
-  if (!origins || origins.trim() === "*") {
-    return true;
-  }
+  if (!origins || origins.trim() === "*") return true;
 
   return origins
     .split(",")
@@ -69,6 +73,17 @@ export async function buildApp() {
     },
   });
 
+  await app.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024,
+    },
+  });
+
+  await app.register(fastifyStatic, {
+    root: path.join(process.cwd(), "uploads"),
+    prefix: "/uploads/",
+  });
+
   app.decorate("authenticate", async function (request: any, reply: any) {
     try {
       await request.jwtVerify();
@@ -91,6 +106,9 @@ export async function buildApp() {
   await app.register(cooperativesRoutes);
   await app.register(feedbackRoutes);
   await app.register(wasteStockRoutes);
+  await app.register(binsRoutes);
+  await app.register(vehicleDocumentsRoutes);
+  await app.register(maintenanceLogsRoutes);
 
   return app;
 }
