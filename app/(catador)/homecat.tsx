@@ -10,6 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNotification } from "@/src/contexts/NotificationContext";
+import { useAuth } from "@/src/contexts/AuthContext";
 
 import {
   collectionService,
@@ -41,6 +42,7 @@ function formatMaterials(materials?: CollectionMaterial[]) {
 }
 
 export default function HomeCatScreen() {
+  const { signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [collections, setCollections] = useState<Collection[]>([]);
   const { notifyError } = useNotification();
@@ -64,6 +66,10 @@ export default function HomeCatScreen() {
       loadCollections();
     }, [loadCollections])
   );
+
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+  }, [signOut]);
 
   const metrics = useMemo(() => {
     const completedCollections = collections.filter(
@@ -132,15 +138,48 @@ export default function HomeCatScreen() {
           borderBottomRightRadius: 30,
         }}
       >
-        <Text
+        <View
           style={{
-            color: "#FFFFFF",
-            fontSize: 26,
-            fontWeight: "800",
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          Painel do catador
-        </Text>
+          <Text
+            style={{
+              color: "#FFFFFF",
+              fontSize: 26,
+              fontWeight: "800",
+            }}
+          >
+            Painel do catador
+          </Text>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleSignOut}
+            style={{
+              backgroundColor: "rgba(255,255,255,0.18)",
+              borderRadius: 999,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+            <Text
+              style={{
+                color: "#FFFFFF",
+                fontWeight: "800",
+                marginLeft: 6,
+                fontSize: 13,
+              }}
+            >
+              Sair
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <Text
           style={{
@@ -271,7 +310,9 @@ export default function HomeCatScreen() {
             metrics.recentCollections.map((item) => (
               <View key={item.id} style={listItemCard}>
                 <Text style={itemTitle}>
-                  {item.generator?.companyName || item.generator?.name || "Coleta concluída"}
+                  {item.generator?.companyName ||
+                    item.generator?.name ||
+                    "Coleta concluída"}
                 </Text>
                 <Text style={itemText}>
                   Peso: {Number(item.totalWeightKg || 0).toFixed(1)} kg
@@ -319,6 +360,12 @@ export default function HomeCatScreen() {
             title="Comprovantes"
             subtitle="Gerar e consultar comprovantes"
             onPress={() => router.push("/(catador)/receipts")}
+          />
+          <QuickAction
+            icon="log-out-outline"
+            title="Sair"
+            subtitle="Encerrar sessão neste dispositivo"
+            onPress={handleSignOut}
             isLast
           />
         </View>
@@ -405,7 +452,14 @@ function MetricCard({
       </View>
 
       <Text style={{ color: "#6B7280", fontSize: 13 }}>{title}</Text>
-      <Text style={{ color: "#111827", fontSize: 20, fontWeight: "800", marginTop: 4 }}>
+      <Text
+        style={{
+          color: "#111827",
+          fontSize: 20,
+          fontWeight: "800",
+          marginTop: 4,
+        }}
+      >
         {value}
       </Text>
     </View>
@@ -448,7 +502,14 @@ function MetricCardFull({
 
         <View>
           <Text style={{ color: "#6B7280", fontSize: 13 }}>{title}</Text>
-          <Text style={{ color: "#111827", fontSize: 24, fontWeight: "800", marginTop: 2 }}>
+          <Text
+            style={{
+              color: "#111827",
+              fontSize: 24,
+              fontWeight: "800",
+              marginTop: 2,
+            }}
+          >
             {value}
           </Text>
         </View>
@@ -482,7 +543,9 @@ function SectionHeader({
 
       {actionLabel && onPress ? (
         <TouchableOpacity onPress={onPress}>
-          <Text style={{ color: "#028C56", fontWeight: "700" }}>{actionLabel}</Text>
+          <Text style={{ color: "#028C56", fontWeight: "700" }}>
+            {actionLabel}
+          </Text>
         </TouchableOpacity>
       ) : null}
     </View>

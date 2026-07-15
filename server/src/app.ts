@@ -74,10 +74,13 @@ export async function buildApp() {
   });
 
   await app.register(multipart, {
-    limits: {
-      fileSize: 10 * 1024 * 1024,
-    },
-  });
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 10,
+    fields: 40,
+    parts: 50,
+  },
+});
 
   await app.register(fastifyStatic, {
     root: path.join(process.cwd(), "uploads"),

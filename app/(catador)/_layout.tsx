@@ -1,7 +1,5 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { View } from "react-native";
-import LogoutButton from "@/src/components/LogoutButton.tsx";
 import ProtectedRoute from "@/src/components/ProtectedRoute";
 
 export default function CatadorLayout() {
@@ -24,11 +22,9 @@ export default function CatadorLayout() {
             backgroundColor: "#028C56",
           },
           headerTintColor: "#FFFFFF",
-          headerRight: () => (
-            <View style={{ flexDirection: "row", marginRight: 15 }}>
-              <LogoutButton color="#FFFFFF" size={24} />
-            </View>
-          ),
+          headerTitleStyle: {
+            fontWeight: "700",
+          },
         }}
       >
         <Tabs.Screen
@@ -66,7 +62,11 @@ export default function CatadorLayout() {
           options={{
             title: "Comprovantes",
             tabBarIcon: ({ color }) => (
-              <Ionicons name="document-text-outline" size={24} color={color} />
+              <Ionicons
+                name="document-text-outline"
+                size={24}
+                color={color}
+              />
             ),
           }}
         />

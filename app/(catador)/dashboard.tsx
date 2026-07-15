@@ -5,11 +5,13 @@ import {
   RefreshControl,
   ScrollView,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
+import { useAuth } from "@/src/contexts/AuthContext";
 import { collectionService } from "@/src/services/collectionService";
 import type { Collection, CollectionMaterial } from "@/src/types/collection";
 
@@ -31,11 +33,7 @@ function normalizeMaterials(materials: unknown): CollectionMaterial[] {
         return { type: item, quantityKg: 0 };
       }
 
-      if (
-        item &&
-        typeof item === "object" &&
-        "type" in item
-      ) {
+      if (item && typeof item === "object" && "type" in item) {
         return {
           type: String((item as { type?: unknown }).type ?? "Não informado"),
           quantityKg: Number(
@@ -63,11 +61,15 @@ function getMaterialsLabel(materials?: CollectionMaterial[]) {
   if (!materials || materials.length === 0) return "-";
 
   return materials
-    .map((item) => `${item.type} (${Number(item.quantityKg ?? 0).toFixed(1)} kg)`)
+    .map(
+      (item) => `${item.type} (${Number(item.quantityKg ?? 0).toFixed(1)} kg)`
+    )
     .join(", ");
 }
 
 export default function CollectorDashboardScreen() {
+  const { signOut } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -106,6 +108,10 @@ export default function CollectorDashboardScreen() {
     setRefreshing(true);
     await loadCollections(false);
   }, [loadCollections]);
+
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+  }, [signOut]);
 
   const metrics = useMemo(() => {
     const completedCollections = collections.filter(
@@ -222,9 +228,42 @@ export default function CollectorDashboardScreen() {
           borderBottomRightRadius: 30,
         }}
       >
-        <Text style={{ color: "#E8FFF1", fontSize: 14 }}>
-          Dashboard do Catador
-        </Text>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "#E8FFF1", fontSize: 14 }}>
+            Dashboard do Catador
+          </Text>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleSignOut}
+            style={{
+              backgroundColor: "rgba(255,255,255,0.18)",
+              borderRadius: 999,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+            <Text
+              style={{
+                color: "#FFFFFF",
+                fontWeight: "800",
+                marginLeft: 6,
+                fontSize: 13,
+              }}
+            >
+              Sair
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <Text
           style={{
@@ -290,12 +329,15 @@ export default function CollectorDashboardScreen() {
               <InfoRow
                 label="Data"
                 value={formatDate(
-                  metrics.lastCollection.collectedAt || metrics.lastCollection.createdAt
+                  metrics.lastCollection.collectedAt ||
+                    metrics.lastCollection.createdAt
                 )}
               />
               <InfoRow
                 label="Peso"
-                value={`${getCollectionTotalKg(metrics.lastCollection).toFixed(1)} kg`}
+                value={`${getCollectionTotalKg(metrics.lastCollection).toFixed(
+                  1
+                )} kg`}
               />
               <InfoRow
                 label="Materiais"
@@ -323,8 +365,10 @@ export default function CollectorDashboardScreen() {
                   flexDirection: "row",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  paddingBottom: index === metrics.topMaterials.length - 1 ? 0 : 12,
-                  marginBottom: index === metrics.topMaterials.length - 1 ? 0 : 12,
+                  paddingBottom:
+                    index === metrics.topMaterials.length - 1 ? 0 : 12,
+                  marginBottom:
+                    index === metrics.topMaterials.length - 1 ? 0 : 12,
                   borderBottomWidth:
                     index === metrics.topMaterials.length - 1 ? 0 : 1,
                   borderBottomColor: "#E5E7EB",
@@ -374,6 +418,24 @@ export default function CollectorDashboardScreen() {
               subtitle="As coletas registradas aparecerão aqui."
             />
           )}
+        </View>
+
+        <SectionHeader title="Ações rápidas" />
+
+        <View style={sectionCard}>
+          <QuickAction
+            icon="refresh-outline"
+            title="Atualizar dados"
+            subtitle="Recarregar informações do dashboard"
+            onPress={onRefresh}
+          />
+          <QuickAction
+            icon="log-out-outline"
+            title="Sair"
+            subtitle="Encerrar sessão neste dispositivo"
+            onPress={handleSignOut}
+            isLast
+          />
         </View>
       </View>
     </ScrollView>
@@ -464,6 +526,60 @@ function InfoRow({
         {value || "-"}
       </Text>
     </View>
+  );
+}
+
+function QuickAction({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  isLast = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  isLast?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingBottom: isLast ? 0 : 14,
+        marginBottom: isLast ? 0 : 14,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: "#E5E7EB",
+      }}
+    >
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: "#DCFCE7",
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 12,
+        }}
+      >
+        <Ionicons name={icon} size={20} color="#15803D" />
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: "700", color: "#111827" }}>
+          {title}
+        </Text>
+        <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>
+          {subtitle}
+        </Text>
+      </View>
+
+      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+    </TouchableOpacity>
   );
 }
 

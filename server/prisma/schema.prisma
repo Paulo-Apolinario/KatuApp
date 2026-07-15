@@ -52,23 +52,24 @@ model Cooperative {
   latitude  Float?
   longitude Float?
 
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  userId           String            @unique
-  collections      Collection[]
-  collectors       Collector[]
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  drivers          Driver[]
-  generators       Generator[]
-  routes           Route[]
-  schedules        Schedule[]
-  vehicles         Vehicle[]
-  feedbacks        Feedback[]
-  wasteStockItems  WasteStockItem[]
-  wasteStockLots   WasteStockLot[]
-  bins             Bin[]
-  vehicleDocuments VehicleDocument[]
-  maintenanceLogs  MaintenanceLog[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  userId             String              @unique
+  collections        Collection[]
+  collectors         Collector[]
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drivers            Driver[]
+  generators         Generator[]
+  routes             Route[]
+  schedules          Schedule[]
+  vehicles           Vehicle[]
+  feedbacks          Feedback[]
+  wasteStockItems    WasteStockItem[]
+  wasteStockLots     WasteStockLot[]
+  bins               Bin[]
+  vehicleDocuments   VehicleDocument[]
+  maintenanceLogs    MaintenanceLog[]
+  collectorDocuments CollectorDocument[]
 
   @@index([name])
   @@index([city])
@@ -182,27 +183,73 @@ model Schedule {
 }
 
 model Collector {
-  id               String          @id @default(cuid())
-  cooperativeId    String?
-  userId           String?         @unique
-  name             String
-  email            String          @unique
-  phone            String?
-  rg               String?
-  birthDate        String?
+  id            String  @id @default(cuid())
+  cooperativeId String?
+  userId        String? @unique
+
+  name       String
+  socialName String?
+  email      String           @unique
+  phone      String?
+  cpf        String?
+  rg         String?
+  birthDate  String?
+  sex        CollectorSex?
+  gender     CollectorGender?
+  address    String?
+
+  associationDate DateTime?
+  isAutonomous    Boolean   @default(false)
+
+  incomeRange          String?
+  socialBenefits       String?
+  occupationalDiseases String?
+  socioeconomicNotes   String?
+
   status           CollectorStatus @default(AVAILABLE)
   kgMonth          Float           @default(0)
   collectionsToday Int             @default(0)
   totalKg          Float           @default(0)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  collections      Collection[]
-  cooperative      Cooperative?    @relation(fields: [cooperativeId], references: [id])
-  user             User?           @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  collections Collection[]
+  documents   CollectorDocument[]
+
+  cooperative Cooperative? @relation(fields: [cooperativeId], references: [id])
+  user        User?        @relation(fields: [userId], references: [id])
 
   @@index([cooperativeId])
   @@index([status])
   @@index([name])
+  @@index([cpf])
+  @@index([sex])
+  @@index([gender])
+  @@index([associationDate])
+}
+
+model CollectorDocument {
+  id            String  @id @default(cuid())
+  collectorId   String
+  cooperativeId String?
+
+  documentType String?
+  documentName String?
+  fileUrl      String
+  fileMimeType String?
+  fileSize     Int?
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  collector   Collector    @relation(fields: [collectorId], references: [id], onDelete: Cascade)
+  cooperative Cooperative? @relation(fields: [cooperativeId], references: [id], onDelete: SetNull)
+
+  @@index([collectorId])
+  @@index([cooperativeId])
+  @@index([documentType])
 }
 
 model Collection {
@@ -501,6 +548,23 @@ enum CollectorStatus {
   AVAILABLE
   ON_ROUTE
   INACTIVE
+}
+
+enum CollectorSex {
+  FEMALE
+  MALE
+  INTERSEX
+  NOT_INFORMED
+}
+
+enum CollectorGender {
+  CIS_WOMAN
+  CIS_MAN
+  TRANS_WOMAN
+  TRANS_MAN
+  NON_BINARY
+  OTHER
+  NOT_INFORMED
 }
 
 enum ScheduleStatus {

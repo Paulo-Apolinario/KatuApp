@@ -141,7 +141,7 @@ function getCollectionBadgeColor(status: Collection["status"]) {
 }
 
 export default function GeneratorDashboardScreen() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const currentUser = user as AuthUserLike | null;
   const { notifyError } = useNotification();
 
@@ -157,38 +157,45 @@ export default function GeneratorDashboardScreen() {
     currentUser?.name ||
     "Gerador";
 
-  const loadDashboard = useCallback(async (showLoader = true) => {
-    try {
-      if (showLoader) setLoading(true);
+  const loadDashboard = useCallback(
+    async (showLoader = true) => {
+      try {
+        if (showLoader) setLoading(true);
 
-      if (!scheduleService || typeof scheduleService.list !== "function") {
-        throw new Error("Serviço de agendamentos não carregado.");
+        if (!scheduleService || typeof scheduleService.list !== "function") {
+          throw new Error("Serviço de agendamentos não carregado.");
+        }
+
+        if (!collectionService || typeof collectionService.list !== "function") {
+          throw new Error("Serviço de coletas não carregado.");
+        }
+
+        const [scheduleResponse, collectionResponse] = await Promise.all([
+          scheduleService.list(),
+          collectionService.list(),
+        ]);
+
+        setSchedules(Array.isArray(scheduleResponse) ? scheduleResponse : []);
+        setCollections(
+          Array.isArray(collectionResponse) ? collectionResponse : []
+        );
+      } catch (error) {
+        console.error("Erro ao carregar dashboard do gerador:", error);
+        notifyError(
+          "Erro",
+          error instanceof Error
+            ? error.message
+            : "Não foi possível carregar o dashboard do gerador."
+        );
+        setSchedules([]);
+        setCollections([]);
+      } finally {
+        if (showLoader) setLoading(false);
+        setRefreshing(false);
       }
-
-      if (!collectionService || typeof collectionService.list !== "function") {
-        throw new Error("Serviço de coletas não carregado.");
-      }
-
-      const [scheduleResponse, collectionResponse] = await Promise.all([
-        scheduleService.list(),
-        collectionService.list(),
-      ]);
-
-      setSchedules(Array.isArray(scheduleResponse) ? scheduleResponse : []);
-      setCollections(Array.isArray(collectionResponse) ? collectionResponse : []);
-    } catch (error) {
-      console.error("Erro ao carregar dashboard do gerador:", error);
-      notifyError("Erro", error instanceof Error
-        ? error.message
-        : "Não foi possível carregar o dashboard do gerador."
-      );
-      setSchedules([]);
-      setCollections([]);
-    } finally {
-      if (showLoader) setLoading(false);
-      setRefreshing(false);
-    }
-  }, [notifyError]);
+    },
+    [notifyError]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -200,6 +207,10 @@ export default function GeneratorDashboardScreen() {
     setRefreshing(true);
     await loadDashboard(false);
   }, [loadDashboard]);
+
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+  }, [signOut]);
 
   const metrics = useMemo(() => {
     const openSchedules = schedules.filter(
@@ -280,9 +291,42 @@ export default function GeneratorDashboardScreen() {
           borderBottomRightRadius: 30,
         }}
       >
-        <Text style={{ color: "#E8FFF1", fontSize: 14 }}>
-          Dashboard do Gerador
-        </Text>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "#E8FFF1", fontSize: 14 }}>
+            Dashboard do Gerador
+          </Text>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleSignOut}
+            style={{
+              backgroundColor: "rgba(255,255,255,0.18)",
+              borderRadius: 999,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+            <Text
+              style={{
+                color: "#FFFFFF",
+                fontWeight: "800",
+                marginLeft: 6,
+                fontSize: 13,
+              }}
+            >
+              Sair
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <Text
           style={{
@@ -444,7 +488,8 @@ export default function GeneratorDashboardScreen() {
                     </Text>
 
                     <Text style={itemText}>
-                      Total coletado: {Number(item.totalWeightKg || 0).toFixed(1)} kg
+                      Total coletado:{" "}
+                      {Number(item.totalWeightKg || 0).toFixed(1)} kg
                     </Text>
 
                     {(item.materials || []).length > 0 && (
@@ -496,6 +541,12 @@ export default function GeneratorDashboardScreen() {
             title="Meu perfil"
             subtitle="Ver e editar dados da conta"
             onPress={() => router.push("/(gerador)/profile")}
+          />
+          <QuickAction
+            icon="log-out-outline"
+            title="Sair"
+            subtitle="Encerrar sessão neste dispositivo"
+            onPress={handleSignOut}
             isLast
           />
         </View>
