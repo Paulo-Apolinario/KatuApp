@@ -10,13 +10,14 @@ import { env } from "./config/env";
 import { appRoutes } from "./routes/index";
 import { cooperativesRoutes } from "./modules/cooperatives/cooperatives.routes";
 import { feedbackRoutes } from "./modules/feedback/feedback.routes";
-import { wasteStockRoutes } from "./modules/waste-stock/waste-stock.routes";
 import { binsRoutes } from "./modules/bins/bins.routes";
 import { vehicleDocumentsRoutes } from "./modules/vehicle-documents/vehicle-documents.routes";
 import { maintenanceLogsRoutes } from "./modules/maintenance-logs/maintenance-logs.routes";
 
 function parseCorsOrigins(origins: string): string[] | boolean {
-  if (!origins || origins.trim() === "*") return true;
+  if (!origins || origins.trim() === "*") {
+    return true;
+  }
 
   return origins
     .split(",")
@@ -44,56 +45,118 @@ export async function buildApp() {
         : {
             level: env.LOG_LEVEL,
           },
+
     trustProxy: true,
   });
 
+  /*
+   * ============================================================
+   * CORS
+   * ============================================================
+   */
+
   await app.register(cors, {
     origin: (origin, callback) => {
+      /*
+       * Permite:
+       * - chamadas sem header Origin;
+       * - todos os domínios quando CORS_ORIGIN for "*";
+       * - somente os domínios configurados no ambiente.
+       */
       if (allowedOrigins === true || !origin) {
         callback(null, true);
         return;
       }
 
-      if (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin)) {
+      if (
+        Array.isArray(allowedOrigins) &&
+        allowedOrigins.includes(origin)
+      ) {
         callback(null, true);
         return;
       }
 
-      callback(new Error("Origem não permitida pelo CORS."), false);
+      callback(
+        new Error("Origem não permitida pelo CORS."),
+        false
+      );
     },
+
     credentials: true,
   });
+
+  /*
+   * ============================================================
+   * PLUGINS GERAIS
+   * ============================================================
+   */
 
   await app.register(sensible);
 
   await app.register(jwt, {
     secret: env.JWT_SECRET,
+
     sign: {
       expiresIn: env.JWT_EXPIRES_IN,
     },
   });
 
+  /*
+   * Upload de arquivos.
+   *
+   * Configuração utilizada por:
+   * - documentos dos catadores;
+   * - documentos dos veículos;
+   * - fotos de PEVs;
+   * - manutenções;
+   * - demais módulos multipart.
+   */
   await app.register(multipart, {
-  limits: {
-    fileSize: 10 * 1024 * 1024,
-    files: 10,
-    fields: 40,
-    parts: 50,
-  },
-});
+    limits: {
+      fileSize: 10 * 1024 * 1024,
+      files: 10,
+      fields: 40,
+      parts: 50,
+    },
+  });
 
+  /*
+   * Disponibiliza publicamente os arquivos gravados na pasta:
+   *
+   * server/uploads
+   *
+   * Exemplo:
+   * /uploads/collectors/documento.pdf
+   */
   await app.register(fastifyStatic, {
     root: path.join(process.cwd(), "uploads"),
     prefix: "/uploads/",
   });
 
-  app.decorate("authenticate", async function (request: any, reply: any) {
-    try {
-      await request.jwtVerify();
-    } catch {
-      return reply.unauthorized("Token inválido ou ausente.");
+  /*
+   * ============================================================
+   * AUTENTICAÇÃO
+   * ============================================================
+   */
+
+  app.decorate(
+    "authenticate",
+    async function (request: any, reply: any) {
+      try {
+        await request.jwtVerify();
+      } catch {
+        return reply.unauthorized(
+          "Token inválido ou ausente."
+        );
+      }
     }
-  });
+  );
+
+  /*
+   * ============================================================
+   * ROTA RAIZ
+   * ============================================================
+   */
 
   app.get("/", async () => {
     return {
@@ -105,10 +168,30 @@ export async function buildApp() {
     };
   });
 
+  /*
+   * ============================================================
+   * ROTAS PRINCIPAIS
+   * ============================================================
+   *
+   * O wasteStockRoutes agora é registrado dentro do appRoutes,
+   * com o prefixo oficial /waste-stock.
+   *
+   * Não registrar wasteStockRoutes novamente neste arquivo.
+   */
+
   await app.register(appRoutes);
+
+  /*
+   * ============================================================
+   * MÓDULOS REGISTRADOS FORA DO appRoutes
+   * ============================================================
+   *
+   * Estes módulos ainda possuem suas próprias rotas/prefixos
+   * internamente. Por isso permanecem registrados diretamente.
+   */
+
   await app.register(cooperativesRoutes);
   await app.register(feedbackRoutes);
-  await app.register(wasteStockRoutes);
   await app.register(binsRoutes);
   await app.register(vehicleDocumentsRoutes);
   await app.register(maintenanceLogsRoutes);

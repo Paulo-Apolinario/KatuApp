@@ -8,26 +8,27 @@ datasource db {
 }
 
 model User {
-  id                     String         @id @default(cuid())
-  email                  String         @unique
+  id                     String        @id @default(cuid())
+  email                  String        @unique
   passwordHash           String
   displayName            String
   role                   UserRole
-  accountStatus          AccountStatus  @default(ACTIVE)
-  isActive               Boolean        @default(true)
+  accountStatus          AccountStatus @default(ACTIVE)
+  isActive               Boolean       @default(true)
   phone                  String?
-  rememberMe             Boolean        @default(false)
+  rememberMe             Boolean       @default(false)
   resetPasswordToken     String?
   resetPasswordExpiresAt DateTime?
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
-  collector              Collector?
-  cooperative            Cooperative?
-  driver                 Driver?
-  generator              Generator?
-  personProfile          PersonProfile?
-  feedbacks              Feedback[]
-  requestedSchedules     Schedule[]     @relation("UserRequestedSchedules")
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  collector          Collector?
+  cooperative        Cooperative?
+  driver             Driver?
+  generator          Generator?
+  personProfile      PersonProfile?
+  feedbacks          Feedback[]
+  requestedSchedules Schedule[]     @relation("UserRequestedSchedules")
 
   @@index([role])
 }
@@ -39,7 +40,7 @@ model Cooperative {
   email              String? @unique
   phone              String?
 
-  // endereço estruturado
+  // Endereço estruturado
   zipCode      String?
   street       String?
   number       String?
@@ -48,16 +49,18 @@ model Cooperative {
   state        String?
   address      String?
 
-  // coordenadas para mapa
+  // Coordenadas para mapa
   latitude  Float?
   longitude Float?
 
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  userId             String              @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String   @unique
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   collections        Collection[]
   collectors         Collector[]
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collectorDocuments CollectorDocument[]
   drivers            Driver[]
   generators         Generator[]
   routes             Route[]
@@ -69,7 +72,6 @@ model Cooperative {
   bins               Bin[]
   vehicleDocuments   VehicleDocument[]
   maintenanceLogs    MaintenanceLog[]
-  collectorDocuments CollectorDocument[]
 
   @@index([name])
   @@index([city])
@@ -109,7 +111,8 @@ model PersonProfile {
   greenStreak Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Generator {
@@ -122,7 +125,7 @@ model Generator {
   email         String        @unique
   phone         String?
 
-  // endereço estruturado
+  // Endereço estruturado
   zipCode      String?
   street       String?
   number       String?
@@ -131,7 +134,7 @@ model Generator {
   state        String?
   address      String?
 
-  // coordenadas para mapa
+  // Coordenadas para mapa
   latitude  Float?
   longitude Float?
 
@@ -165,6 +168,8 @@ model Schedule {
   scheduledDate     DateTime?
   status            ScheduleStatus @default(REQUESTED)
   notes             String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
   generator   Generator?  @relation(fields: [generatorId], references: [id], onDelete: SetNull)
@@ -172,9 +177,6 @@ model Schedule {
 
   collections Collection[]
   feedbacks   Feedback[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   @@index([cooperativeId])
   @@index([generatorId])
@@ -400,15 +402,43 @@ model Feedback {
   @@index([createdAt])
 }
 
+/**
+ * Catálogo de resíduos da cooperativa.
+ * Cada cooperativa/OSC administra os próprios tipos de resíduos.
+ * Exemplos:
+ * - Papelão
+ * - Óleo de cozinha usado
+ * - Poda de árvore
+ * - Pneus
+ * - Colchões
+ * - Eletrônicos
+ */
 model WasteStockItem {
-  id            String           @id @default(cuid())
+  id            String @id @default(cuid())
   cooperativeId String
-  name          String
-  category      String
-  description   String?
-  status        WasteStockStatus @default(ACTIVE)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+
+  name        String
+  category    String
+  subcategory String?
+
+  /**
+   * Unidade padrão usada pelo material.
+   * Exemplos:
+   * Papelão -> KG
+   * Óleo de cozinha -> LITER
+   * Pneus -> UNIT
+   * Poda -> CUBIC_METER
+   */
+  unit WasteUnit @default(KG)
+
+  ncm          String?
+  internalCode String?
+  wasteClass   WasteClass       @default(NOT_INFORMED)
+  description  String?
+  status       WasteStockStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   cooperative Cooperative     @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
   lots        WasteStockLot[]
@@ -416,22 +446,52 @@ model WasteStockItem {
   @@index([cooperativeId])
   @@index([name])
   @@index([category])
+  @@index([subcategory])
+  @@index([unit])
+  @@index([ncm])
+  @@index([internalCode])
+  @@index([wasteClass])
   @@index([status])
 }
 
+/**
+ * Lotes físicos vinculados aos tipos de resíduos.
+ * quantity:
+ * Campo oficial para novas operações, respeitando a unidade do material.
+ * quantityKg:
+ * Campo legado mantido temporariamente para compatibilidade com os dados e
+ * códigos anteriores. Ele será sincronizado durante a transição quando a
+ * unidade do material for KG.
+ */
 model WasteStockLot {
-  id              String               @id @default(cuid())
-  cooperativeId   String
-  stockItemId     String
-  lotCode         String
-  quantityKg      Float                @default(0)
+  id            String @id @default(cuid())
+  cooperativeId String
+  stockItemId   String
+
+  lotCode String
+
+  quantity Float?
+
+  /**
+   * Campo legado.
+   * Não remover antes da migração completa das telas, serviços e relatórios.
+   */
+  quantityKg Float @default(0)
+
+  /**
+   * A unidade do lote é gravada para preservar o histórico, mesmo que a
+   * unidade padrão do tipo de resíduo seja alterada posteriormente.
+   */
+  unit WasteUnit @default(KG)
+
   storageLocation String?
   processingStage WasteProcessingStage @default(TRIADO)
   origin          String?
   notes           String?
   status          WasteLotStatus       @default(AVAILABLE)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
   stockItem   WasteStockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
@@ -439,7 +499,9 @@ model WasteStockLot {
   @@index([cooperativeId])
   @@index([stockItemId])
   @@index([lotCode])
+  @@index([unit])
   @@index([status])
+  @@index([processingStage])
 }
 
 model Bin {
@@ -635,6 +697,33 @@ enum WasteProcessingStage {
   ENFARDADO
   ARMAZENADO
   DESTINADO
+}
+
+/**
+ * Unidade utilizada para pesagem, medição e estoque.
+ */
+enum WasteUnit {
+  KG
+  TON
+  LITER
+  UNIT
+  CUBIC_METER
+}
+
+/**
+ * Classificação operacional do resíduo.
+ * CLASS_I:
+ * Resíduos perigosos.
+ * CLASS_II_A:
+ * Resíduos não inertes.
+ * CLASS_II_B:
+ * Resíduos inertes.
+ */
+enum WasteClass {
+  CLASS_I
+  CLASS_II_A
+  CLASS_II_B
+  NOT_INFORMED
 }
 
 enum BinStatus {

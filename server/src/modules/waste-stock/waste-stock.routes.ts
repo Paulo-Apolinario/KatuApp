@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+
 import { WasteStockController } from "./waste-stock.controller";
 
 const wasteStockController = new WasteStockController();
@@ -6,22 +7,157 @@ const wasteStockController = new WasteStockController();
 export async function wasteStockRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
 
-  app.get("/api/waste-stock/ping", async () => {
+  /*
+   * ============================================================
+   * VERIFICAÇÃO DO MÓDULO
+   * ============================================================
+   */
+
+  app.get("/ping", async () => {
     return {
+      success: true,
       ok: true,
       module: "waste-stock",
     };
   });
 
-  app.get("/api/waste-stock", wasteStockController.listMine);
-  app.post("/api/waste-stock", wasteStockController.create);
-  app.get("/api/waste-stock/:id", wasteStockController.findById);
-  app.put("/api/waste-stock/:id", wasteStockController.update);
-  app.delete("/api/waste-stock/:id", wasteStockController.delete);
+  /*
+   * ============================================================
+   * CATÁLOGO DE TIPOS DE RESÍDUOS
+   * ============================================================
+   *
+   * Cada cooperativa administra seus próprios materiais.
+   */
 
-  app.get("/api/waste-stock/:id/lots", wasteStockController.listLots);
-  app.post("/api/waste-stock/:id/lots", wasteStockController.createLot);
+  app.get(
+    "/items",
+    (request, reply) =>
+      wasteStockController.listItems(request, reply)
+  );
 
-  app.put("/api/waste-stock/lots/:lotId", wasteStockController.updateLot);
-  app.delete("/api/waste-stock/lots/:lotId", wasteStockController.deleteLot);
+  app.post(
+    "/items",
+    (request, reply) =>
+      wasteStockController.createItem(request, reply)
+  );
+
+  app.get(
+    "/items/:id",
+    (request, reply) =>
+      wasteStockController.findItemById(request, reply)
+  );
+
+  app.put(
+    "/items/:id",
+    (request, reply) =>
+      wasteStockController.updateItem(request, reply)
+  );
+
+  app.patch(
+    "/items/:id",
+    (request, reply) =>
+      wasteStockController.updateItem(request, reply)
+  );
+
+  app.delete(
+    "/items/:id",
+    (request, reply) =>
+      wasteStockController.deactivateItem(request, reply)
+  );
+
+  /*
+   * ============================================================
+   * LOTES DE ESTOQUE
+   * ============================================================
+   */
+
+  app.get(
+    "/items/:id/lots",
+    (request, reply) =>
+      wasteStockController.listLots(request, reply)
+  );
+
+  app.post(
+    "/items/:id/lots",
+    (request, reply) =>
+      wasteStockController.createLot(request, reply)
+  );
+
+  app.put(
+    "/lots/:lotId",
+    (request, reply) =>
+      wasteStockController.updateLot(request, reply)
+  );
+
+  app.patch(
+    "/lots/:lotId",
+    (request, reply) =>
+      wasteStockController.updateLot(request, reply)
+  );
+
+  app.delete(
+    "/lots/:lotId",
+    (request, reply) =>
+      wasteStockController.discardLot(request, reply)
+  );
+
+  /*
+   * ============================================================
+   * ROTAS DE COMPATIBILIDADE TEMPORÁRIA
+   * ============================================================
+   *
+   * Estas rotas mantêm o frontend atual funcionando durante a
+   * transição para as novas telas separadas.
+   *
+   * Serão removidas somente depois que Web, App, relatórios e
+   * Analytics estiverem utilizando os novos endpoints.
+   */
+
+  app.get(
+    "/",
+    (request, reply) =>
+      wasteStockController.listMine(request, reply)
+  );
+
+  app.post(
+    "/",
+    (request, reply) =>
+      wasteStockController.create(request, reply)
+  );
+
+  app.get(
+    "/:id",
+    (request, reply) =>
+      wasteStockController.findById(request, reply)
+  );
+
+  app.put(
+    "/:id",
+    (request, reply) =>
+      wasteStockController.update(request, reply)
+  );
+
+  app.patch(
+    "/:id",
+    (request, reply) =>
+      wasteStockController.update(request, reply)
+  );
+
+  app.delete(
+    "/:id",
+    (request, reply) =>
+      wasteStockController.delete(request, reply)
+  );
+
+  app.get(
+    "/:id/lots",
+    (request, reply) =>
+      wasteStockController.listLots(request, reply)
+  );
+
+  app.post(
+    "/:id/lots",
+    (request, reply) =>
+      wasteStockController.createLot(request, reply)
+  );
 }
