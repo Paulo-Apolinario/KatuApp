@@ -600,7 +600,7 @@ model WasteStockLot {
   code    String?
   lotCode String?
 
-  quantity          Decimal   @default(0) @db.Decimal(18, 3)
+  quantity          Decimal?  @default(0) @db.Decimal(18, 3)
   availableQuantity Decimal   @default(0) @db.Decimal(18, 3)
   quantityKg        Float     @default(0)
   unit              WasteUnit @default(KG)
