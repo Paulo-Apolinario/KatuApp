@@ -1,4 +1,5 @@
 import {
+  Prisma,
   WasteClass,
   WasteLotStatus,
   WasteProcessingStage,
@@ -47,8 +48,13 @@ function normalizeRequiredText(value: string) {
   return String(value).trim();
 }
 
-function normalizeSearchText(value: string) {
-  return value
+function normalizeSearchText(
+  value:
+    | string
+    | null
+    | undefined
+) {
+  return String(value ?? "")
     .trim()
     .toLocaleLowerCase("pt-BR");
 }
@@ -111,16 +117,35 @@ function quantityToKgCompatibility(
 }
 
 function getEffectiveLotQuantity(lot: {
-  quantity?: number | null;
-  quantityKg?: number | null;
-}) {
-  const currentQuantity = Number(lot.quantity || 0);
+  quantity?:
+    | Prisma.Decimal
+    | number
+    | null;
 
-  if (currentQuantity > 0) {
+  quantityKg?:
+    | number
+    | null;
+}) {
+  const currentQuantity = Number(
+    lot.quantity ?? 0
+  );
+
+  if (
+    Number.isFinite(currentQuantity) &&
+    currentQuantity > 0
+  ) {
     return currentQuantity;
   }
 
-  return Number(lot.quantityKg || 0);
+  const legacyQuantityKg = Number(
+    lot.quantityKg ?? 0
+  );
+
+  return Number.isFinite(
+    legacyQuantityKg
+  )
+    ? legacyQuantityKg
+    : 0;
 }
 
 function mapWasteStockItem(item: any) {

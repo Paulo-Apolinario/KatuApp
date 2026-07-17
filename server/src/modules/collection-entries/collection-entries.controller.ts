@@ -6,20 +6,27 @@ import {
 import { ZodError } from "zod";
 
 import {
-  collectionIdParamsSchema,
-  createCollectionSchema,
-  updateCollectionStatusSchema,
-} from "./collection.schemas";
+  collectionEntryIdParamsSchema,
+  collectionEntryListQuerySchema,
+  collectionEntrySummaryQuerySchema,
+  pendingCollectionEntryQuerySchema,
+} from "./collection-entries.schemas";
 
-import { CollectionService } from "./collection.service";
+import { CollectionEntriesService } from "./collection-entries.service";
 
 import {
-  isCollectionDomainError,
-  type AuthenticatedUser,
-} from "./collection.types";
+  isCollectionEntryDomainError,
+  type CollectionEntryAuthenticatedUser,
+} from "./collection-entries.types";
 
-const collectionService =
-  new CollectionService();
+/*
+ * ============================================================
+ * SERVICE
+ * ============================================================
+ */
+
+const collectionEntriesService =
+  new CollectionEntriesService();
 
 /*
  * ============================================================
@@ -28,7 +35,7 @@ const collectionService =
  */
 
 /**
- * Retorna a primeira mensagem produzida pelo Zod.
+ * Retorna a primeira mensagem de validação produzida pelo Zod.
  */
 function getZodErrorMessage(
   error: ZodError,
@@ -41,7 +48,7 @@ function getZodErrorMessage(
 }
 
 /**
- * Retorna os erros separados por campo.
+ * Organiza os erros de validação por campo.
  */
 function getZodFieldErrors(
   error: ZodError
@@ -50,9 +57,9 @@ function getZodFieldErrors(
 }
 
 /**
- * Extrai e valida minimamente o usuário autenticado.
+ * Extrai o usuário autenticado do JWT.
  *
- * O JWT atual utiliza:
+ * Estrutura esperada:
  *
  * {
  *   sub: "id-do-usuario",
@@ -61,9 +68,9 @@ function getZodFieldErrors(
  */
 function getAuthenticatedUser(
   request: FastifyRequest
-): AuthenticatedUser {
+): CollectionEntryAuthenticatedUser {
   const authUser =
-    request.user as Partial<AuthenticatedUser>;
+    request.user as Partial<CollectionEntryAuthenticatedUser>;
 
   const userId =
     authUser?.sub ||
@@ -97,13 +104,19 @@ function getAuthenticatedUser(
 }
 
 /**
- * Padroniza o tratamento de erros do módulo.
+ * Padroniza os erros retornados pelo módulo.
  */
-function sendCollectionError(
+function sendCollectionEntryError(
   reply: FastifyReply,
   error: unknown,
   fallbackMessage: string
 ) {
+  /*
+   * ============================================================
+   * ERROS DE VALIDAÇÃO
+   * ============================================================
+   */
+
   if (error instanceof ZodError) {
     return reply.status(400).send({
       success: false,
@@ -119,7 +132,17 @@ function sendCollectionError(
     });
   }
 
-  if (isCollectionDomainError(error)) {
+  /*
+   * ============================================================
+   * ERROS DE DOMÍNIO
+   * ============================================================
+   */
+
+  if (
+    isCollectionEntryDomainError(
+      error
+    )
+  ) {
     return reply
       .status(error.statusCode)
       .send({
@@ -133,32 +156,48 @@ function sendCollectionError(
       });
   }
 
+  /*
+   * ============================================================
+   * ERROS GERAIS
+   * ============================================================
+   */
+
   if (error instanceof Error) {
     const authenticationMessages = [
       "Usuário autenticado não identificado.",
       "Perfil do usuário autenticado não identificado.",
     ];
 
-    const statusCode =
+    const isAuthenticationError =
       authenticationMessages.includes(
         error.message
+      );
+
+    return reply
+      .status(
+        isAuthenticationError
+          ? 401
+          : 500
       )
-        ? 401
-        : 400;
+      .send({
+        success: false,
 
-    return reply.status(statusCode).send({
-      success: false,
+        error:
+          error.message ||
+          fallbackMessage,
 
-      error:
-        error.message ||
-        fallbackMessage,
-
-      code:
-        statusCode === 401
-          ? "AUTHENTICATION_ERROR"
-          : "COLLECTION_ERROR",
-    });
+        code:
+          isAuthenticationError
+            ? "AUTHENTICATION_ERROR"
+            : "COLLECTION_ENTRY_ERROR",
+      });
   }
+
+  /*
+   * ============================================================
+   * ERRO DESCONHECIDO
+   * ============================================================
+   */
 
   return reply.status(500).send({
     success: false,
@@ -175,14 +214,16 @@ function sendCollectionError(
  * ============================================================
  */
 
-export class CollectionController {
+export class CollectionEntriesController {
   /*
    * ============================================================
-   * CRIAR COLETA
+   * LISTAGEM GERAL
    * ============================================================
+   *
+   * GET /collection-entries
    */
 
-  async create(
+  async list(
     request: FastifyRequest,
     reply: FastifyReply
   ) {
@@ -190,49 +231,47 @@ export class CollectionController {
       const authUser =
         getAuthenticatedUser(request);
 
-      const body =
-        createCollectionSchema.parse(
-          request.body
+      const query =
+        collectionEntryListQuerySchema.parse(
+          request.query
         );
 
-      const collection =
-        await collectionService.create(
+      const result =
+        await collectionEntriesService.list(
           authUser.sub,
           authUser.role,
-          body
+          query
         );
 
-      return reply.status(201).send({
-        success: true,
-
-        message:
-          "Coleta criada e delegada com sucesso.",
-
-        collection,
-      });
+      return reply.status(200).send(
+        result
+      );
     } catch (error: unknown) {
       request.log.error(
         {
           error,
+          query: request.query,
         },
-        "Erro ao criar coleta."
+        "Erro ao listar entradas de resíduos coletados."
       );
 
-      return sendCollectionError(
+      return sendCollectionEntryError(
         reply,
         error,
-        "Erro ao criar coleta."
+        "Erro ao listar entradas de resíduos coletados."
       );
     }
   }
 
   /*
    * ============================================================
-   * LISTAR COLETAS DO USUÁRIO
+   * LISTAGEM DE ENTRADAS PENDENTES
    * ============================================================
+   *
+   * GET /collection-entries/pending
    */
 
-  async listMine(
+  async listPending(
     request: FastifyRequest,
     reply: FastifyReply
   ) {
@@ -240,39 +279,92 @@ export class CollectionController {
       const authUser =
         getAuthenticatedUser(request);
 
-      const collections =
-        await collectionService.listMine(
-          authUser.sub,
-          authUser.role
+      const query =
+        pendingCollectionEntryQuerySchema.parse(
+          request.query
         );
 
-      return reply.send({
-        success: true,
+      const result =
+        await collectionEntriesService.listPending(
+          authUser.sub,
+          authUser.role,
+          query
+        );
 
-        collections,
-
-        total: collections.length,
-      });
+      return reply.status(200).send(
+        result
+      );
     } catch (error: unknown) {
       request.log.error(
         {
           error,
+          query: request.query,
         },
-        "Erro ao listar coletas."
+        "Erro ao listar entradas pendentes de destinação."
       );
 
-      return sendCollectionError(
+      return sendCollectionEntryError(
         reply,
         error,
-        "Erro ao listar coletas."
+        "Erro ao listar entradas pendentes de destinação."
       );
     }
   }
 
   /*
    * ============================================================
-   * BUSCAR COLETA POR ID
+   * RESUMO OPERACIONAL
    * ============================================================
+   *
+   * GET /collection-entries/summary
+   */
+
+  async summary(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    try {
+      const authUser =
+        getAuthenticatedUser(request);
+
+      const query =
+        collectionEntrySummaryQuerySchema.parse(
+          request.query
+        );
+
+      const result =
+        await collectionEntriesService.summary(
+          authUser.sub,
+          authUser.role,
+          query
+        );
+
+      return reply.status(200).send(
+        result
+      );
+    } catch (error: unknown) {
+      request.log.error(
+        {
+          error,
+          query: request.query,
+        },
+        "Erro ao gerar resumo das entradas de resíduos coletados."
+      );
+
+      return sendCollectionEntryError(
+        reply,
+        error,
+        "Erro ao gerar resumo das entradas de resíduos coletados."
+      );
+    }
+  }
+
+  /*
+   * ============================================================
+   * CONSULTA POR ID
+   * ============================================================
+   *
+   * GET /collection-entries/:id
    */
 
   async findById(
@@ -284,98 +376,33 @@ export class CollectionController {
         getAuthenticatedUser(request);
 
       const params =
-        collectionIdParamsSchema.parse(
+        collectionEntryIdParamsSchema.parse(
           request.params
         );
 
-      const collection =
-        await collectionService.findById(
+      const result =
+        await collectionEntriesService.findById(
           authUser.sub,
           authUser.role,
           params.id
         );
 
-      return reply.send({
-        success: true,
-
-        collection,
-      });
+      return reply.status(200).send(
+        result
+      );
     } catch (error: unknown) {
       request.log.error(
         {
           error,
+          params: request.params,
         },
-        "Erro ao buscar coleta."
+        "Erro ao buscar entrada de resíduo coletado."
       );
 
-      return sendCollectionError(
+      return sendCollectionEntryError(
         reply,
         error,
-        "Erro ao buscar coleta."
-      );
-    }
-  }
-
-  /*
-   * ============================================================
-   * ATUALIZAR STATUS DA COLETA
-   * ============================================================
-   */
-
-  async updateStatus(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
-    try {
-      const authUser =
-        getAuthenticatedUser(request);
-
-      const params =
-        collectionIdParamsSchema.parse(
-          request.params
-        );
-
-      const body =
-        updateCollectionStatusSchema.parse(
-          request.body
-        );
-
-      const collection =
-        await collectionService.updateStatus(
-          authUser.sub,
-          authUser.role,
-          params.id,
-          body
-        );
-
-      const message =
-        body.status === "COMPLETED"
-          ? "Coleta concluída e resíduos registrados para destinação."
-          : body.status === "IN_PROGRESS"
-            ? "Coleta iniciada com sucesso."
-            : body.status === "CANCELLED"
-              ? "Coleta cancelada com sucesso."
-              : "Status da coleta atualizado com sucesso.";
-
-      return reply.send({
-        success: true,
-
-        message,
-
-        collection,
-      });
-    } catch (error: unknown) {
-      request.log.error(
-        {
-          error,
-        },
-        "Erro ao atualizar status da coleta."
-      );
-
-      return sendCollectionError(
-        reply,
-        error,
-        "Erro ao atualizar status da coleta."
+        "Erro ao buscar entrada de resíduo coletado."
       );
     }
   }

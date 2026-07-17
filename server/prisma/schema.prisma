@@ -30,6 +30,11 @@ model User {
   feedbacks          Feedback[]
   requestedSchedules Schedule[]     @relation("UserRequestedSchedules")
 
+  createdCollectionWasteEntries CollectionWasteEntry[]       @relation("CollectionWasteEntryCreatedBy")
+  createdWasteDestinations      CollectionWasteDestination[] @relation("CollectionWasteDestinationCreatedBy")
+  cancelledWasteDestinations    CollectionWasteDestination[] @relation("CollectionWasteDestinationCancelledBy")
+  createdWasteStockLots         WasteStockLot[]              @relation("WasteStockLotCreatedBy")
+
   @@index([role])
 }
 
@@ -40,7 +45,6 @@ model Cooperative {
   email              String? @unique
   phone              String?
 
-  // Endereço estruturado
   zipCode      String?
   street       String?
   number       String?
@@ -49,7 +53,6 @@ model Cooperative {
   state        String?
   address      String?
 
-  // Coordenadas para mapa
   latitude  Float?
   longitude Float?
 
@@ -57,21 +60,23 @@ model Cooperative {
   updatedAt DateTime @updatedAt
   userId    String   @unique
 
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collections        Collection[]
-  collectors         Collector[]
-  collectorDocuments CollectorDocument[]
-  drivers            Driver[]
-  generators         Generator[]
-  routes             Route[]
-  schedules          Schedule[]
-  vehicles           Vehicle[]
-  feedbacks          Feedback[]
-  wasteStockItems    WasteStockItem[]
-  wasteStockLots     WasteStockLot[]
-  bins               Bin[]
-  vehicleDocuments   VehicleDocument[]
-  maintenanceLogs    MaintenanceLog[]
+  user                        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collections                 Collection[]
+  collectors                  Collector[]
+  collectorDocuments          CollectorDocument[]
+  drivers                     Driver[]
+  generators                  Generator[]
+  routes                      Route[]
+  schedules                   Schedule[]
+  vehicles                    Vehicle[]
+  feedbacks                   Feedback[]
+  wasteStockItems             WasteStockItem[]
+  wasteStockLots              WasteStockLot[]
+  bins                        Bin[]
+  vehicleDocuments            VehicleDocument[]
+  maintenanceLogs             MaintenanceLog[]
+  collectionWasteEntries      CollectionWasteEntry[]
+  collectionWasteDestinations CollectionWasteDestination[]
 
   @@index([name])
   @@index([city])
@@ -125,7 +130,6 @@ model Generator {
   email         String        @unique
   phone         String?
 
-  // Endereço estruturado
   zipCode      String?
   street       String?
   number       String?
@@ -134,7 +138,6 @@ model Generator {
   state        String?
   address      String?
 
-  // Coordenadas para mapa
   latitude  Float?
   longitude Float?
 
@@ -146,10 +149,11 @@ model Generator {
   updatedAt      DateTime              @updatedAt
   activatedAt    DateTime?
 
-  collections Collection[]
-  cooperative Cooperative  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  user        User?        @relation(fields: [userId], references: [id])
-  schedules   Schedule[]
+  collections            Collection[]
+  cooperative            Cooperative            @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  user                   User?                  @relation(fields: [userId], references: [id])
+  schedules              Schedule[]
+  collectionWasteEntries CollectionWasteEntry[]
 
   @@index([cooperativeId])
   @@index([type])
@@ -216,11 +220,11 @@ model Collector {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  collections Collection[]
-  documents   CollectorDocument[]
-
-  cooperative Cooperative? @relation(fields: [cooperativeId], references: [id])
-  user        User?        @relation(fields: [userId], references: [id])
+  collections            Collection[]
+  documents              CollectorDocument[]
+  cooperative            Cooperative?           @relation(fields: [cooperativeId], references: [id])
+  user                   User?                  @relation(fields: [userId], references: [id])
+  collectionWasteEntries CollectionWasteEntry[]
 
   @@index([cooperativeId])
   @@index([status])
@@ -273,15 +277,17 @@ model Collection {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  collector   Collector?  @relation(fields: [collectorId], references: [id])
-  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  generator   Generator?  @relation(fields: [generatorId], references: [id], onDelete: SetNull)
-  schedule    Schedule?   @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
-
-  driver  Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  vehicle Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
-  route   Route?         @relation(fields: [routeId], references: [id], onDelete: SetNull)
-  reports DriverReport[]
+  collector               Collector?             @relation(fields: [collectorId], references: [id], onDelete: SetNull)
+  cooperative             Cooperative            @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  generator               Generator?             @relation(fields: [generatorId], references: [id], onDelete: SetNull)
+  schedule                Schedule?              @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  driver                  Driver?                @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle                 Vehicle?               @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  route                   Route?                 @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  reports                 DriverReport[]
+  collectionMaterials     CollectionMaterial[]
+  collectionWasteEntries  CollectionWasteEntry[]
+  generatedWasteStockLots WasteStockLot[]        @relation("WasteStockLotOriginCollection")
 
   @@index([cooperativeId])
   @@index([generatorId])
@@ -291,6 +297,148 @@ model Collection {
   @@index([vehicleId])
   @@index([routeId])
   @@index([status])
+  @@index([collectedAt])
+}
+
+model CollectionMaterial {
+  id           String  @id @default(cuid())
+  collectionId String
+  wasteTypeId  String?
+
+  nameSnapshot        String
+  categorySnapshot    String?
+  subcategorySnapshot String?
+  unit                WasteUnit @default(KG)
+  quantity            Decimal   @db.Decimal(18, 3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  collection              Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  wasteType               WasteStockItem?       @relation(fields: [wasteTypeId], references: [id], onDelete: SetNull)
+  wasteEntry              CollectionWasteEntry?
+  generatedWasteStockLots WasteStockLot[]       @relation("WasteStockLotOriginCollectionMaterial")
+
+  @@index([collectionId])
+  @@index([wasteTypeId])
+  @@index([unit])
+  @@index([nameSnapshot])
+  @@index([createdAt])
+}
+
+model CollectionWasteEntry {
+  id String @id @default(cuid())
+
+  cooperativeId        String
+  collectionId         String
+  collectionMaterialId String  @unique
+  wasteTypeId          String?
+
+  generatorId String?
+  routeId     String?
+  vehicleId   String?
+  driverId    String?
+  collectorId String?
+
+  materialNameSnapshot String
+  categorySnapshot     String?
+  subcategorySnapshot  String?
+  unit                 WasteUnit @default(KG)
+
+  collectedQuantity Decimal @db.Decimal(18, 3)
+  destinedQuantity  Decimal @default(0) @db.Decimal(18, 3)
+  remainingQuantity Decimal @db.Decimal(18, 3)
+
+  status CollectionEntryStatus @default(PENDING_DESTINATION)
+
+  origin      String?
+  notes       String?
+  collectedAt DateTime?
+
+  createdByUserId       String?
+  createdByNameSnapshot String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cooperative             Cooperative                  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  collection              Collection                   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collectionMaterial      CollectionMaterial           @relation(fields: [collectionMaterialId], references: [id], onDelete: Cascade)
+  wasteType               WasteStockItem?              @relation(fields: [wasteTypeId], references: [id], onDelete: SetNull)
+  generator               Generator?                   @relation(fields: [generatorId], references: [id], onDelete: SetNull)
+  route                   Route?                       @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  vehicle                 Vehicle?                     @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  driver                  Driver?                      @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  collector               Collector?                   @relation(fields: [collectorId], references: [id], onDelete: SetNull)
+  createdBy               User?                        @relation("CollectionWasteEntryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  destinations            CollectionWasteDestination[]
+  generatedWasteStockLots WasteStockLot[]              @relation("WasteStockLotOriginCollectionWasteEntry")
+
+  @@index([cooperativeId])
+  @@index([collectionId])
+  @@index([collectionMaterialId])
+  @@index([wasteTypeId])
+  @@index([generatorId])
+  @@index([routeId])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([collectorId])
+  @@index([createdByUserId])
+  @@index([status])
+  @@index([unit])
+  @@index([collectedAt])
+  @@index([createdAt])
+}
+
+model CollectionWasteDestination {
+  id String @id @default(cuid())
+
+  cooperativeId          String
+  collectionWasteEntryId String
+  stockItemId            String?
+  stockLotId             String? @unique
+
+  type     WasteDestinationType
+  quantity Decimal              @db.Decimal(18, 3)
+  unit     WasteUnit
+
+  destinationName       String?
+  destinationDocument   String?
+  destinationAddress    String?
+  destinationContact    String?
+  transportDocument     String?
+  environmentalDocument String?
+  notes                 String?
+  metadata              Json?
+
+  destinationDate DateTime               @default(now())
+  status          WasteDestinationStatus @default(ACTIVE)
+
+  createdByUserId   String?
+  cancelledAt       DateTime?
+  cancelledReason   String?
+  cancelledByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cooperative          Cooperative          @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  collectionWasteEntry CollectionWasteEntry @relation(fields: [collectionWasteEntryId], references: [id], onDelete: Cascade)
+  stockItem            WasteStockItem?      @relation(fields: [stockItemId], references: [id], onDelete: SetNull)
+  stockLot             WasteStockLot?       @relation("WasteStockLotDestination", fields: [stockLotId], references: [id], onDelete: SetNull)
+  createdBy            User?                @relation("CollectionWasteDestinationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  cancelledBy          User?                @relation("CollectionWasteDestinationCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+
+  @@index([cooperativeId])
+  @@index([collectionWasteEntryId])
+  @@index([stockItemId])
+  @@index([type])
+  @@index([unit])
+  @@index([status])
+  @@index([createdByUserId])
+  @@index([cancelledByUserId])
+  @@index([destinationDate])
+  @@index([createdAt])
 }
 
 model Driver {
@@ -308,12 +456,13 @@ model Driver {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  user        User?          @relation(fields: [userId], references: [id])
-  routes      Route[]
-  vehicles    Vehicle[]
-  collections Collection[]
-  reports     DriverReport[]
+  cooperative            Cooperative            @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  user                   User?                  @relation(fields: [userId], references: [id])
+  routes                 Route[]
+  vehicles               Vehicle[]
+  collections            Collection[]
+  reports                DriverReport[]
+  collectionWasteEntries CollectionWasteEntry[]
 
   @@index([cooperativeId])
   @@index([status])
@@ -334,15 +483,15 @@ model Vehicle {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  routes          Route[]
-  collections     Collection[]
-  reports         DriverReport[]
-  documents       VehicleDocument[]
-  maintenanceLogs MaintenanceLog[]
-  bins            Bin[]
-
-  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  driver      Driver?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  routes                 Route[]
+  collections            Collection[]
+  reports                DriverReport[]
+  documents              VehicleDocument[]
+  maintenanceLogs        MaintenanceLog[]
+  bins                   Bin[]
+  cooperative            Cooperative            @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  driver                 Driver?                @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  collectionWasteEntries CollectionWasteEntry[]
 
   @@index([cooperativeId])
   @@index([driverId])
@@ -363,11 +512,12 @@ model Route {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  driver      Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  vehicle     Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
-  collections Collection[]
-  reports     DriverReport[]
+  cooperative            Cooperative            @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  driver                 Driver?                @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle                Vehicle?               @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  collections            Collection[]
+  reports                DriverReport[]
+  collectionWasteEntries CollectionWasteEntry[]
 
   @@index([cooperativeId])
   @@index([driverId])
@@ -402,17 +552,6 @@ model Feedback {
   @@index([createdAt])
 }
 
-/**
- * Catálogo de resíduos da cooperativa.
- * Cada cooperativa/OSC administra os próprios tipos de resíduos.
- * Exemplos:
- * - Papelão
- * - Óleo de cozinha usado
- * - Poda de árvore
- * - Pneus
- * - Colchões
- * - Eletrônicos
- */
 model WasteStockItem {
   id            String @id @default(cuid())
   cooperativeId String
@@ -421,16 +560,10 @@ model WasteStockItem {
   category    String
   subcategory String?
 
-  /**
-   * Unidade padrão usada pelo material.
-   * Exemplos:
-   * Papelão -> KG
-   * Óleo de cozinha -> LITER
-   * Pneus -> UNIT
-   * Poda -> CUBIC_METER
-   */
-  unit WasteUnit @default(KG)
+  defaultUnit WasteUnit @default(KG)
+  isActive    Boolean   @default(true)
 
+  unit         WasteUnit        @default(KG)
   ncm          String?
   internalCode String?
   wasteClass   WasteClass       @default(NOT_INFORMED)
@@ -440,68 +573,73 @@ model WasteStockItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cooperative Cooperative     @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  lots        WasteStockLot[]
+  cooperative            Cooperative                  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  lots                   WasteStockLot[]
+  collectionMaterials    CollectionMaterial[]
+  collectionWasteEntries CollectionWasteEntry[]
+  wasteDestinations      CollectionWasteDestination[]
 
+  @@unique([cooperativeId, internalCode])
   @@index([cooperativeId])
   @@index([name])
   @@index([category])
   @@index([subcategory])
+  @@index([defaultUnit])
   @@index([unit])
   @@index([ncm])
-  @@index([internalCode])
   @@index([wasteClass])
+  @@index([isActive])
   @@index([status])
 }
 
-/**
- * Lotes físicos vinculados aos tipos de resíduos.
- * quantity:
- * Campo oficial para novas operações, respeitando a unidade do material.
- * quantityKg:
- * Campo legado mantido temporariamente para compatibilidade com os dados e
- * códigos anteriores. Ele será sincronizado durante a transição quando a
- * unidade do material for KG.
- */
 model WasteStockLot {
   id            String @id @default(cuid())
   cooperativeId String
   stockItemId   String
 
-  lotCode String
+  code    String?
+  lotCode String?
 
-  quantity Float?
-
-  /**
-   * Campo legado.
-   * Não remover antes da migração completa das telas, serviços e relatórios.
-   */
-  quantityKg Float @default(0)
-
-  /**
-   * A unidade do lote é gravada para preservar o histórico, mesmo que a
-   * unidade padrão do tipo de resíduo seja alterada posteriormente.
-   */
-  unit WasteUnit @default(KG)
+  quantity          Decimal   @default(0) @db.Decimal(18, 3)
+  availableQuantity Decimal   @default(0) @db.Decimal(18, 3)
+  quantityKg        Float     @default(0)
+  unit              WasteUnit @default(KG)
 
   storageLocation String?
   processingStage WasteProcessingStage @default(TRIADO)
   origin          String?
   notes           String?
   status          WasteLotStatus       @default(AVAILABLE)
+  receivedAt      DateTime             @default(now())
+
+  originCollectionId           String?
+  originCollectionMaterialId   String?
+  originCollectionWasteEntryId String?
+  createdByUserId              String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  stockItem   WasteStockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  cooperative                Cooperative                 @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  stockItem                  WasteStockItem              @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  destination                CollectionWasteDestination? @relation("WasteStockLotDestination")
+  originCollection           Collection?                 @relation("WasteStockLotOriginCollection", fields: [originCollectionId], references: [id], onDelete: SetNull)
+  originCollectionMaterial   CollectionMaterial?         @relation("WasteStockLotOriginCollectionMaterial", fields: [originCollectionMaterialId], references: [id], onDelete: SetNull)
+  originCollectionWasteEntry CollectionWasteEntry?       @relation("WasteStockLotOriginCollectionWasteEntry", fields: [originCollectionWasteEntryId], references: [id], onDelete: SetNull)
+  createdBy                  User?                       @relation("WasteStockLotCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
+  @@unique([cooperativeId, code])
+  @@unique([cooperativeId, lotCode])
   @@index([cooperativeId])
   @@index([stockItemId])
-  @@index([lotCode])
   @@index([unit])
   @@index([status])
   @@index([processingStage])
+  @@index([receivedAt])
+  @@index([originCollectionId])
+  @@index([originCollectionMaterialId])
+  @@index([originCollectionWasteEntryId])
+  @@index([createdByUserId])
 }
 
 model Bin {
@@ -644,6 +782,33 @@ enum CollectionStatus {
   CANCELLED
 }
 
+enum CollectionEntryStatus {
+  PENDING_DESTINATION
+  SENT_TO_TRIAGE
+  ADDED_TO_STOCK
+  PARTIALLY_DESTINED
+  FULLY_DESTINED
+  REJECTED
+  DISCARDED
+  DIRECTLY_DESTINED
+  RESERVED
+  CANCELLED
+}
+
+enum WasteDestinationType {
+  STOCK
+  TRIAGE
+  REJECT
+  DISPOSAL
+  DIRECT_DESTINATION
+  RESERVATION
+}
+
+enum WasteDestinationStatus {
+  ACTIVE
+  CANCELLED
+}
+
 enum DriverStatus {
   AVAILABLE
   ON_ROUTE
@@ -688,6 +853,7 @@ enum WasteLotStatus {
   RESERVED
   SOLD
   DISCARDED
+  CANCELLED
 }
 
 enum WasteProcessingStage {
@@ -699,9 +865,6 @@ enum WasteProcessingStage {
   DESTINADO
 }
 
-/**
- * Unidade utilizada para pesagem, medição e estoque.
- */
 enum WasteUnit {
   KG
   TON
@@ -710,15 +873,6 @@ enum WasteUnit {
   CUBIC_METER
 }
 
-/**
- * Classificação operacional do resíduo.
- * CLASS_I:
- * Resíduos perigosos.
- * CLASS_II_A:
- * Resíduos não inertes.
- * CLASS_II_B:
- * Resíduos inertes.
- */
 enum WasteClass {
   CLASS_I
   CLASS_II_A
