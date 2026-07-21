@@ -1,8 +1,15 @@
 import { api, isApiNetworkError } from "./api";
+
 import type {
   WasteCatalogItem,
   WasteUnit,
 } from "@/src/types/collection";
+
+/*
+ * ============================================================
+ * RESPOSTAS DA API
+ * ============================================================
+ */
 
 type WasteCatalogApiResponse =
   | WasteCatalogItem[]
@@ -11,9 +18,18 @@ type WasteCatalogApiResponse =
       items?: WasteCatalogItem[];
       wasteStockItems?: WasteCatalogItem[];
       data?: WasteCatalogItem[];
+      total?: number;
     };
 
-function normalizeWasteUnit(value: unknown): WasteUnit {
+/*
+ * ============================================================
+ * NORMALIZAÇÃO
+ * ============================================================
+ */
+
+function normalizeWasteUnit(
+  value: unknown
+): WasteUnit {
   const normalized = String(value || "")
     .trim()
     .toUpperCase();
@@ -26,17 +42,25 @@ function normalizeWasteUnit(value: unknown): WasteUnit {
     "CUBIC_METER",
   ];
 
-  return acceptedUnits.includes(normalized as WasteUnit)
+  return acceptedUnits.includes(
+    normalized as WasteUnit
+  )
     ? (normalized as WasteUnit)
     : "KG";
 }
 
-function normalizeOptionalText(value: unknown): string | null {
-  if (value === null || value === undefined) {
+function normalizeOptionalText(
+  value: unknown
+): string | null {
+  if (
+    value === null ||
+    value === undefined
+  ) {
     return null;
   }
 
-  const normalized = String(value).trim();
+  const normalized =
+    String(value).trim();
 
   return normalized || null;
 }
@@ -58,11 +82,23 @@ function normalizeBoolean(
       .trim()
       .toLowerCase();
 
-    if (["true", "1", "yes", "sim"].includes(normalized)) {
+    if (
+      ["true", "1", "yes", "sim"].includes(
+        normalized
+      )
+    ) {
       return true;
     }
 
-    if (["false", "0", "no", "não", "nao"].includes(normalized)) {
+    if (
+      [
+        "false",
+        "0",
+        "no",
+        "não",
+        "nao",
+      ].includes(normalized)
+    ) {
       return false;
     }
   }
@@ -73,9 +109,11 @@ function normalizeBoolean(
 function normalizeCatalogItem(
   item: WasteCatalogItem
 ): WasteCatalogItem {
-  const unit = normalizeWasteUnit(
-    item.unit || item.defaultUnit
-  );
+  const unit =
+    normalizeWasteUnit(
+      item.unit ||
+        item.defaultUnit
+    );
 
   const status = String(
     item.status || "ACTIVE"
@@ -86,42 +124,61 @@ function normalizeCatalogItem(
   return {
     ...item,
 
-    id: String(item.id || "").trim(),
+    id:
+      String(item.id || "").trim(),
 
     cooperativeId:
-      normalizeOptionalText(item.cooperativeId) ||
+      normalizeOptionalText(
+        item.cooperativeId
+      ) ||
       undefined,
 
-    name: String(item.name || "").trim(),
+    name:
+      String(item.name || "").trim(),
 
     category:
-      normalizeOptionalText(item.category),
+      normalizeOptionalText(
+        item.category
+      ),
 
     subcategory:
-      normalizeOptionalText(item.subcategory),
+      normalizeOptionalText(
+        item.subcategory
+      ),
 
-    defaultUnit: normalizeWasteUnit(
-      item.defaultUnit || unit
-    ),
+    defaultUnit:
+      normalizeWasteUnit(
+        item.defaultUnit ||
+          unit
+      ),
 
     unit,
 
     internalCode:
-      normalizeOptionalText(item.internalCode),
+      normalizeOptionalText(
+        item.internalCode
+      ),
 
     ncm:
-      normalizeOptionalText(item.ncm),
+      normalizeOptionalText(
+        item.ncm
+      ),
 
     wasteClass:
-      normalizeOptionalText(item.wasteClass),
+      normalizeOptionalText(
+        item.wasteClass
+      ),
 
     description:
-      normalizeOptionalText(item.description),
+      normalizeOptionalText(
+        item.description
+      ),
 
-    isActive: normalizeBoolean(
-      item.isActive,
-      true
-    ),
+    isActive:
+      normalizeBoolean(
+        item.isActive,
+        true
+      ),
 
     status,
   };
@@ -134,15 +191,27 @@ function extractItems(
     return response;
   }
 
-  if (Array.isArray(response?.items)) {
+  if (
+    Array.isArray(
+      response?.items
+    )
+  ) {
     return response.items;
   }
 
-  if (Array.isArray(response?.wasteStockItems)) {
+  if (
+    Array.isArray(
+      response?.wasteStockItems
+    )
+  ) {
     return response.wasteStockItems;
   }
 
-  if (Array.isArray(response?.data)) {
+  if (
+    Array.isArray(
+      response?.data
+    )
+  ) {
     return response.data;
   }
 
@@ -156,58 +225,86 @@ function isActiveCatalogItem(
     item.id.length > 0 &&
     item.name.length > 0 &&
     item.isActive !== false &&
-    String(item.status || "ACTIVE")
+    String(
+      item.status || "ACTIVE"
+    )
       .trim()
-      .toUpperCase() === "ACTIVE"
+      .toUpperCase() ===
+      "ACTIVE"
   );
 }
 
 function sortCatalogItems(
   items: WasteCatalogItem[]
 ): WasteCatalogItem[] {
-  return [...items].sort((first, second) => {
-    const categoryComparison = String(
-      first.category || ""
-    ).localeCompare(
-      String(second.category || ""),
-      "pt-BR",
-      {
-        sensitivity: "base",
-      }
-    );
+  return [...items].sort(
+    (first, second) => {
+      const categoryComparison =
+        String(
+          first.category || ""
+        ).localeCompare(
+          String(
+            second.category || ""
+          ),
+          "pt-BR",
+          {
+            sensitivity: "base",
+          }
+        );
 
-    if (categoryComparison !== 0) {
-      return categoryComparison;
+      if (
+        categoryComparison !== 0
+      ) {
+        return categoryComparison;
+      }
+
+      return first.name.localeCompare(
+        second.name,
+        "pt-BR",
+        {
+          sensitivity: "base",
+        }
+      );
     }
-
-    return first.name.localeCompare(
-      second.name,
-      "pt-BR",
-      {
-        sensitivity: "base",
-      }
-    );
-  });
+  );
 }
 
-async function list(): Promise<WasteCatalogItem[]> {
+/*
+ * ============================================================
+ * API
+ * ============================================================
+ */
+
+async function list(): Promise<
+  WasteCatalogItem[]
+> {
   const response =
     await api.get<WasteCatalogApiResponse>(
-      "/waste-stock/items",
+      "/waste-stock/catalog",
       true
     );
 
-  const normalizedItems = extractItems(response)
-    .map(normalizeCatalogItem)
-    .filter(isActiveCatalogItem);
+  const normalizedItems =
+    extractItems(response)
+      .map(
+        normalizeCatalogItem
+      )
+      .filter(
+        isActiveCatalogItem
+      );
 
-  return sortCatalogItems(normalizedItems);
+  return sortCatalogItems(
+    normalizedItems
+  );
 }
 
 async function getById(
   id: string
-): Promise<WasteCatalogItem> {
-  const normalizedId = String(id || "").trim();
+): Promise<
+  WasteCatalogItem
+> {
+  const normalizedId =
+    String(id || "").trim();
 
   if (!normalizedId) {
     throw new Error(
@@ -216,66 +313,37 @@ async function getById(
   }
 
   try {
-    const response =
-      await api.get<
-        | WasteCatalogItem
-        | {
-            success?: boolean;
-            item?: WasteCatalogItem;
-            wasteStockItem?: WasteCatalogItem;
-            data?: WasteCatalogItem;
-          }
-      >(
-        `/waste-stock/items/${normalizedId}`,
-        true
+    /*
+     * A rota de consulta não expõe endpoints administrativos
+     * individuais. A busca por ID é feita sobre o catálogo ativo,
+     * mantendo o gerador fora de /waste-stock/items/:id.
+     */
+    const items =
+      await list();
+
+    const found =
+      items.find(
+        (item) =>
+          item.id ===
+          normalizedId
       );
 
-    let rawItem: WasteCatalogItem | undefined;
-
-    if (response && typeof response === "object") {
-      if ("id" in response) {
-        rawItem = response as WasteCatalogItem;
-      } else {
-        const wrappedResponse = response as {
-          success?: boolean;
-          item?: WasteCatalogItem;
-          wasteStockItem?: WasteCatalogItem;
-          data?: WasteCatalogItem;
-        };
-
-        rawItem =
-          wrappedResponse.item ||
-          wrappedResponse.wasteStockItem ||
-          wrappedResponse.data;
-      }
-    }
-
-    if (!rawItem) {
+    if (!found) {
       throw new Error(
-        "Item do catálogo não retornado pela API."
+        "Item do catálogo não encontrado."
       );
     }
 
-    const normalizedItem =
-      normalizeCatalogItem(rawItem);
-
-    if (!normalizedItem.id) {
-      throw new Error(
-        "Item do catálogo inválido."
-      );
-    }
-
-    return normalizedItem;
+    return found;
   } catch (error) {
-    if (isApiNetworkError(error)) {
-      const items = await list();
-      const found = items.find(
-        (item) => item.id === normalizedId
+    if (
+      isApiNetworkError(
+        error
+      )
+    ) {
+      throw new Error(
+        "Não foi possível consultar o catálogo. Verifique sua conexão e tente novamente."
       );
-
-      if (found) {
-        return found;
-      }
     }
 
     throw error;
@@ -284,46 +352,60 @@ async function getById(
 
 async function search(
   term: string
-): Promise<WasteCatalogItem[]> {
-  const normalizedTerm = String(term || "")
-    .trim()
-    .toLocaleLowerCase("pt-BR");
+): Promise<
+  WasteCatalogItem[]
+> {
+  const normalizedTerm =
+    String(term || "")
+      .trim()
+      .toLocaleLowerCase(
+        "pt-BR"
+      );
 
-  const items = await list();
+  const items =
+    await list();
 
   if (!normalizedTerm) {
     return items;
   }
 
-  return items.filter((item) => {
-    const searchableText = [
-      item.name,
-      item.category,
-      item.subcategory,
-      item.internalCode,
-      item.ncm,
-      item.description,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLocaleLowerCase("pt-BR");
+  return items.filter(
+    (item) => {
+      const searchableText = [
+        item.name,
+        item.category,
+        item.subcategory,
+        item.internalCode,
+        item.ncm,
+        item.description,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase(
+          "pt-BR"
+        );
 
-    return searchableText.includes(
-      normalizedTerm
-    );
-  });
+      return searchableText.includes(
+        normalizedTerm
+      );
+    }
+  );
 }
 
 async function listByCategory(
   category: string
-): Promise<WasteCatalogItem[]> {
-  const normalizedCategory = String(
-    category || ""
-  )
-    .trim()
-    .toLocaleLowerCase("pt-BR");
+): Promise<
+  WasteCatalogItem[]
+> {
+  const normalizedCategory =
+    String(category || "")
+      .trim()
+      .toLocaleLowerCase(
+        "pt-BR"
+      );
 
-  const items = await list();
+  const items =
+    await list();
 
   if (!normalizedCategory) {
     return items;
@@ -331,9 +413,13 @@ async function listByCategory(
 
   return items.filter(
     (item) =>
-      String(item.category || "")
+      String(
+        item.category || ""
+      )
         .trim()
-        .toLocaleLowerCase("pt-BR") ===
+        .toLocaleLowerCase(
+          "pt-BR"
+        ) ===
       normalizedCategory
   );
 }

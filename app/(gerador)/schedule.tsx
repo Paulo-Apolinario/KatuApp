@@ -225,6 +225,9 @@ export default function GeneratorScheduleScreen() {
   const [catalogItems, setCatalogItems] =
     useState<WasteCatalogItem[]>([]);
 
+  const [catalogError, setCatalogError] =
+    useState<string | null>(null);
+
   const [searchTerm, setSearchTerm] =
     useState("");
 
@@ -255,30 +258,29 @@ export default function GeneratorScheduleScreen() {
   const loadCatalog = useCallback(async () => {
     try {
       setCatalogLoading(true);
+      setCatalogError(null);
 
       const items =
         await wasteCatalogService.list();
 
       setCatalogItems(
-        Array.isArray(items) ? items : []
+        Array.isArray(items)
+          ? items
+          : []
       );
     } catch (error) {
-      console.error(
-        "Erro ao carregar catálogo de resíduos:",
-        error
-      );
-
-      notifyError(
-        error instanceof Error
+      const message =
+        error instanceof Error &&
+        error.message.trim()
           ? error.message
-          : "Não foi possível carregar o catálogo."
-      );
+          : "Não foi possível carregar o catálogo de resíduos.";
 
       setCatalogItems([]);
+      setCatalogError(message);
     } finally {
       setCatalogLoading(false);
     }
-  }, [notifyError]);
+  }, []);
 
   useEffect(() => {
     void loadCatalog();
@@ -739,6 +741,103 @@ export default function GeneratorScheduleScreen() {
               >
                 Carregando catálogo...
               </Text>
+            </View>
+          ) : catalogError ? (
+            <View
+              style={{
+                marginTop: 12,
+                padding: 14,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: "#F59E0B",
+                backgroundColor: "#FFFBEB",
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                }}
+              >
+                <Ionicons
+                  name="warning-outline"
+                  size={22}
+                  color="#B45309"
+                />
+
+                <View
+                  style={{
+                    flex: 1,
+                    marginLeft: 10,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#92400E",
+                      fontSize: 14,
+                      fontWeight: "700",
+                    }}
+                  >
+                    Catálogo temporariamente indisponível
+                  </Text>
+
+                  <Text
+                    style={{
+                      marginTop: 5,
+                      color: "#92400E",
+                      fontSize: 13,
+                      lineHeight: 19,
+                    }}
+                  >
+                    {catalogError}
+                  </Text>
+
+                  <Text
+                    style={{
+                      marginTop: 7,
+                      color: "#78350F",
+                      fontSize: 13,
+                      lineHeight: 19,
+                    }}
+                  >
+                    Você ainda pode continuar usando a opção
+                    “Material não encontrado” abaixo.
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() =>
+                  void loadCatalog()
+                }
+                disabled={catalogLoading}
+                style={{
+                  marginTop: 12,
+                  minHeight: 42,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: "#B45309",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                }}
+              >
+                <Ionicons
+                  name="refresh-outline"
+                  size={18}
+                  color="#B45309"
+                />
+
+                <Text
+                  style={{
+                    marginLeft: 7,
+                    color: "#B45309",
+                    fontWeight: "700",
+                  }}
+                >
+                  Tentar carregar novamente
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : filteredCatalogItems.length > 0 ? (
             <View

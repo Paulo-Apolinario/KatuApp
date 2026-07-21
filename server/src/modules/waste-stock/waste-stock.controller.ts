@@ -61,7 +61,8 @@ function getStatusCode(error: unknown) {
 
   if (
     message.includes("Apenas cooperativas") ||
-    message.includes("não está vinculado a uma cooperativa")
+    message.includes("não está vinculado a uma cooperativa") ||
+    message.includes("sem permissão para consultar")
   ) {
     return 403;
   }
@@ -75,6 +76,51 @@ export class WasteStockController {
    * CATÁLOGO DE TIPOS DE RESÍDUOS
    * ============================================================
    */
+
+  async listCatalog(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    try {
+      const query = request.query as {
+        cooperativeId?: string;
+        category?: string;
+        search?: string;
+      };
+
+      const result =
+        await wasteStockService.listCatalog(
+          request.user as AuthUser,
+          {
+            cooperativeId:
+              query?.cooperativeId,
+            category:
+              query?.category,
+            search:
+              query?.search,
+          }
+        );
+
+      return reply.send(result);
+    } catch (error: unknown) {
+      console.warn(
+        "Não foi possível consultar o catálogo de resíduos:",
+        getErrorMessage(
+          error,
+          "Erro ao consultar o catálogo de resíduos."
+        )
+      );
+
+      return reply.status(getStatusCode(error)).send({
+        success: false,
+        error: getErrorMessage(
+          error,
+          "Erro ao consultar o catálogo de resíduos."
+        ),
+        errors: getValidationErrors(error),
+      });
+    }
+  }
 
   async listItems(
     request: FastifyRequest,

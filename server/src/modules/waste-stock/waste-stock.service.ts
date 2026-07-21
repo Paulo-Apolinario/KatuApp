@@ -1,5 +1,7 @@
 import {
+  AccountStatus,
   Prisma,
+  UserRole,
   WasteClass,
   WasteLotStatus,
   WasteProcessingStage,
@@ -238,6 +240,118 @@ export class WasteStockService {
     return cooperative;
   }
 
+  /*
+   * ============================================================
+   * RESOLUÇÃO DA COOPERATIVA PARA CONSULTA DO CATÁLOGO
+   * ============================================================
+   *
+   * Diferente das rotas administrativas, a consulta do catálogo
+   * também pode ser realizada por geradores e pessoa física.
+   *
+   * Regras:
+   * - COOPERATIVE: usa a própria cooperativa autenticada;
+   * - GENERATOR_SMALL / GENERATOR_LARGE: usa a cooperativa
+   *   vinculada ao cadastro do gerador;
+   * - PF: deve informar cooperativeId na consulta;
+   * - demais perfis não possuem acesso ao catálogo por esta rota.
+   */
+
+  private async resolveCatalogCooperativeId(
+    user: AuthUser,
+    requestedCooperativeId?: string | null
+  ) {
+    const userId = getAuthUserId(user);
+
+    if (!userId) {
+      throw new Error(
+        "Usuário autenticado não identificado."
+      );
+    }
+
+    const role = normalizeRole(user.role);
+
+    if (role === UserRole.COOPERATIVE) {
+      const cooperative =
+        await prisma.cooperative.findUnique({
+          where: {
+            userId,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+      if (!cooperative) {
+        throw new Error(
+          "Cooperativa do usuário autenticado não encontrada."
+        );
+      }
+
+      return cooperative.id;
+    }
+
+    if (
+      role === UserRole.GENERATOR_SMALL ||
+      role === UserRole.GENERATOR_LARGE
+    ) {
+      const generator =
+        await prisma.generator.findUnique({
+          where: {
+            userId,
+          },
+          select: {
+            cooperativeId: true,
+          },
+        });
+
+      if (!generator?.cooperativeId) {
+        throw new Error(
+          "O gerador autenticado não está vinculado a uma cooperativa."
+        );
+      }
+
+      return generator.cooperativeId;
+    }
+
+    if (role === UserRole.PF) {
+      const cooperativeId =
+        normalizeText(requestedCooperativeId);
+
+      if (!cooperativeId) {
+        throw new Error(
+          "Informe a cooperativa para consultar o catálogo de resíduos."
+        );
+      }
+
+      const cooperative =
+        await prisma.cooperative.findFirst({
+          where: {
+            id: cooperativeId,
+            user: {
+              role: UserRole.COOPERATIVE,
+              isActive: true,
+              accountStatus: AccountStatus.ACTIVE,
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+      if (!cooperative) {
+        throw new Error(
+          "Cooperativa não encontrada ou inativa."
+        );
+      }
+
+      return cooperative.id;
+    }
+
+    throw new Error(
+      "Usuário sem permissão para consultar o catálogo de resíduos."
+    );
+  }
+
   private async ensureItemBelongsToCooperative(
     cooperativeId: string,
     itemId: string
@@ -399,6 +513,130 @@ export class WasteStockService {
    * CATÁLOGO DE TIPOS DE RESÍDUOS
    * ============================================================
    */
+
+  /*
+   * ============================================================
+   * CATÁLOGO DE CONSULTA
+   * ============================================================
+   *
+   * Endpoint destinado ao App e aos clientes que precisam apenas
+   * consultar os resíduos ativos da cooperativa.
+   *
+   * Esta consulta:
+   * - não retorna lotes;
+   * - não retorna saldos de estoque;
+   * - não permite administrar materiais;
+   * - retorna somente itens ativos.
+   */
+
+  async listCatalog(
+    user: AuthUser,
+    options?: {
+      cooperativeId?: string | null;
+      category?: string;
+      search?: string;
+    }
+  ) {
+    const cooperativeId =
+      await this.resolveCatalogCooperativeId(
+        user,
+        options?.cooperativeId
+      );
+
+    const items =
+      await prisma.wasteStockItem.findMany({
+        where: {
+          cooperativeId,
+          isActive: true,
+          status: WasteStockStatus.ACTIVE,
+
+          ...(options?.category?.trim()
+            ? {
+                category: {
+                  equals: options.category.trim(),
+                  mode: "insensitive",
+                },
+              }
+            : {}),
+
+          ...(options?.search?.trim()
+            ? {
+                OR: [
+                  {
+                    name: {
+                      contains:
+                        options.search.trim(),
+                      mode: "insensitive",
+                    },
+                  },
+                  {
+                    category: {
+                      contains:
+                        options.search.trim(),
+                      mode: "insensitive",
+                    },
+                  },
+                  {
+                    subcategory: {
+                      contains:
+                        options.search.trim(),
+                      mode: "insensitive",
+                    },
+                  },
+                  {
+                    internalCode: {
+                      contains:
+                        options.search.trim(),
+                      mode: "insensitive",
+                    },
+                  },
+                  {
+                    ncm: {
+                      contains:
+                        options.search.trim(),
+                      mode: "insensitive",
+                    },
+                  },
+                ],
+              }
+            : {}),
+        },
+
+        select: {
+          id: true,
+          cooperativeId: true,
+          name: true,
+          category: true,
+          subcategory: true,
+          defaultUnit: true,
+          unit: true,
+          internalCode: true,
+          ncm: true,
+          wasteClass: true,
+          description: true,
+          isActive: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+
+        orderBy: [
+          {
+            category: "asc",
+          },
+          {
+            name: "asc",
+          },
+        ],
+      });
+
+    return {
+      success: true,
+      items,
+      data: items,
+      total: items.length,
+    };
+  }
 
   async listItems(
     user: AuthUser,
