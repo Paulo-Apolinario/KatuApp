@@ -8,42 +8,33 @@ const collectionController =
 export async function collectionRoutes(
   app: FastifyInstance
 ) {
-  /*
-   * ============================================================
-   * AUTENTICAÇÃO
-   * ============================================================
-   */
-
   app.addHook(
     "preHandler",
     app.authenticate
   );
 
+  app.get("/ping", async () => ({
+    success: true,
+    ok: true,
+    module: "collections",
+    architecture:
+      "operational-collection-lifecycle",
+    statuses: [
+      "PENDING",
+      "IN_PROGRESS",
+      "COLLECTED",
+      "RECEIVED",
+      "SORTING",
+      "COMPLETED",
+      "CANCELLED",
+    ],
+    timestamp: new Date().toISOString(),
+  }));
+
   /*
-   * ============================================================
-   * HEALTH CHECK DO MÓDULO
-   * ============================================================
+   * COOPERATIVE
+   * Schedule -> Collection PENDING
    */
-
-  app.get("/ping", async () => {
-    return {
-      success: true,
-      ok: true,
-      module: "collections",
-      timestamp: new Date().toISOString(),
-    };
-  });
-
-  /*
-   * ============================================================
-   * CRIAÇÃO E DELEGAÇÃO DE COLETA
-   * ============================================================
-   *
-   * POST /collections
-   *
-   * Permitido atualmente somente para cooperativas.
-   */
-
   app.post(
     "/",
     (request, reply) =>
@@ -54,19 +45,8 @@ export async function collectionRoutes(
   );
 
   /*
-   * ============================================================
-   * LISTAGEM DAS COLETAS DO USUÁRIO AUTENTICADO
-   * ============================================================
-   *
-   * GET /collections
-   *
-   * O service aplica o filtro conforme o perfil:
-   * - cooperativa;
-   * - catador;
-   * - motorista;
-   * - gerador.
+   * Todos os perfis autorizados pelo service.
    */
-
   app.get(
     "/",
     (request, reply) =>
@@ -77,41 +57,105 @@ export async function collectionRoutes(
   );
 
   /*
-   * ============================================================
-   * CONSULTA DE UMA COLETA
-   * ============================================================
-   *
-   * GET /collections/:id
+   * COLLECTOR
+   * PENDING -> IN_PROGRESS
    */
-
-  app.get(
-    "/:id",
+  app.post(
+    "/:id/start",
     (request, reply) =>
-      collectionController.findById(
+      collectionController.start(
         request,
         reply
       )
   );
 
   /*
-   * ============================================================
-   * ATUALIZAÇÃO DE STATUS
-   * ============================================================
+   * COLLECTOR
+   * IN_PROGRESS -> COLLECTED
    *
-   * PATCH /collections/:id/status
-   *
-   * Ao receber COMPLETED:
-   * - atualiza Collection;
-   * - atualiza Schedule;
-   * - cria CollectionMaterial;
-   * - cria CollectionWasteEntry;
-   * - não cria lote automaticamente.
+   * Cria:
+   * - CollectionMaterial;
+   * - CollectionWasteEntry;
+   * - WasteCatalogSuggestion para materiais desconhecidos.
    */
+  app.post(
+    "/:id/complete-field",
+    (request, reply) =>
+      collectionController.completeField(
+        request,
+        reply
+      )
+  );
 
+  /*
+   * COOPERATIVE
+   * COLLECTED -> RECEIVED
+   */
+  app.post(
+    "/:id/receive",
+    (request, reply) =>
+      collectionController.receive(
+        request,
+        reply
+      )
+  );
+
+  /*
+   * COOPERATIVE
+   * RECEIVED -> SORTING
+   */
+  app.post(
+    "/:id/start-sorting",
+    (request, reply) =>
+      collectionController.startSorting(
+        request,
+        reply
+      )
+  );
+
+  /*
+   * COOPERATIVE
+   * SORTING -> COMPLETED
+   *
+   * Exige remainingQuantity = 0 em todas as entradas.
+   */
+  app.post(
+    "/:id/complete",
+    (request, reply) =>
+      collectionController.complete(
+        request,
+        reply
+      )
+  );
+
+  /*
+   * COOPERATIVE
+   */
+  app.post(
+    "/:id/cancel",
+    (request, reply) =>
+      collectionController.cancel(
+        request,
+        reply
+      )
+  );
+
+  /*
+   * Compatibilidade temporária.
+   */
   app.patch(
     "/:id/status",
     (request, reply) =>
       collectionController.updateStatus(
+        request,
+        reply
+      )
+  );
+
+  app.get(
+    "/:id",
+    (request, reply) =>
+      collectionController.findById(
         request,
         reply
       )

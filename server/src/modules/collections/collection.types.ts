@@ -33,13 +33,28 @@ export type LegacyCollectionMaterialInput = {
 };
 
 /**
- * Formato normalizado aceito pelo novo fluxo de coletas.
+ * Material proposto quando o resíduo ainda não existe no catálogo.
+ */
+export type ProposedCollectionMaterialInput = {
+  name: string;
+  category?: string;
+  subcategory?: string;
+  unit: WasteUnit;
+};
+
+/**
+ * Formato aceito pelo fluxo de coletas.
  *
- * O wasteTypeId vincula o material coletado ao catálogo de resíduos.
- * Ele permanece opcional durante a etapa de compatibilidade.
+ * Mantém compatibilidade com:
+ * - wasteTypeId;
+ * - proposedMaterial;
+ * - type/name;
+ * - quantity/quantityKg.
  */
 export type CollectionMaterialInput = {
   wasteTypeId?: string;
+
+  proposedMaterial?: ProposedCollectionMaterialInput;
 
   type?: string;
   name?: string;
@@ -51,6 +66,8 @@ export type CollectionMaterialInput = {
   quantityKg?: number;
 
   unit?: WasteUnit;
+
+  notes?: string;
 };
 
 /**
@@ -70,39 +87,66 @@ export type NormalizedCollectionMaterial = {
   quantityKg: number;
 
   unit: WasteUnit;
+
+  notes: string | null;
 };
 
 /**
  * Informações mínimas obtidas do catálogo de resíduos.
- *
- * Evita carregar campos desnecessários durante a validação dos materiais.
  */
 export type WasteStockItemReference = {
   id: string;
   cooperativeId: string;
 
   name: string;
-  category: string;
+  category: string | null;
   subcategory: string | null;
 
   unit: WasteUnit;
+  defaultUnit: WasteUnit;
 };
 
 /**
- * Contexto operacional da coleta.
+ * Contextos de acesso discriminados.
  *
- * Centraliza as entidades identificadas a partir do usuário autenticado.
+ * O campo `role` funciona como discriminador. Assim, quando o código
+ * confirma que o perfil é COLLECTOR, o TypeScript sabe que collectorId
+ * é obrigatoriamente string.
  */
-export type CollectionAccessContext = {
+export type CooperativeCollectionAccessContext = {
   userId: string;
-  role: string;
-
+  role: "COOPERATIVE";
   cooperativeId: string;
-
-  collectorId?: string | null;
-  driverId?: string | null;
-  generatorId?: string | null;
 };
+
+export type CollectorCollectionAccessContext = {
+  userId: string;
+  role: "COLLECTOR";
+  cooperativeId: string;
+  collectorId: string;
+};
+
+export type DriverCollectionAccessContext = {
+  userId: string;
+  role: "DRIVER";
+  cooperativeId: string;
+  driverId: string;
+};
+
+export type GeneratorCollectionAccessContext = {
+  userId: string;
+  role:
+    | "GENERATOR_SMALL"
+    | "GENERATOR_LARGE";
+  cooperativeId: string;
+  generatorId: string;
+};
+
+export type CollectionAccessContext =
+  | CooperativeCollectionAccessContext
+  | CollectorCollectionAccessContext
+  | DriverCollectionAccessContext
+  | GeneratorCollectionAccessContext;
 
 /**
  * Quantidades utilizadas para criar uma CollectionWasteEntry.
@@ -167,13 +211,9 @@ export type CollectionWasteEntryCreateData = {
 
 /**
  * Resultado da normalização do peso da coleta.
- *
- * totalWeightKg contém somente materiais que podem ser convertidos
- * com segurança para quilogramas.
  */
 export type CollectionWeightSummary = {
   totalWeightKg: number;
-
   totalsByUnit: Partial<Record<WasteUnit, number>>;
 };
 
@@ -192,8 +232,6 @@ export type CollectionCompletionResult = {
 
 /**
  * Situação dos registros normalizados de uma coleta.
- *
- * Utilizado para evitar duplicação durante chamadas repetidas.
  */
 export type CollectionNormalizationState = {
   hasCollectionMaterials: boolean;
@@ -204,10 +242,7 @@ export type CollectionNormalizationState = {
 };
 
 /**
- * Configuração utilizada para reconstruir os materiais normalizados.
- *
- * A reconstrução só poderá ocorrer quando nenhuma destinação tiver sido
- * registrada para as entradas da coleta.
+ * Configuração utilizada para reconstruir materiais normalizados.
  */
 export type CollectionMaterialReplacementOptions = {
   allowReplacement: boolean;
@@ -216,9 +251,6 @@ export type CollectionMaterialReplacementOptions = {
 
 /**
  * Forma padronizada de erro de domínio.
- *
- * O controller poderá usar o statusCode sem depender de comparação
- * de mensagens de erro.
  */
 export class CollectionDomainError extends Error {
   readonly statusCode: number;
@@ -239,6 +271,11 @@ export class CollectionDomainError extends Error {
     this.statusCode = options?.statusCode ?? 400;
     this.code = options?.code ?? "COLLECTION_ERROR";
     this.details = options?.details;
+
+    Object.setPrototypeOf(
+      this,
+      CollectionDomainError.prototype
+    );
   }
 }
 

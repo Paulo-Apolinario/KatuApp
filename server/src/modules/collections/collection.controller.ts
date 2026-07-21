@@ -6,8 +6,14 @@ import {
 import { ZodError } from "zod";
 
 import {
+  cancelCollectionSchema,
   collectionIdParamsSchema,
+  completeCollectionSchema,
+  completeFieldCollectionSchema,
   createCollectionSchema,
+  receiveCollectionSchema,
+  startCollectionSchema,
+  startSortingSchema,
   updateCollectionStatusSchema,
 } from "./collection.schemas";
 
@@ -21,44 +27,19 @@ import {
 const collectionService =
   new CollectionService();
 
-/*
- * ============================================================
- * FUNÇÕES AUXILIARES
- * ============================================================
- */
-
-/**
- * Retorna a primeira mensagem produzida pelo Zod.
- */
 function getZodErrorMessage(
   error: ZodError,
   fallbackMessage: string
 ) {
-  return (
-    error.issues[0]?.message ||
-    fallbackMessage
-  );
+  return error.issues[0]?.message || fallbackMessage;
 }
 
-/**
- * Retorna os erros separados por campo.
- */
 function getZodFieldErrors(
   error: ZodError
 ) {
   return error.flatten().fieldErrors;
 }
 
-/**
- * Extrai e valida minimamente o usuário autenticado.
- *
- * O JWT atual utiliza:
- *
- * {
- *   sub: "id-do-usuario",
- *   role: "COOPERATIVE"
- * }
- */
 function getAuthenticatedUser(
   request: FastifyRequest
 ): AuthenticatedUser {
@@ -96,9 +77,6 @@ function getAuthenticatedUser(
   };
 }
 
-/**
- * Padroniza o tratamento de erros do módulo.
- */
 function sendCollectionError(
   reply: FastifyReply,
   error: unknown,
@@ -107,14 +85,11 @@ function sendCollectionError(
   if (error instanceof ZodError) {
     return reply.status(400).send({
       success: false,
-
       error: getZodErrorMessage(
         error,
         fallbackMessage
       ),
-
       code: "VALIDATION_ERROR",
-
       errors: getZodFieldErrors(error),
     });
   }
@@ -124,35 +99,23 @@ function sendCollectionError(
       .status(error.statusCode)
       .send({
         success: false,
-
         error: error.message,
-
         code: error.code,
-
         details: error.details,
       });
   }
 
   if (error instanceof Error) {
-    const authenticationMessages = [
-      "Usuário autenticado não identificado.",
-      "Perfil do usuário autenticado não identificado.",
-    ];
-
     const statusCode =
-      authenticationMessages.includes(
-        error.message
+      error.message.includes(
+        "autenticado não identificado"
       )
         ? 401
         : 400;
 
     return reply.status(statusCode).send({
       success: false,
-
-      error:
-        error.message ||
-        fallbackMessage,
-
+      error: error.message || fallbackMessage,
       code:
         statusCode === 401
           ? "AUTHENTICATION_ERROR"
@@ -162,26 +125,12 @@ function sendCollectionError(
 
   return reply.status(500).send({
     success: false,
-
     error: fallbackMessage,
-
     code: "INTERNAL_SERVER_ERROR",
   });
 }
 
-/*
- * ============================================================
- * CONTROLLER
- * ============================================================
- */
-
 export class CollectionController {
-  /*
-   * ============================================================
-   * CRIAR COLETA
-   * ============================================================
-   */
-
   async create(
     request: FastifyRequest,
     reply: FastifyReply
@@ -204,17 +153,13 @@ export class CollectionController {
 
       return reply.status(201).send({
         success: true,
-
         message:
           "Coleta criada e delegada com sucesso.",
-
         collection,
       });
     } catch (error: unknown) {
       request.log.error(
-        {
-          error,
-        },
+        { error },
         "Erro ao criar coleta."
       );
 
@@ -225,12 +170,6 @@ export class CollectionController {
       );
     }
   }
-
-  /*
-   * ============================================================
-   * LISTAR COLETAS DO USUÁRIO
-   * ============================================================
-   */
 
   async listMine(
     request: FastifyRequest,
@@ -248,16 +187,12 @@ export class CollectionController {
 
       return reply.send({
         success: true,
-
         collections,
-
         total: collections.length,
       });
     } catch (error: unknown) {
       request.log.error(
-        {
-          error,
-        },
+        { error },
         "Erro ao listar coletas."
       );
 
@@ -268,12 +203,6 @@ export class CollectionController {
       );
     }
   }
-
-  /*
-   * ============================================================
-   * BUSCAR COLETA POR ID
-   * ============================================================
-   */
 
   async findById(
     request: FastifyRequest,
@@ -297,14 +226,11 @@ export class CollectionController {
 
       return reply.send({
         success: true,
-
         collection,
       });
     } catch (error: unknown) {
       request.log.error(
-        {
-          error,
-        },
+        { error },
         "Erro ao buscar coleta."
       );
 
@@ -316,11 +242,281 @@ export class CollectionController {
     }
   }
 
-  /*
-   * ============================================================
-   * ATUALIZAR STATUS DA COLETA
-   * ============================================================
-   */
+  async start(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    try {
+      const authUser =
+        getAuthenticatedUser(request);
+
+      const params =
+        collectionIdParamsSchema.parse(
+          request.params
+        );
+
+      const body =
+        startCollectionSchema.parse(
+          request.body ?? {}
+        );
+
+      const collection =
+        await collectionService.start(
+          authUser.sub,
+          authUser.role,
+          params.id,
+          body
+        );
+
+      return reply.send({
+        success: true,
+        message:
+          "Coleta iniciada com sucesso.",
+        collection,
+      });
+    } catch (error: unknown) {
+      request.log.error(
+        { error },
+        "Erro ao iniciar coleta."
+      );
+
+      return sendCollectionError(
+        reply,
+        error,
+        "Erro ao iniciar coleta."
+      );
+    }
+  }
+
+  async completeField(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    try {
+      const authUser =
+        getAuthenticatedUser(request);
+
+      const params =
+        collectionIdParamsSchema.parse(
+          request.params
+        );
+
+      const body =
+        completeFieldCollectionSchema.parse(
+          request.body
+        );
+
+      const collection =
+        await collectionService.completeField(
+          authUser.sub,
+          authUser.role,
+          params.id,
+          body
+        );
+
+      return reply.send({
+        success: true,
+        message:
+          "Etapa de campo concluída. O material aguarda recebimento pela cooperativa.",
+        collection,
+      });
+    } catch (error: unknown) {
+      request.log.error(
+        { error },
+        "Erro ao concluir etapa de campo."
+      );
+
+      return sendCollectionError(
+        reply,
+        error,
+        "Erro ao concluir etapa de campo."
+      );
+    }
+  }
+
+  async receive(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    try {
+      const authUser =
+        getAuthenticatedUser(request);
+
+      const params =
+        collectionIdParamsSchema.parse(
+          request.params
+        );
+
+      const body =
+        receiveCollectionSchema.parse(
+          request.body ?? {}
+        );
+
+      const collection =
+        await collectionService.receive(
+          authUser.sub,
+          authUser.role,
+          params.id,
+          body
+        );
+
+      return reply.send({
+        success: true,
+        message:
+          "Recebimento confirmado com sucesso.",
+        collection,
+      });
+    } catch (error: unknown) {
+      request.log.error(
+        { error },
+        "Erro ao confirmar recebimento."
+      );
+
+      return sendCollectionError(
+        reply,
+        error,
+        "Erro ao confirmar recebimento."
+      );
+    }
+  }
+
+  async startSorting(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    try {
+      const authUser =
+        getAuthenticatedUser(request);
+
+      const params =
+        collectionIdParamsSchema.parse(
+          request.params
+        );
+
+      const body =
+        startSortingSchema.parse(
+          request.body ?? {}
+        );
+
+      const collection =
+        await collectionService.startSorting(
+          authUser.sub,
+          authUser.role,
+          params.id,
+          body
+        );
+
+      return reply.send({
+        success: true,
+        message:
+          "Triagem iniciada com sucesso.",
+        collection,
+      });
+    } catch (error: unknown) {
+      request.log.error(
+        { error },
+        "Erro ao iniciar triagem."
+      );
+
+      return sendCollectionError(
+        reply,
+        error,
+        "Erro ao iniciar triagem."
+      );
+    }
+  }
+
+  async complete(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    try {
+      const authUser =
+        getAuthenticatedUser(request);
+
+      const params =
+        collectionIdParamsSchema.parse(
+          request.params
+        );
+
+      const body =
+        completeCollectionSchema.parse(
+          request.body ?? {}
+        );
+
+      const collection =
+        await collectionService.complete(
+          authUser.sub,
+          authUser.role,
+          params.id,
+          body
+        );
+
+      return reply.send({
+        success: true,
+        message:
+          "Coleta concluída operacionalmente com sucesso.",
+        collection,
+      });
+    } catch (error: unknown) {
+      request.log.error(
+        { error },
+        "Erro ao concluir coleta."
+      );
+
+      return sendCollectionError(
+        reply,
+        error,
+        "Erro ao concluir coleta."
+      );
+    }
+  }
+
+  async cancel(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    try {
+      const authUser =
+        getAuthenticatedUser(request);
+
+      const params =
+        collectionIdParamsSchema.parse(
+          request.params
+        );
+
+      const body =
+        cancelCollectionSchema.parse(
+          request.body
+        );
+
+      const collection =
+        await collectionService.cancel(
+          authUser.sub,
+          authUser.role,
+          params.id,
+          body
+        );
+
+      return reply.send({
+        success: true,
+        message:
+          "Coleta cancelada com sucesso.",
+        collection,
+      });
+    } catch (error: unknown) {
+      request.log.error(
+        { error },
+        "Erro ao cancelar coleta."
+      );
+
+      return sendCollectionError(
+        reply,
+        error,
+        "Erro ao cancelar coleta."
+      );
+    }
+  }
 
   async updateStatus(
     request: FastifyRequest,
@@ -348,27 +544,15 @@ export class CollectionController {
           body
         );
 
-      const message =
-        body.status === "COMPLETED"
-          ? "Coleta concluída e resíduos registrados para destinação."
-          : body.status === "IN_PROGRESS"
-            ? "Coleta iniciada com sucesso."
-            : body.status === "CANCELLED"
-              ? "Coleta cancelada com sucesso."
-              : "Status da coleta atualizado com sucesso.";
-
       return reply.send({
         success: true,
-
-        message,
-
+        message:
+          "Status da coleta atualizado com sucesso.",
         collection,
       });
     } catch (error: unknown) {
       request.log.error(
-        {
-          error,
-        },
+        { error },
         "Erro ao atualizar status da coleta."
       );
 

@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   View,
   TextInput,
+  Modal,
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -20,7 +22,10 @@ import {
   collectionService,
   type Collection,
   type CollectionMaterial,
+  type WasteUnit,
 } from "@/src/services/collectionService";
+import { wasteCatalogService } from "@/src/services/wasteCatalogService";
+import type { WasteCatalogItem } from "@/src/types/collection";
 
 function formatDateTime(dateString?: string | null) {
   if (!dateString) return "-";
@@ -106,23 +111,77 @@ function extractRequestedMaterials(notes?: string | null): string[] {
 
 function normalizeMaterialsForEditing(item: Collection): CollectionMaterial[] {
   if (Array.isArray(item.materials) && item.materials.length > 0) {
-    return item.materials.map((material) => ({
-      type: material.type,
-      quantityKg: Number(material.quantityKg || 0),
-    }));
+    return item.materials.map((material) => {
+      const unit = material.unit || "KG";
+      const quantity =
+        material.quantity !== undefined
+          ? Number(material.quantity)
+          : Number(material.quantityKg || 0);
+
+      return {
+        wasteTypeId: material.wasteTypeId || null,
+        type: material.type || material.name || "Material",
+        name: material.name || material.type || "Material",
+        category: material.category || null,
+        subcategory: material.subcategory || null,
+        quantity,
+        quantityKg:
+          material.quantityKg !== undefined
+            ? Number(material.quantityKg)
+            : unit === "KG"
+              ? quantity
+              : unit === "TON"
+                ? quantity * 1000
+                : 0,
+        unit,
+      };
+    });
   }
 
   return extractRequestedMaterials(item.schedule?.notes).map((type) => ({
     type,
+    name: type,
+    quantity: 0,
     quantityKg: 0,
+    unit: "KG",
   }));
+}
+
+function formatUnit(unit?: WasteUnit) {
+  switch (unit) {
+    case "TON":
+      return "t";
+    case "LITER":
+      return "L";
+    case "UNIT":
+      return "un";
+    case "CUBIC_METER":
+      return "m³";
+    case "KG":
+    default:
+      return "kg";
+  }
+}
+
+function quantityToKg(quantity: number, unit: WasteUnit) {
+  if (unit === "KG") return quantity;
+  if (unit === "TON") return quantity * 1000;
+  return 0;
 }
 
 function formatMaterials(materials?: CollectionMaterial[]) {
   if (!Array.isArray(materials) || materials.length === 0) return "-";
 
   return materials
-    .map((item) => `${item.type}: ${Number(item.quantityKg || 0).toFixed(1)} kg`)
+    .map((item) => {
+      const unit = item.unit || "KG";
+      const quantity =
+        item.quantity !== undefined
+          ? Number(item.quantity)
+          : Number(item.quantityKg || 0);
+
+      return `${item.name || item.type}: ${quantity.toFixed(1)} ${formatUnit(unit)}`;
+    })
     .join(" • ");
 }
 
@@ -137,6 +196,10 @@ export default function CollectScreen() {
   const [materialsDraft, setMaterialsDraft] = useState<CollectionMaterial[]>([]);
   const [notesDraft, setNotesDraft] = useState("");
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [catalogItems, setCatalogItems] = useState<WasteCatalogItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogModalVisible, setCatalogModalVisible] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState("");
   const { notifyError, notifySuccess } = useNotification();
 
   const loadCollections = useCallback(async (showLoader = true) => {
@@ -209,11 +272,35 @@ export default function CollectScreen() {
   }, [delegatedCollections]);
 
   const totalDraftWeight = useMemo(() => {
-    return materialsDraft.reduce(
-      (acc, item) => acc + Number(item.quantityKg || 0),
-      0
-    );
+    return materialsDraft.reduce((acc, item) => {
+      const unit = item.unit || "KG";
+      const quantity =
+        item.quantity !== undefined
+          ? Number(item.quantity)
+          : Number(item.quantityKg || 0);
+
+      return acc + quantityToKg(quantity, unit);
+    }, 0);
   }, [materialsDraft]);
+
+  const filteredCatalogItems = useMemo(() => {
+    const term = catalogSearch.trim().toLocaleLowerCase("pt-BR");
+
+    if (!term) return catalogItems;
+
+    return catalogItems.filter((item) =>
+      [
+        item.name,
+        item.category,
+        item.subcategory,
+        item.internalCode,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("pt-BR")
+        .includes(term)
+    );
+  }, [catalogItems, catalogSearch]);
 
   const handleOpenCollection = (collection: Collection) => {
     setSelectedCollectionId(collection.id);
@@ -223,18 +310,93 @@ export default function CollectScreen() {
 
   const updateMaterialQuantity = (index: number, value: string) => {
     const numeric = Number(String(value).replace(",", "."));
-    const safeValue = Number.isNaN(numeric) ? 0 : numeric;
+    const safeValue = Number.isFinite(numeric) ? numeric : 0;
 
     setMaterialsDraft((prev) =>
-      prev.map((item, itemIndex) =>
-        itemIndex === index
-          ? {
-              ...item,
-              quantityKg: safeValue,
-            }
-          : item
-      )
+      prev.map((item, itemIndex) => {
+        if (itemIndex !== index) return item;
+
+        const unit = item.unit || "KG";
+
+        return {
+          ...item,
+          quantity: safeValue,
+          quantityKg: quantityToKg(safeValue, unit),
+        };
+      })
     );
+  };
+
+  const updateMaterialUnit = (index: number, unit: WasteUnit) => {
+    setMaterialsDraft((prev) =>
+      prev.map((item, itemIndex) => {
+        if (itemIndex !== index) return item;
+
+        const quantity =
+          item.quantity !== undefined
+            ? Number(item.quantity)
+            : Number(item.quantityKg || 0);
+
+        return {
+          ...item,
+          unit,
+          quantity,
+          quantityKg: quantityToKg(quantity, unit),
+        };
+      })
+    );
+  };
+
+  const removeMaterial = (index: number) => {
+    setMaterialsDraft((prev) =>
+      prev.filter((_, itemIndex) => itemIndex !== index)
+    );
+  };
+
+  const loadCatalog = async () => {
+    try {
+      setCatalogLoading(true);
+      const items = await wasteCatalogService.list();
+      setCatalogItems(items);
+      setCatalogModalVisible(true);
+    } catch (error: any) {
+      notifyError(
+        "Erro",
+        error?.message || "Não foi possível carregar o catálogo de resíduos."
+      );
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
+  const addCatalogMaterial = (catalogItem: WasteCatalogItem) => {
+    const alreadyAdded = materialsDraft.some(
+      (item) => item.wasteTypeId === catalogItem.id
+    );
+
+    if (alreadyAdded) {
+      notifyError("Atenção", "Este resíduo já foi adicionado à coleta.");
+      return;
+    }
+
+    const unit = catalogItem.unit || catalogItem.defaultUnit || "KG";
+
+    setMaterialsDraft((prev) => [
+      ...prev,
+      {
+        wasteTypeId: catalogItem.id,
+        type: catalogItem.name,
+        name: catalogItem.name,
+        category: catalogItem.category || null,
+        subcategory: catalogItem.subcategory || null,
+        quantity: 0,
+        quantityKg: 0,
+        unit,
+      },
+    ]);
+
+    setCatalogModalVisible(false);
+    setCatalogSearch("");
   };
 
   const showOperationSuccess = (messageOnline: string, messageOffline: string) => {
@@ -278,9 +440,14 @@ export default function CollectScreen() {
       return;
     }
 
-    const hasInvalidQuantity = materialsDraft.some(
-      (item) => Number(item.quantityKg) <= 0
-    );
+    const hasInvalidQuantity = materialsDraft.some((item) => {
+      const quantity =
+        item.quantity !== undefined
+          ? Number(item.quantity)
+          : Number(item.quantityKg || 0);
+
+      return !Number.isFinite(quantity) || quantity <= 0;
+    });
 
     if (hasInvalidQuantity) {
       notifyError("Atenção", "Todas as quantidades dos materiais devem ser maiores que zero.");
@@ -611,50 +778,231 @@ export default function CollectScreen() {
 
             {selectedCollection.status === "IN_PROGRESS" && (
               <>
-                <SectionHeader title="Registrar quantidade por material" />
+                <SectionHeader title="Registrar materiais coletados" />
 
                 <View style={sectionCard}>
-                  {materialsDraft.length > 0 ? (
-                    materialsDraft.map((material, index) => (
-                      <View
-                        key={`${material.type}-${index}`}
-                        style={{
-                          marginBottom: index === materialsDraft.length - 1 ? 0 : 14,
-                        }}
-                      >
+                  <TouchableOpacity
+                    onPress={() => void loadCatalog()}
+                    disabled={catalogLoading}
+                    style={{
+                      minHeight: 48,
+                      borderRadius: 12,
+                      backgroundColor: "#ECFDF5",
+                      borderWidth: 1,
+                      borderColor: "#A7F3D0",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 16,
+                    }}
+                  >
+                    {catalogLoading ? (
+                      <ActivityIndicator size="small" color="#028C56" />
+                    ) : (
+                      <>
+                        <Ionicons name="add-circle-outline" size={20} color="#028C56" />
                         <Text
                           style={{
-                            fontSize: 14,
-                            fontWeight: "700",
-                            color: "#111827",
-                            marginBottom: 6,
+                            marginLeft: 8,
+                            color: "#028C56",
+                            fontWeight: "800",
                           }}
                         >
-                          {material.type}
+                          Adicionar resíduo do catálogo
                         </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
 
-                        <TextInput
-                          value={String(material.quantityKg || "")}
-                          onChangeText={(value) => updateMaterialQuantity(index, value)}
-                          keyboardType="numeric"
-                          placeholder="Quantidade em kg"
-                          placeholderTextColor="#9CA3AF"
+                  {materialsDraft.length > 0 ? (
+                    materialsDraft.map((material, index) => {
+                      const unit = material.unit || "KG";
+                      const quantity =
+                        material.quantity !== undefined
+                          ? Number(material.quantity)
+                          : Number(material.quantityKg || 0);
+
+                      return (
+                        <View
+                          key={`${material.wasteTypeId || material.type}-${index}`}
                           style={{
                             borderWidth: 1,
-                            borderColor: "#D1D5DB",
-                            borderRadius: 10,
-                            paddingHorizontal: 12,
-                            paddingVertical: 10,
-                            backgroundColor: "#FFFFFF",
-                            color: "#111827",
+                            borderColor: "#E5E7EB",
+                            borderRadius: 14,
+                            padding: 14,
+                            marginBottom:
+                              index === materialsDraft.length - 1 ? 0 : 14,
+                            backgroundColor: "#F9FAFB",
                           }}
-                        />
-                      </View>
-                    ))
+                        >
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <View style={{ flex: 1, paddingRight: 12 }}>
+                              <Text
+                                style={{
+                                  fontSize: 15,
+                                  fontWeight: "800",
+                                  color: "#111827",
+                                }}
+                              >
+                                {material.name || material.type}
+                              </Text>
+
+                              {!!material.category && (
+                                <Text
+                                  style={{
+                                    fontSize: 12,
+                                    color: "#6B7280",
+                                    marginTop: 3,
+                                  }}
+                                >
+                                  {material.category}
+                                  {material.subcategory
+                                    ? ` • ${material.subcategory}`
+                                    : ""}
+                                </Text>
+                              )}
+                            </View>
+
+                            <TouchableOpacity
+                              onPress={() => removeMaterial(index)}
+                              accessibilityLabel="Remover material"
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 17,
+                                backgroundColor: "#FEE2E2",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Ionicons name="trash-outline" size={17} color="#DC2626" />
+                            </TouchableOpacity>
+                          </View>
+
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              fontWeight: "700",
+                              color: "#374151",
+                              marginTop: 14,
+                              marginBottom: 7,
+                            }}
+                          >
+                            Unidade
+                          </Text>
+
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={{ paddingRight: 4 }}
+                          >
+                            {(
+                              [
+                                ["KG", "kg"],
+                                ["TON", "t"],
+                                ["LITER", "L"],
+                                ["UNIT", "un"],
+                                ["CUBIC_METER", "m³"],
+                              ] as [WasteUnit, string][]
+                            ).map(([value, label]) => {
+                              const active = unit === value;
+
+                              return (
+                                <TouchableOpacity
+                                  key={value}
+                                  onPress={() => updateMaterialUnit(index, value)}
+                                  style={{
+                                    paddingHorizontal: 13,
+                                    paddingVertical: 8,
+                                    borderRadius: 999,
+                                    marginRight: 8,
+                                    borderWidth: 1,
+                                    borderColor: active ? "#028C56" : "#D1D5DB",
+                                    backgroundColor: active ? "#DCFCE7" : "#FFFFFF",
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      color: active ? "#047857" : "#4B5563",
+                                      fontWeight: active ? "800" : "600",
+                                    }}
+                                  >
+                                    {label}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              fontWeight: "700",
+                              color: "#374151",
+                              marginTop: 14,
+                              marginBottom: 7,
+                            }}
+                          >
+                            Quantidade ({formatUnit(unit)})
+                          </Text>
+
+                          <TextInput
+                            value={quantity > 0 ? String(quantity) : ""}
+                            onChangeText={(value) =>
+                              updateMaterialQuantity(index, value)
+                            }
+                            keyboardType="decimal-pad"
+                            placeholder={`Quantidade em ${formatUnit(unit)}`}
+                            placeholderTextColor="#9CA3AF"
+                            style={{
+                              borderWidth: 1,
+                              borderColor: "#D1D5DB",
+                              borderRadius: 10,
+                              paddingHorizontal: 12,
+                              paddingVertical: 10,
+                              backgroundColor: "#FFFFFF",
+                              color: "#111827",
+                            }}
+                          />
+
+                          {(unit === "KG" || unit === "TON") && (
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                color: "#6B7280",
+                                marginTop: 7,
+                              }}
+                            >
+                              Equivalente: {Number(material.quantityKg || 0).toFixed(2)} kg
+                            </Text>
+                          )}
+                        </View>
+                      );
+                    })
                   ) : (
-                    <Text style={{ color: "#6B7280" }}>
-                      Nenhum material disponível para informar.
-                    </Text>
+                    <View
+                      style={{
+                        alignItems: "center",
+                        paddingVertical: 18,
+                      }}
+                    >
+                      <Ionicons name="cube-outline" size={30} color="#9CA3AF" />
+                      <Text
+                        style={{
+                          color: "#6B7280",
+                          textAlign: "center",
+                          marginTop: 8,
+                        }}
+                      >
+                        Nenhum material informado. Adicione os resíduos encontrados na coleta.
+                      </Text>
+                    </View>
                   )}
 
                   <View
@@ -672,7 +1020,16 @@ export default function CollectScreen() {
                         color: "#028C56",
                       }}
                     >
-                      Total calculado: {totalDraftWeight.toFixed(1)} kg
+                      Peso total calculado: {totalDraftWeight.toFixed(2)} kg
+                    </Text>
+                    <Text
+                      style={{
+                        color: "#6B7280",
+                        fontSize: 12,
+                        marginTop: 4,
+                      }}
+                    >
+                      Litros, unidades e metros cúbicos não entram automaticamente no peso em kg.
                     </Text>
                   </View>
 
@@ -749,6 +1106,182 @@ export default function CollectScreen() {
           </>
         )}
       </View>
+
+      <Modal
+        visible={catalogModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCatalogModalVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(17,24,39,0.45)",
+            justifyContent: "flex-end",
+          }}
+        >
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => setCatalogModalVisible(false)}
+          />
+
+          <View
+            style={{
+              maxHeight: "78%",
+              backgroundColor: "#FFFFFF",
+              borderTopLeftRadius: 26,
+              borderTopRightRadius: 26,
+              paddingHorizontal: 18,
+              paddingTop: 18,
+              paddingBottom: 28,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <View>
+                <Text
+                  style={{
+                    fontSize: 20,
+                    fontWeight: "800",
+                    color: "#111827",
+                  }}
+                >
+                  Catálogo de resíduos
+                </Text>
+                <Text
+                  style={{
+                    color: "#6B7280",
+                    marginTop: 3,
+                  }}
+                >
+                  Selecione o material coletado
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setCatalogModalVisible(false)}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  backgroundColor: "#F3F4F6",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="close" size={22} color="#374151" />
+              </TouchableOpacity>
+            </View>
+
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                borderWidth: 1,
+                borderColor: "#D1D5DB",
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                marginTop: 16,
+                marginBottom: 14,
+              }}
+            >
+              <Ionicons name="search-outline" size={20} color="#6B7280" />
+              <TextInput
+                value={catalogSearch}
+                onChangeText={setCatalogSearch}
+                placeholder="Pesquisar resíduo ou categoria"
+                placeholderTextColor="#9CA3AF"
+                style={{
+                  flex: 1,
+                  minHeight: 46,
+                  marginLeft: 8,
+                  color: "#111827",
+                }}
+              />
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {filteredCatalogItems.length > 0 ? (
+                filteredCatalogItems.map((item) => {
+                  const alreadyAdded = materialsDraft.some(
+                    (material) => material.wasteTypeId === item.id
+                  );
+
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      disabled={alreadyAdded}
+                      onPress={() => addCatalogMaterial(item)}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: alreadyAdded ? "#D1FAE5" : "#E5E7EB",
+                        borderRadius: 13,
+                        padding: 14,
+                        marginBottom: 10,
+                        backgroundColor: alreadyAdded ? "#F0FDF4" : "#FFFFFF",
+                        opacity: alreadyAdded ? 0.7 : 1,
+                      }}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <View style={{ flex: 1, paddingRight: 10 }}>
+                          <Text
+                            style={{
+                              fontWeight: "800",
+                              color: "#111827",
+                              fontSize: 15,
+                            }}
+                          >
+                            {item.name}
+                          </Text>
+                          <Text
+                            style={{
+                              color: "#6B7280",
+                              fontSize: 12,
+                              marginTop: 3,
+                            }}
+                          >
+                            {item.category || "Sem categoria"}
+                            {item.subcategory ? ` • ${item.subcategory}` : ""}
+                            {" • "}
+                            {formatUnit(item.unit || item.defaultUnit || "KG")}
+                          </Text>
+                        </View>
+
+                        <Ionicons
+                          name={
+                            alreadyAdded
+                              ? "checkmark-circle"
+                              : "add-circle-outline"
+                          }
+                          size={23}
+                          color={alreadyAdded ? "#16A34A" : "#028C56"}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <EmptyState
+                  icon="search-outline"
+                  title="Nenhum resíduo encontrado"
+                  subtitle="Tente pesquisar por outro nome ou categoria."
+                />
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

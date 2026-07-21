@@ -35,6 +35,16 @@ model User {
   cancelledWasteDestinations    CollectionWasteDestination[] @relation("CollectionWasteDestinationCancelledBy")
   createdWasteStockLots         WasteStockLot[]              @relation("WasteStockLotCreatedBy")
 
+  createdWasteCatalogSuggestions  WasteCatalogSuggestion[] @relation("WasteCatalogSuggestionCreatedBy")
+  reviewedWasteCatalogSuggestions WasteCatalogSuggestion[] @relation("WasteCatalogSuggestionReviewedBy")
+
+  startedCollections        Collection[] @relation("CollectionStartedBy")
+  fieldCompletedCollections Collection[] @relation("CollectionFieldCompletedBy")
+  receivedCollections       Collection[] @relation("CollectionReceivedBy")
+  sortingStartedCollections Collection[] @relation("CollectionSortingStartedBy")
+  completedCollections      Collection[] @relation("CollectionCompletedBy")
+  cancelledCollections      Collection[] @relation("CollectionCancelledBy")
+
   @@index([role])
 }
 
@@ -77,6 +87,7 @@ model Cooperative {
   maintenanceLogs             MaintenanceLog[]
   collectionWasteEntries      CollectionWasteEntry[]
   collectionWasteDestinations CollectionWasteDestination[]
+  wasteCatalogSuggestions     WasteCatalogSuggestion[]
 
   @@index([name])
   @@index([city])
@@ -179,13 +190,100 @@ model Schedule {
   generator   Generator?  @relation(fields: [generatorId], references: [id], onDelete: SetNull)
   requestedBy User        @relation("UserRequestedSchedules", fields: [requestedByUserId], references: [id], onDelete: Cascade)
 
-  collections Collection[]
-  feedbacks   Feedback[]
+  requestedMaterials ScheduleRequestedMaterial[]
+  collections        Collection[]
+  feedbacks          Feedback[]
 
   @@index([cooperativeId])
   @@index([generatorId])
   @@index([requestedByUserId])
   @@index([status])
+}
+
+/**
+ * Materiais previstos pelo gerador, pessoa física ou cooperativa
+ * no momento da solicitação/agendamento.
+ * Estes registros representam somente a previsão da coleta.
+ * As quantidades efetivamente coletadas são registradas
+ * em CollectionMaterial e CollectionWasteEntry quando o catador
+ * conclui a etapa de campo e a coleta passa para COLLECTED.
+ */
+model ScheduleRequestedMaterial {
+  id          String  @id @default(cuid())
+  scheduleId  String
+  wasteTypeId String?
+
+  nameSnapshot        String
+  categorySnapshot    String?
+  subcategorySnapshot String?
+
+  estimatedQuantity Decimal?  @db.Decimal(18, 3)
+  unit              WasteUnit @default(KG)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedule          Schedule                @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  wasteType         WasteStockItem?         @relation(fields: [wasteTypeId], references: [id], onDelete: SetNull)
+  catalogSuggestion WasteCatalogSuggestion?
+
+  @@index([scheduleId])
+  @@index([wasteTypeId])
+  @@index([nameSnapshot])
+  @@index([categorySnapshot])
+  @@index([unit])
+  @@index([createdAt])
+}
+
+/**
+ * Sugestões de resíduos ainda não oficializadas no catálogo da cooperativa.
+ */
+model WasteCatalogSuggestion {
+  id            String @id @default(cuid())
+  cooperativeId String
+
+  suggestedByUserId String?
+  reviewedByUserId  String?
+
+  origin WasteCatalogSuggestionOrigin
+  status WasteCatalogSuggestionStatus @default(PENDING)
+
+  name        String
+  category    String?
+  subcategory String?
+  unit        WasteUnit @default(KG)
+
+  scheduleRequestedMaterialId String? @unique
+  collectionMaterialId        String? @unique
+  approvedWasteTypeId         String?
+
+  reviewedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+
+  suggestedBy User? @relation("WasteCatalogSuggestionCreatedBy", fields: [suggestedByUserId], references: [id], onDelete: SetNull)
+
+  reviewedBy User? @relation("WasteCatalogSuggestionReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  scheduleRequestedMaterial ScheduleRequestedMaterial? @relation(fields: [scheduleRequestedMaterialId], references: [id], onDelete: SetNull)
+
+  collectionMaterial CollectionMaterial? @relation(fields: [collectionMaterialId], references: [id], onDelete: SetNull)
+
+  approvedWasteType WasteStockItem? @relation("WasteCatalogSuggestionApprovedWasteType", fields: [approvedWasteTypeId], references: [id], onDelete: SetNull)
+
+  @@index([cooperativeId])
+  @@index([suggestedByUserId])
+  @@index([reviewedByUserId])
+  @@index([approvedWasteTypeId])
+  @@index([origin])
+  @@index([status])
+  @@index([name])
+  @@index([category])
+  @@index([createdAt])
 }
 
 model Collector {
@@ -269,21 +367,58 @@ model Collection {
   vehicleId String?
   routeId   String?
 
-  collectedAt   DateTime?
-  totalWeightKg Float            @default(0)
+  /**
+   * Ciclo operacional:
+   * PENDING     -> coleta delegada pela cooperativa
+   * IN_PROGRESS -> coleta iniciada em campo
+   * COLLECTED   -> catador concluiu a etapa de campo
+   * RECEIVED    -> material recebido fisicamente pela cooperativa
+   * SORTING     -> material em conferência/triagem
+   * COMPLETED   -> cooperativa concluiu a destinação operacional
+   */
+  status CollectionStatus @default(PENDING)
+
+  /**
+   * collectedAt permanece como o momento em que o catador concluiu
+   * a coleta em campo. Não representa o encerramento pela cooperativa.
+   */
+  startedAt        DateTime?
+  collectedAt      DateTime?
+  receivedAt       DateTime?
+  sortingStartedAt DateTime?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+
+  startedByUserId        String?
+  fieldCompletedByUserId String?
+  receivedByUserId       String?
+  sortingStartedByUserId String?
+  completedByUserId      String?
+  cancelledByUserId      String?
+
+  cancellationReason String?
+
+  totalWeightKg Float    @default(0)
   materials     Json?
   notes         String?
-  status        CollectionStatus @default(PENDING)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  collector               Collector?             @relation(fields: [collectorId], references: [id], onDelete: SetNull)
-  cooperative             Cooperative            @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  generator               Generator?             @relation(fields: [generatorId], references: [id], onDelete: SetNull)
-  schedule                Schedule?              @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
-  driver                  Driver?                @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  vehicle                 Vehicle?               @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
-  route                   Route?                 @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  collector   Collector?  @relation(fields: [collectorId], references: [id], onDelete: SetNull)
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  generator   Generator?  @relation(fields: [generatorId], references: [id], onDelete: SetNull)
+  schedule    Schedule?   @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  driver      Driver?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle     Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  route       Route?      @relation(fields: [routeId], references: [id], onDelete: SetNull)
+
+  startedBy        User? @relation("CollectionStartedBy", fields: [startedByUserId], references: [id], onDelete: SetNull)
+  fieldCompletedBy User? @relation("CollectionFieldCompletedBy", fields: [fieldCompletedByUserId], references: [id], onDelete: SetNull)
+  receivedBy       User? @relation("CollectionReceivedBy", fields: [receivedByUserId], references: [id], onDelete: SetNull)
+  sortingStartedBy User? @relation("CollectionSortingStartedBy", fields: [sortingStartedByUserId], references: [id], onDelete: SetNull)
+  completedBy      User? @relation("CollectionCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  cancelledBy      User? @relation("CollectionCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+
   reports                 DriverReport[]
   collectionMaterials     CollectionMaterial[]
   collectionWasteEntries  CollectionWasteEntry[]
@@ -297,7 +432,18 @@ model Collection {
   @@index([vehicleId])
   @@index([routeId])
   @@index([status])
+  @@index([startedAt])
   @@index([collectedAt])
+  @@index([receivedAt])
+  @@index([sortingStartedAt])
+  @@index([completedAt])
+  @@index([cancelledAt])
+  @@index([startedByUserId])
+  @@index([fieldCompletedByUserId])
+  @@index([receivedByUserId])
+  @@index([sortingStartedByUserId])
+  @@index([completedByUserId])
+  @@index([cancelledByUserId])
 }
 
 model CollectionMaterial {
@@ -314,10 +460,11 @@ model CollectionMaterial {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  collection              Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  wasteType               WasteStockItem?       @relation(fields: [wasteTypeId], references: [id], onDelete: SetNull)
+  collection              Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  wasteType               WasteStockItem?         @relation(fields: [wasteTypeId], references: [id], onDelete: SetNull)
   wasteEntry              CollectionWasteEntry?
-  generatedWasteStockLots WasteStockLot[]       @relation("WasteStockLotOriginCollectionMaterial")
+  catalogSuggestion       WasteCatalogSuggestion?
+  generatedWasteStockLots WasteStockLot[]         @relation("WasteStockLotOriginCollectionMaterial")
 
   @@index([collectionId])
   @@index([wasteTypeId])
@@ -573,11 +720,13 @@ model WasteStockItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cooperative            Cooperative                  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  lots                   WasteStockLot[]
-  collectionMaterials    CollectionMaterial[]
-  collectionWasteEntries CollectionWasteEntry[]
-  wasteDestinations      CollectionWasteDestination[]
+  cooperative                Cooperative                  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  lots                       WasteStockLot[]
+  scheduleRequestedMaterials ScheduleRequestedMaterial[]
+  collectionMaterials        CollectionMaterial[]
+  collectionWasteEntries     CollectionWasteEntry[]
+  wasteDestinations          CollectionWasteDestination[]
+  approvedCatalogSuggestions WasteCatalogSuggestion[]     @relation("WasteCatalogSuggestionApprovedWasteType")
 
   @@unique([cooperativeId, internalCode])
   @@index([cooperativeId])
@@ -778,6 +927,9 @@ enum ScheduleStatus {
 enum CollectionStatus {
   PENDING
   IN_PROGRESS
+  COLLECTED
+  RECEIVED
+  SORTING
   COMPLETED
   CANCELLED
 }
@@ -841,6 +993,17 @@ enum FeedbackCategory {
   COLETA
   APLICATIVO
   COMUNICACAO
+}
+
+enum WasteCatalogSuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum WasteCatalogSuggestionOrigin {
+  GENERATOR_REQUEST
+  COLLECTION_FOUND
 }
 
 enum WasteStockStatus {
