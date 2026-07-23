@@ -44,6 +44,14 @@ type DestinationCreateTransactionResult = {
   stockLot: unknown | null;
 };
 
+type CompatibleStockItem = {
+  id: string;
+  cooperativeId: string;
+  defaultUnit: WasteUnit;
+  unit: WasteUnit;
+  isActive: boolean;
+};
+
 /*
  * ============================================================
  * CONSTANTES
@@ -1161,12 +1169,7 @@ export class CollectionWasteDestinationsService {
           }
 
           let stockItem:
-            | {
-                id: string;
-                cooperativeId: string;
-                defaultUnit: WasteUnit;
-                isActive: boolean;
-              }
+            | CompatibleStockItem
             | null = null;
 
           if (
@@ -1193,6 +1196,7 @@ export class CollectionWasteDestinationsService {
                   id: true,
                   cooperativeId: true,
                   defaultUnit: true,
+                  unit: true,
                   isActive: true,
                 },
               });
@@ -1230,10 +1234,11 @@ export class CollectionWasteDestinationsService {
               );
             }
 
-            if (
-              stockItem.defaultUnit !==
-              data.unit
-            ) {
+            const stockItemSupportsUnit =
+              stockItem.defaultUnit === data.unit ||
+              stockItem.unit === data.unit;
+
+            if (!stockItemSupportsUnit) {
               throw new WasteDestinationDomainError(
                 "A unidade do item de estoque é diferente da unidade da destinação.",
                 {
@@ -1241,9 +1246,10 @@ export class CollectionWasteDestinationsService {
                   code: "STOCK_ITEM_UNIT_MISMATCH",
 
                   details: {
-                    stockItemUnit:
+                    stockItemDefaultUnit:
                       stockItem.defaultUnit,
-
+                    stockItemUnit:
+                      stockItem.unit,
                     destinationUnit:
                       data.unit,
                   },
