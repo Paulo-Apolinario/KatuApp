@@ -1087,7 +1087,7 @@ export class CollectionWasteDestinationsService {
 
   /*
    * ============================================================
-   * ATUALIZAÇÃO DE DADOS COMPLEMENTARES
+   * ATUALIZAÇÃO INTELIGENTE (COM SUPORTE A MUDANÇA DE TIPO)
    * ============================================================
    */
 
@@ -1095,52 +1095,170 @@ export class CollectionWasteDestinationsService {
     authUserId: string,
     authUserRole: string,
     destinationId: string,
-    data: UpdateWasteDestinationBody
+    data: UpdateWasteDestinationBody & { type?: WasteDestinationType, stockItemId?: string }
   ) {
     const context = await this.getAccessContext(authUserId, authUserRole);
     this.assertCanManageDestinations(context);
 
-    const existing = await prisma.collectionWasteDestination.findFirst({
-      where: {
-        AND: [{ id: destinationId }, this.buildAccessWhere(context)],
-      },
-      select: { id: true, status: true },
-    });
-
-    if (!existing) {
-      throw new WasteDestinationDomainError("Destinação de resíduo não encontrada.", {
-        statusCode: 404,
-        code: "WASTE_DESTINATION_NOT_FOUND",
+    const destination = await prisma.$transaction(async (transaction) => {
+      const existing = await transaction.collectionWasteDestination.findFirst({
+        where: {
+          AND: [{ id: destinationId }, this.buildAccessWhere(context)],
+        },
+        include: { stockLot: true, collectionWasteEntry: true },
       });
-    }
 
-    if (existing.status === CANCELLED_DESTINATION_STATUS) {
-      throw new WasteDestinationDomainError(
-        "Não é possível editar uma destinação cancelada.",
-        { statusCode: 409, code: "WASTE_DESTINATION_ALREADY_CANCELLED" }
-      );
-    }
+      if (!existing) {
+        throw new WasteDestinationDomainError("Destinação de resíduo não encontrada.", {
+          statusCode: 404,
+          code: "WASTE_DESTINATION_NOT_FOUND",
+        });
+      }
 
-    const destination = await prisma.collectionWasteDestination.update({
-      where: { id: destinationId },
-      data: {
-        destinationName: data.destinationName,
-        destinationDocument: data.destinationDocument,
-        destinationAddress: data.destinationAddress,
-        destinationContact: data.destinationContact,
-        transportDocument: data.transportDocument,
-        environmentalDocument: data.environmentalDocument,
-        notes: data.notes,
-        destinationDate: data.destinationDate === null ? undefined : data.destinationDate,
-        metadata:
-          data.metadata === null
-            ? Prisma.JsonNull
-            : data.metadata
-            ? (data.metadata as Prisma.InputJsonValue)
-            : undefined,
-        updatedAt: new Date(),
-      },
-      include: destinationInclude,
+      if (existing.status === CANCELLED_DESTINATION_STATUS) {
+        throw new WasteDestinationDomainError(
+          "Não é possível editar uma destinação cancelada.",
+          { statusCode: 409, code: "WASTE_DESTINATION_ALREADY_CANCELLED" }
+        );
+      }
+
+      let newStockLotId = existing.stockLotId;
+      const newType = data.type || existing.type;
+      const changingType = data.type && data.type !== existing.type;
+
+      // 1. Se estava em ESTOQUE e mudou para outro tipo -> Cancela o Lote de Estoque
+      if (existing.type === WasteDestinationType.STOCK && newType !== WasteDestinationType.STOCK) {
+        if (existing.stockLot) {
+          const originalQuantity = normalizeNumber(existing.stockLot.quantity);
+          const availableQuantity = normalizeNumber(existing.stockLot.availableQuantity);
+
+          if (!quantitiesAreEqual(originalQuantity, availableQuantity)) {
+            throw new WasteDestinationDomainError(
+              "O lote gerado já possui movimentações (foi vendido ou alterado). Você precisa desfazer essas movimentações antes de mudar o tipo de destinação.",
+              { statusCode: 409, code: "STOCK_LOT_HAS_MOVEMENTS" }
+            );
+          }
+
+          await transaction.wasteStockLot.update({
+            where: { id: existing.stockLot.id },
+            data: {
+              status: WasteLotStatus.CANCELLED,
+              availableQuantity: new Prisma.Decimal(0),
+              notes: [
+                existing.stockLot.notes,
+                `Lote anulado devido à alteração do tipo de destinação de Estoque para ${newType}.`
+              ].filter(Boolean).join("\n"),
+              updatedAt: new Date(),
+            },
+          });
+          newStockLotId = null;
+        }
+      }
+
+      // 2. Se mudou PARA ESTOQUE ou apenas trocou o item de estoque
+      if (newType === WasteDestinationType.STOCK) {
+        const stockItemId = data.stockItemId || existing.stockItemId;
+        if (!stockItemId) {
+          throw new WasteDestinationDomainError(
+            "O item de estoque é obrigatório para destinação ao estoque.",
+            { statusCode: 400, code: "STOCK_ITEM_REQUIRED" }
+          );
+        }
+
+        const stockItem = await transaction.wasteStockItem.findUnique({
+          where: { id: stockItemId },
+        });
+
+        if (!stockItem || stockItem.cooperativeId !== existing.cooperativeId || !stockItem.isActive) {
+           throw new WasteDestinationDomainError(
+            "Item de estoque inválido, inativo ou não pertence à cooperativa.",
+            { statusCode: 400, code: "INVALID_STOCK_ITEM" }
+          );
+        }
+
+        if (existing.type !== WasteDestinationType.STOCK) {
+          // Cria um Lote Novinho em folha
+          const lotCode = generateLotCode();
+          const stockLot = await transaction.wasteStockLot.create({
+            data: {
+              cooperativeId: existing.cooperativeId,
+              stockItemId: stockItem.id,
+              code: lotCode,
+              quantity: existing.quantity,
+              availableQuantity: existing.quantity,
+              unit: existing.unit,
+              status: WasteLotStatus.AVAILABLE,
+              receivedAt: data.destinationDate ?? existing.destinationDate,
+              originCollectionId: existing.collectionWasteEntry.collectionId,
+              originCollectionMaterialId: existing.collectionWasteEntry.collectionMaterialId,
+              originCollectionWasteEntryId: existing.collectionWasteEntryId,
+              notes: data.notes ?? existing.notes,
+              createdByUserId: context.userId,
+            },
+          });
+          newStockLotId = stockLot.id;
+        } else if (data.stockItemId && data.stockItemId !== existing.stockItemId && existing.stockLot) {
+          // Apenas atualiza o catálogo do lote existente
+          await transaction.wasteStockLot.update({
+            where: { id: existing.stockLot.id },
+            data: { stockItemId: stockItem.id },
+          });
+        }
+      }
+
+      // 3. Atualiza os dados da Destinação em si
+      const updatedDestination = await transaction.collectionWasteDestination.update({
+        where: { id: destinationId },
+        data: {
+          type: newType,
+          stockItemId: newType === WasteDestinationType.STOCK ? (data.stockItemId || existing.stockItemId) : null,
+          stockLotId: newStockLotId,
+          destinationName: newType === WasteDestinationType.RESERVATION ? null : (data.destinationName !== undefined ? data.destinationName : existing.destinationName),
+          destinationDocument: newType === WasteDestinationType.RESERVATION ? null : (data.destinationDocument !== undefined ? data.destinationDocument : existing.destinationDocument),
+          destinationAddress: newType === WasteDestinationType.RESERVATION ? null : (data.destinationAddress !== undefined ? data.destinationAddress : existing.destinationAddress),
+          transportDocument: ["TRIAGE", "DISPOSAL", "DIRECT_DESTINATION"].includes(newType) ? (data.transportDocument !== undefined ? data.transportDocument : existing.transportDocument) : null,
+          environmentalDocument: ["TRIAGE", "DISPOSAL", "DIRECT_DESTINATION"].includes(newType) ? (data.environmentalDocument !== undefined ? data.environmentalDocument : existing.environmentalDocument) : null,
+          notes: data.notes !== undefined ? data.notes : existing.notes,
+          destinationDate: data.destinationDate === null ? undefined : data.destinationDate,
+          metadata: data.metadata === null ? Prisma.JsonNull : data.metadata ? (data.metadata as Prisma.InputJsonValue) : undefined,
+          updatedAt: new Date(),
+        },
+        include: destinationInclude,
+      });
+
+      // 4. Recalcula o status da entrada de resíduo se o tipo mudou
+      if (changingType) {
+        const activeDestinations = await transaction.collectionWasteDestination.findMany({
+          where: {
+            collectionWasteEntryId: existing.collectionWasteEntryId,
+            status: ACTIVE_DESTINATION_STATUS,
+          },
+          orderBy: [{ destinationDate: "desc" }, { createdAt: "desc" }],
+        });
+
+        const remainingDestinedQuantity = activeDestinations.reduce(
+          (total, current) => total + normalizeNumber(current.quantity),
+          0
+        );
+
+        const lastActiveDestination = activeDestinations[0];
+
+        const recalculatedEntry = this.calculateEntryState(
+          normalizeNumber(existing.collectionWasteEntry.collectedQuantity),
+          remainingDestinedQuantity,
+          lastActiveDestination?.type
+        );
+
+        await transaction.collectionWasteEntry.update({
+          where: { id: existing.collectionWasteEntryId },
+          data: {
+            status: recalculatedEntry.status,
+            updatedAt: new Date(),
+          },
+        });
+      }
+
+      return updatedDestination;
     });
 
     return {

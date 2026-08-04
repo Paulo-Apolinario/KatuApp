@@ -499,6 +499,14 @@ export const createWasteDestinationBodySchema =
 export const updateWasteDestinationBodySchema =
   z
     .object({
+      type: wasteDestinationTypeSchema.optional(),
+
+      stockItemId:
+        nullableOptionalTrimmedString(
+          "Item de estoque",
+          100
+        ),
+
       destinationName:
         nullableOptionalTrimmedString(
           "Nome do destino",
