@@ -11,7 +11,6 @@ export class GeneratorController {
   async create(request: FastifyRequest, reply: FastifyReply) {
     try {
       const authUser = request.user as { sub: string; role: string };
-      const body = createGeneratorSchema.parse(request.body);
 
       if (authUser.role !== "COOPERATIVE") {
         return reply.status(403).send({
@@ -20,6 +19,7 @@ export class GeneratorController {
         });
       }
 
+      const body = createGeneratorSchema.parse(request.body);
       const generator = await generatorService.create(authUser.sub, body);
 
       return reply.status(201).send({
@@ -64,7 +64,6 @@ export class GeneratorController {
   async findById(request: FastifyRequest, reply: FastifyReply) {
     try {
       const authUser = request.user as { sub: string; role: string };
-      const params = generatorIdParamsSchema.parse(request.params);
 
       if (authUser.role !== "COOPERATIVE") {
         return reply.status(403).send({
@@ -73,6 +72,7 @@ export class GeneratorController {
         });
       }
 
+      const params = generatorIdParamsSchema.parse(request.params);
       const generator = await generatorService.findById(authUser.sub, params.id);
 
       return reply.send({

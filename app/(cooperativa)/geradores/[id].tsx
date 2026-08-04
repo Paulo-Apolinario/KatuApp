@@ -5,12 +5,12 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 import {
   generatorService,
   type Generator,
@@ -211,10 +211,11 @@ export default function GeradorDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [agendando, setAgendando] = useState(false);
   const [gerador, setGerador] = useState<GeradorViewModel | null>(null);
+  const { notifyError } = useNotification();
 
   const loadGerador = useCallback(async () => {
     if (!documentId) {
-      Alert.alert("Erro", "ID do gerador não informado.");
+      notifyError("Erro", "ID do gerador não informado.");
       router.back();
       return;
     }
@@ -236,7 +237,7 @@ export default function GeradorDetailScreen() {
       ]);
 
       if (!generator) {
-        Alert.alert("Erro", "Gerador não encontrado.");
+        notifyError("Erro", "Gerador não encontrado.");
         router.back();
         return;
       }
@@ -249,14 +250,11 @@ export default function GeradorDetailScreen() {
 
       setGerador(mapGeneratorToViewModel(generator, generatorCollections));
     } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível carregar os dados do gerador."
-      );
+      notifyError("Erro", error?.message || "Não foi possível carregar os dados do gerador.");
     } finally {
       setLoading(false);
     }
-  }, [documentId]);
+  }, [documentId, notifyError]);
 
   useEffect(() => {
     loadGerador();
@@ -268,10 +266,7 @@ export default function GeradorDetailScreen() {
     try {
       setAgendando(true);
 
-      Alert.alert(
-        "Próxima etapa",
-        "A criação de agendamentos será integrada no próximo módulo, usando a API de schedules."
-      );
+      notifyError("Próxima etapa", "A criação de agendamentos será integrada no próximo módulo, usando a API de schedules.");
     } finally {
       setAgendando(false);
     }
@@ -279,7 +274,7 @@ export default function GeradorDetailScreen() {
 
   const handleEnviarMensagem = async () => {
     if (!gerador?.telefone || gerador.telefone === "Não informado") {
-      Alert.alert("Aviso", "Este gerador não possui telefone cadastrado.");
+      notifyError("Aviso", "Este gerador não possui telefone cadastrado.");
       return;
     }
 
@@ -297,13 +292,13 @@ export default function GeradorDetailScreen() {
       const canOpen = await Linking.canOpenURL(url);
 
       if (!canOpen) {
-        Alert.alert("Erro", "Não foi possível abrir o WhatsApp.");
+        notifyError("Erro", "Não foi possível abrir o WhatsApp.");
         return;
       }
 
       await Linking.openURL(url);
     } catch {
-      Alert.alert("Erro", "Não foi possível abrir o WhatsApp.");
+      notifyError("Erro", "Não foi possível abrir o WhatsApp.");
     }
   };
 

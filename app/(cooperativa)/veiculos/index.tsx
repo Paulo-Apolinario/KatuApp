@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   vehicleService,
@@ -20,6 +20,7 @@ import {
 export default function VeiculosScreen() {
   const [veiculos, setVeiculos] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
+  const { notifyError } = useNotification();
 
   const carregarVeiculos = useCallback(async () => {
     try {
@@ -28,11 +29,11 @@ export default function VeiculosScreen() {
       setVeiculos(data);
     } catch (error) {
       console.error("Erro ao carregar veículos:", error);
-      Alert.alert("Erro", "Não foi possível carregar os veículos.");
+      notifyError("Erro", "Não foi possível carregar os veículos.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

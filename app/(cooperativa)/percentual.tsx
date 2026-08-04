@@ -1,9 +1,10 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Text, View, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from "react-native";
+import { Text, View, TouchableOpacity, ScrollView, ActivityIndicator, } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { collectionService } from "@/src/services/collectionService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type MaterialCard = {
   name: string;
@@ -15,6 +16,7 @@ type MaterialCard = {
 export default function PercentualScreen() {
   const [loading, setLoading] = useState(true);
   const [materials, setMaterials] = useState<MaterialCard[]>([]);
+  const { notifyError } = useNotification();
 
   const loadPercentual = useCallback(async () => {
     try {
@@ -65,11 +67,11 @@ export default function PercentualScreen() {
 
       setMaterials(finalData);
     } catch (error: any) {
-      Alert.alert("Erro", error.message || "Não foi possível carregar os percentuais.");
+      notifyError(error.message || "Não foi possível carregar os percentuais.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

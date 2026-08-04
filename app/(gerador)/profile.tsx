@@ -2,7 +2,6 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -11,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
@@ -154,7 +154,7 @@ export default function GeneratorProfileScreen() {
   const currentUser: AuthUserLike | null = user
     ? (user as unknown as AuthUserLike)
     : null;
-
+  const { notifyError } = useNotification();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -174,12 +174,12 @@ export default function GeneratorProfileScreen() {
       setCollections(Array.isArray(collectionResponse) ? collectionResponse : []);
     } catch (error) {
       console.error("Erro ao carregar perfil do gerador:", error);
-      Alert.alert("Erro", "Não foi possível carregar os dados do perfil.");
+      notifyError("Erro", "Não foi possível carregar os dados do perfil.");
     } finally {
       if (showLoader) setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

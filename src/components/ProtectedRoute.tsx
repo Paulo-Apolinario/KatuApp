@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { router, useSegments } from "expo-router";
-import { View, ActivityIndicator } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
 
 interface ProtectedRouteProps {
@@ -8,8 +8,14 @@ interface ProtectedRouteProps {
   allowedUserTypes?: string[];
 }
 
-function getRouteByRole(role?: string) {
-  switch (role) {
+function normalizeRole(role?: string | null) {
+  return String(role || "").trim().toUpperCase();
+}
+
+function getRouteByRole(role?: string | null) {
+  const normalized = normalizeRole(role);
+
+  switch (normalized) {
     case "PF":
       return "/(pf-tabs)/home";
     case "GENERATOR_SMALL":
@@ -19,6 +25,8 @@ function getRouteByRole(role?: string) {
       return "/(catador)/homecat";
     case "COOPERATIVE":
       return "/(cooperativa)/home";
+    case "DRIVER":
+      return "/(motorista)/home";
     default:
       return "/(public)/access-type";
   }
@@ -26,7 +34,9 @@ function getRouteByRole(role?: string) {
 
 function mapAllowedTypesToRoles(types: string[]) {
   return types.map((type) => {
-    switch (type) {
+    const normalized = String(type || "").trim().toLowerCase();
+
+    switch (normalized) {
       case "pf":
         return "PF";
       case "comercial":
@@ -37,8 +47,10 @@ function mapAllowedTypesToRoles(types: string[]) {
         return "COLLECTOR";
       case "cooperativa":
         return "COOPERATIVE";
+      case "motorista":
+        return "DRIVER";
       default:
-        return type;
+        return normalizeRole(type);
     }
   });
 }
@@ -50,15 +62,22 @@ export default function ProtectedRoute({
   const { user, loading } = useAuth();
   const segments = useSegments();
 
+  const currentGroup = segments[0];
+
+  const allowedRoles = useMemo(
+    () => mapAllowedTypesToRoles(allowedUserTypes),
+    [allowedUserTypes]
+  );
+
+  const userRole = normalizeRole(user?.role);
+
   useEffect(() => {
     if (loading) return;
 
-    const currentGroup = segments[0];
+    const isPublicRoute =
+      currentGroup === "(public)" || currentGroup === "(auth)";
 
     if (!user) {
-      const isPublicRoute =
-        currentGroup === "(public)" || currentGroup === "(auth)";
-
       if (!isPublicRoute) {
         router.replace("/(public)/access-type");
       }
@@ -66,12 +85,10 @@ export default function ProtectedRoute({
       return;
     }
 
-    const allowedRoles = mapAllowedTypesToRoles(allowedUserTypes);
-
-    if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-      router.replace(getRouteByRole(user.role));
+    if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+      router.replace(getRouteByRole(userRole));
     }
-  }, [user, loading, segments, allowedUserTypes]);
+  }, [user, userRole, loading, currentGroup, allowedRoles]);
 
   if (loading) {
     return (
@@ -88,11 +105,11 @@ export default function ProtectedRoute({
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return null;
+  }
 
-  const allowedRoles = mapAllowedTypesToRoles(allowedUserTypes);
-
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+  if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
     return null;
   }
 

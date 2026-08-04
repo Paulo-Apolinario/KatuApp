@@ -5,11 +5,11 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   collectorService,
@@ -152,6 +152,7 @@ export default function CatadorDetailScreen() {
   const [savingStatus, setSavingStatus] = useState(false);
   const [catador, setCatador] = useState<Collector | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const { notifyError, notifySuccess } = useNotification();
 
   const loadCatador = useCallback(async () => {
     if (!routeId) {
@@ -179,16 +180,11 @@ export default function CatadorDetailScreen() {
       setCollections(Array.isArray(collectionsData) ? collectionsData : []);
     } catch (error) {
       console.error("Erro ao carregar catador:", error);
-      Alert.alert("Erro", "Não foi possível carregar os dados do catador.", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/catadores"),
-        },
-      ]);
+      notifyError("Erro", "Não foi possível carregar os dados do catador.");
     } finally {
       setLoading(false);
     }
-  }, [routeId]);
+  }, [routeId, notifyError]);
 
   useEffect(() => {
     loadCatador();
@@ -201,13 +197,10 @@ export default function CatadorDetailScreen() {
       setSavingStatus(true);
       const updated = await collectorService.updateStatus(routeId, status);
       setCatador(updated);
-      Alert.alert("Sucesso", "Status do catador atualizado com sucesso.");
+      notifySuccess("Sucesso", "Status do catador atualizado com sucesso.");
     } catch (error: any) {
       console.error("Erro ao atualizar status do catador:", error);
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível atualizar o status."
-      );
+      notifyError("Não foi possível atualizar o status.");
     } finally {
       setSavingStatus(false);
     }

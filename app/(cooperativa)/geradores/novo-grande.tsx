@@ -1,7 +1,6 @@
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,8 +12,19 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
+import { api } from "@/src/services/api";
 import { generatorService } from "@/src/services/generatorService";
+import { generatorDraftStore } from "@/src/stores/generatorDraftStore";
+import { useNotification } from "@/src/contexts/NotificationContext";
+
+type ViaCepResponse = {
+  cep?: string;
+  logradouro?: string;
+  bairro?: string;
+  localidade?: string;
+  uf?: string;
+  erro?: boolean;
+};
 
 function buildAddress(params: {
   street: string;
@@ -38,23 +48,42 @@ function buildAddress(params: {
 
 function formatCep(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 8);
-
   if (digits.length <= 5) return digits;
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
-export default function NovoGrandeGeradorScreen() {
-  const [nome, setNome] = useState("");
-  const [contato, setContato] = useState("");
-  const [telefone, setTelefone] = useState("");
-  const [email, setEmail] = useState("");
+function parseCoordinate(value: string): number | undefined {
+  const normalized = value.replace(",", ".").trim();
+  if (!normalized) return undefined;
 
-  const [cep, setCep] = useState("");
-  const [rua, setRua] = useState("");
-  const [numero, setNumero] = useState("");
-  const [bairro, setBairro] = useState("");
-  const [cidade, setCidade] = useState("");
-  const [estado, setEstado] = useState("");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+export default function NovoGrandeGeradorScreen() {
+  const params = useLocalSearchParams<{
+    selectedLatitude?: string;
+    selectedLongitude?: string;
+  }>();
+  const { notifyError, notifySuccess } = useNotification();
+
+  const draft = generatorDraftStore.get("LARGE");
+
+  const [nome, setNome] = useState(draft.nome);
+  const [contato, setContato] = useState(draft.contato);
+  const [telefone, setTelefone] = useState(draft.telefone);
+  const [email, setEmail] = useState(draft.email);
+
+  const [cep, setCep] = useState(draft.cep);
+  const [rua, setRua] = useState(draft.rua);
+  const [numero, setNumero] = useState(draft.numero);
+  const [bairro, setBairro] = useState(draft.bairro);
+  const [cidade, setCidade] = useState(draft.cidade);
+  const [estado, setEstado] = useState(draft.estado);
+  const [address, setAddress] = useState(draft.address);
+
+  const [latitude, setLatitude] = useState(draft.latitude);
+  const [longitude, setLongitude] = useState(draft.longitude);
 
   const [loadingCep, setLoadingCep] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -70,6 +99,56 @@ export default function NovoGrandeGeradorScreen() {
     });
   }, [rua, numero, bairro, cidade, estado, cep]);
 
+  useEffect(() => {
+    const nextLat =
+      typeof params.selectedLatitude === "string" ? params.selectedLatitude : "";
+    const nextLng =
+      typeof params.selectedLongitude === "string"
+        ? params.selectedLongitude
+        : "";
+
+    if (nextLat && nextLng) {
+      setLatitude(nextLat);
+      setLongitude(nextLng);
+    }
+  }, [params.selectedLatitude, params.selectedLongitude]);
+
+  useEffect(() => {
+    const nextAddress = address.trim() || enderecoCompleto;
+
+    generatorDraftStore.set({
+      kind: "LARGE",
+      nome,
+      contato,
+      telefone,
+      email,
+      cep,
+      rua,
+      numero,
+      bairro,
+      cidade,
+      estado,
+      address: nextAddress,
+      latitude,
+      longitude,
+    });
+  }, [
+    nome,
+    contato,
+    telefone,
+    email,
+    cep,
+    rua,
+    numero,
+    bairro,
+    cidade,
+    estado,
+    address,
+    latitude,
+    longitude,
+    enderecoCompleto,
+  ]);
+
   async function buscarCep(value: string) {
     const cleanCep = value.replace(/\D/g, "");
 
@@ -78,42 +157,69 @@ export default function NovoGrandeGeradorScreen() {
     try {
       setLoadingCep(true);
 
-      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-      const data = await response.json();
+      const data = await api.getExternalJson<ViaCepResponse>(
+        `https://viacep.com.br/ws/${cleanCep}/json/`
+      );
 
       if (data.erro) {
-        Alert.alert("CEP não encontrado", "Verifique o CEP informado.");
+        notifyError("CEP não encontrado", "Verifique o CEP informado.");
         return;
       }
 
-      setRua(data.logradouro || "");
-      setBairro(data.bairro || "");
-      setCidade(data.localidade || "");
-      setEstado(data.uf || "");
+      const nextRua = data.logradouro || "";
+      const nextBairro = data.bairro || "";
+      const nextCidade = data.localidade || "";
+      const nextEstado = data.uf || "";
+
+      setRua(nextRua);
+      setBairro(nextBairro);
+      setCidade(nextCidade);
+      setEstado(nextEstado);
+
+      const nextAddress = buildAddress({
+        street: nextRua,
+        number: numero,
+        neighborhood: nextBairro,
+        city: nextCidade,
+        state: nextEstado,
+        zipCode: cleanCep,
+      });
+
+      setAddress(nextAddress);
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
-      Alert.alert("Erro", "Não foi possível consultar o CEP.");
+      notifyError("Erro", "Não foi possível consultar o CEP.");
     } finally {
       setLoadingCep(false);
     }
   }
 
-  async function getCoordinatesFromAddress(address: string) {
-    try {
-      const results = await Location.geocodeAsync(address);
+  function handleOpenMap() {
+    generatorDraftStore.set({
+      kind: "LARGE",
+      nome,
+      contato,
+      telefone,
+      email,
+      cep,
+      rua,
+      numero,
+      bairro,
+      cidade,
+      estado,
+      address: address.trim() || enderecoCompleto,
+      latitude,
+      longitude,
+    });
 
-      if (!results.length) {
-        return { latitude: undefined, longitude: undefined };
-      }
-
-      return {
-        latitude: results[0].latitude,
-        longitude: results[0].longitude,
-      };
-    } catch (error) {
-      console.error("Erro ao geocodificar endereço:", error);
-      return { latitude: undefined, longitude: undefined };
-    }
+    router.push({
+      pathname: "/(cooperativa)/geradores/select-location",
+      params: {
+        kind: "LARGE",
+        latitude: latitude || undefined,
+        longitude: longitude || undefined,
+      },
+    });
   }
 
   async function handleSalvar() {
@@ -121,21 +227,31 @@ export default function NovoGrandeGeradorScreen() {
     const responsibleName = contato.trim();
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedPhone = telefone.trim();
+    const parsedLatitude = parseCoordinate(latitude);
+    const parsedLongitude = parseCoordinate(longitude);
 
     if (
       !companyName ||
       !responsibleName ||
       !normalizedPhone ||
-      !normalizedEmail ||
-      !rua.trim() ||
-      !numero.trim() ||
-      !bairro.trim() ||
-      !cidade.trim() ||
-      !estado.trim()
+      !normalizedEmail
     ) {
-      Alert.alert(
+      notifyError(
         "Atenção",
-        "Preencha nome, contato, telefone, email, rua, número, bairro, cidade e estado."
+        "Preencha nome da empresa, contato responsável, telefone e email."
+      );
+      return;
+    }
+
+    if (
+      !rua.trim() &&
+      !bairro.trim() &&
+      !cidade.trim() &&
+      !(parsedLatitude !== undefined && parsedLongitude !== undefined)
+    ) {
+      notifyError(
+        "Atenção",
+        "Informe o endereço ou selecione a localização no mapa."
       );
       return;
     }
@@ -143,40 +259,37 @@ export default function NovoGrandeGeradorScreen() {
     try {
       setSaving(true);
 
-      const { latitude, longitude } =
-        await getCoordinatesFromAddress(enderecoCompleto);
+      const finalAddress = address.trim() || enderecoCompleto;
 
       const response = await generatorService.createGenerator({
         name: responsibleName,
         companyName,
         email: normalizedEmail,
         phone: normalizedPhone,
-        address: enderecoCompleto,
-        zipCode: cep.trim(),
-        street: rua.trim(),
-        number: numero.trim(),
-        neighborhood: bairro.trim(),
-        city: cidade.trim(),
-        state: estado.trim(),
-        latitude,
-        longitude,
+        address: finalAddress || undefined,
+        zipCode: cep.replace(/\D/g, "") || undefined,
+        street: rua.trim() || undefined,
+        number: numero.trim() || undefined,
+        neighborhood: bairro.trim() || undefined,
+        city: cidade.trim() || undefined,
+        state: estado.trim() || undefined,
+        latitude: parsedLatitude,
+        longitude: parsedLongitude,
         type: "LARGE",
       });
 
-      Alert.alert(
+      generatorDraftStore.clear("LARGE");
+
+      notifySuccess(
         "Gerador salvo com sucesso",
         response.temporaryPassword
           ? `O grande gerador foi cadastrado.\n\nSenha provisória: ${response.temporaryPassword}\n\nAgora ele pode ativar o acesso na tela de liberação.`
-          : "O grande gerador foi cadastrado com sucesso.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/(cooperativa)/geradores/grande"),
-          },
-        ]
+          : "O grande gerador foi cadastrado com sucesso."
       );
+
+      router.replace("/(cooperativa)/geradores/grande");
     } catch (error: any) {
-      Alert.alert(
+      notifyError(
         "Erro",
         error.message || "Não foi possível cadastrar o grande gerador."
       );
@@ -245,7 +358,7 @@ export default function NovoGrandeGeradorScreen() {
             marginBottom: 14,
           }}
         >
-          Endereço para mapa
+          Endereço e localização
         </Text>
 
         <Field
@@ -263,74 +376,163 @@ export default function NovoGrandeGeradorScreen() {
           onBlur={() => buscarCep(cep)}
           placeholder="Ex: 60000-000"
           keyboardType="numeric"
+          loading={loadingCep}
         />
 
-        {loadingCep && (
-          <View style={{ marginBottom: 14 }}>
-            <ActivityIndicator color="#028C56" />
-            <Text
-              style={{
-                fontSize: 12,
-                color: "#64748B",
-                marginTop: 6,
-              }}
-            >
-              Buscando endereço pelo CEP...
-            </Text>
-          </View>
-        )}
-
         <Field
-          label="Rua *"
+          label="Rua"
           value={rua}
-          onChangeText={setRua}
+          onChangeText={(value) => {
+            setRua(value);
+            setAddress(
+              buildAddress({
+                street: value,
+                number: numero,
+                neighborhood: bairro,
+                city: cidade,
+                state: estado,
+                zipCode: cep,
+              })
+            );
+          }}
           placeholder="Ex: Avenida Santos Dumont"
         />
         <Field
-          label="Número *"
+          label="Número"
           value={numero}
-          onChangeText={setNumero}
+          onChangeText={(value: string) => {
+            setNumero(value);
+            setAddress(
+              buildAddress({
+                street: rua,
+                number: value,
+                neighborhood: bairro,
+                city: cidade,
+                state: estado,
+                zipCode: cep,
+              })
+            );
+          }}
           placeholder="Ex: 1500"
         />
         <Field
-          label="Bairro *"
+          label="Bairro"
           value={bairro}
-          onChangeText={setBairro}
+          onChangeText={(value) => {
+            setBairro(value);
+            setAddress(
+              buildAddress({
+                street: rua,
+                number: numero,
+                neighborhood: value,
+                city: cidade,
+                state: estado,
+                zipCode: cep,
+              })
+            );
+          }}
           placeholder="Ex: Aldeota"
         />
         <Field
-          label="Cidade *"
+          label="Cidade"
           value={cidade}
-          onChangeText={setCidade}
+          onChangeText={(value) => {
+            setCidade(value);
+            setAddress(
+              buildAddress({
+                street: rua,
+                number: numero,
+                neighborhood: bairro,
+                city: value,
+                state: estado,
+                zipCode: cep,
+              })
+            );
+          }}
           placeholder="Ex: Fortaleza"
         />
         <Field
-          label="Estado *"
+          label="Estado"
           value={estado}
-          onChangeText={setEstado}
+          onChangeText={(value) => {
+            setEstado(value);
+            setAddress(
+              buildAddress({
+                street: rua,
+                number: numero,
+                neighborhood: bairro,
+                city: cidade,
+                state: value,
+                zipCode: cep,
+              })
+            );
+          }}
           placeholder="Ex: CE"
         />
 
-        <View
+        <Field
+          label="Endereço consolidado"
+          value={address}
+          onChangeText={setAddress}
+          placeholder="Resumo do endereço"
+        />
+
+        <TouchableOpacity
+          onPress={handleOpenMap}
+          activeOpacity={0.88}
           style={{
-            backgroundColor: "#F8FAFC",
-            borderRadius: 12,
-            padding: 14,
-            marginBottom: 24,
+            backgroundColor: "#F0FDF4",
             borderWidth: 1,
-            borderColor: "#E5E7EB",
+            borderColor: "#BBF7D0",
+            borderRadius: 16,
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 14,
+            marginTop: 8,
           }}
         >
-          <Text style={{ fontSize: 13, color: "#64748B", marginBottom: 6 }}>
-            Endereço consolidado
+          <Ionicons name="map-outline" size={18} color="#028C56" />
+          <Text
+            style={{
+              marginLeft: 8,
+              color: "#028C56",
+              fontWeight: "800",
+              fontSize: 14,
+            }}
+          >
+            SELECIONAR NO MAPA
           </Text>
-          <Text style={{ fontSize: 14, color: "#111827", fontWeight: "600" }}>
-            {enderecoCompleto || "Preencha os campos acima"}
-          </Text>
-        </View>
+        </TouchableOpacity>
+
+        {latitude || longitude ? (
+          <View
+            style={{
+              backgroundColor: "#ECFDF5",
+              borderWidth: 1,
+              borderColor: "#A7F3D0",
+              borderRadius: 14,
+              padding: 12,
+              marginBottom: 14,
+            }}
+          >
+            <Text style={{ color: "#065F46", fontWeight: "800", fontSize: 13 }}>
+              Localização selecionada
+            </Text>
+            <Text style={{ color: "#065F46", marginTop: 6, fontSize: 13 }}>
+              Latitude: {latitude || "-"}
+            </Text>
+            <Text style={{ color: "#065F46", marginTop: 4, fontSize: 13 }}>
+              Longitude: {longitude || "-"}
+            </Text>
+          </View>
+        ) : null}
 
         <Text style={{ color: "#6B7280", fontSize: 12, marginBottom: 20 }}>
-          Ao informar um CEP válido, o sistema tenta preencher rua, bairro, cidade e estado automaticamente e gerar coordenadas para o mapa no momento do cadastro.
+          Você pode usar o CEP para preenchimento automático e, se necessário,
+          marcar o ponto exato no mapa.
         </Text>
 
         <TouchableOpacity onPress={handleSalvar} disabled={saving} activeOpacity={0.9}>
@@ -374,29 +576,48 @@ export default function NovoGrandeGeradorScreen() {
   );
 }
 
-function Field(props: any) {
+function Field(props: {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  keyboardType?: "default" | "numeric" | "phone-pad" | "email-address";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  onBlur?: () => void;
+  loading?: boolean;
+}) {
   return (
     <View style={{ marginBottom: 18 }}>
       <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 6 }}>
         {props.label}
       </Text>
-      <TextInput
-        value={props.value}
-        onChangeText={props.onChangeText}
-        onBlur={props.onBlur}
-        placeholder={props.placeholder}
-        placeholderTextColor="#9CA3AF"
-        keyboardType={props.keyboardType}
-        autoCapitalize={props.autoCapitalize}
+      <View
         style={{
           borderWidth: 1,
           borderColor: "#D1D5DB",
           borderRadius: 10,
-          padding: 12,
-          color: "#111827",
-          fontSize: 16,
+          paddingHorizontal: 12,
+          flexDirection: "row",
+          alignItems: "center",
         }}
-      />
+      >
+        <TextInput
+          value={props.value}
+          onChangeText={props.onChangeText}
+          onBlur={props.onBlur}
+          placeholder={props.placeholder}
+          placeholderTextColor="#9CA3AF"
+          keyboardType={props.keyboardType}
+          autoCapitalize={props.autoCapitalize}
+          style={{
+            flex: 1,
+            paddingVertical: 12,
+            color: "#111827",
+            fontSize: 16,
+          }}
+        />
+        {props.loading ? <ActivityIndicator size="small" color="#028C56" /> : null}
+      </View>
     </View>
   );
 }

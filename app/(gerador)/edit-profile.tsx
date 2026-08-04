@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
@@ -69,6 +69,7 @@ export default function EditGeneratorProfileScreen() {
     : null;
 
   const generator = currentUser?.generator ?? null;
+  const { notifyError } = useNotification();
 
   const [responsibleName, setResponsibleName] = useState(
     generator?.name || currentUser?.displayName || currentUser?.name || ""
@@ -109,16 +110,16 @@ export default function EditGeneratorProfileScreen() {
 
   const handleSave = () => {
     if (!canSave) {
-      Alert.alert(
+      notifyError(
         "Atenção",
         "Preencha nome do responsável, empresa, telefone e endereço."
       );
       return;
     }
 
-    Alert.alert(
+    notifyError(
       "Atualização ainda não integrada",
-      "A tela foi criada e está pronta no frontend, mas o generatorService ainda não possui endpoint/método de atualização. A persistência no backend será a próxima etapa."
+      
     );
   };
 

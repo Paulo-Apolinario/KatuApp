@@ -6,7 +6,9 @@ import {
   GeneratorType,
   UserRole,
 } from "@prisma/client";
+import nodemailer from "nodemailer";
 
+import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import {
@@ -24,6 +26,97 @@ function normalizeEmail(email: string) {
 
 function sanitizeDocument(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function buildAddress(data: {
+  address?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+}) {
+  if (data.address?.trim()) {
+    return data.address.trim();
+  }
+
+  const parts = [
+    data.street?.trim(),
+    data.number?.trim(),
+    data.neighborhood?.trim(),
+    data.city?.trim(),
+    data.state?.trim(),
+    data.zipCode?.trim(),
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(", ") : null;
+}
+
+function generateTemporaryPassword() {
+  return crypto.randomBytes(4).toString("hex").toUpperCase();
+}
+
+async function sendPasswordResetEmail(data: {
+  to: string;
+  name: string;
+  resetToken: string;
+  temporaryPassword: string;
+  expiresAt: Date;
+}) {
+  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS || !env.SMTP_FROM) {
+    console.warn("SMTP não configurado. Email de recuperação não será enviado.");
+    return;
+  }
+
+  const resetUrl = `${env.APP_WEB_URL}/reset-password?email=${encodeURIComponent(
+    data.to
+  )}&token=${encodeURIComponent(data.resetToken)}`;
+
+  const transporter = nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure: env.SMTP_SECURE,
+    auth: {
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: env.SMTP_FROM,
+    to: data.to,
+    subject: "Redefinição de senha - KATUÁ",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #111827;">
+        <h2 style="color: #028C56;">Redefinição de senha - KATUÁ</h2>
+
+        <p>Olá, <strong>${data.name}</strong>.</p>
+
+        <p>Recebemos uma solicitação para redefinir sua senha de acesso ao sistema KATUÁ.</p>
+
+        <p><strong>Senha temporária:</strong></p>
+
+        <div style="font-size: 22px; font-weight: bold; letter-spacing: 2px; background: #F3F4F6; padding: 14px; border-radius: 10px; margin: 16px 0;">
+          ${data.temporaryPassword}
+        </div>
+
+        <p>Clique no botão abaixo para criar sua nova senha:</p>
+
+        <p>
+          <a href="${resetUrl}" style="display: inline-block; background: #028C56; color: #FFFFFF; padding: 12px 18px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            Redefinir minha senha
+          </a>
+        </p>
+
+        <p>Esse link expira em 15 minutos.</p>
+
+        <p style="color: #6B7280; font-size: 13px;">
+          Se você não solicitou essa recuperação, ignore este e-mail.
+        </p>
+      </div>
+    `,
+  });
 }
 
 export class AuthService {
@@ -111,6 +204,16 @@ export class AuthService {
 
     const passwordHash = await hashPassword(data.password);
 
+    const address = buildAddress({
+      address: data.address,
+      zipCode: data.zipCode,
+      street: data.street,
+      number: data.number,
+      neighborhood: data.neighborhood,
+      city: data.city,
+      state: data.state,
+    });
+
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -132,11 +235,46 @@ export class AuthService {
           registrationNumber,
           email,
           phone: data.phone.trim(),
-          address: data.address?.trim() || null,
+
+          address,
+
+          zipCode: data.zipCode?.trim() || null,
+          street: data.street?.trim() || null,
+          number: data.number?.trim() || null,
+          neighborhood: data.neighborhood?.trim() || null,
+          city: data.city?.trim() || null,
+          state: data.state?.trim() || null,
+
+          latitude:
+            typeof data.latitude === "number" && !Number.isNaN(data.latitude)
+              ? data.latitude
+              : null,
+          longitude:
+            typeof data.longitude === "number" && !Number.isNaN(data.longitude)
+              ? data.longitude
+              : null,
         },
       });
 
-      return { user, cooperative };
+      const hydratedUser = await tx.user.findUnique({
+        where: { id: user.id },
+        include: {
+          personProfile: true,
+          generator: true,
+          collector: true,
+          cooperative: true,
+          driver: true,
+        },
+      });
+
+      if (!hydratedUser) {
+        throw new Error("Erro ao carregar o usuário da cooperativa.");
+      }
+
+      return {
+        user: hydratedUser,
+        cooperative,
+      };
     });
 
     return result;
@@ -193,6 +331,173 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async updateProfile(
+    userId: string,
+    data: {
+      displayName: string;
+    }
+  ) {
+    const displayName = data.displayName.trim();
+
+    if (!displayName) {
+      throw new Error("Informe o nome completo.");
+    }
+
+    if (displayName.length < 3) {
+      throw new Error("O nome precisa ter pelo menos 3 caracteres.");
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        personProfile: true,
+        generator: true,
+        collector: true,
+        cooperative: true,
+        driver: true,
+      },
+    });
+
+    if (!currentUser) {
+      throw new Error("Usuário não encontrado.");
+    }
+
+    if (!currentUser.isActive || currentUser.accountStatus !== AccountStatus.ACTIVE) {
+      throw new Error("Conta inativa ou bloqueada.");
+    }
+
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          displayName,
+        },
+      });
+
+      if (currentUser.role === UserRole.COOPERATIVE && currentUser.cooperative) {
+        await tx.cooperative.update({
+          where: { id: currentUser.cooperative.id },
+          data: {
+            name: displayName,
+          },
+        });
+      }
+
+      if (
+        (currentUser.role === UserRole.GENERATOR_SMALL ||
+          currentUser.role === UserRole.GENERATOR_LARGE) &&
+        currentUser.generator
+      ) {
+        await tx.generator.update({
+          where: { id: currentUser.generator.id },
+          data: {
+            name: displayName,
+          },
+        });
+      }
+
+      if (currentUser.role === UserRole.COLLECTOR && currentUser.collector) {
+        await tx.collector.update({
+          where: { id: currentUser.collector.id },
+          data: {
+            name: displayName,
+          },
+        });
+      }
+
+      if (currentUser.role === UserRole.DRIVER && currentUser.driver) {
+        await tx.driver.update({
+          where: { id: currentUser.driver.id },
+          data: {
+            name: displayName,
+          },
+        });
+      }
+
+      const hydratedUser = await tx.user.findUnique({
+        where: { id: userId },
+        include: {
+          personProfile: true,
+          generator: true,
+          collector: true,
+          cooperative: true,
+          driver: true,
+        },
+      });
+
+      if (!hydratedUser) {
+        throw new Error("Erro ao carregar usuário atualizado.");
+      }
+
+      return hydratedUser;
+    });
+
+    return updatedUser;
+  }
+
+  async changePassword(
+    userId: string,
+    data: {
+      currentPassword: string;
+      newPassword: string;
+    }
+  ) {
+    const currentPassword = data.currentPassword;
+    const newPassword = data.newPassword;
+
+    if (!currentPassword) {
+      throw new Error("Informe a senha atual.");
+    }
+
+    if (!newPassword) {
+      throw new Error("Informe a nova senha.");
+    }
+
+    if (newPassword.length < 6) {
+      throw new Error("A nova senha precisa ter pelo menos 6 caracteres.");
+    }
+
+    if (currentPassword === newPassword) {
+      throw new Error("A nova senha precisa ser diferente da senha atual.");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error("Usuário não encontrado.");
+    }
+
+    if (!user.isActive || user.accountStatus !== AccountStatus.ACTIVE) {
+      throw new Error("Conta inativa ou bloqueada.");
+    }
+
+    const passwordMatches = await comparePassword(
+      currentPassword,
+      user.passwordHash
+    );
+
+    if (!passwordMatches) {
+      throw new Error("Senha atual inválida.");
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        resetPasswordToken: null,
+        resetPasswordExpiresAt: null,
+      },
+    });
+
+    return {
+      message: "Senha alterada com sucesso.",
+    };
   }
 
   async activateGeneratorAccess(data: ActivateGeneratorAccessInput) {
@@ -401,7 +706,7 @@ export class AuthService {
       return {
         message:
           "Se o e-mail existir em nossa base, a recuperação foi iniciada.",
-        resetToken: null,
+        expiresAt: null,
       };
     }
 
@@ -409,27 +714,44 @@ export class AuthService {
       throw new Error("Conta inativa ou bloqueada.");
     }
 
-    const resetToken = crypto.randomBytes(3).toString("hex").toUpperCase();
+    const resetToken = crypto.randomBytes(16).toString("hex");
+    const temporaryPassword = generateTemporaryPassword();
     const resetPasswordExpiresAt = new Date(Date.now() + 1000 * 60 * 15);
+
+    const temporaryPasswordHash = await hashPassword(temporaryPassword);
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
         resetPasswordToken: resetToken,
         resetPasswordExpiresAt,
+        passwordHash: temporaryPasswordHash,
       },
     });
 
-    return {
-      message: "Token de redefinição gerado com sucesso.",
+    await sendPasswordResetEmail({
+      to: user.email,
+      name: user.displayName,
       resetToken,
+      temporaryPassword,
+      expiresAt: resetPasswordExpiresAt,
+    });
+
+    return {
+      message:
+        "Se o e-mail existir em nossa base, enviamos as instruções de recuperação.",
       expiresAt: resetPasswordExpiresAt,
     };
   }
 
   async resetPassword(data: ResetPasswordInput) {
     const email = normalizeEmail(data.email);
-    const token = data.token.trim().toUpperCase();
+    const token = data.token.trim();
+
+    const temporaryPassword =
+      data.temporaryPassword || data.temporary_password || "";
+
+    const newPassword = data.newPassword || data.password || "";
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -451,7 +773,16 @@ export class AuthService {
       throw new Error("Token expirado.");
     }
 
-    const passwordHash = await hashPassword(data.newPassword);
+    const temporaryPasswordMatches = await comparePassword(
+      temporaryPassword,
+      user.passwordHash
+    );
+
+    if (!temporaryPasswordMatches) {
+      throw new Error("Senha temporária inválida.");
+    }
+
+    const passwordHash = await hashPassword(newPassword);
 
     await prisma.user.update({
       where: { id: user.id },

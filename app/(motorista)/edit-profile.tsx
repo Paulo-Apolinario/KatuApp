@@ -2,7 +2,6 @@ import { router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Text,
   TextInput,
@@ -13,9 +12,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { driverService } from "@/src/services/driverService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 export default function MotoristaEditProfileScreen() {
   const { user, refreshUser } = useAuth();
+  const { notifyError, notifySuccess, notifyWarning } = useNotification();
 
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [phone, setPhone] = useState(user?.phone || "");
@@ -28,7 +29,7 @@ export default function MotoristaEditProfileScreen() {
 
   async function handleSave() {
     if (!displayName.trim()) {
-      Alert.alert("Atenção", "Informe o nome do motorista.");
+      notifyWarning("Informe o nome do motorista.");
       return;
     }
 
@@ -45,13 +46,10 @@ export default function MotoristaEditProfileScreen() {
 
       await refreshUser();
 
-      Alert.alert("Sucesso", "Perfil atualizado com sucesso.");
+      notifySuccess("Perfil atualizado com sucesso.");
       router.back();
     } catch (err: any) {
-      Alert.alert(
-        "Erro",
-        err?.message || "Não foi possível atualizar o perfil."
-      );
+      notifyError(err?.message || "Não foi possível atualizar o perfil.");
     } finally {
       setLoading(false);
     }

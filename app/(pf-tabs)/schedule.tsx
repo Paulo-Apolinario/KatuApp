@@ -2,7 +2,6 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -14,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { scheduleService } from "@/src/services/scheduleService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type MaterialType =
   | "ALUMÍNIO"
@@ -70,6 +70,7 @@ export default function PFScheduleScreen() {
   const routeCooperativeId = Array.isArray(params.cooperativeId)
     ? params.cooperativeId[0]
     : params.cooperativeId;
+    const { notifyError, notifySuccess, notifyWarning} = useNotification();
 
   const [loadingCooperatives, setLoadingCooperatives] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -117,8 +118,10 @@ export default function PFScheduleScreen() {
       }
     } catch (error: any) {
       console.error("Erro ao carregar cooperativas:", error);
-      Alert.alert(
-        "Erro",
+      notifyError(
+        error?.message || "Não foi possível carregar as cooperativas."
+      );
+      notifyError(
         error?.message || "Não foi possível carregar as cooperativas."
       );
       setCooperatives([]);
@@ -127,7 +130,7 @@ export default function PFScheduleScreen() {
       if (showLoader) setLoadingCooperatives(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {
@@ -161,12 +164,12 @@ export default function PFScheduleScreen() {
 
   const handleSchedule = async () => {
     if (!selectedCooperativeId) {
-      Alert.alert("Atenção", "Selecione uma cooperativa.");
+      notifyWarning("Atenção", "Selecione uma cooperativa.");
       return;
     }
 
     if (!selectedDate || !selectedTime || selectedMaterials.length === 0) {
-      Alert.alert(
+      notifyWarning(
         "Atenção",
         "Preencha data, horário e selecione ao menos um material."
       );
@@ -176,7 +179,7 @@ export default function PFScheduleScreen() {
     const preferredDate = parseDateTimeToIso(selectedDate, selectedTime);
 
     if (!preferredDate) {
-      Alert.alert(
+      notifyError(
         "Data inválida",
         "Informe uma data e horário válidos. Ex.: 25/03/2026 e 14:30"
       );
@@ -193,22 +196,18 @@ export default function PFScheduleScreen() {
         notes: notes.trim() || undefined,
       });
 
-      Alert.alert(
+      notifySuccess(
         "Sucesso!",
         "Sua solicitação de coleta foi enviada com sucesso.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              resetForm();
-              router.replace("/(pf-tabs)/history");
-            },
-          },
-        ]
+         );
+
+      resetForm();
+
+      await loadCooperatives(
       );
     } catch (error: any) {
       console.error("Erro ao agendar coleta:", error);
-      Alert.alert(
+      notifyError(
         "Erro",
         error?.message || "Não foi possível registrar o agendamento."
       );

@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Alert,
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   collectionService,
@@ -92,6 +92,7 @@ export default function CooperativaHistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [history, setHistory] = useState<CooperativaHistoryItem[]>([]);
+  const { notifyError } = useNotification();
 
   const loadHistory = useCallback(async (showLoader = true) => {
     try {
@@ -120,17 +121,14 @@ export default function CooperativaHistoryScreen() {
 
       const orderedItems = items.sort((a, b) => b.sortDate - a.sortDate);
       setHistory(orderedItems);
-    } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível carregar o histórico."
-      );
+    } catch {
+      notifyError("Não foi possível carregar o histórico.");
       setHistory([]);
     } finally {
       if (showLoader) setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

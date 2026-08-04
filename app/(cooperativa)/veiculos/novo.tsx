@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,6 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { vehicleService } from "@/src/services/vehicleService";
 
@@ -23,6 +23,7 @@ export default function NovoVeiculoScreen() {
   const [year, setYear] = useState("");
   const [capacityKg, setCapacityKg] = useState("");
   const [loading, setLoading] = useState(false);
+  const { notifyError, notifySuccess } = useNotification();
 
   function formatPlate(value: string) {
     return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
@@ -30,14 +31,14 @@ export default function NovoVeiculoScreen() {
 
   async function handleSalvar() {
     if (!model.trim() || !plate.trim()) {
-      Alert.alert("Atenção", "Preencha modelo e placa do veículo.");
+      notifyError("Atenção", "Preencha modelo e placa do veículo.");
       return;
     }
 
     if (year.trim()) {
       const parsedYear = Number(year);
       if (Number.isNaN(parsedYear) || parsedYear < 1900) {
-        Alert.alert("Atenção", "Informe um ano válido.");
+        notifyError("Atenção", "Informe um ano válido.");
         return;
       }
     }
@@ -45,7 +46,7 @@ export default function NovoVeiculoScreen() {
     if (capacityKg.trim()) {
       const parsedCapacity = Number(capacityKg.replace(",", "."));
       if (Number.isNaN(parsedCapacity) || parsedCapacity <= 0) {
-        Alert.alert("Atenção", "Informe uma capacidade válida.");
+        notifyError("Atenção", "Informe uma capacidade válida.");
         return;
       }
     }
@@ -61,18 +62,11 @@ export default function NovoVeiculoScreen() {
         capacityKg,
       });
 
-      Alert.alert("Sucesso", "Veículo cadastrado com sucesso!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/veiculos"),
-        },
-      ]);
+      notifySuccess("Sucesso", "Veículo cadastrado com sucesso!");
+      router.replace("/(cooperativa)/veiculos");
     } catch (error: any) {
       console.error("Erro ao cadastrar veículo:", error);
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível cadastrar o veículo."
-      );
+      notifyError("Erro", error?.message || "Não foi possível cadastrar o veículo.");
     } finally {
       setLoading(false);
     }

@@ -19,4 +19,12 @@ export async function cooperativesRoutes(app: FastifyInstance) {
     },
     cooperativesController.getById
   );
+
+  app.put(
+    "/cooperatives/me/location",
+    {
+      onRequest: [app.authenticate],
+    },
+    cooperativesController.updateMyLocation
+  );
 }

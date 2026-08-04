@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,9 +16,19 @@ import { LinearGradient } from "expo-linear-gradient";
 import { driverService, type Driver } from "@/src/services/driverService";
 import { vehicleService, type Vehicle } from "@/src/services/vehicleService";
 import { routeService } from "@/src/services/routeService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 function isBrazilianDate(value: string) {
   return /^\d{2}\/\d{2}\/\d{4}$/.test(value.trim());
+}
+
+function formatDateInput(value: string) {
+  const numbers = value.replace(/\D/g, "").slice(0, 8);
+
+  if (numbers.length <= 2) return numbers;
+  if (numbers.length <= 4) return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
+
+  return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4)}`;
 }
 
 function normalizeStopsInput(value: string) {
@@ -34,6 +43,9 @@ export default function NovaRotaScreen() {
   const [scheduledDate, setScheduledDate] = useState("");
   const [stopsInput, setStopsInput] = useState("");
   const [description, setDescription] = useState("");
+
+  const { notifySuccess, notifyError, notifyWarning, notifyInfo } =
+    useNotification();
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -71,11 +83,11 @@ export default function NovaRotaScreen() {
       setVehicles(vehiclesData);
     } catch (error) {
       console.error("Erro ao carregar opções da rota:", error);
-      Alert.alert("Erro", "Não foi possível carregar motoristas e veículos.");
+      notifyError("Não foi possível carregar motoristas e veículos.");
     } finally {
       setLoadingOptions(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useEffect(() => {
     loadOptions();
@@ -83,37 +95,34 @@ export default function NovaRotaScreen() {
 
   async function handleSalvar() {
     if (!name.trim()) {
-      Alert.alert("Atenção", "Informe o nome da rota.");
+      notifyWarning("Informe o nome da rota.");
       return;
     }
 
     if (!scheduledDate.trim()) {
-      Alert.alert("Atenção", "Informe a data programada.");
+      notifyWarning("Informe a data programada.");
       return;
     }
 
     if (!isBrazilianDate(scheduledDate)) {
-      Alert.alert(
-        "Data inválida",
-        "Informe a data no formato DD/MM/AAAA. Ex: 16/03/2026."
-      );
+      notifyWarning("Informe a data no formato DD/MM/AAAA. Ex: 16/03/2026.");
       return;
     }
 
     if (!driverId) {
-      Alert.alert("Atenção", "Selecione um motorista.");
+      notifyWarning("Selecione um motorista.");
       return;
     }
 
     if (!vehicleId) {
-      Alert.alert("Atenção", "Selecione um veículo.");
+      notifyWarning("Selecione um veículo.");
       return;
     }
 
     const stops = normalizeStopsInput(stopsInput);
 
     if (stops.length === 0) {
-      Alert.alert("Atenção", "Informe pelo menos uma parada da rota.");
+      notifyWarning("Informe pelo menos uma parada da rota.");
       return;
     }
 
@@ -129,18 +138,11 @@ export default function NovaRotaScreen() {
         description: description.trim() || undefined,
       });
 
-      Alert.alert("Sucesso", "Rota cadastrada com sucesso!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/rotas"),
-        },
-      ]);
+      notifySuccess("Rota cadastrada com sucesso!");
+      router.replace("/(cooperativa)/rotas");
     } catch (error: any) {
       console.error("Erro ao cadastrar rota:", error);
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível cadastrar a rota."
-      );
+      notifyError(error?.message || "Não foi possível cadastrar a rota.");
     } finally {
       setSaving(false);
     }
@@ -184,7 +186,12 @@ export default function NovaRotaScreen() {
             NOVA ROTA
           </Text>
 
-          <TouchableOpacity onPress={loadOptions}>
+          <TouchableOpacity
+            onPress={() => {
+              notifyInfo("Atualizando motoristas e veículos...");
+              loadOptions();
+            }}
+          >
             <Ionicons name="refresh-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -250,10 +257,11 @@ export default function NovaRotaScreen() {
           <FieldLabel label="Data programada *" />
           <TextInput
             value={scheduledDate}
-            onChangeText={setScheduledDate}
-            placeholder="Ex: 16/03/2026"
+            onChangeText={(text) => setScheduledDate(formatDateInput(text))}
+            placeholder="DD/MM/AAAA"
             placeholderTextColor="#9CA3AF"
-            keyboardType="numbers-and-punctuation"
+            keyboardType="numeric"
+            maxLength={10}
             style={inputStyle}
           />
 
@@ -443,6 +451,7 @@ export default function NovaRotaScreen() {
                       {index + 1}
                     </Text>
                   </View>
+
                   <Text style={{ color: "#374151", flex: 1 }}>{stop}</Text>
                 </View>
               ))

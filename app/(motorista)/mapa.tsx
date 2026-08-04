@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -9,10 +9,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 
+import OperationalMap from "@/src/components/maps/OperationalMap";
+import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { LastSyncBadge } from "@/src/components/LastSyncBadge";
+import { useConnectivity } from "@/src/hooks/useConnectivity";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
   routeService,
@@ -102,20 +105,6 @@ function SummaryLine({
   );
 }
 
-function getInitialRegion(points: MarkerPoint[]) {
-  const first = points[0] || {
-    latitude: -3.7319,
-    longitude: -38.5267,
-  };
-
-  return {
-    latitude: first.latitude,
-    longitude: first.longitude,
-    latitudeDelta: 0.08,
-    longitudeDelta: 0.08,
-  };
-}
-
 function openExternalNavigation(params: {
   latitude: number;
   longitude: number;
@@ -141,12 +130,16 @@ function isValidCoordinate(latitude?: any, longitude?: any) {
   );
 }
 
+function getCollectionGenerator(collection?: Collection | null) {
+  if (!collection) return null;
+  return collection.generator ?? collection.schedule?.generator ?? null;
+}
+
 export default function MotoristaMapaScreen() {
   const { user } = useAuth();
+  const { isOffline } = useConnectivity();
   const params = useLocalSearchParams<{ routeId?: string; collectionId?: string }>();
   const driverId = user?.driver?.id ?? null;
-
-  const mapRef = useRef<MapView | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -161,6 +154,7 @@ export default function MotoristaMapaScreen() {
   );
   const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadMapData = useCallback(
     async (showRefresh = false) => {
@@ -192,6 +186,7 @@ export default function MotoristaMapaScreen() {
         setVehicle(currentVehicle);
         setCollections(driverCollections);
         setProfile(myProfile);
+        setLastSyncAt(new Date().toISOString());
 
         const highlightedRouteId = params.routeId ? String(params.routeId) : null;
         const highlightedCollectionId = params.collectionId
@@ -254,36 +249,52 @@ export default function MotoristaMapaScreen() {
 
   const cooperativeMarker = useMemo<MarkerPoint | null>(() => {
     if (
+      !profile?.cooperative ||
       !isValidCoordinate(
-        profile?.cooperative?.latitude,
-        profile?.cooperative?.longitude
+        profile.cooperative.latitude,
+        profile.cooperative.longitude
       )
     ) {
       return null;
     }
 
+    const cooperative = profile.cooperative;
+
     return {
-      id: profile!.cooperative.id,
-      title: profile!.cooperative.name,
-      description: profile!.cooperative.address || "Cooperativa",
-      latitude: Number(profile!.cooperative.latitude),
-      longitude: Number(profile!.cooperative.longitude),
+      id: cooperative.id,
+      title: cooperative.name,
+      description: cooperative.address || "Cooperativa",
+      latitude: Number(cooperative.latitude),
+      longitude: Number(cooperative.longitude),
       type: "cooperative",
     };
   }, [profile]);
 
   const collectionMarkers = useMemo<MarkerPoint[]>(() => {
     return collections
-      .filter((item) =>
-        isValidCoordinate(item.generator?.latitude, item.generator?.longitude)
+      .map((item) => {
+        const generator = getCollectionGenerator(item);
+
+        return {
+          raw: item,
+          generator,
+        };
+      })
+      .filter(
+        ({ generator }) =>
+          !!generator &&
+          isValidCoordinate(generator.latitude, generator.longitude)
       )
-      .map((item) => ({
-        id: item.id,
+      .map(({ raw, generator }) => ({
+        id: raw.id,
         title:
-          item.generator?.companyName || item.generator?.name || "Ponto de coleta",
-        description: item.generator?.address || "Endereço não informado",
-        latitude: Number(item.generator?.latitude),
-        longitude: Number(item.generator?.longitude),
+          generator?.companyName ||
+          generator?.businessName ||
+          generator?.name ||
+          "Ponto de coleta",
+        description: generator?.address || "Endereço não informado",
+        latitude: Number(generator?.latitude),
+        longitude: Number(generator?.longitude),
         type: "collection" as const,
       }));
   }, [collections]);
@@ -330,12 +341,12 @@ export default function MotoristaMapaScreen() {
 
     if (selectedRoute?.collections?.length) {
       selectedRoute.collections.forEach((item) => {
-        if (
-          isValidCoordinate(item.generator?.latitude, item.generator?.longitude)
-        ) {
+        const generator = getCollectionGenerator(item);
+
+        if (isValidCoordinate(generator?.latitude, generator?.longitude)) {
           coordinates.push({
-            latitude: Number(item.generator?.latitude),
-            longitude: Number(item.generator?.longitude),
+            latitude: Number(generator?.latitude),
+            longitude: Number(generator?.longitude),
           });
         }
       });
@@ -345,6 +356,25 @@ export default function MotoristaMapaScreen() {
   }, [currentLocation, cooperativeMarker, selectedRoute]);
 
   const polylineCoordinates = useMemo(() => {
+    if (selectedCollection) {
+      const generator = getCollectionGenerator(selectedCollection);
+
+      if (isValidCoordinate(generator?.latitude, generator?.longitude)) {
+        const coords: Coordinates[] = [];
+
+        if (currentLocation) {
+          coords.push(currentLocation);
+        }
+
+        coords.push({
+          latitude: Number(generator?.latitude),
+          longitude: Number(generator?.longitude),
+        });
+
+        return coords;
+      }
+    }
+
     if (selectedRouteCoordinates.length >= 2) {
       return selectedRouteCoordinates;
     }
@@ -355,113 +385,43 @@ export default function MotoristaMapaScreen() {
     }));
 
     return fallback.length >= 2 ? fallback : [];
-  }, [allMarkers, selectedRouteCoordinates]);
-
-  const focusMapOnCoordinates = useCallback((coords: Coordinates[]) => {
-    if (!mapRef.current || coords.length === 0) return;
-
-    if (coords.length === 1) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: coords[0].latitude,
-          longitude: coords[0].longitude,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        },
-        500
-      );
-      return;
-    }
-
-    mapRef.current.fitToCoordinates(coords, {
-      edgePadding: {
-        top: 80,
-        right: 60,
-        bottom: 80,
-        left: 60,
-      },
-      animated: true,
-    });
-  }, []);
+  }, [allMarkers, currentLocation, selectedCollection, selectedRouteCoordinates]);
 
   const handleFocusSelectedRoute = useCallback(() => {
-    if (selectedRouteCoordinates.length > 0) {
-      focusMapOnCoordinates(selectedRouteCoordinates);
+    if (selectedRoute?.collections?.length) {
+      const firstCollection = selectedRoute.collections[0] ?? null;
+      setSelectedCollection(firstCollection);
     }
-  }, [focusMapOnCoordinates, selectedRouteCoordinates]);
+  }, [selectedRoute]);
 
   const handleFocusAll = useCallback(() => {
-    const coords = allMarkers.map((item) => ({
-      latitude: item.latitude,
-      longitude: item.longitude,
-    }));
-    focusMapOnCoordinates(coords);
-  }, [allMarkers, focusMapOnCoordinates]);
+    setSelectedCollection(null);
+  }, []);
 
-  const handleSelectCollection = useCallback(
-    async (collection: Collection | null) => {
-      setSelectedCollection(collection);
+  const handleSelectCollection = useCallback(async (collection: Collection | null) => {
+    setSelectedCollection(collection);
 
-      if (collection?.routeId) {
-        try {
-          const detail = await routeService.getById(collection.routeId);
-          setSelectedRoute(detail);
-        } catch {}
-      }
-
-      if (
-        collection?.generator &&
-        isValidCoordinate(collection.generator.latitude, collection.generator.longitude)
-      ) {
-        focusMapOnCoordinates([
-          {
-            latitude: Number(collection.generator.latitude),
-            longitude: Number(collection.generator.longitude),
-          },
-        ]);
-      }
-    },
-    [focusMapOnCoordinates]
-  );
-
-  const handleSelectRoute = useCallback(
-    async (route: RouteItem) => {
+    if (collection?.routeId) {
       try {
-        const detail = await routeService.getById(route.id);
+        const detail = await routeService.getById(collection.routeId);
         setSelectedRoute(detail);
-        setSelectedCollection(detail.collections?.[0] ?? null);
+      } catch {}
+    }
+  }, []);
 
-        const coords: Coordinates[] = [];
+  const handleSelectRoute = useCallback(async (route: RouteItem) => {
+    try {
+      const detail = await routeService.getById(route.id);
+      setSelectedRoute(detail);
+      setSelectedCollection(detail.collections?.[0] ?? null);
+    } catch {
+      setSelectedRoute(route);
+    }
+  }, []);
 
-        if (currentLocation) {
-          coords.push(currentLocation);
-        }
-
-        if (cooperativeMarker) {
-          coords.push({
-            latitude: cooperativeMarker.latitude,
-            longitude: cooperativeMarker.longitude,
-          });
-        }
-
-        detail.collections?.forEach((item) => {
-          if (
-            isValidCoordinate(item.generator?.latitude, item.generator?.longitude)
-          ) {
-            coords.push({
-              latitude: Number(item.generator?.latitude),
-              longitude: Number(item.generator?.longitude),
-            });
-          }
-        });
-
-        focusMapOnCoordinates(coords);
-      } catch {
-        setSelectedRoute(route);
-      }
-    },
-    [cooperativeMarker, currentLocation, focusMapOnCoordinates]
-  );
+  const selectedGenerator = useMemo(() => {
+    return getCollectionGenerator(selectedCollection);
+  }, [selectedCollection]);
 
   if (loading) {
     return (
@@ -519,6 +479,14 @@ export default function MotoristaMapaScreen() {
           />
         }
       >
+        <View style={{ marginBottom: 14 }}>
+          <OfflineBanner visible={isOffline} />
+        </View>
+
+        <View style={{ marginBottom: 14 }}>
+          <LastSyncBadge value={lastSyncAt} />
+        </View>
+
         {!!error && (
           <View
             style={{
@@ -545,64 +513,42 @@ export default function MotoristaMapaScreen() {
             backgroundColor: "#FFFFFF",
           }}
         >
-          <MapView
-            ref={mapRef}
-            provider={PROVIDER_GOOGLE}
-            style={{ flex: 1 }}
-            initialRegion={getInitialRegion(allMarkers)}
-            showsUserLocation
-            showsMyLocationButton
-            toolbarEnabled={false}
-          >
-            {driverMarker && (
-              <Marker
-                coordinate={{
-                  latitude: driverMarker.latitude,
-                  longitude: driverMarker.longitude,
-                }}
-                title={driverMarker.title}
-                description={driverMarker.description}
-                pinColor="blue"
-              />
-            )}
+          <OperationalMap
+            baseLatitude={
+              currentLocation?.latitude ?? cooperativeMarker?.latitude ?? -3.7319
+            }
+            baseLongitude={
+              currentLocation?.longitude ?? cooperativeMarker?.longitude ?? -38.5267
+            }
+            points={allMarkers.map((item) => ({
+              id: item.id,
+              latitude: item.latitude,
+              longitude: item.longitude,
+              title: item.title,
+              description: item.description,
+              color:
+                item.type === "driver"
+                  ? "#2563EB"
+                  : item.type === "cooperative"
+                  ? "#028C56"
+                  : selectedCollection?.id === item.id
+                  ? "#111827"
+                  : "#F59E0B",
+            }))}
+            routeCoordinates={polylineCoordinates}
+            selectedPointId={selectedCollection?.id ?? null}
+            onSelectPoint={(pointId: string) => {
+              if (pointId === "__base__") return;
 
-            {cooperativeMarker && (
-              <Marker
-                coordinate={{
-                  latitude: cooperativeMarker.latitude,
-                  longitude: cooperativeMarker.longitude,
-                }}
-                title={cooperativeMarker.title}
-                description={cooperativeMarker.description}
-                pinColor="green"
-              />
-            )}
+              if (pointId === driverMarker?.id) {
+                setSelectedCollection(null);
+                return;
+              }
 
-            {collectionMarkers.map((item) => (
-              <Marker
-                key={item.id}
-                coordinate={{
-                  latitude: item.latitude,
-                  longitude: item.longitude,
-                }}
-                title={item.title}
-                description={item.description}
-                onPress={() => {
-                  const collection = collections.find((c) => c.id === item.id) || null;
-                  void handleSelectCollection(collection);
-                }}
-              />
-            ))}
-
-            {polylineCoordinates.length >= 2 && (
-              <Polyline
-                coordinates={polylineCoordinates}
-                strokeWidth={4}
-                lineCap="round"
-                lineJoin="round"
-              />
-            )}
-          </MapView>
+              const collection = collections.find((c) => c.id === pointId) || null;
+              void handleSelectCollection(collection);
+            }}
+          />
         </View>
 
         <View
@@ -769,29 +715,28 @@ export default function MotoristaMapaScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {!!selectedCollection?.generator?.latitude &&
-                !!selectedCollection?.generator?.longitude && (
-                  <TouchableOpacity
-                    onPress={() =>
-                      openExternalNavigation({
-                        latitude: Number(selectedCollection.generator?.latitude),
-                        longitude: Number(selectedCollection.generator?.longitude),
-                        originLatitude: currentLocation?.latitude,
-                        originLongitude: currentLocation?.longitude,
-                      })
-                    }
-                    style={{
-                      backgroundColor: "#028C56",
-                      paddingHorizontal: 14,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                    }}
-                  >
-                    <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
-                      TRAÇAR ROTA
-                    </Text>
-                  </TouchableOpacity>
-                )}
+              {isValidCoordinate(selectedGenerator?.latitude, selectedGenerator?.longitude) && (
+                <TouchableOpacity
+                  onPress={() =>
+                    openExternalNavigation({
+                      latitude: Number(selectedGenerator?.latitude),
+                      longitude: Number(selectedGenerator?.longitude),
+                      originLatitude: currentLocation?.latitude,
+                      originLongitude: currentLocation?.longitude,
+                    })
+                  }
+                  style={{
+                    backgroundColor: "#028C56",
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    borderRadius: 12,
+                  }}
+                >
+                  <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
+                    TRAÇAR ROTA
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </InfoCard>
         )}
@@ -799,8 +744,8 @@ export default function MotoristaMapaScreen() {
         {selectedCollection && (
           <InfoCard title="Coleta selecionada">
             <Text style={{ color: "#111827", fontWeight: "800", fontSize: 15 }}>
-              {selectedCollection.generator?.companyName ||
-                selectedCollection.generator?.name ||
+              {selectedGenerator?.companyName ||
+                selectedGenerator?.name ||
                 "Ponto de coleta"}
             </Text>
 
@@ -809,38 +754,37 @@ export default function MotoristaMapaScreen() {
             </Text>
 
             <Text style={{ color: "#6B7280", lineHeight: 22 }}>
-              Endereço: {selectedCollection.generator?.address || "Não informado"}
+              Endereço: {selectedGenerator?.address || "Não informado"}
             </Text>
 
             <Text style={{ color: "#6B7280", lineHeight: 22 }}>
               Rota: {selectedCollection.route?.name || selectedRoute?.name || "Não vinculada"}
             </Text>
 
-            {selectedCollection.generator?.latitude != null &&
-              selectedCollection.generator?.longitude != null && (
-                <TouchableOpacity
-                  onPress={() =>
-                    openExternalNavigation({
-                      latitude: Number(selectedCollection.generator?.latitude),
-                      longitude: Number(selectedCollection.generator?.longitude),
-                      originLatitude: currentLocation?.latitude,
-                      originLongitude: currentLocation?.longitude,
-                    })
-                  }
-                  style={{
-                    marginTop: 12,
-                    alignSelf: "flex-start",
-                    backgroundColor: "#028C56",
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                    borderRadius: 12,
-                  }}
-                >
-                  <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
-                    ABRIR NAVEGAÇÃO
-                  </Text>
-                </TouchableOpacity>
-              )}
+            {isValidCoordinate(selectedGenerator?.latitude, selectedGenerator?.longitude) && (
+              <TouchableOpacity
+                onPress={() =>
+                  openExternalNavigation({
+                    latitude: Number(selectedGenerator?.latitude),
+                    longitude: Number(selectedGenerator?.longitude),
+                    originLatitude: currentLocation?.latitude,
+                    originLongitude: currentLocation?.longitude,
+                  })
+                }
+                style={{
+                  marginTop: 12,
+                  alignSelf: "flex-start",
+                  backgroundColor: "#028C56",
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
+                  ABRIR NAVEGAÇÃO
+                </Text>
+              </TouchableOpacity>
+            )}
           </InfoCard>
         )}
       </ScrollView>

@@ -6,7 +6,9 @@ const generatorController = new GeneratorController();
 export async function generatorRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
 
-  app.post("/", generatorController.create);
-  app.get("/", generatorController.listMine);
-  app.get("/:id", generatorController.findById);
+  app.post("/", async (request, reply) => generatorController.create(request, reply));
+  app.get("/", async (request, reply) => generatorController.listMine(request, reply));
+  app.get("/:id", async (request, reply) =>
+    generatorController.findById(request, reply)
+  );
 }

@@ -1,12 +1,11 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { sessionService } from "./sessionService";
 
 export const STORAGE_KEYS = {
   token: "@katu:token",
   user: "@katu:user",
 };
 
-// DEBUG TEMPORÁRIO: hardcoded para eliminar dúvida de .env
-const API_BASE_URL = "http://178.104.40.124";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL!;
 
 type RequestMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
@@ -15,6 +14,25 @@ type RequestOptions = {
   body?: unknown;
   auth?: boolean;
 };
+
+export class ApiNetworkError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ApiNetworkError";
+  }
+}
+
+export class ApiHttpError extends Error {
+  status: number;
+  data?: unknown;
+
+  constructor(status: number, message: string, data?: unknown) {
+    super(message);
+    this.name = "ApiHttpError";
+    this.status = status;
+    this.data = data;
+  }
+}
 
 async function request<T>(
   endpoint: string,
@@ -27,7 +45,7 @@ async function request<T>(
   };
 
   if (auth) {
-    const token = await AsyncStorage.getItem(STORAGE_KEYS.token);
+    const token = await sessionService.getToken();
 
     if (!token) {
       throw new Error("Usuário não autenticado.");
@@ -59,7 +77,7 @@ async function request<T>(
       stack: error?.stack,
     });
 
-    throw new Error(
+    throw new ApiNetworkError(
       `Falha de conexão com a API (${API_BASE_URL}${normalizedEndpoint}).`
     );
   }
@@ -78,14 +96,48 @@ async function request<T>(
       data,
     });
 
-    throw new Error(
+    throw new ApiHttpError(
+      response.status,
       data?.message ||
         data?.error ||
-        `Erro HTTP ${response.status} na comunicação com o servidor.`
+        `Erro HTTP ${response.status} na comunicação com o servidor.`,
+      data
     );
   }
 
   return data as T;
+}
+
+async function getExternalJson<T>(url: string): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+  } catch {
+    throw new ApiNetworkError("Não foi possível consultar o serviço externo.");
+  }
+
+  if (!response.ok) {
+    throw new ApiHttpError(
+      response.status,
+      `Serviço externo respondeu com erro ${response.status}.`
+    );
+  }
+
+  return (await response.json()) as T;
+}
+
+export function isApiNetworkError(error: unknown): error is ApiNetworkError {
+  return error instanceof ApiNetworkError;
+}
+
+export function isApiHttpError(error: unknown): error is ApiHttpError {
+  return error instanceof ApiHttpError;
 }
 
 export const api = {
@@ -103,6 +155,8 @@ export const api = {
 
   delete: <T>(endpoint: string, auth = false) =>
     request<T>(endpoint, { method: "DELETE", auth }),
+
+  getExternalJson,
 };
 
 export default api;

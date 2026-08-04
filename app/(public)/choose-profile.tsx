@@ -5,13 +5,13 @@ import {
   Text,
   View,
   TouchableOpacity,
-  Alert,
   Linking,
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import GradientButton from "@/src/components/GradientButton";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 export default function ChooseProfile() {
   const [currentCity, setCurrentCity] = useState<string>(
@@ -19,10 +19,11 @@ export default function ChooseProfile() {
   );
   const [locationError, setLocationError] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const {notifyWarning} = useNotification();
 
   useEffect(() => {
     getUserLocation();
-  }, []);
+  }, );
 
   async function getUserLocation() {
     setIsLoading(true);
@@ -42,23 +43,15 @@ export default function ChooseProfile() {
         setCurrentCity("Permissão negada");
         setLocationError(true);
 
-        Alert.alert(
-          "Permissão necessária",
-          "Precisamos da sua localização para mostrar a cidade atual. Deseja abrir as configurações?",
-          [
-            { text: "Agora não", style: "cancel" },
-            {
-              text: "Abrir Configurações",
-              onPress: () => {
-                if (Platform.OS === "ios") {
-                  Linking.openURL("app-settings:");
-                } else {
-                  Linking.openSettings();
-                }
-              },
-            },
-          ]
-        );
+        notifyWarning("Precisamos da sua localização para mostrar a cidade atual.");
+
+// Ação executada fora da notificação
+if (Platform.OS === "ios") {
+  Linking.openURL("app-settings:");
+} else {
+  Linking.openSettings();
+};
+    
 
         return;
       }

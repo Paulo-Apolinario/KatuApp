@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   driverService,
@@ -20,6 +20,7 @@ import {
 export default function MotoristaDetalheScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const driverId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { notifyError, notifySuccess} = useNotification();
 
   const [motorista, setMotorista] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,16 +44,12 @@ export default function MotoristaDetalheScreen() {
       setMotorista(data);
     } catch (error) {
       console.error("Erro ao carregar motorista:", error);
-      Alert.alert("Erro", "Não foi possível carregar o motorista.", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/motoristas"),
-        },
-      ]);
+      notifyError("Erro", "Não foi possível carregar o motorista.");
+      router.replace("/(cooperativa)/motoristas");
     } finally {
       setLoading(false);
     }
-  }, [driverId]);
+  }, [driverId, notifyError]);
 
   useEffect(() => {
     loadMotorista();
@@ -65,10 +62,10 @@ export default function MotoristaDetalheScreen() {
       setSavingStatus(true);
       const updated = await driverService.updateStatus(driverId, status);
       setMotorista(updated);
-      Alert.alert("Sucesso", "Status do motorista atualizado com sucesso.");
+      notifySuccess("Sucesso", "Status do motorista atualizado com sucesso.");
     } catch (error) {
       console.error("Erro ao atualizar status do motorista:", error);
-      Alert.alert("Erro", "Não foi possível atualizar o status do motorista.");
+      notifyError("Erro", "Não foi possível atualizar o status do motorista.");
     } finally {
       setSavingStatus(false);
     }

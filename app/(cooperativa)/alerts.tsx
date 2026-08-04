@@ -6,7 +6,6 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { scheduleService } from "@/src/services/scheduleService";
 import { generatorService } from "@/src/services/generatorService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type AlertPointType = "schedule" | "generator";
 
@@ -42,6 +42,7 @@ function getDiffDays(date: Date) {
 export default function AlertsScreen() {
   const [loading, setLoading] = useState(true);
   const [alertPoints, setAlertPoints] = useState<AlertPoint[]>([]);
+  const { notifyError } = useNotification();
 
   const currentDriver = "Operação da cooperativa";
   const currentPlate = "Backend ativo";
@@ -107,14 +108,11 @@ export default function AlertsScreen() {
       setAlertPoints([...scheduleAlerts, ...generatorAlerts]);
     } catch (error: any) {
       console.error("Erro ao carregar alertas:", error);
-      Alert.alert(
-        "Erro",
-        error.message || "Não foi possível carregar os alertas."
-      );
+      notifyError(error.message || "Não foi possível carregar os alertas.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

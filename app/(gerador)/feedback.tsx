@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -12,6 +11,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+
+import { sendFeedback } from "@/src/services/feedbackService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type FeedbackCategory =
   | "ATENDIMENTO"
@@ -42,6 +44,7 @@ export default function FeedbackScreen() {
   const [likes, setLikes] = useState("");
   const [continuity, setContinuity] = useState("");
   const [sending, setSending] = useState(false);
+  const { notifyError, notifySuccess } = useNotification();
 
   const categories: FeedbackCategory[] = [
     "ATENDIMENTO",
@@ -74,33 +77,37 @@ export default function FeedbackScreen() {
 
   const handleSubmit = async () => {
     if (npsScore === null) {
-      Alert.alert("Atenção", "Selecione uma nota de 0 a 10.");
+      notifyError("Atenção", "Selecione uma nota de 0 a 10.");
       return;
     }
 
     try {
       setSending(true);
 
-      // Integração real com endpoint de feedback será conectada na próxima etapa,
-      // quando confirmarmos o contrato do backend.
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const result = await sendFeedback({
+        npsScore,
+        categories: selectedCategories,
+        reason: reason.trim() || undefined,
+        improvement: improvement.trim() || undefined,
+        likes: likes.trim() || undefined,
+        continuity: continuity.trim() || undefined,
+      });
 
-      Alert.alert(
-        "Obrigado!",
-        "Seu feedback foi registrado com sucesso. Ele será importante para melhorar a experiência do gerador no KATUÁ.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              resetForm();
-              router.back();
-            },
-          },
-        ]
-      );
-    } catch (error) {
+      notifySuccess(
+  result.emailSent
+    ? "Seu feedback foi enviado com sucesso para a cooperativa."
+    : "Seu feedback foi registrado, mas o envio do email ainda não foi concluído."
+);
+
+resetForm();
+router.back();
+    } catch (error: any) {
       console.error("Erro ao enviar feedback:", error);
-      Alert.alert("Erro", "Não foi possível enviar seu feedback.");
+
+      notifyError(
+        "Erro",
+        error?.message || "Não foi possível enviar seu feedback."
+      );
     } finally {
       setSending(false);
     }
@@ -343,19 +350,6 @@ export default function FeedbackScreen() {
           onChangeText={setContinuity}
           minHeight={80}
         />
-
-        <View
-          style={{
-            backgroundColor: "#FEFCE8",
-            borderRadius: 16,
-            padding: 16,
-            marginBottom: 20,
-            borderWidth: 1,
-            borderColor: "#FDE68A",
-          }}
-        >
-                
-        </View>
 
         <TouchableOpacity
           activeOpacity={0.9}

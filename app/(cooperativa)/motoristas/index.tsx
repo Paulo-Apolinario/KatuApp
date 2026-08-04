@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   Platform,
   ActivityIndicator,
 } from "react-native";
@@ -15,11 +14,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { driverService, type Driver } from "@/src/services/driverService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 export default function MotoristasScreen() {
   const [motoristas, setMotoristas] = useState<Driver[]>([]);
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(true);
+  const { notifyError } = useNotification();
 
   const carregarMotoristas = useCallback(async () => {
     try {
@@ -28,11 +29,11 @@ export default function MotoristasScreen() {
       setMotoristas(data);
     } catch (error) {
       console.error("Erro ao carregar motoristas:", error);
-      Alert.alert("Erro", "Não foi possível carregar os motoristas.");
+      notifyError("Erro", "Não foi possível carregar os motoristas.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

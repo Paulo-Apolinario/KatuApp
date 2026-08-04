@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,10 +14,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 export default function ActivateAccessScreen() {
   const { activateGeneratorAccess } = useAuth();
   const params = useLocalSearchParams<{ email?: string }>();
+  const { notifyError, notifySuccess, notifyWarning} = useNotification();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,17 +39,17 @@ export default function ActivateAccessScreen() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail || !password.trim() || !confirmPassword.trim()) {
-      Alert.alert("Atenção", "Preencha todos os campos.");
+      notifyWarning("Atenção", "Preencha todos os campos.");
       return false;
     }
 
     if (password.length < 6) {
-      Alert.alert("Atenção", "A senha deve ter pelo menos 6 caracteres.");
+      notifyWarning("Atenção", "A senha deve ter pelo menos 6 caracteres.");
       return false;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Atenção", "As senhas não coincidem.");
+      notifyWarning("Atenção", "As senhas não coincidem.");
       return false;
     }
 
@@ -66,13 +67,13 @@ export default function ActivateAccessScreen() {
       const result = await activateGeneratorAccess(normalizedEmail, password);
 
       if (!result.success) {
-        Alert.alert("Erro", result.error || "Não foi possível liberar o acesso.");
+        notifyError("Erro", result.error || "Não foi possível liberar o acesso.");
         return;
       }
 
-      Alert.alert("Acesso liberado", "Seu acesso foi liberado com sucesso.");
+      notifySuccess("Acesso liberado", "Seu acesso foi liberado com sucesso.");
     } catch {
-      Alert.alert("Erro", "Não foi possível liberar o acesso.");
+      notifyError("Erro", "Não foi possível liberar o acesso.");
     } finally {
       setLoading(false);
     }

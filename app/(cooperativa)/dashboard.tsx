@@ -2,7 +2,6 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -10,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useNotification } from "@/src/contexts/NotificationContext";
 import { LinearGradient } from "expo-linear-gradient";
 
 import {
@@ -406,6 +406,7 @@ function Badge({
 export default function CooperativeDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { notifyError } = useNotification();
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -438,7 +439,7 @@ export default function CooperativeDashboardScreen() {
       setVehicles(Array.isArray(vehiclesResponse) ? vehiclesResponse : []);
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error);
-      Alert.alert("Erro", "Não foi possível carregar o dashboard da cooperativa.");
+      notifyError("Não foi possível carregar o dashboard da cooperativa.");
       setSchedules([]);
       setCollections([]);
       setRoutes([]);
@@ -448,7 +449,7 @@ export default function CooperativeDashboardScreen() {
       if (showLoader) setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {

@@ -1,9 +1,6 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
-  Linking,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -15,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
@@ -446,6 +444,7 @@ function EmptyState({
 export default function CooperativeHomeScreen() {
   const { user } = useAuth();
   const currentUser = user as AuthUserLike | null;
+  const { notifyError, notifyWarning, notifyInfo } = useNotification();
 
   const [currentCity, setCurrentCity] = useState("Carregando localização...");
   const [locationError, setLocationError] = useState(false);
@@ -461,77 +460,70 @@ export default function CooperativeHomeScreen() {
   const displayName = getUserDisplayName(currentUser);
 
   const getUserLocation = useCallback(async () => {
-    setIsLoadingLocation(true);
+  setIsLoadingLocation(true);
 
-    try {
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
+  try {
+    const servicesEnabled = await Location.hasServicesEnabledAsync();
 
-      if (!servicesEnabled) {
-        setCurrentCity("Localização desativada");
-        setLocationError(true);
-        return;
-      }
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") {
-        setCurrentCity("Permissão negada");
-        setLocationError(true);
-
-        Alert.alert(
-          "Permissão necessária",
-          "Precisamos da sua localização para mostrar a cidade atual. Deseja abrir as configurações?",
-          [
-            { text: "Agora não", style: "cancel" },
-            {
-              text: "Abrir Configurações",
-              onPress: () => {
-                if (Platform.OS === "ios") {
-                  Linking.openURL("app-settings:");
-                } else {
-                  Linking.openSettings();
-                }
-              },
-            },
-          ]
-        );
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const addresses = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-
-      if (addresses.length > 0) {
-        const address = addresses[0];
-        const city =
-          address.city ||
-          address.subregion ||
-          address.region ||
-          address.country ||
-          "Localização desconhecida";
-
-        setCurrentCity(city);
-        setLocationError(false);
-      } else {
-        setCurrentCity("Localização não encontrada");
-        setLocationError(true);
-      }
-    } catch (error) {
-      console.error("Erro ao obter localização:", error);
-      setCurrentCity("Erro ao carregar");
+    if (!servicesEnabled) {
+      setCurrentCity("Localização desativada");
       setLocationError(true);
-    } finally {
-      setIsLoadingLocation(false);
+      notifyWarning("A localização está desativada no dispositivo.");
+      return;
     }
-  }, []);
 
-  const loadHome = useCallback(async (showLoader = true) => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+
+    if (status !== "granted") {
+      setCurrentCity("Permissão negada");
+      setLocationError(true);
+
+      notifyWarning(
+        "Permissão de localização negada. Libere a localização nas configurações do navegador ou dispositivo."
+      );
+
+      return;
+    }
+
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+
+    const addresses = await Location.reverseGeocodeAsync({
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+    });
+
+    if (addresses.length > 0) {
+      const address = addresses[0];
+
+      const city =
+        address.city ||
+        address.subregion ||
+        address.region ||
+        address.country ||
+        "Localização desconhecida";
+
+      setCurrentCity(city);
+      setLocationError(false);
+    } else {
+      setCurrentCity("Localização não encontrada");
+      setLocationError(true);
+      notifyWarning("Não foi possível identificar sua cidade atual.");
+    }
+  } catch (error) {
+    console.error("Erro ao obter localização:", error);
+    setCurrentCity("Erro ao carregar");
+    setLocationError(true);
+    notifyWarning("Não foi possível obter sua localização.");
+  } finally {
+    setIsLoadingLocation(false);
+  }
+}, 
+[notifyWarning]);
+
+  const loadHome = useCallback(
+  async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true);
 
@@ -547,6 +539,9 @@ export default function CooperativeHomeScreen() {
       setCollections(Array.isArray(collectionResponse) ? collectionResponse : []);
     } catch (error) {
       console.error("Erro ao carregar home da cooperativa:", error);
+
+      notifyError("Erro ao carregar dados da cooperativa.");
+
       setSchedules([]);
       setRoutes([]);
       setCollections([]);
@@ -554,7 +549,9 @@ export default function CooperativeHomeScreen() {
       if (showLoader) setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  },
+  [notifyError]
+);
 
   useFocusEffect(
     useCallback(() => {
@@ -564,9 +561,10 @@ export default function CooperativeHomeScreen() {
   );
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([getUserLocation(), loadHome(false)]);
-  }, [getUserLocation, loadHome]);
+  setRefreshing(true);
+  notifyInfo("Atualizando dados...");
+  await Promise.all([getUserLocation(), loadHome(false)]);
+}, [getUserLocation, loadHome, notifyInfo]);
 
   const metrics = useMemo(() => {
     const requestedSchedules = schedules.filter(

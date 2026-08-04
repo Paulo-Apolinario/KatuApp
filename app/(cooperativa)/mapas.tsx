@@ -1,8 +1,7 @@
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   Text,
@@ -11,15 +10,14 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import MapView, {
-  Marker,
-  Polyline,
-  PROVIDER_GOOGLE,
-  Region,
-} from "react-native-maps";
 import * as Location from "expo-location";
 import * as Linking from "expo-linking";
 
+import OperationalMap from "@/src/components/maps/OperationalMap";
+import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { LastSyncBadge } from "@/src/components/LastSyncBadge";
+import { useConnectivity } from "@/src/hooks/useConnectivity";
+import { useNotification } from "@/src/contexts/NotificationContext";
 import {
   scheduleService,
   type Schedule,
@@ -28,6 +26,13 @@ import {
   collectionService,
   type Collection,
 } from "@/src/services/collectionService";
+
+type Region = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
 
 type PointStatus = "REQUESTED" | "SCHEDULED" | "IN_PROGRESS";
 type ViewMode = "ALL" | "ROUTE_ONLY";
@@ -154,35 +159,64 @@ function hasValidCoordinates(
   );
 }
 
+function toNumberCoordinate(value: unknown) {
+  if (typeof value === "number") return value;
+
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(",", "."));
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  return null;
+}
+
+function getGeneratorCoordinates(generator?: any) {
+  const latitude = toNumberCoordinate(generator?.latitude);
+  const longitude = toNumberCoordinate(generator?.longitude);
+
+  if (hasValidCoordinates(latitude, longitude)) {
+    return {
+      latitude: latitude as number,
+      longitude: longitude as number,
+    };
+  }
+
+  return null;
+}
+
 function normalizeSchedulePoints(schedules: Schedule[]): MapOperationalPoint[] {
   return schedules
     .filter((item) =>
       ["REQUESTED", "SCHEDULED", "IN_PROGRESS"].includes(item.status)
     )
-    .filter((item) =>
-      hasValidCoordinates(item.generator?.latitude, item.generator?.longitude)
-    )
-    .map((item) => ({
-      id: `schedule-${item.id}`,
-      scheduleId: item.id,
-      sourceType: "SCHEDULE" as const,
-      title:
-        item.generator?.companyName ||
-        item.generator?.businessName ||
-        item.generator?.name ||
-        item.requestedBy?.displayName ||
-        "Solicitação operacional",
-      address: item.generator?.address || "Endereço não informado",
-      latitude: item.generator?.latitude as number,
-      longitude: item.generator?.longitude as number,
-      status: item.status as PointStatus,
-      dateLabel: item.scheduledDate || item.preferredDate || item.createdAt,
-      routeName: null,
-      routeId: null,
-      driverName: null,
-      vehicleLabel: null,
-      collectorName: null,
-    }));
+    .map((item) => {
+      const coordinates = getGeneratorCoordinates(item.generator);
+
+      if (!coordinates) return null;
+
+      return {
+        id: `schedule-${item.id}`,
+        scheduleId: item.id,
+        sourceType: "SCHEDULE" as const,
+        title:
+          item.generator?.companyName ||
+          item.generator?.businessName ||
+          item.generator?.name ||
+          item.requestedBy?.displayName ||
+          "Solicitação operacional",
+        address: item.generator?.address || "Endereço não informado",
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        status: item.status as PointStatus,
+        dateLabel: item.scheduledDate || item.preferredDate || item.createdAt,
+        routeName: null,
+        routeId: null,
+        driverName: null,
+        vehicleLabel: null,
+        collectorName: null,
+      };
+    })
+    .filter(Boolean) as MapOperationalPoint[];
 }
 
 function normalizeCollectionPoints(
@@ -192,43 +226,50 @@ function normalizeCollectionPoints(
     .filter(
       (item) => item.status === "PENDING" || item.status === "IN_PROGRESS"
     )
-    .filter((item) =>
-      hasValidCoordinates(item.generator?.latitude, item.generator?.longitude)
-    )
-    .map((item) => ({
-      id: `collection-${item.id}`,
-      scheduleId: item.scheduleId || item.schedule?.id || "",
-      collectionId: item.id,
-      sourceType: "COLLECTION" as const,
-      title:
-        item.generator?.companyName ||
-        item.generator?.businessName ||
-        item.generator?.name ||
-        item.schedule?.requestedBy?.displayName ||
-        "Coleta delegada",
-      address: item.generator?.address || "Endereço não informado",
-      latitude: item.generator?.latitude as number,
-      longitude: item.generator?.longitude as number,
-      status: item.status === "IN_PROGRESS" ? "IN_PROGRESS" : "SCHEDULED",
-      dateLabel:
-        item.schedule?.scheduledDate ||
-        item.schedule?.preferredDate ||
-        item.createdAt,
-      routeName: item.route?.name || null,
-      routeId: item.route?.id || null,
-      driverName: item.driver?.name || null,
-      vehicleLabel: item.vehicle
-        ? `${item.vehicle.model || "Veículo"}${
-            item.vehicle.plate ? ` • ${item.vehicle.plate}` : ""
-          }`
-        : null,
-      collectorName:
-        item.collector?.name || item.collector?.displayName || null,
-    }));
+    .map((item) => {
+      const generator = item.generator || item.schedule?.generator;
+      const coordinates = getGeneratorCoordinates(generator);
+
+      if (!coordinates) return null;
+
+      return {
+        id: `collection-${item.id}`,
+        scheduleId: item.scheduleId || item.schedule?.id || "",
+        collectionId: item.id,
+        sourceType: "COLLECTION" as const,
+        title:
+          generator?.companyName ||
+          generator?.businessName ||
+          generator?.name ||
+          item.schedule?.requestedBy?.displayName ||
+          "Coleta delegada",
+        address: generator?.address || "Endereço não informado",
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        status: item.status === "IN_PROGRESS" ? "IN_PROGRESS" : "SCHEDULED",
+        dateLabel:
+          item.schedule?.scheduledDate ||
+          item.schedule?.preferredDate ||
+          item.createdAt,
+        routeName: item.route?.name || null,
+        routeId: item.route?.id || null,
+        driverName: item.driver?.name || null,
+        vehicleLabel: item.vehicle
+          ? `${item.vehicle.model || "Veículo"}${
+              item.vehicle.plate ? ` • ${item.vehicle.plate}` : ""
+            }`
+          : null,
+        collectorName:
+          item.collector?.name || item.collector?.displayName || null,
+      };
+    })
+    .filter(Boolean) as MapOperationalPoint[];
+
 }
 
 export default function CooperativeMapScreen() {
-  const mapRef = useRef<MapView | null>(null);
+  const { isOffline } = useConnectivity();
+  const { notifyError, notifyWarning, notifyInfo } = useNotification();
 
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [loadingData, setLoadingData] = useState(true);
@@ -241,52 +282,38 @@ export default function CooperativeMapScreen() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("ALL");
   const [points, setPoints] = useState<MapOperationalPoint[]>([]);
-
-  const fitPoints = useCallback(
-    (items: { latitude: number; longitude: number }[]) => {
-      if (!mapRef.current || items.length === 0) return;
-
-      const coordinates = [
-        { latitude: region.latitude, longitude: region.longitude },
-        ...items,
-      ];
-
-      mapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: {
-          top: 90,
-          right: 90,
-          bottom: 240,
-          left: 90,
-        },
-        animated: true,
-      });
-    },
-    [region.latitude, region.longitude]
-  );
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadLocation = useCallback(async () => {
-    try {
-      setLoadingLocation(true);
+  try {
+    setLoadingLocation(true);
 
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
+    const { status } = await Location.requestForegroundPermissionsAsync();
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      setRegion({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        latitudeDelta: 0.08,
-        longitudeDelta: 0.08,
-      });
-    } catch (error) {
-      console.error("Erro ao carregar localização:", error);
-    } finally {
-      setLoadingLocation(false);
+    if (status !== "granted") {
+      notifyWarning(
+        "Permissão de localização negada. O mapa será aberto usando a região padrão."
+      );
+      return;
     }
-  }, []);
+
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+
+    setRegion({
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      latitudeDelta: 0.08,
+      longitudeDelta: 0.08,
+    });
+  } catch (error) {
+    console.error("Erro ao carregar localização:", error);
+    notifyWarning("Não foi possível carregar sua localização atual.");
+  } finally {
+    setLoadingLocation(false);
+  }
+}, [notifyWarning]);
 
   const loadOperationalData = useCallback(async () => {
     try {
@@ -308,25 +335,38 @@ export default function CooperativeMapScreen() {
       ];
 
       setPoints(mergedPoints);
-      setSelectedPoint(null);
+      setSelectedPoint((currentSelected) => {
+        if (!currentSelected) return null;
+
+        const stillExists =
+          mergedPoints.find((item) => item.id === currentSelected.id) || null;
+
+        return stillExists;
+      });
+      setLastSyncAt(new Date().toISOString());
     } catch (error) {
       console.error("Erro ao carregar mapa operacional:", error);
-      Alert.alert(
-        "Erro",
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar os dados operacionais do mapa."
-      );
+      notifyError(
+  error instanceof Error
+    ? error.message
+    : "Não foi possível carregar os dados operacionais do mapa."
+);
       setPoints([]);
       setSelectedPoint(null);
     } finally {
       setLoadingData(false);
     }
-  }, []);
+  }, [notifyError]);
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([loadLocation(), loadOperationalData()]);
-  }, [loadLocation, loadOperationalData]);
+  notifyInfo(
+    isOffline
+      ? "Atualizando com dados salvos no dispositivo..."
+      : "Atualizando mapa operacional..."
+  );
+
+  await Promise.all([loadLocation(), loadOperationalData()]);
+}, [isOffline, loadLocation, loadOperationalData, notifyInfo]);
 
   useEffect(() => {
     refreshAll();
@@ -399,21 +439,6 @@ export default function CooperativeMapScreen() {
     }
   }, [selectedRouteId, allRouteOptions]);
 
-  useEffect(() => {
-    if (orderedPoints.length > 0) {
-      const timer = setTimeout(() => {
-        fitPoints(
-          orderedPoints.map((item) => ({
-            latitude: item.latitude,
-            longitude: item.longitude,
-          }))
-        );
-      }, 250);
-
-      return () => clearTimeout(timer);
-    }
-  }, [orderedPoints, fitPoints]);
-
   const selectedRouteCoordinates = useMemo(() => {
     if (viewMode === "ROUTE_ONLY" && orderedPoints.length > 0) {
       return [
@@ -457,18 +482,6 @@ export default function CooperativeMapScreen() {
     if (point.routeId) {
       setSelectedRouteId(point.routeId);
     }
-
-    if (mapRef.current) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: point.latitude,
-          longitude: point.longitude,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        },
-        500
-      );
-    }
   }, []);
 
   const openExternalRoute = useCallback(async (point: MapOperationalPoint) => {
@@ -481,16 +494,16 @@ export default function CooperativeMapScreen() {
       const supported = await Linking.canOpenURL(urlToOpen);
 
       if (!supported) {
-        Alert.alert("Erro", "Não foi possível abrir o aplicativo de mapas.");
+        notifyError("Não foi possível abrir o aplicativo de mapas.");
         return;
       }
 
       await Linking.openURL(urlToOpen);
     } catch (error) {
       console.error("Erro ao abrir rota externa:", error);
-      Alert.alert("Erro", "Não foi possível abrir a rota externa.");
+      notifyError("Não foi possível abrir a rota externa.");
     }
-  }, []);
+  }, [notifyError]);
 
   const isLoading = loadingLocation || loadingData;
 
@@ -534,7 +547,7 @@ export default function CooperativeMapScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={refreshAll}
+            onPress={() => void refreshAll()}
             style={{
               width: 42,
               height: 42,
@@ -555,6 +568,11 @@ export default function CooperativeMapScreen() {
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={{ paddingHorizontal: 16, paddingTop: 14, gap: 12 }}>
+          <OfflineBanner visible={isOffline} />
+          <LastSyncBadge value={lastSyncAt} />
+        </View>
+
         <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
           <ScrollView
             horizontal
@@ -683,81 +701,40 @@ export default function CooperativeMapScreen() {
                 Carregando mapa operacional...
               </Text>
             </View>
-          ) : orderedPoints.length === 0 ? (
-            <View
-              style={{
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "center",
-                height: "100%",
-                paddingHorizontal: 24,
+          ) : 
+          
+          (
+            <OperationalMap
+              baseLatitude={region.latitude}
+              baseLongitude={region.longitude}
+              points={orderedPoints.map((point) => ({
+                id: point.id,
+                latitude: point.latitude,
+                longitude: point.longitude,
+                title:
+                  point.order && viewMode === "ROUTE_ONLY"
+                    ? `${point.order}. ${point.title}`
+                    : point.title,
+                description: point.address,
+                color:
+                  selectedPoint?.id === point.id
+                    ? "#111827"
+                    : getMarkerColor(point.status),
+              }))}
+              routeCoordinates={selectedRouteCoordinates}
+              selectedPointId={selectedPoint?.id ?? null}
+              onSelectPoint={(pointId: string) => {
+                if (pointId === "__base__") {
+                  setSelectedPoint(null);
+                  return;
+                }
+
+                const foundPoint = orderedPoints.find((item) => item.id === pointId);
+                if (foundPoint) {
+                  selectPoint(foundPoint);
+                }
               }}
-            >
-              <Ionicons name="map-outline" size={46} color="#94A3B8" />
-              <Text
-                style={{
-                  marginTop: 12,
-                  fontSize: 17,
-                  fontWeight: "800",
-                  color: "#0F172A",
-                  textAlign: "center",
-                }}
-              >
-                Nenhum ponto operacional disponível
-              </Text>
-            </View>
-          ) : (
-            <MapView
-              ref={(ref) => {
-                mapRef.current = ref;
-              }}
-              provider={PROVIDER_GOOGLE}
-              style={{ flex: 1 }}
-              initialRegion={region}
-              showsUserLocation
-              showsMyLocationButton
-              toolbarEnabled={false}
-            >
-              {selectedRouteCoordinates.length >= 2 && (
-                <Polyline
-                  coordinates={selectedRouteCoordinates}
-                  strokeWidth={viewMode === "ROUTE_ONLY" ? 6 : 5}
-                  strokeColor={viewMode === "ROUTE_ONLY" ? "#2563EB" : "#028C56"}
-                />
-              )}
-
-              <Marker
-                coordinate={{
-                  latitude: region.latitude,
-                  longitude: region.longitude,
-                }}
-                title="Base operacional"
-                description="Cooperativa / localização atual"
-                pinColor="#028C56"
-              />
-
-              {orderedPoints.map((point) => {
-                const active = selectedPoint?.id === point.id;
-
-                return (
-                  <Marker
-                    key={point.id}
-                    coordinate={{
-                      latitude: point.latitude,
-                      longitude: point.longitude,
-                    }}
-                    title={
-                      point.order && viewMode === "ROUTE_ONLY"
-                        ? `${point.order}. ${point.title}`
-                        : point.title
-                    }
-                    description={point.address}
-                    pinColor={active ? "#111827" : getMarkerColor(point.status)}
-                    onPress={() => selectPoint(point)}
-                  />
-                );
-              })}
-            </MapView>
+            />
           )}
         </View>
 

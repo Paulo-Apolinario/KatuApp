@@ -17,8 +17,19 @@ export const registerCooperativeSchema = z.object({
   phone: z.string().min(8, "Telefone inválido"),
   cooperativeName: z.string().min(3, "Nome da cooperativa inválido"),
   registrationNumber: z.string().min(11, "Registro/CNPJ inválido"),
+
   address: z.string().optional(),
   rememberMe: z.boolean().optional().default(false),
+
+  zipCode: z.string().optional(),
+  street: z.string().optional(),
+  number: z.string().optional(),
+  neighborhood: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+
+  latitude: z.coerce.number().optional(),
+  longitude: z.coerce.number().optional(),
 });
 
 export const loginSchema = z.object({
@@ -38,15 +49,65 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z
   .object({
     email: z.string().email("E-mail inválido"),
-    token: z.string().min(6, "Token inválido"),
-    newPassword: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres"),
-    confirmPassword: z
-      .string()
-      .min(6, "A confirmação da senha deve ter pelo menos 6 caracteres"),
+    token: z.string().min(1, "Token inválido"),
+
+    temporaryPassword: z.string().optional(),
+    temporary_password: z.string().optional(),
+
+    password: z.string().optional(),
+    newPassword: z.string().optional(),
+
+    password_confirmation: z.string().optional(),
+    confirmPassword: z.string().optional(),
   })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "As senhas não coincidem.",
-    path: ["confirmPassword"],
+  .superRefine((data, ctx) => {
+    const temporaryPassword =
+      data.temporaryPassword || data.temporary_password;
+
+    const newPassword = data.newPassword || data.password;
+
+    const confirmation =
+      data.confirmPassword || data.password_confirmation;
+
+    if (!temporaryPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["temporaryPassword"],
+        message: "Senha temporária é obrigatória.",
+      });
+    }
+
+    if (!newPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message: "Nova senha é obrigatória.",
+      });
+    }
+
+    if (newPassword && newPassword.length < 6) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message: "A nova senha deve ter pelo menos 6 caracteres.",
+      });
+    }
+
+    if (!confirmation) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password_confirmation"],
+        message: "Confirmação de senha é obrigatória.",
+      });
+    }
+
+    if (newPassword && confirmation && newPassword !== confirmation) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password_confirmation"],
+        message: "As senhas não coincidem.",
+      });
+    }
   });
 
 export type RegisterPfInput = z.infer<typeof registerPfSchema>;

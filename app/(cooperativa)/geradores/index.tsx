@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import { useFocusEffect, useLocalSearchParams, router } from "expo-router";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Text,
   TouchableOpacity,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { generatorService, type Generator } from "@/src/services/generatorService";
 
@@ -19,26 +19,25 @@ export default function GeradoresScreen() {
 
   const [generators, setGenerators] = useState<Generator[]>([]);
   const [loading, setLoading] = useState(true);
+  const { notifyError } = useNotification();
 
-  async function loadGenerators() {
+
+  const loadGenerators = useCallback(async () => {
     try {
       setLoading(true);
       const response = await generatorService.list();
       setGenerators(response);
     } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível carregar os geradores."
-      );
+      notifyError("Erro", error?.message || "Não foi possível carregar os geradores.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {
       loadGenerators();
-    }, [])
+    }, [loadGenerators])
   );
 
   const filteredGenerators = useMemo(() => {

@@ -1,6 +1,6 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { api, STORAGE_KEYS } from "./api";
+import { api } from "./api";
 import { UserDoc } from "../types/user";
+import { sessionService } from "./sessionService";
 
 export type AuthSuccess = {
   success: true;
@@ -10,7 +10,6 @@ export type AuthSuccess = {
   firstAccess?: boolean;
   mustChangePassword?: boolean;
   message?: string;
-  resetToken?: string;
 };
 
 export type AuthError = {
@@ -41,12 +40,48 @@ type ActivateAccessResponse = {
 
 type ForgotPasswordResponse = {
   message?: string;
-  token?: string;
-  resetToken?: string;
+  expiresAt?: string | null;
 };
 
 type ResetPasswordResponse = {
   message?: string;
+};
+
+type RegisterPfPayload = {
+  displayName: string;
+  email: string;
+  password: string;
+  phone: string;
+  cpf: string;
+  address?: string;
+  rememberMe?: boolean;
+};
+
+type RegisterCooperativePayload = {
+  displayName: string;
+  email: string;
+  password: string;
+  phone: string;
+  cooperativeName: string;
+  registrationNumber: string;
+  address?: string;
+  rememberMe?: boolean;
+  zipCode?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+type ResetPasswordPayload = {
+  email: string;
+  token: string;
+  temporaryPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 };
 
 function normalizeEmail(email: string) {
@@ -55,58 +90,68 @@ function normalizeEmail(email: string) {
 
 class AuthService {
   async saveSession(token: string, user?: UserDoc): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.token, token);
-
-    if (user) {
-      await AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
-    }
+    await sessionService.saveSession({
+      token,
+      user: user ?? null,
+      userId: user?.id ?? null,
+    });
   }
 
   async saveToken(token: string): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.token, token);
+    const currentUser = await this.getStoredUser();
+
+    await sessionService.saveSession({
+      token,
+      user: currentUser ?? null,
+      userId: currentUser?.id ?? null,
+    });
   }
 
   async getToken(): Promise<string | null> {
-    return AsyncStorage.getItem(STORAGE_KEYS.token);
+    return sessionService.getToken();
   }
 
   async removeToken(): Promise<void> {
-    await AsyncStorage.removeItem(STORAGE_KEYS.token);
+    await sessionService.clearSession();
   }
 
   async saveUser(user: UserDoc): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    const token = await this.getToken();
+
+    if (!token) return;
+
+    await sessionService.saveSession({
+      token,
+      user,
+      userId: user?.id ?? null,
+    });
   }
 
   async getStoredUser(): Promise<UserDoc | null> {
-    const raw = await AsyncStorage.getItem(STORAGE_KEYS.user);
-
-    if (!raw) return null;
-
-    try {
-      return JSON.parse(raw) as UserDoc;
-    } catch {
-      return null;
-    }
+    const user = await sessionService.getUser();
+    return (user as UserDoc | null) ?? null;
   }
 
   async removeUser(): Promise<void> {
-    await AsyncStorage.removeItem(STORAGE_KEYS.user);
+    const token = await this.getToken();
+
+    if (!token) {
+      await sessionService.clearSession();
+      return;
+    }
+
+    await sessionService.saveSession({
+      token,
+      user: null,
+      userId: null,
+    });
   }
 
   async clearSession(): Promise<void> {
-    await AsyncStorage.multiRemove([STORAGE_KEYS.token, STORAGE_KEYS.user]);
+    await sessionService.clearSession();
   }
 
-  async registerPf(data: {
-    displayName: string;
-    email: string;
-    password: string;
-    phone: string;
-    cpf: string;
-    address?: string;
-    rememberMe?: boolean;
-  }): Promise<AuthResult> {
+  async registerPf(data: RegisterPfPayload): Promise<AuthResult> {
     try {
       const payload = {
         ...data,
@@ -151,16 +196,9 @@ class AuthService {
     }
   }
 
-  async registerCooperative(data: {
-    displayName: string;
-    email: string;
-    password: string;
-    phone: string;
-    cooperativeName: string;
-    registrationNumber: string;
-    address?: string;
-    rememberMe?: boolean;
-  }): Promise<AuthResult> {
+  async registerCooperative(
+    data: RegisterCooperativePayload
+  ): Promise<AuthResult> {
     try {
       const payload = {
         ...data,
@@ -243,8 +281,7 @@ class AuthService {
     } catch (error: unknown) {
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Erro ao fazer login.",
+        error: error instanceof Error ? error.message : "Erro ao fazer login.",
       };
     }
   }
@@ -306,8 +343,7 @@ class AuthService {
         success: true,
         message:
           response.message ||
-          "Se o e-mail existir, a recuperação foi iniciada.",
-        resetToken: response.resetToken || response.token,
+          "Se o e-mail existir, enviaremos as instruções de recuperação.",
       };
     } catch (error: unknown) {
       return {
@@ -320,20 +356,22 @@ class AuthService {
     }
   }
 
-  async resetPassword(data: {
-    email: string;
-    token: string;
-    newPassword: string;
-    confirmPassword: string;
-  }): Promise<AuthResult> {
+  async resetPassword(data: ResetPasswordPayload): Promise<AuthResult> {
     try {
       const response = await api.post<ResetPasswordResponse>(
         "/auth/reset-password",
         {
           email: normalizeEmail(data.email),
           token: data.token.trim(),
+
+          temporaryPassword: data.temporaryPassword,
+          temporary_password: data.temporaryPassword,
+
           newPassword: data.newPassword,
+          password: data.newPassword,
+
           confirmPassword: data.confirmPassword,
+          password_confirmation: data.confirmPassword,
         }
       );
 
@@ -371,11 +409,8 @@ class AuthService {
       console.error("Erro ao buscar usuário atual:", error);
 
       const storedUser = await this.getStoredUser();
-      if (storedUser) {
-        return storedUser;
-      }
+      if (storedUser) return storedUser;
 
-      await this.clearSession();
       return null;
     }
   }

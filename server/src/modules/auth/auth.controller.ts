@@ -127,6 +127,104 @@ export class AuthController {
     }
   }
 
+  async updateProfile(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const authUser = request.user as { sub: string };
+      const body = request.body as {
+        displayName?: string;
+        name?: string;
+      };
+
+      const displayName = String(
+        body?.displayName || body?.name || ""
+      ).trim();
+
+      if (!displayName) {
+        return reply.status(400).send({
+          success: false,
+          error: "Informe o nome completo.",
+        });
+      }
+
+      if (displayName.length < 3) {
+        return reply.status(400).send({
+          success: false,
+          error: "O nome precisa ter pelo menos 3 caracteres.",
+        });
+      }
+
+      const user = await authService.updateProfile(authUser.sub, {
+        displayName,
+      });
+
+      return reply.send({
+        success: true,
+        message: "Perfil atualizado com sucesso.",
+        user: serializeUser(user),
+      });
+    } catch (error: any) {
+      return reply.status(400).send({
+        success: false,
+        error: error.message || "Erro ao atualizar perfil.",
+      });
+    }
+  }
+
+  async changePassword(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const authUser = request.user as { sub: string };
+
+      const body = request.body as {
+        currentPassword?: string;
+        current_password?: string;
+        newPassword?: string;
+        password?: string;
+      };
+
+      const currentPassword = String(
+        body?.currentPassword || body?.current_password || ""
+      );
+
+      const newPassword = String(body?.newPassword || body?.password || "");
+
+      if (!currentPassword) {
+        return reply.status(400).send({
+          success: false,
+          error: "Informe a senha atual.",
+        });
+      }
+
+      if (!newPassword) {
+        return reply.status(400).send({
+          success: false,
+          error: "Informe a nova senha.",
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return reply.status(400).send({
+          success: false,
+          error: "A nova senha precisa ter pelo menos 6 caracteres.",
+        });
+      }
+
+      await authService.changePassword(authUser.sub, {
+        currentPassword,
+        newPassword,
+      });
+
+      return reply.send({
+        success: true,
+        message: "Senha alterada com sucesso.",
+      });
+    } catch (error: any) {
+      return reply.status(400).send({
+        success: false,
+        error: error.message || "Erro ao alterar senha.",
+      });
+    }
+  }
+
   async activateGeneratorAccess(
     request: FastifyRequest,
     reply: FastifyReply
@@ -168,7 +266,6 @@ export class AuthController {
       return reply.send({
         success: true,
         message: result.message,
-        resetToken: result.resetToken,
         expiresAt: result.expiresAt ?? null,
       });
     } catch (error: any) {
