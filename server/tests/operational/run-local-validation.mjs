@@ -64,6 +64,22 @@ try{
  });
  await child(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','5179'],webDir,{VITE_API_BASE_URL:'http://127.0.0.1:3339'},/Local:/);
  browser=await pw.launch({executablePath:process.env.KATUA_CHROMIUM_PATH || await chromium.executablePath(),args:chromium.args,headless:true});
+ const guestContext=await browser.newContext({viewport:{width:1280,height:900}});
+ await guestContext.route('**/*',r=>['127.0.0.1','localhost'].includes(new URL(r.request().url()).hostname)?r.continue():r.abort());
+ const guestPage=await guestContext.newPage();
+ await check('Notificações painel: campos vazios e credenciais inválidas antes de autenticar',async()=>{
+  await guestPage.goto('http://127.0.0.1:5179/login');
+  await guestPage.getByRole('button',{name:'Entrar',exact:true}).click();
+  await guestPage.getByText('Informe email e senha.',{exact:true}).waitFor();
+  await guestPage.locator('#email').fill('inexistente@katua.test');
+  await guestPage.locator('#password').fill('SenhaIncorreta123');
+  const response=guestPage.waitForResponse(r=>r.url().endsWith('/auth/login')&&r.request().method()==='POST');
+  await guestPage.getByRole('button',{name:'Entrar',exact:true}).click();assert.ok((await response).status()>=400);
+  await guestPage.getByText('E-mail ou senha inválidos.',{exact:true}).waitFor();
+  assert.equal(await guestPage.evaluate(()=>localStorage.getItem('auth_token')),null);
+  assert.ok(new URL(guestPage.url()).pathname.includes('login'));
+ });
+ // Contexts remain open until browser teardown (portable Chromium single-process mode).
  const context=await browser.newContext({viewport:{width:1440,height:1000}});
  await context.route('**/*',r=>{const h=new URL(r.request().url()).hostname;return ['127.0.0.1','localhost'].includes(h)?r.continue():r.abort();});
  await context.addInitScript(({token,user})=>{localStorage.setItem('auth_token',token);localStorage.setItem('auth_user',JSON.stringify(user));},{token:fixture.token,user:fixture.owner});
@@ -90,6 +106,33 @@ try{
  const {runOfflineChecks}=await import('./offline-checks.mjs');
  await check('App services + SQLite: rejeição e reconexão com API local',async()=>{await runOfflineChecks({appDir,fixture,api,db,outputDir,report:(name,status,detail)=>{outcomes.push({name,status,detail});log(status+' '+name);}});});
  await child(process.execPath,['node_modules/expo/bin/cli','start','--web','--port','8089','--localhost','--max-workers','2','--clear'],appDir,{CI:'1',EXPO_PUBLIC_API_BASE_URL:'http://127.0.0.1:3339',EXPO_OFFLINE:'1',EXPO_NO_TELEMETRY:'1',EXPO_NO_DEPENDENCY_VALIDATION:'1',EXPO_NO_DOTENV:'1'},/Waiting on http/);
+ const signupContext=await browser.newContext({viewport:{width:430,height:932}});
+ await signupContext.route('**/*',r=>{const url=new URL(r.request().url());if(url.hostname==='vps.katua.com.br')return r.fetch({url:'http://127.0.0.1:3339'+url.pathname+url.search}).then(response=>r.fulfill({response}));return ['127.0.0.1','localhost'].includes(url.hostname)?r.continue():r.abort();});
+ const signupPage=await signupContext.newPage();signupPage.setDefaultTimeout(30000);
+ await check('Notificações cadastro: rejeição sem sucesso; cadastro persistido com aviso após navegar ao login',async()=>{
+  await signupPage.goto('http://127.0.0.1:8089/(auth)/register?profile=cooperativa',{timeout:90000});
+  await signupPage.getByPlaceholder('Digite seu nome',{exact:true}).fill('Responsável QA Avisos');
+  await signupPage.getByPlaceholder('Digite seu e-mail',{exact:true}).fill(fixture.owner.email);
+  await signupPage.getByPlaceholder('Digite sua senha',{exact:true}).fill('TesteLocal123');
+  await signupPage.getByPlaceholder('Confirme sua senha',{exact:true}).fill('TesteLocal123');
+  await signupPage.getByPlaceholder('Digite seu telefone',{exact:true}).fill('11999990000');
+  await signupPage.getByPlaceholder('Digite o nome da cooperativa',{exact:true}).fill('Cooperativa QA Avisos');
+  await signupPage.getByPlaceholder('Digite o CNPJ',{exact:true}).fill('12345678000190');
+  await signupPage.getByPlaceholder('Resumo do endereço',{exact:true}).fill('Rua de Teste Local, 100');
+  await signupPage.getByText('CADASTRAR',{exact:true}).click();
+  await signupPage.getByText('Este e-mail já está em uso.',{exact:true}).waitFor();
+  assert.equal(await signupPage.getByText('Cadastro realizado com sucesso!',{exact:true}).count(),0);
+  assert.ok(new URL(signupPage.url()).pathname.includes('register'));
+  const email='cadastro-avisos@katua.test';
+  await signupPage.getByPlaceholder('Digite seu e-mail',{exact:true}).fill(email);
+  await signupPage.getByText('CADASTRAR',{exact:true}).click();
+  await signupPage.getByText('Cadastro realizado com sucesso!',{exact:true}).waitFor();
+  await signupPage.waitForURL(url=>url.pathname.endsWith('/login')&&url.searchParams.get('profile')==='cooperativa');
+  assert.equal(await signupPage.getByText('Cadastro realizado com sucesso!',{exact:true}).count(),1);
+  const persisted=await db.query('SELECT id FROM "Cooperative" WHERE email = $1',[email]);assert.equal(persisted.rows.length,1);
+  await signupPage.reload();assert.equal(await signupPage.getByText('Cadastro realizado com sucesso!',{exact:true}).count(),0);
+ });
+
  const appContext=await browser.newContext({viewport:{width:430,height:932}});
  await appContext.route('**/*',r=>{const url=new URL(r.request().url());if(url.hostname==='vps.katua.com.br')return r.fetch({url:'http://127.0.0.1:3339'+url.pathname+url.search}).then(response=>r.fulfill({response}));return ['127.0.0.1','localhost'].includes(url.hostname)?r.continue():r.abort();});
  await appContext.addInitScript(({token,user})=>{localStorage.setItem('@katu:token',token);localStorage.setItem('@katu:user',JSON.stringify(user));},{token:fixture.token,user:{...fixture.owner,cooperative:fixture.cooperative}});

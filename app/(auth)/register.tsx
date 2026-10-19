@@ -15,6 +15,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useNotification } from "@/src/contexts/NotificationContext";
 import authService from "@/src/services/authService";
 import { api } from "@/src/services/api";
 import {
@@ -56,6 +57,7 @@ function isValidEmail(value: string) {
 }
 
 export default function RegisterScreen() {
+  const { notifySuccess } = useNotification();
   const params = useLocalSearchParams<{
     profile?: string;
     selectedLatitude?: string;
@@ -413,14 +415,8 @@ export default function RegisterScreen() {
 
       registerDraftStore.clear(profile as RegisterDraftProfile);
 
-      Alert.alert("Sucesso!", "Cadastro realizado com sucesso!", [
-        {
-          text: "OK",
-          onPress: () => {
-            router.replace(getRouteByProfile(profile));
-          },
-        },
-      ]);
+      notifySuccess("Cadastro realizado com sucesso!", "Sucesso!");
+      router.replace(getRouteByProfile(profile));
     } catch (error: any) {
       console.error("Erro no cadastro:", error);
       setErrorMessage(

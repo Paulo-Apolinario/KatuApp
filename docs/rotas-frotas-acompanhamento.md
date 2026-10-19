@@ -153,3 +153,39 @@ Duas falhas foram encontradas e corrigidas durante a execução:
 Foram adicionados server/tests/sync-engine-contract.test.ts e os arquivos server/tests/operational/local-server.ts, run-local-validation.mjs e offline-checks.mjs para repetir a validação isolada. Nenhuma dependência de produção foi alterada.
 
 Não considerar concluídos: concorrência em PostgreSQL nativo, execução Android/iOS, isolamento integral de cache entre contas e validação completa da cadeia entrada/destinação/lote. Permanecem sem implementação os demais itens funcionais do backlog. Não houve deploy, migração em produção nem uso de contas/dados operacionais.
+
+
+## Correção complementar — avisos de cadastro e login (19/10/2026)
+
+Autorização explícita do responsável para implementar, testar e salvar as correções no GitHub; atualização da VPS será feita pelo responsável.
+
+Problemas confirmados por leitura da main:
+
+- Cadastro público do app usava Alert.alert para o sucesso e dependia do botão OK para navegar. Esse diálogo não é implementado pelo React Native Web, impedindo a confirmação e o encaminhamento no navegador.
+- Login do painel chamava toast.error, mas o Toaster só existia no AdminLayout autenticado. A tela pública não tinha o componente que desenha os avisos. Respostas com error também não eram consideradas na mensagem do login.
+
+Alterações:
+
+- KatuApp/app/(auth)/register.tsx: usa notifySuccess do NotificationProvider global após sucesso do serviço e navega ao login. O aviso persiste durante a navegação; rejeições continuam no formulário, sem sucesso falso. Não foi alterada a política de sessão existente.
+- Katua_Web/frontend/src/App.jsx: passa a montar um único Toaster global.
+- Katua_Web/frontend/src/layouts/AdminLayout.jsx: remove o Toaster local para evitar duplicidade.
+- Katua_Web/frontend/src/pages/authentication/Login.jsx: aceita mensagens em error, preserva os erros por campo e também exibe aviso ao receber errors.
+- KatuApp/server/tests/operational/run-local-validation.mjs: acrescenta cenários de navegador com formulários reais, API local real e banco isolado. Contextos do navegador são encerrados apenas no teardown para compatibilidade com Chromium portátil em modo single-process.
+
+Verificações executadas:
+
+- Painel: npm run build e ESLint dos três arquivos alterados passaram. Build mantém o aviso de tamanho de bundle já existente.
+- App: ESLint de app/(auth)/register.tsx passou. Expo Web compilou e executou no Chromium.
+- Validação integrada: 15 cenários passaram, incluindo os cenários anteriores de rotas/frotas e os dois novos grupos de notificações.
+- Login sem credenciais exibe Informe email e senha.; login com credenciais inválidas recebe rejeição real da API, exibe E-mail ou senha inválidos., permanece no login e não cria token.
+- Cadastro com e-mail existente exibe o erro retornado e não mostra sucesso. Cadastro de cooperativa válido mostra uma única confirmação na tela de login e a consulta SQL comprova a criação da cooperativa. Recarregar não repete o aviso.
+- Resultado sanitizado: [resultados da validação](validacao-notificacoes-2026-10-19.json). Execução em Chromium, Expo Web, Fastify/Prisma e PostgreSQL WASM/PGlite locais. Tráfego do bundle direcionado à API local, sem acesso à VPS.
+
+| Item | Prioridade | Estado | Pendência |
+| --- | --- | --- | --- |
+| Aviso do cadastro público no navegador | P1 | validado | Publicação pelo responsável |
+| Aviso de falha no login público do painel | P1 | validado | Publicação pelo responsável |
+| Entrega dos dois avisos na VPS | P1 | pendente de publicação | Atualização e conferência pelo responsável |
+| Verificação visual do cadastro em Android/iOS | P2 | a confirmar | Dispositivo ou emulador não disponível nesta sessão |
+
+Resumo de continuidade: decisões e arquivos acima; alterações restritas à apresentação das notificações e seus testes, sem mudanças na API ou no esquema do banco. Próximo passo: responsável publicar e conferir os dois fluxos no ambiente utilizado. Não houve deploy, alteração da VPS, migração, exclusão de dados ou observação em produção. As pendências anteriores de tipos, lockfile e concorrência nativa continuam registradas nas etapas anteriores.
