@@ -102,6 +102,7 @@ const userSelect = {
 } satisfies Prisma.UserSelect;
 
 const collectionInclude = {
+  bin: {select:{id:true,binId:true,name:true,location:true,street:true,number:true,neighborhood:true,city:true,state:true,latitude:true,longitude:true}},
   generator: true,
   collector: true,
   driver: true,
@@ -940,6 +941,11 @@ export class CollectionService {
         },
         include: collectionInclude,
       });
+
+      if (collection.binId) {
+        await transaction.bin.update({where:{id:collection.binId},data:{needsPickup:false,pickupReason:null}});
+        await transaction.binEvent.create({data:{binId:collection.binId,cooperativeId:collection.cooperativeId,kind:"PICKUP_COLLECTED",actorUserId:authUserId,actorName:authenticatedUser?.displayName || null,notes:"Retirada finalizada em campo. Recebimento e destinação seguem o fluxo de resíduos.",data:{collectionId:collection.id}}});
+      }
 
       await transaction.collector.update({
         where: { id: collectorId },

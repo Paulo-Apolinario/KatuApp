@@ -364,6 +364,7 @@ model Collection {
   generatorId   String?
   collectorId   String?
   scheduleId    String? @unique
+  binId         String?
 
   driverId  String?
   vehicleId String?
@@ -406,6 +407,7 @@ model Collection {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  bin         Bin?        @relation(fields: [binId], references: [id], onDelete: SetNull)
   collector   Collector?  @relation(fields: [collectorId], references: [id], onDelete: SetNull)
   cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
   generator   Generator?  @relation(fields: [generatorId], references: [id], onDelete: SetNull)
@@ -426,6 +428,7 @@ model Collection {
   collectionWasteEntries  CollectionWasteEntry[]
   generatedWasteStockLots WasteStockLot[]        @relation("WasteStockLotOriginCollection")
 
+  @@index([binId])
   @@index([cooperativeId])
   @@index([generatorId])
   @@index([collectorId])
@@ -794,19 +797,44 @@ model WasteStockLot {
 }
 
 model Bin {
-  id                 String    @id @default(cuid())
+  id                 String       @id @default(cuid())
   cooperativeId      String
   vehicleId          String?
   binId              String
+  name               String?
+  pointKind          String       @default("PEV")
+  zipCode            String?
+  street             String?
+  number             String?
+  neighborhood       String?
+  city               String?
+  state              String?
+  regional           String?
+  reference          String?
+  latitude           Float?
+  longitude          Float?
+  acceptedMaterials  String[]     @default([])
+  restrictions       String?
+  openingHours       Json?
+  hoursExceptions    String?
+  responsibleName    String?
+  responsibleContact String?
+  capacityValue      Float?
+  capacityUnit       String?
+  needsPickup        Boolean      @default(false)
+  pickupReason       String?
+  inspectionAt       DateTime?
+  events             BinEvent[]
+  collections        Collection[]
   binType            String?
   location           String?
   capacityKg         Float?
   notes              String?
   photoUrl           String?
   lastCollectionDate DateTime?
-  status             BinStatus @default(ACTIVE)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  status             BinStatus    @default(ACTIVE)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
   vehicle     Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
@@ -1075,4 +1103,22 @@ model AuthEmailToken {
 
   @@index([userId, purpose, createdAt])
   @@index([expiresAt])
+}
+
+model BinEvent {
+  id               String    @id @default(cuid())
+  binId            String
+  cooperativeId    String
+  kind             String
+  notes            String?
+  data             Json?
+  actorUserId      String
+  actorName        String?
+  createdAt        DateTime  @default(now())
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  bin              Bin       @relation(fields: [binId], references: [id], onDelete: Restrict)
+
+  @@index([binId, createdAt])
+  @@index([cooperativeId])
 }

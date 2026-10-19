@@ -113,6 +113,7 @@ const collectionEntryInclude = {
 
   collection: {
     include: {
+      bin: {select:{id:true,binId:true,name:true,location:true,street:true,number:true,neighborhood:true,city:true,state:true,latitude:true,longitude:true}},
       schedule: {
         select: {
           id: true,

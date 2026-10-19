@@ -138,6 +138,7 @@ const destinationInclude = {
 
       collection: {
         select: {
+          bin: {select:{id:true,binId:true,name:true}},
           id: true,
           status: true,
           totalWeightKg: true,
