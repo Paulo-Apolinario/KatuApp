@@ -280,7 +280,7 @@ export default function RotaDetalheScreen() {
     if (!rota) return;
 
     setEditName(rota.name);
-    setEditDate(formatDate(rota.scheduledDate));
+    setEditDate(rota.scheduledDate ? formatDate(rota.scheduledDate) : "");
     setEditDescription(rota.description || "");
     setEditStopsInput((rota.stops || []).join("\n"));
     setEditDriverId(rota.driverId || rota.driver?.id || "");

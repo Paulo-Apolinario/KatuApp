@@ -140,7 +140,7 @@ async function syncRouteStatus(payload: SyncRoutePayload) {
       status: route.status ?? null,
       driverId: route.driverId ?? null,
       scheduledDate: route.scheduledDate ?? null,
-      payload: route,
+      payload: { ...route, syncStatus: "SYNCED" },
       updatedAt: route.updatedAt ?? new Date().toISOString(),
     },
   ]);
@@ -161,11 +161,13 @@ async function processSyncItem(item: PendingSyncItem) {
     }
 
     await markSyncItemSynced(item.id);
+    return true;
   } catch (error: any) {
     await markSyncItemError(
       item.id,
       error?.message || "Erro desconhecido na sincronização."
     );
+    return false;
   }
 }
 
@@ -190,16 +192,23 @@ export async function syncPendingOperations() {
     };
   }
 
+  let synced = 0;
+  let failed = 0;
   for (const item of pendingItems) {
-    await processSyncItem(item);
+    if (await processSyncItem(item)) synced += 1;
+    else failed += 1;
   }
 
   await clearSyncedSyncItems();
 
   return {
-    success: true,
-    message: "Sincronização concluída.",
+    success: failed === 0,
+    message: failed > 0
+      ? `${synced} operação(ões) sincronizada(s); ${failed} com erro. As operações com erro permanecem na fila para revisão ou nova tentativa.`
+      : "Sincronização concluída.",
     processed: pendingItems.length,
+    synced,
+    failed,
   };
 }
 

@@ -50,9 +50,9 @@ Arquivos alterados no Katua_Web:
 - App: análise sintática/transpilação dos dois TSX passou. Não foi executado build Expo nem teste em dispositivo.
 - npm run check do backend falha com TS2345 em collection-waste-destinations.controller.ts:122: stockItemId aceita null no schema, mas a assinatura do serviço restringe a string. A mesma falha foi reproduzida em uma cópia do HEAD anterior às alterações. Nenhum diagnóstico novo nos módulos alterados.
 
-## Validação operacional ainda necessária
+## Validação operacional — registro das etapas 1 e 2
 
-Não foram utilizados PostgreSQL real, contas de operação, navegador autenticado, dispositivo móvel ou produção. A simulação de transação não comprova rollback/isolamento do PostgreSQL nem a ausência de conflitos reais entre processos.
+Até a etapa 2, não haviam sido utilizados banco integrado ou navegador autenticado. Os testes locais adicionais e seus limites estão documentados na etapa 3 ao final e no relatório de validação vinculado abaixo. A simulação de transação das etapas anteriores não comprova isolamento do PostgreSQL nem ausência de conflitos entre processos.
 
 Em ambiente de desenvolvimento isolado, após integrar backend e painel:
 
@@ -68,10 +68,11 @@ Estados utilizados: a confirmar, confirmado, em implementação, validado, pende
 
 | Item | Estado | Prioridade | Evidência / impacto / dependência |
 | --- | --- | --- | --- |
-| Contratos de edição de veículos/rotas | em implementação | P0 | Código e testes preparados; validação operacional real pendente. Publicação na VPS não realizada. |
-| Testes de contrato desta etapa | validado | P0 | 8 testes backend e 2 web, com limites acima. |
-| Estados COLLECTED/RECEIVED/SORTING no app e contadores | em implementação | P0 | Corrigidos na etapa 2, com testes; validação operacional real pendente. |
-| Encerramento de rota e liberação dos recursos | em implementação | P0 | Marco confirmado pelo responsável: finalização em campo. Regra implementada; disponibilidade completa entre rotas continua pendente. |
+| Edição de veículos/rotas no painel e API | validado | P0 | Chromium, recarga e nova consulta a Fastify/Prisma/PGlite passaram. Limites do banco WASM abaixo. |
+| Edição da equipe no app nativo | em implementação | P0 | Expo Web passou com recarga; Android/iOS ainda não executados. |
+| Testes de contrato e regressão | validado | P0 | Etapa 3: 17 testes de serviços/contrato (inclui agrupador) e 4 web passaram, com limites documentados. |
+| Estados COLLECTED/RECEIVED/SORTING e contadores | validado | P0 | Testes de contrato e integração local passaram; dispositivo nativo ainda pendente. |
+| Encerramento da rota ao finalizar em campo | validado | P0 | API com PGlite confirmou conclusão com cancelamentos mistos e bloqueio com pendências, sem alterar coletas. Disponibilidade completa segue em item separado. |
 | Exclusividade entre rotas, disponibilidade e vínculos encerrados | confirmado | P0 | Regras ainda incompletas; transação desta etapa não resolve dupla atribuição entre rotas. |
 | Atribuições antigas | confirmado | P1 | Telas antigas ainda registradas. Uso real e funcionalidades a preservar: a confirmar. |
 | Indicador totalColetado | confirmado | P1 | Valor artificial zero no app; depende de agregação real e período definido. |
@@ -79,12 +80,18 @@ Estados utilizados: a confirmar, confirmado, em implementação, validado, pende
 | Manutenção, documentos e bloqueios | a confirmar | P1 | Confirmar contratos e definir situações de alerta/bloqueio com operação. |
 | Offline, cache e permissões transversais | a confirmar | P0 | Isolamento e conflitos completos não cobertos por esta etapa. |
 | Paradas estruturadas e roteirização | a confirmar | P2 | Separador corrigido; sequência, ruas, ETA e serviços externos ainda não implementados. |
+| Tipos do app: exportações e materiais de agendamento | confirmado | P1 | Checagem completa reproduziu falhas de ScheduleStatus, translateCollectionStatus e MaterialType, também na base anterior. Escopo separado. |
+| Concorrência em PostgreSQL nativo | a confirmar | P0 | Não executada: ambiente só dispõe de UID root e não inicia PostgreSQL nativo. PGlite não substitui este teste. |
+| Execução em Android/iOS | a confirmar | P0 | Nenhum dispositivo/emulador disponível. Expo Web não equivale a execução nativa. |
+| Sincronização informa falhas parciais | validado | P0 | Erro confirmado e corrigido na etapa 3; rejeição e sucesso mistos testados com SQLite e API local. |
+| Edição da equipe em rota sem data | validado | P0 | Campo de data deixava texto de exibição impedir salvamento; corrigido e validado em Expo Web. |
+| Publicação das etapas 1–3 na VPS | pendente de publicação | P0 | Código no GitHub; nenhuma ação na VPS executada. Publicação depende do responsável. |
 | Falha prévia de tipos em destinação | confirmado | P1 | TS2345 com stockItemId nullable. Escopo diferente; apresentar correção antes de implementar. |
 | Lockfile incompleto do painel | confirmado | P1 | npm ci falha antes de qualquer alteração. Avaliar reparo próprio e validar instalação reproduzível. |
 
 ## Continuidade
 
-Concluir validação operacional das etapas 1 e 2 em desenvolvimento, sem declarar funcionamento observado em produção. O marco de encerramento foi definido na etapa 2 abaixo. Próximos ajustes serão apresentados pelo responsável; demais itens do backlog permanecem pendentes. Nenhum deploy, migração ou exclusão de dados autorizado nesta entrega.
+A validação local integrada foi executada na etapa 3 abaixo. Restam concorrência em PostgreSQL nativo e Android/iOS. O marco de encerramento está definido na etapa 2. Demais ajustes funcionais permanecem no backlog. Nenhum deploy, migração em produção ou exclusão de dados operacionais foi executado.
 
 
 ## Etapa 2 — encerramento em campo e edição da equipe
@@ -128,3 +135,21 @@ Verificações da etapa 2:
 - A checagem completa de tipos do backend continua impedida apenas pelo erro prévio TS2345 de destinação, já documentado. O lockfile do painel permanece com a pendência anterior.
 
 Validação operacional pendente: recarregar painel após trocar/remover motorista/veículo; repetir no app com IDs e relações; concluir rota com todas as coletas finalizadas e cancelamentos mistos; verificar bloqueio quando houver pendências; conferir os vínculos e estados pós-coleta; simular rejeição e reconexão offline; testar concorrência com PostgreSQL real. Não houve deploy, alteração na VPS ou observação em produção.
+
+
+## Etapa 3 — validação integrada em desenvolvimento
+
+Autorização do responsável: executar os cenários operacionais pendentes, sem deploy. Foram usados dados demonstrativos e credenciais geradas só para teste. Chamadas do navegador foram limitadas ao ambiente local; as URLs de produção presentes no bundle Expo foram interceptadas e atendidas pela API local, sem tráfego para a VPS.
+
+Resultados e limites: [relatório de validação](validacao-rotas-frotas-2026-10-19.md) e [resultados das verificações](validacao-rotas-frotas-2026-10-19.json).
+
+Passaram em integração local: troca/remoção da equipe e edição de veículo no painel com recarga; troca/remoção da equipe em Expo Web com recarga; consultas posteriores ao banco; conclusão com COLLECTED e CANCELLED sem mudar o histórico; bloqueio por pendências sem gravação parcial; JWT, perfil DRIVER e isolamento por cooperativa; rollback provocado por trigger SQL; fila offline com SQLite, rejeição do servidor e reconexão.
+
+Duas falhas foram encontradas e corrigidas durante a execução:
+
+1. src/offline/syncEngine.ts informava success=true mesmo com itens ERROR. Agora informa falha parcial e contagens de êxitos/erros; itens rejeitados permanecem na fila, e confirmações bem-sucedidas são marcadas SYNCED no cache.
+2. app/(cooperativa)/rotas/[id].tsx usava o texto de exibição “Não informada” como data no formulário de edição. Agora uma data ausente entra como campo vazio, permitindo editar a equipe sem inventar uma data.
+
+Foram adicionados server/tests/sync-engine-contract.test.ts e os arquivos server/tests/operational/local-server.ts, run-local-validation.mjs e offline-checks.mjs para repetir a validação isolada. Nenhuma dependência de produção foi alterada.
+
+Não considerar concluídos: concorrência em PostgreSQL nativo, execução Android/iOS, isolamento integral de cache entre contas e validação completa da cadeia entrada/destinação/lote. Permanecem sem implementação os demais itens funcionais do backlog. Não houve deploy, migração em produção nem uso de contas/dados operacionais.
