@@ -27,7 +27,7 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
 
-  APP_WEB_URL: z.string().default("https://katua.coleta.app.br"),
+  APP_WEB_URL: z.string().default("https://app.katua.com.br"),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://katua.coleta.app.br/api"
+        "EXPO_PUBLIC_API_BASE_URL": "https://vps.katua.com.br"
       }
     },
     "preview": {
@@ -17,13 +17,13 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://katua.coleta.app.br/api"
+        "EXPO_PUBLIC_API_BASE_URL": "https://vps.katua.com.br"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://katua.coleta.app.br/api"
+        "EXPO_PUBLIC_API_BASE_URL": "https://vps.katua.com.br"
       }
     }
   },
