@@ -61,7 +61,7 @@ export default function RotaDetalheScreen() {
 
   function normalizeStops(value: string) {
     return value
-      .split(",")
+      .split(/\r?\n/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
@@ -269,7 +269,7 @@ export default function RotaDetalheScreen() {
     setEditName(rota.name);
     setEditDate(formatDate(rota.scheduledDate));
     setEditDescription(rota.description || "");
-    setEditStopsInput((rota.stops || []).join(", "));
+    setEditStopsInput((rota.stops || []).join("\n"));
     setEditDriverId(rota.driver?.id || "");
     setEditVehicleId(rota.vehicle?.id || "");
 
@@ -623,7 +623,7 @@ export default function RotaDetalheScreen() {
             <TextInput
               value={editStopsInput}
               onChangeText={setEditStopsInput}
-              placeholder="Separe por vírgula"
+              placeholder="Digite uma parada por linha"
               placeholderTextColor="#9CA3AF"
               multiline
               style={textareaStyle}

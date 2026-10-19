@@ -36,9 +36,9 @@ export const updateRouteStatusSchema = z.object({
 });
 
 export const updateRouteAssignmentsSchema = z.object({
-  driverId: z.string().nullable().optional(),
-  vehicleId: z.string().nullable().optional(),
-  name: z.string().min(2, "Nome inválido").optional(),
+  driverId: z.string().trim().min(1).nullable().optional(),
+  vehicleId: z.string().trim().min(1).nullable().optional(),
+  name: z.string().trim().min(2, "Nome inválido").optional(),
   description: z.string().nullable().optional(),
 
   // 🔥 DATA BR TAMBÉM AQUI
@@ -48,8 +48,12 @@ export const updateRouteAssignmentsSchema = z.object({
     .nullable()
     .optional(),
 
+  status: z.enum(["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+
   // 🔥 STOPS TIPADO CORRETAMENTE
   stops: z.array(z.string().min(1, "Parada inválida")).optional(),
+}).strict().refine((data) => Object.values(data).some((value) => value !== undefined), {
+  message: "Informe ao menos um campo para atualizar.",
 });
 
 export type CreateRouteInput = z.infer<typeof createRouteSchema>;

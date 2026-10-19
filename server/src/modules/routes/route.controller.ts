@@ -129,9 +129,9 @@ export class RouteController {
         route,
       });
     } catch (error: any) {
-      return reply.status(400).send({
+      return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: error.message || "Erro ao atualizar rota.",
+        error: error.code === "P2034" ? "A rota foi alterada simultaneamente. Recarregue e tente novamente." : error.message || "Erro ao atualizar rota.",
       });
     }
   }
@@ -160,9 +160,9 @@ export class RouteController {
         route,
       });
     } catch (error: any) {
-      return reply.status(400).send({
+      return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: error.message || "Erro ao atualizar status da rota.",
+        error: error.code === "P2034" ? "A rota foi alterada simultaneamente. Recarregue e tente novamente." : error.message || "Erro ao atualizar status da rota.",
       });
     }
   }

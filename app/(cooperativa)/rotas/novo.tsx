@@ -33,7 +33,7 @@ function formatDateInput(value: string) {
 
 function normalizeStopsInput(value: string) {
   return value
-    .split(",")
+    .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
@@ -381,7 +381,7 @@ export default function NovaRotaScreen() {
           <TextInput
             value={stopsInput}
             onChangeText={setStopsInput}
-            placeholder="Separe por vírgula. Ex: Cooperativa, Mercado Central, Praia"
+            placeholder="Digite uma parada por linha. Ex: Rua A, 123"
             placeholderTextColor="#9CA3AF"
             multiline
             style={textareaStyle}
