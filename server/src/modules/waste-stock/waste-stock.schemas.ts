@@ -302,6 +302,12 @@ export const createWasteStockItemSchema = z.object({
 export const updateWasteStockItemSchema =
   createWasteStockItemSchema
     .partial()
+    .extend({
+      subcategory: z.string().trim().max(100).nullable().optional(),
+      ncm: z.string().trim().max(20).nullable().optional(),
+      internalCode: z.string().trim().max(50).nullable().optional(),
+      description: z.string().trim().max(1500).nullable().optional(),
+    })
     .refine(
       (data) =>
         Object.values(data).some(
@@ -401,16 +407,16 @@ export const updateWasteStockLotSchema = z
     ),
 
     storageLocation:
-      optionalTrimmedString(255),
+      z.string().trim().max(255).nullable().optional(),
 
     processingStage:
       optionalEnumValue(
         wasteProcessingStageSchema
       ),
 
-    origin: optionalTrimmedString(255),
+    origin: z.string().trim().max(255).nullable().optional(),
 
-    notes: optionalTrimmedString(1500),
+    notes: z.string().trim().max(1500).nullable().optional(),
 
     status: optionalEnumValue(
       wasteLotStatusSchema

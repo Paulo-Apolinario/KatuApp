@@ -614,6 +614,7 @@ export const cancelWasteDestinationBodySchema =
 
 export const wasteDestinationListQuerySchema =
   z.object({
+    status: z.enum(["ACTIVE", "CANCELLED"]).optional(),
     collectionWasteEntryId:
       optionalTrimmedString(
         "Entrada de resíduo coletado",
@@ -740,6 +741,7 @@ export const wasteDestinationListQuerySchema =
 
 export const entryWasteDestinationListQuerySchema =
   z.object({
+    status: z.enum(["ACTIVE", "CANCELLED"]).optional(),
     type:
       wasteDestinationTypeSchema
         .optional(),

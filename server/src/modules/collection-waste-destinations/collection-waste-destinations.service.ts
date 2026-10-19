@@ -531,6 +531,7 @@ export class CollectionWasteDestinationsService {
     const dateTo = filters.dateTo ? new Date(filters.dateTo) : undefined;
 
     return {
+      ...(filters.status ? { status: filters.status } : {}),
       ...("collectionWasteEntryId" in filters && filters.collectionWasteEntryId
         ? { collectionWasteEntryId: filters.collectionWasteEntryId }
         : {}),
@@ -692,6 +693,8 @@ export class CollectionWasteDestinationsService {
 
     const transactionResult = await prisma.$transaction(
       async (transaction): Promise<DestinationCreateTransactionResult> => {
+        // Todas as movimentações desta entrada compartilham a mesma trava transacional.
+        await transaction.$queryRaw`SELECT id FROM "CollectionWasteEntry" WHERE id = ${data.collectionWasteEntryId} FOR UPDATE`;
         const entry = await transaction.collectionWasteEntry.findUnique({
           where: { id: data.collectionWasteEntryId },
           include: {
@@ -1095,12 +1098,13 @@ export class CollectionWasteDestinationsService {
     authUserId: string,
     authUserRole: string,
     destinationId: string,
-    data: UpdateWasteDestinationBody & { type?: WasteDestinationType, stockItemId?: string }
+    data: UpdateWasteDestinationBody
   ) {
     const context = await this.getAccessContext(authUserId, authUserRole);
     this.assertCanManageDestinations(context);
 
     const destination = await prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT e.id FROM "CollectionWasteEntry" e JOIN "CollectionWasteDestination" d ON d."collectionWasteEntryId" = e.id WHERE d.id = ${destinationId} FOR UPDATE OF e`;
       const existing = await transaction.collectionWasteDestination.findFirst({
         where: {
           AND: [{ id: destinationId }, this.buildAccessWhere(context)],
@@ -1132,7 +1136,7 @@ export class CollectionWasteDestinationsService {
           const originalQuantity = normalizeNumber(existing.stockLot.quantity);
           const availableQuantity = normalizeNumber(existing.stockLot.availableQuantity);
 
-          if (!quantitiesAreEqual(originalQuantity, availableQuantity)) {
+          if ([WasteLotStatus.SOLD, WasteLotStatus.DISCARDED, WasteLotStatus.CANCELLED].some(status => status === existing.stockLot?.status) || !quantitiesAreEqual(originalQuantity, availableQuantity)) {
             throw new WasteDestinationDomainError(
               "O lote gerado já possui movimentações (foi vendido ou alterado). Você precisa desfazer essas movimentações antes de mudar o tipo de destinação.",
               { statusCode: 409, code: "STOCK_LOT_HAS_MOVEMENTS" }
@@ -1284,6 +1288,7 @@ export class CollectionWasteDestinationsService {
     this.assertCanManageDestinations(context);
 
     const result = await prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT e.id FROM "CollectionWasteEntry" e JOIN "CollectionWasteDestination" d ON d."collectionWasteEntryId" = e.id WHERE d.id = ${destinationId} FOR UPDATE OF e`;
       const destination = await transaction.collectionWasteDestination.findFirst({
         where: {
           AND: [{ id: destinationId }, this.buildAccessWhere(context)],
@@ -1312,7 +1317,7 @@ export class CollectionWasteDestinationsService {
         const originalQuantity = normalizeNumber(destination.stockLot.quantity);
         const availableQuantity = normalizeNumber(destination.stockLot.availableQuantity);
 
-        if (!quantitiesAreEqual(originalQuantity, availableQuantity)) {
+        if ([WasteLotStatus.SOLD, WasteLotStatus.DISCARDED, WasteLotStatus.CANCELLED].some(status => status === destination.stockLot?.status) || !quantitiesAreEqual(originalQuantity, availableQuantity)) {
           throw new WasteDestinationDomainError(
             "O lote já possui movimentações e não pode ser cancelado automaticamente.",
             {

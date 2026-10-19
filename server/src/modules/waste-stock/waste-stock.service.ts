@@ -811,6 +811,8 @@ export class WasteStockService {
           ),
 
           unit: normalizeUnit(data.unit),
+          defaultUnit: normalizeUnit(data.unit),
+          isActive: data.status !== WasteStockStatus.INACTIVE,
 
           ncm: normalizeNcm(data.ncm),
 
@@ -912,6 +914,7 @@ export class WasteStockService {
           ...(data.unit !== undefined
             ? {
                 unit: data.unit,
+                defaultUnit: data.unit,
               }
             : {}),
 
@@ -951,6 +954,7 @@ export class WasteStockService {
           ...(data.status !== undefined
             ? {
                 status: data.status,
+                isActive: data.status === WasteStockStatus.ACTIVE,
               }
             : {}),
         },
@@ -1004,6 +1008,7 @@ export class WasteStockService {
         },
 
         data: {
+          isActive: false,
           status:
             WasteStockStatus.INACTIVE,
         },
@@ -1110,6 +1115,7 @@ export class WasteStockService {
           lotCode,
 
           quantity,
+          availableQuantity: quantity,
 
           quantityKg:
             quantityToKgCompatibility(
@@ -1164,6 +1170,20 @@ export class WasteStockService {
         lotId
       );
 
+    if (currentLot.status === WasteLotStatus.CANCELLED) {
+      throw new Error("Lote cancelado é mantido somente para consulta do histórico.");
+    }
+
+    const linked = !!(currentLot.originCollectionWasteEntryId || currentLot.originCollectionId || currentLot.originCollectionMaterialId);
+    const changesOrigin =
+      (data.quantity !== undefined && Number(data.quantity) !== getEffectiveLotQuantity(currentLot)) ||
+      (data.unit !== undefined && data.unit !== currentLot.unit) ||
+      (data.lotCode !== undefined && data.lotCode !== (currentLot.lotCode || currentLot.code)) ||
+      (data.origin !== undefined && normalizeText(data.origin) !== currentLot.origin);
+    if (linked && changesOrigin) {
+      throw new Error("Lote vinculado a uma coleta: quantidade, unidade, código e origem devem ser preservados. Consulte a destinação de origem.");
+    }
+
     if (data.lotCode !== undefined) {
       await this.ensureUniqueLotCode(
         cooperative.id,
@@ -1204,6 +1224,7 @@ export class WasteStockService {
           ...(data.quantity !== undefined
             ? {
                 quantity: nextQuantity,
+                ...(!linked && (Number(currentLot.availableQuantity) === 0 || Number(currentLot.availableQuantity) === getEffectiveLotQuantity(currentLot)) ? { availableQuantity: nextQuantity } : {}),
 
                 quantityKg:
                   quantityToKgCompatibility(
