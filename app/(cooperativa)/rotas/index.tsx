@@ -535,8 +535,8 @@ export default function RotasScreen() {
                     color="#10B981"
                   />
                   <MiniStat
-                    label="Concluídas"
-                    value={String(item.stats?.completedCollections ?? 0)}
+                    label="Finalizadas em campo"
+                    value={String(item.stats?.fieldCompletedCollections ?? 0)}
                     color="#2563EB"
                   />
                   <MiniStat

@@ -217,9 +217,9 @@ export class RouteController {
         collection,
       });
     } catch (error: any) {
-      return reply.status(400).send({
+      return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: error.message || "Erro ao adicionar coleta na rota.",
+        error: error.code === "P2034" ? "A rota ou coleta foi alterada simultaneamente. Recarregue e tente novamente." : error.message || "Erro ao adicionar coleta na rota.",
       });
     }
   }
@@ -247,9 +247,9 @@ export class RouteController {
         collection,
       });
     } catch (error: any) {
-      return reply.status(400).send({
+      return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: error.message || "Erro ao remover coleta da rota.",
+        error: error.code === "P2034" ? "A rota ou coleta foi alterada simultaneamente. Recarregue e tente novamente." : error.message || "Erro ao remover coleta da rota.",
       });
     }
   }

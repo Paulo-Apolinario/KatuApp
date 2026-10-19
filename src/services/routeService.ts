@@ -21,6 +21,10 @@ export interface RouteStats {
   inProgressCollections: number;
   completedCollections: number;
   cancelledCollections: number;
+  collectedCollections: number;
+  receivedCollections: number;
+  sortingCollections: number;
+  fieldCompletedCollections: number;
 }
 
 export interface RouteItem {
@@ -66,6 +70,7 @@ export interface RouteItem {
   collections?: Collection[];
   activeCollections?: Collection[];
   stats?: RouteStats | null;
+  syncStatus?: "SYNCED" | "PENDING";
 }
 
 type BackendRoute = {
@@ -239,6 +244,9 @@ function normalizeStatus(status?: string): RouteStatus {
 
 function normalizeCollectionStatus(status?: string): CollectionStatus {
   if (status === "IN_PROGRESS") return "IN_PROGRESS";
+  if (status === "COLLECTED") return "COLLECTED";
+  if (status === "RECEIVED") return "RECEIVED";
+  if (status === "SORTING") return "SORTING";
   if (status === "COMPLETED") return "COMPLETED";
   if (status === "CANCELLED") return "CANCELLED";
   return "PENDING";
@@ -344,6 +352,13 @@ function normalizeStats(stats?: Partial<RouteStats> | null): RouteStats {
     inProgressCollections: Number(stats?.inProgressCollections ?? 0),
     completedCollections: Number(stats?.completedCollections ?? 0),
     cancelledCollections: Number(stats?.cancelledCollections ?? 0),
+    collectedCollections: Number(stats?.collectedCollections ?? 0),
+    receivedCollections: Number(stats?.receivedCollections ?? 0),
+    sortingCollections: Number(stats?.sortingCollections ?? 0),
+    fieldCompletedCollections: Number(stats?.fieldCompletedCollections ?? (
+      Number(stats?.collectedCollections ?? 0) + Number(stats?.receivedCollections ?? 0) +
+      Number(stats?.sortingCollections ?? 0) + Number(stats?.completedCollections ?? 0)
+    )),
   };
 }
 
@@ -358,6 +373,7 @@ function normalizeRoute(route: BackendRoute): RouteItem {
     cooperativeId: route.cooperativeId ?? null,
     stops: Array.isArray(route.stops) ? route.stops : [],
     status: normalizeStatus(route.status),
+    syncStatus: "SYNCED",
     createdAt: route.createdAt,
     updatedAt: route.updatedAt,
 
@@ -468,6 +484,7 @@ async function saveRouteStatusOffline(
 
   const updatedRoute: RouteItem = {
     ...existing,
+    syncStatus: "PENDING",
     status,
     updatedAt: new Date().toISOString(),
   };
@@ -542,7 +559,7 @@ export const routeService = {
 
       const filtered = routes.filter((route) => route.driverId === driverId);
 
-      return sortByScheduledDateAsc(filtered.length > 0 ? filtered : routes);
+      return sortByScheduledDateAsc(filtered);
     } catch (error) {
       if (isApiNetworkError(error)) {
         const rows = await getRoutesByDriverFromCache(driverId);

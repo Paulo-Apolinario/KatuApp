@@ -70,8 +70,8 @@ Estados utilizados: a confirmar, confirmado, em implementação, validado, pende
 | --- | --- | --- | --- |
 | Contratos de edição de veículos/rotas | em implementação | P0 | Código e testes preparados; validação operacional real pendente. Publicação na VPS não realizada. |
 | Testes de contrato desta etapa | validado | P0 | 8 testes backend e 2 web, com limites acima. |
-| Estados COLLECTED/RECEIVED/SORTING no app e contadores | confirmado | P0 | Normalizador volta a PENDING; contadores incompletos. Próxima etapa. |
-| Encerramento de rota e liberação dos recursos | a confirmar | P0 | Definir se marco é coleta/entrega/recebimento; separar transporte de destinação. |
+| Estados COLLECTED/RECEIVED/SORTING no app e contadores | em implementação | P0 | Corrigidos na etapa 2, com testes; validação operacional real pendente. |
+| Encerramento de rota e liberação dos recursos | em implementação | P0 | Marco confirmado pelo responsável: finalização em campo. Regra implementada; disponibilidade completa entre rotas continua pendente. |
 | Exclusividade entre rotas, disponibilidade e vínculos encerrados | confirmado | P0 | Regras ainda incompletas; transação desta etapa não resolve dupla atribuição entre rotas. |
 | Atribuições antigas | confirmado | P1 | Telas antigas ainda registradas. Uso real e funcionalidades a preservar: a confirmar. |
 | Indicador totalColetado | confirmado | P1 | Valor artificial zero no app; depende de agregação real e período definido. |
@@ -84,4 +84,47 @@ Estados utilizados: a confirmar, confirmado, em implementação, validado, pende
 
 ## Continuidade
 
-Primeiro concluir validação operacional da etapa 1 em desenvolvimento; não declarar funcionamento observado em produção. Em seguida alinhar os estados do ciclo da coleta, sem decidir silenciosamente o marco de encerramento do transporte. Nenhum deploy, migração ou exclusão de dados autorizado nesta entrega.
+Concluir validação operacional das etapas 1 e 2 em desenvolvimento, sem declarar funcionamento observado em produção. O marco de encerramento foi definido na etapa 2 abaixo. Próximos ajustes serão apresentados pelo responsável; demais itens do backlog permanecem pendentes. Nenhum deploy, migração ou exclusão de dados autorizado nesta entrega.
+
+
+## Etapa 2 — encerramento em campo e edição da equipe
+
+Decisão do responsável: o encerramento da rota ocorre mediante a finalização das coletas, sem aguardar recebimento físico, triagem ou destinação. A conclusão continua sendo uma ação manual; não foi introduzido encerramento automático.
+
+Implementação:
+
+- Ao pedir COMPLETED no PATCH geral ou dedicado, a transação exige ausência de PENDING/IN_PROGRESS e ao menos uma coleta em COLLECTED, RECEIVED, SORTING ou COMPLETED. Coletas CANCELLED não impedem conclusão; rota vazia ou só com cancelamentos não é considerada executada. Criar uma rota já concluída não contorna a regra.
+- Nenhuma transição de status da coleta é provocada pela conclusão da rota. Recebimento e destinação continuam separados. Concluir a rota não limpa motorista/veículo nem altera o status cadastral do veículo; preserva-se a identificação da equipe. Disponibilidade/exclusividade completa dos recursos continua no backlog.
+- activeCollections passa a significar coletas a executar em campo (PENDING/IN_PROGRESS). Contadores individuais de COLLECTED/RECEIVED/SORTING e fieldCompletedCollections foram adicionados sem alterar o significado de completedCollections, que continua COMPLETED.
+- Adição/remoção de coletas na rota usa transação Serializable, rejeita rotas encerradas e preserva vínculos das coletas que já finalizaram em campo. Permissões COOPERATIVE e isolamento por cooperativa permanecem.
+- Painel mostra nome do motorista e veículo (marca/modelo/placa) junto ao nome da rota e oferece a ação Editar equipe e rota. A edição mostra a equipe atualmente salva e informa conflitos entre o motorista escolhido e o vínculo cadastral do veículo.
+- App mostra a equipe no resumo com botão Editar motorista e veículo. Corrigidos os IDs iniciais e envio de null ao remover vínculos. A edição não obriga preencher data/paradas opcionais para alterar a equipe.
+- App preserva estados pós-coleta, mostra finalizações em campo e informa alterações de status offline como pendentes de confirmação. Trata-se de ajuste pontual: isolamento integral de cache/contas e tratamento completo de conflitos da fila continuam pendentes.
+- Filtro de motorista sem resultados deixa de retornar todas as rotas.
+
+Arquivos novos/alterados nesta etapa no KatuApp:
+
+- server/src/modules/routes/route.service.ts
+- server/src/modules/routes/route.controller.ts
+- server/tests/route-vehicle-contract.test.ts
+- server/tests/route-client-contract.test.ts
+- src/services/routeService.ts
+- app/(cooperativa)/rotas/[id].tsx
+- app/(cooperativa)/rotas/index.tsx
+- docs/rotas-frotas-acompanhamento.md
+
+No Katua_Web:
+
+- frontend/src/components/RouteAssignmentSummary.jsx
+- frontend/src/pages/route-management/RouteList.jsx
+- frontend/src/pages/route-management/EditRoute.jsx
+- frontend/tests/route-assignment-summary.test.mjs
+
+Verificações da etapa 2:
+
+- Em KatuApp/server: node --import tsx --test tests/route-vehicle-contract.test.ts tests/route-client-contract.test.ts — 15 testes passaram (inclui agrupador). Persistência, autenticação, rede e fila simuladas; não usa banco nem dispositivo reais.
+- Em Katua_Web/frontend: node --test tests/edit-contracts.test.mjs tests/route-assignment-summary.test.mjs — 4 testes passaram. Inclui renderização React em HTML para presença de motorista, modelo/placa e indicação de vínculos ausentes, sem teste visual de navegador.
+- Builds do backend e painel passaram; ESLint dos três arquivos de interface web da etapa passou. App: transpilação/análise sintática dos arquivos alterados passou, sem build Expo completo.
+- A checagem completa de tipos do backend continua impedida apenas pelo erro prévio TS2345 de destinação, já documentado. O lockfile do painel permanece com a pendência anterior.
+
+Validação operacional pendente: recarregar painel após trocar/remover motorista/veículo; repetir no app com IDs e relações; concluir rota com todas as coletas finalizadas e cancelamentos mistos; verificar bloqueio quando houver pendências; conferir os vínculos e estados pós-coleta; simular rejeição e reconexão offline; testar concorrência com PostgreSQL real. Não houve deploy, alteração na VPS ou observação em produção.

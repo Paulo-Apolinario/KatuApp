@@ -118,6 +118,9 @@ export default function RotaDetalheScreen() {
         return "#F59E0B";
       case "IN_PROGRESS":
         return "#10B981";
+      case "COLLECTED":
+      case "RECEIVED":
+      case "SORTING":
       case "COMPLETED":
         return "#2563EB";
       case "CANCELLED":
@@ -133,6 +136,12 @@ export default function RotaDetalheScreen() {
         return "PENDENTE";
       case "IN_PROGRESS":
         return "EM ANDAMENTO";
+      case "COLLECTED":
+        return "FINALIZADA EM CAMPO";
+      case "RECEIVED":
+        return "RECEBIDA";
+      case "SORTING":
+        return "EM TRIAGEM";
       case "COMPLETED":
         return "CONCLUÍDA";
       case "CANCELLED":
@@ -220,10 +229,14 @@ export default function RotaDetalheScreen() {
       setSavingStatus(true);
       const updated = await routeService.updateStatus(routeId, newStatus);
       setRota(updated);
-      notifySuccess("Status da rota atualizado com sucesso.");
+      if (updated.syncStatus === "PENDING") {
+        notifyInfo("Alteração salva localmente. Aguarde a sincronização e a confirmação do servidor.");
+      } else {
+        notifySuccess("Status da rota confirmado pelo servidor.");
+      }
     } catch (error) {
       console.error("Erro ao atualizar status da rota:", error);
-      notifyError("Não foi possível atualizar o status da rota.");
+      notifyError(error instanceof Error ? error.message : "Não foi possível atualizar o status da rota.");
     } finally {
       setSavingStatus(false);
     }
@@ -270,8 +283,8 @@ export default function RotaDetalheScreen() {
     setEditDate(formatDate(rota.scheduledDate));
     setEditDescription(rota.description || "");
     setEditStopsInput((rota.stops || []).join("\n"));
-    setEditDriverId(rota.driver?.id || "");
-    setEditVehicleId(rota.vehicle?.id || "");
+    setEditDriverId(rota.driverId || rota.driver?.id || "");
+    setEditVehicleId(rota.vehicleId || rota.vehicle?.id || "");
 
     setEditMode(true);
   }
@@ -288,32 +301,22 @@ export default function RotaDetalheScreen() {
       return;
     }
 
-    if (!editDate.trim()) {
-      notifyWarning("Informe a data da rota.");
-      return;
-    }
-
-    if (!isBrazilianDate(editDate)) {
+    if (editDate.trim() && !isBrazilianDate(editDate)) {
       notifyWarning("Use o formato DD/MM/AAAA.");
       return;
     }
 
     const normalizedStops = normalizeStops(editStopsInput);
 
-    if (normalizedStops.length === 0) {
-      notifyWarning("Informe pelo menos uma parada da rota.");
-      return;
-    }
-
     try {
       setSavingEdit(true);
 
       const updated = await routeService.update(routeId, {
         name: editName.trim(),
-        scheduledDate: editDate.trim(),
-        description: editDescription.trim() || undefined,
-        driverId: editDriverId || undefined,
-        vehicleId: editVehicleId || undefined,
+        scheduledDate: editDate.trim() || null,
+        description: editDescription.trim() || null,
+        driverId: editDriverId || null,
+        vehicleId: editVehicleId || null,
         stops: normalizedStops,
       });
 
@@ -323,7 +326,7 @@ export default function RotaDetalheScreen() {
       notifySuccess("Rota atualizada com sucesso.");
     } catch (error) {
       console.error("Erro ao editar rota:", error);
-      notifyError("Não foi possível atualizar a rota.");
+      notifyError(error instanceof Error ? error.message : "Não foi possível atualizar a rota.");
     } finally {
       setSavingEdit(false);
     }
@@ -335,6 +338,7 @@ export default function RotaDetalheScreen() {
       pendingCollections: rota?.stats?.pendingCollections ?? 0,
       inProgressCollections: rota?.stats?.inProgressCollections ?? 0,
       completedCollections: rota?.stats?.completedCollections ?? 0,
+      fieldCompletedCollections: rota?.stats?.fieldCompletedCollections ?? 0,
       cancelledCollections: rota?.stats?.cancelledCollections ?? 0,
     }),
     [rota]
@@ -351,13 +355,13 @@ export default function RotaDetalheScreen() {
   );
 
   const availableDrivers = useMemo(
-    () => drivers.filter((item) => item.status !== "INACTIVE"),
-    [drivers]
+    () => drivers.filter((item) => item.status !== "INACTIVE" || item.id === rota?.driverId),
+    [drivers, rota?.driverId]
   );
 
   const availableVehicles = useMemo(
-    () => vehicles.filter((item) => item.status !== "INACTIVE"),
-    [vehicles]
+    () => vehicles.filter((item) => item.status !== "INACTIVE" || item.id === rota?.vehicleId),
+    [vehicles, rota?.vehicleId]
   );
 
   const previewStops = useMemo(
@@ -550,6 +554,15 @@ export default function RotaDetalheScreen() {
           >
             Resumo operacional
           </Text>
+          <InfoRow label="Motorista da rota" value={rota.driver?.name || "Não vinculado"} />
+          <InfoRow label="Veículo da rota" value={[rota.vehicle?.brand, rota.vehicle?.model, rota.vehicle?.plate].filter(Boolean).join(" • ") || "Não vinculado"} />
+          <TouchableOpacity onPress={startEdit} accessibilityRole="button" accessibilityLabel="Editar motorista e veículo" style={{ marginVertical: 12 }}>
+            <Text style={{ color: "#028C56", fontWeight: "700" }}>Editar motorista e veículo</Text>
+          </TouchableOpacity>
+          <Text style={{ color: "#6B7280", marginBottom: 12 }}>Atribuições de coletas já finalizadas são preservadas.</Text>
+          {rota.syncStatus === "PENDING" && (
+            <Text style={{ color: "#92400E", marginBottom: 12 }}>Status local pendente de confirmação do servidor.</Text>
+          )}
 
           <View
             style={{
@@ -562,7 +575,7 @@ export default function RotaDetalheScreen() {
             <MetricCard label="Total" value={String(stats.totalCollections)} color="#111827" />
             <MetricCard label="Pendentes" value={String(stats.pendingCollections)} color="#F59E0B" />
             <MetricCard label="Em andamento" value={String(stats.inProgressCollections)} color="#10B981" />
-            <MetricCard label="Concluídas" value={String(stats.completedCollections)} color="#2563EB" />
+            <MetricCard label="Finalizadas em campo" value={String(stats.fieldCompletedCollections)} color="#2563EB" />
             <MetricCard label="Canceladas" value={String(stats.cancelledCollections)} color="#DC2626" />
             <MetricCard label="Paradas" value={String(rota.stops?.length || 0)} color="#7C3AED" />
           </View>
@@ -587,7 +600,7 @@ export default function RotaDetalheScreen() {
                 marginBottom: 14,
               }}
             >
-              Editar rota
+              Editar rota, motorista e veículo
             </Text>
 
             <FieldLabel label="Nome da rota" />
@@ -693,6 +706,9 @@ export default function RotaDetalheScreen() {
             </View>
 
             <FieldLabel label="Motorista" />
+            <TouchableOpacity onPress={() => setEditDriverId("")} style={chipStyle(!editDriverId)}>
+              <Text style={chipTextStyle(!editDriverId)}>Sem motorista</Text>
+            </TouchableOpacity>
             {availableDrivers.length === 0 ? (
               <EmptyInline text="Nenhum motorista disponível." />
             ) : (
@@ -722,6 +738,9 @@ export default function RotaDetalheScreen() {
             )}
 
             <FieldLabel label="Veículo" />
+            <TouchableOpacity onPress={() => setEditVehicleId("")} style={chipStyle(!editVehicleId)}>
+              <Text style={chipTextStyle(!editVehicleId)}>Sem veículo</Text>
+            </TouchableOpacity>
             {availableVehicles.length === 0 ? (
               <EmptyInline text="Nenhum veículo disponível." />
             ) : (
@@ -819,7 +838,7 @@ export default function RotaDetalheScreen() {
                   : "Não informado"
               }
             />
-            <InfoRow label="Coletas ativas" value={String(activeCollections.length)} />
+            <InfoRow label="Coletas a finalizar em campo" value={String(activeCollections.length)} />
 
             <Text
               style={{
@@ -895,6 +914,7 @@ export default function RotaDetalheScreen() {
             Ações rápidas
           </Text>
 
+          <Text style={{ color: "#6B7280", marginBottom: 12 }}>Conclua a rota após finalizar as coletas em campo. Recebimento e triagem continuam separados.</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
             {statusOptions.map((option) => {
               const isCurrent = rota.status === option.value;
@@ -946,6 +966,7 @@ export default function RotaDetalheScreen() {
           {currentCollections.length > 0 ? (
             currentCollections.map((item) => {
               const isMutating = mutatingCollectionId === item.id;
+              const canRemoveCollection = ["PENDING", "IN_PROGRESS"].includes(item.status) && !["COMPLETED", "CANCELLED"].includes(rota.status);
 
               return (
                 <View
@@ -1044,7 +1065,7 @@ export default function RotaDetalheScreen() {
                   </View>
 
                   <TouchableOpacity
-                    disabled={isMutating}
+                    disabled={isMutating || !canRemoveCollection}
                     onPress={() => removeCollection(item.id)}
                     style={{
                       marginTop: 12,
@@ -1062,7 +1083,7 @@ export default function RotaDetalheScreen() {
                         fontSize: 12,
                       }}
                     >
-                      {isMutating ? "Removendo..." : "Remover da rota"}
+                      {isMutating ? "Removendo..." : canRemoveCollection ? "Remover da rota" : "Vínculo histórico preservado"}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1139,7 +1160,7 @@ export default function RotaDetalheScreen() {
                   </Text>
 
                   <TouchableOpacity
-                    disabled={isMutating}
+                    disabled={isMutating || ["COMPLETED", "CANCELLED"].includes(rota.status)}
                     onPress={() => addCollection(item.id)}
                     style={{
                       marginTop: 12,

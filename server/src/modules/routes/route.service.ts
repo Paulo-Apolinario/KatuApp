@@ -142,6 +142,12 @@ function normalizeDate(date?: string | null) {
   return parsedDate;
 }
 
+const fieldPendingStatuses: CollectionStatus[] = [CollectionStatus.PENDING, CollectionStatus.IN_PROGRESS];
+const fieldFinishedStatuses: CollectionStatus[] = [
+  CollectionStatus.COLLECTED, CollectionStatus.RECEIVED,
+  CollectionStatus.SORTING, CollectionStatus.COMPLETED,
+];
+
 function buildRouteStats(
   collections: Array<{ status: CollectionStatus }>
 ) {
@@ -153,6 +159,10 @@ function buildRouteStats(
     inProgressCollections: collections.filter(
       (item) => item.status === CollectionStatus.IN_PROGRESS
     ).length,
+    collectedCollections: collections.filter((item) => item.status === CollectionStatus.COLLECTED).length,
+    receivedCollections: collections.filter((item) => item.status === CollectionStatus.RECEIVED).length,
+    sortingCollections: collections.filter((item) => item.status === CollectionStatus.SORTING).length,
+    fieldCompletedCollections: collections.filter((item) => fieldFinishedStatuses.includes(item.status)).length,
     completedCollections: collections.filter(
       (item) => item.status === CollectionStatus.COMPLETED
     ).length,
@@ -211,6 +221,10 @@ export class RouteService {
       }
     }
 
+    if (data.status === RouteStatus.COMPLETED) {
+      throw new Error("Para concluir a rota, finalize ao menos uma coleta em campo e resolva as demais coletas.");
+    }
+
     const normalizedStops = data.stops
       .map((stop) => stop.trim())
       .filter(Boolean);
@@ -242,120 +256,47 @@ export class RouteService {
       collections,
       activeCollections: collections.filter(
         (item) =>
-          item.status !== CollectionStatus.COMPLETED &&
-          item.status !== CollectionStatus.CANCELLED
+          fieldPendingStatuses.includes(item.status)
       ),
       stats: buildRouteStats(collections),
     };
   }
 
-  async addCollectionToRoute(
-    cooperativeUserId: string,
-    routeId: string,
-    collectionId: string
-  ) {
-    const route = await this.findById(cooperativeUserId, UserRole.COOPERATIVE, routeId);
-
-    const collection = await prisma.collection.findFirst({
-      where: {
-        id: collectionId,
-        cooperativeId: route.cooperativeId,
-      },
-      include: {
-        route: true,
-        schedule: true,
-        generator: true,
-        collector: true,
-      },
-    });
-
-    if (!collection) {
-      throw new Error("Coleta não encontrada para esta cooperativa.");
-    }
-
-    if (
-      collection.status === CollectionStatus.COMPLETED ||
-      collection.status === CollectionStatus.CANCELLED
-    ) {
-      throw new Error(
-        "Não é possível adicionar à rota uma coleta concluída ou cancelada."
-      );
-    }
-
-    if (collection.routeId && collection.routeId !== route.id) {
-      throw new Error("Esta coleta já está vinculada a outra rota.");
-    }
-
-    return prisma.collection.update({
-      where: { id: collection.id },
-      data: {
-        routeId: route.id,
-        driverId: route.driverId ?? null,
-        vehicleId: route.vehicleId ?? null,
-      },
-      include: {
-        ...collectionInclude,
-        route: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            scheduledDate: true,
-            status: true,
-          },
-        },
-      },
-    });
+  async addCollectionToRoute(cooperativeUserId: string, routeId: string, collectionId: string) {
+    return this.changeCollectionRoute(cooperativeUserId, routeId, collectionId, false);
   }
 
-  async removeCollectionFromRoute(
-    cooperativeUserId: string,
-    routeId: string,
-    collectionId: string
-  ) {
-    const route = await this.findById(cooperativeUserId, UserRole.COOPERATIVE, routeId);
+  async removeCollectionFromRoute(cooperativeUserId: string, routeId: string, collectionId: string) {
+    return this.changeCollectionRoute(cooperativeUserId, routeId, collectionId, true);
+  }
 
-    const collection = await prisma.collection.findFirst({
-      where: {
-        id: collectionId,
-        cooperativeId: route.cooperativeId,
-        routeId: route.id,
-      },
-    });
-
-    if (!collection) {
-      throw new Error("Coleta não encontrada nesta rota.");
-    }
-
-    if (
-      collection.status === CollectionStatus.COMPLETED ||
-      collection.status === CollectionStatus.CANCELLED
-    ) {
-      throw new Error(
-        "Não é possível remover da rota uma coleta concluída ou cancelada."
-      );
-    }
-
-    return prisma.collection.update({
-      where: { id: collection.id },
-      data: {
-        routeId: null,
-        driverId: null,
-        vehicleId: null,
-      },
-      include: {
-        ...collectionInclude,
-        route: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            scheduledDate: true,
-            status: true,
-          },
+  private async changeCollectionRoute(cooperativeUserId: string, routeId: string, collectionId: string, remove: boolean) {
+    const cooperative = await prisma.cooperative.findUnique({ where: { userId: cooperativeUserId } });
+    if (!cooperative) throw new Error("Cooperativa do usuário autenticado não encontrada.");
+    return prisma.$transaction(async (transaction) => {
+      const route = await transaction.route.findFirst({ where: { id: routeId, cooperativeId: cooperative.id } });
+      if (!route) throw new Error("Rota não encontrada.");
+      if (route.status === RouteStatus.COMPLETED || route.status === RouteStatus.CANCELLED) {
+        throw new Error("Não é possível alterar coletas de uma rota encerrada.");
+      }
+      const collection = await transaction.collection.findFirst({ where: { id: collectionId, cooperativeId: cooperative.id } });
+      if (!collection || (remove && collection.routeId !== route.id)) throw new Error("Coleta não encontrada nesta rota ou cooperativa.");
+      if (!fieldPendingStatuses.includes(collection.status)) {
+        throw new Error("Somente coletas pendentes ou em andamento podem ter o vínculo com a rota alterado. O histórico da coleta finalizada é preservado.");
+      }
+      if (!remove && collection.routeId && collection.routeId !== route.id) {
+        throw new Error("Esta coleta já está vinculada a outra rota.");
+      }
+      return transaction.collection.update({
+        where: { id: collection.id },
+        data: {
+          routeId: remove ? null : route.id,
+          driverId: remove ? null : route.driverId,
+          vehicleId: remove ? null : route.vehicleId,
         },
-      },
-    });
+        include: { ...collectionInclude, route: { select: { id: true, name: true, description: true, scheduledDate: true, status: true } } },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async listAvailableCollectionsForRoute(cooperativeUserId: string) {
@@ -404,6 +345,15 @@ export class RouteService {
         if (!vehicle) throw new Error("Veículo não encontrado para esta cooperativa.");
         if (driverId && vehicle.driverId && vehicle.driverId !== driverId) {
           throw new Error("Este veículo já está vinculado a outro motorista.");
+        }
+      }
+      if (data.status === RouteStatus.COMPLETED && route.status !== RouteStatus.COMPLETED) {
+        const collections = await transaction.collection.findMany({ where: { routeId: route.id, cooperativeId: cooperative.id }, select: { status: true } });
+        if (collections.some((item) => fieldPendingStatuses.includes(item.status))) {
+          throw new Error("Finalize ou cancele as coletas pendentes/em andamento antes de concluir a rota.");
+        }
+        if (!collections.some((item) => fieldFinishedStatuses.includes(item.status))) {
+          throw new Error("Para concluir a rota, finalize ao menos uma coleta em campo.");
         }
       }
       // Mantém a regra de cancelamento existente até a definição do ciclo operacional.
@@ -580,8 +530,7 @@ export class RouteService {
 
     const activeCollections = collections.filter(
       (item) =>
-        item.status !== CollectionStatus.COMPLETED &&
-        item.status !== CollectionStatus.CANCELLED
+        fieldPendingStatuses.includes(item.status)
     );
 
     return {

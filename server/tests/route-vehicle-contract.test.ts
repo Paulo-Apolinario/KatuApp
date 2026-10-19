@@ -25,6 +25,11 @@ test("contratos de edição, permissões, isolamento e rollback", async (t) => {
   patch(prisma.vehicle, "update", async ({ data }: any) => { if (data.plate === "DUP1234") throw { code: "P2002" }; vehicle = apply(vehicle, data); return withDriver(); });
   patch(prisma.route, "findFirst", async ({ where }: any) => matches(route, where) ? { ...route } : null);
   patch(prisma.route, "update", async ({ data }: any) => { route = apply(route, data); return { ...route }; });
+  patch(prisma.collection, "findFirst", async ({ where }: any) => collections.find((row) => matches(row, where)) || null);
+  patch(prisma.collection, "update", async ({ where, data }: any) => {
+    const collection = collections.find((row) => matches(row, where));
+    Object.assign(collection, data); return { ...collection };
+  });
   patch(prisma.collection, "findMany", async ({ where }: any) => collections.filter((row) => matches(row, where)));
   patch(prisma.collection, "count", async ({ where }: any) => collections.filter((row) => matches(row, where)).length);
   patch(prisma.collection, "updateMany", async ({ where, data }: any) => { if (failCollections) throw new Error("Falha simulada"); collections = collections.map((row) => matches(row, where) ? apply(row, data) : row); return { count: 1 }; });
@@ -94,4 +99,44 @@ test("contratos de edição, permissões, isolamento e rollback", async (t) => {
     assert.equal((await request("/routes/r1/status", { status: "CANCELLED" })).statusCode, 400);
     assert.equal(route.status, "IN_PROGRESS");
   });
+  await t.test("conclusão exige coleta finalizada em campo e nenhuma coleta pendente/em andamento", async () => {
+    assert.equal((await app.inject({ method: "POST", url: "/routes", payload: { name: "Sem coleta", stops: [], status: "COMPLETED" } })).statusCode, 400);
+    route.status = "IN_PROGRESS";
+    for (const status of ["PENDING", "IN_PROGRESS"]) {
+      collections = [{ id: "p", routeId: "r1", cooperativeId: "c1", status }];
+      assert.equal((await request("/routes/r1", { name: "Não salvar", status: "COMPLETED" })).statusCode, 400);
+      assert.equal(route.status, "IN_PROGRESS"); assert.equal(route.name, "Rota");
+    }
+    for (const emptyOrCancelled of [[], [{ id: "x", routeId: "r1", cooperativeId: "c1", status: "CANCELLED" }]]) {
+      collections = emptyOrCancelled;
+      assert.equal((await request("/routes/r1/status", { status: "COMPLETED" })).statusCode, 400);
+    }
+  });
+  await t.test("COLLECTED e etapas posteriores permitem encerrar sem mudar estados ou histórico", async () => {
+    for (const status of ["COLLECTED", "RECEIVED", "SORTING", "COMPLETED"]) {
+      route.status = "IN_PROGRESS";
+      collections = [{ id: "h", routeId: "r1", cooperativeId: "c1", status, driverId: "d1", vehicleId: "v1" }, { id: "x", routeId: "r1", cooperativeId: "c1", status: "CANCELLED" }];
+      const before = structuredClone(collections);
+      const result = await request("/routes/r1/status", { status: "COMPLETED" });
+      assert.equal(result.statusCode, 200);
+      assert.equal(result.json().route.stats.fieldCompletedCollections, 1);
+      assert.deepEqual(result.json().route.activeCollections, []);
+      assert.deepEqual(collections, before);
+    }
+  });
+  await t.test("coletas finalizadas e rotas encerradas preservam seus vínculos", async () => {
+    route.status = "COMPLETED";
+    collections = [{ id: "h", routeId: "r1", cooperativeId: "c1", status: "COLLECTED", driverId: "d1", vehicleId: "v1" }];
+    assert.equal((await app.inject({ method: "DELETE", url: "/routes/r1/collections/h" })).statusCode, 400);
+    assert.equal((await app.inject({ method: "POST", url: "/routes/r1/collections/h" })).statusCode, 400);
+    route.status = "IN_PROGRESS";
+    assert.equal((await app.inject({ method: "DELETE", url: "/routes/r1/collections/h" })).statusCode, 400);
+    assert.equal(collections[0].routeId, "r1");
+    collections.push({ id: "p", routeId: null, cooperativeId: "c1", status: "PENDING" });
+    assert.equal((await app.inject({ method: "POST", url: "/routes/r1/collections/p" })).statusCode, 200);
+    assert.equal(collections[1].routeId, "r1");
+    assert.equal((await app.inject({ method: "DELETE", url: "/routes/r1/collections/p" })).statusCode, 200);
+    assert.equal(collections[1].routeId, null);
+  });
+
 });
