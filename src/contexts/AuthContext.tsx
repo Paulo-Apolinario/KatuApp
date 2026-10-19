@@ -28,6 +28,7 @@ interface AuthContextData {
     expectedProfile?: string,
     rememberMe?: boolean
   ) => Promise<AuthActionResult>;
+  signInWithLink: (token: string) => Promise<AuthActionResult>;
   signOut: () => Promise<void>;
   register: (
     email: string,
@@ -151,10 +152,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     email: string,
     password: string,
     expectedProfile?: string,
-    rememberMe?: boolean
+    rememberMe?: boolean,
+    linkToken?: string
   ): Promise<AuthActionResult> => {
     try {
-      const result = await authService.login(email, password);
+      const result = linkToken ? await authService.loginWithLink(linkToken) : await authService.login(email, password);
 
       if (result.success === false) {
         return {
@@ -387,6 +389,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         loading,
         signIn,
+        signInWithLink: (token: string) => signIn("", "", undefined, false, token),
         signOut,
         register,
         activateGeneratorAccess,

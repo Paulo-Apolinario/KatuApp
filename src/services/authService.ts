@@ -246,6 +246,21 @@ class AuthService {
     }
   }
 
+  async requestLoginLink(email: string, profile?: string): Promise<{ message: string }> {
+    return api.post("/auth/login-link", { email: normalizeEmail(email), audience: "APP", profile });
+  }
+
+  async loginWithLink(token: string): Promise<AuthResult> {
+    try {
+      const response = await api.post<LoginResponse>("/auth/login-link/consume", { token, audience: "APP" });
+      if (!response.token || !response.user) return { success: false, error: "Resposta de login inválida." };
+      await this.saveSession(response.token, response.user);
+      return { success: true, token: response.token, user: response.user };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Não foi possível utilizar o link." };
+    }
+  }
+
   async login(email: string, password: string): Promise<AuthResult> {
     try {
       const response = await api.post<LoginResponse>("/auth/login", {

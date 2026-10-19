@@ -1,3 +1,4 @@
+import { startTestSmtp, runEmailChecks, parseMail } from "./email-checks.mjs";
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -21,7 +22,7 @@ const webDir = process.env.KATUA_WEB_DIR || resolve(appDir, '../Katua_Web/fronte
 const outputDir = await mkdtemp(join(tmpdir(), 'katua-operational-'));
 const databaseUrl = 'postgresql://postgres:localtest@127.0.0.1:54329/postgres?connection_limit=1';
 const schemaSql = execFileSync(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'diff', '--from-empty', '--to-schema-datamodel', 'prisma/schema.prisma', '--script'], { cwd: serverDir, env: { ...process.env, DATABASE_URL: databaseUrl }, encoding: 'utf8' });
-const outcomes=[],children=[];let browser,pgserver,db;
+const outcomes=[],children=[];let browser,pgserver,db,smtp;
 const log=(message)=>console.log(message);
 async function check(name,fn){try{await fn();outcomes.push({name,status:'PASS'});log('PASS '+name);}catch(error){outcomes.push({name,status:'FAIL',error:error.message.slice(0,1200)});log('FAIL '+name+': '+error.message.slice(0,250));}}
 function child(cmd,args,cwd,env,ready){
@@ -36,8 +37,11 @@ let fixture;
 const api=async(path,method='GET',body,token=fixture.token)=>{const r=await fetch('http://127.0.0.1:3339'+path,{method,headers:{...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});return {status:r.status,data:await r.json()};};
 try{
  db=await PGlite.create();await db.exec(schemaSql);
+ await db.exec('DROP TABLE "AuthEmailToken";');
+ await db.exec(await readFile(join(serverDir,'prisma/migrations/20261019160000_auth_email_tokens/migration.sql'),'utf8'));
+ smtp=await startTestSmtp();
  pgserver=new PGLiteSocketServer({db,host:'127.0.0.1',port:54329});await pgserver.start();log('DB_READY: PostgreSQL WASM, concurrency not equivalent to native');
- await child(process.execPath,['--import','tsx','tests/operational/local-server.ts'],serverDir,{KATUA_LOCAL_VALIDATION:'1',DATABASE_URL:databaseUrl,KATUA_VALIDATION_DIR:outputDir},/LOCAL_API_READY/);
+ await child(process.execPath,['--import','tsx','tests/operational/local-server.ts'],serverDir,{KATUA_LOCAL_VALIDATION:'1',DATABASE_URL:databaseUrl,KATUA_VALIDATION_DIR:outputDir,SMTP_HOST:'127.0.0.1',SMTP_PORT:'25259',SMTP_SECURE:'false',SMTP_USER:'local',SMTP_PASS:'local-test-only',SMTP_FROM:'teste@example.invalid',APP_WEB_URL:'http://127.0.0.1:8089',PANEL_WEB_URL:'http://127.0.0.1:5179'},/LOCAL_API_READY/);
  fixture=JSON.parse(await readFile(join(outputDir, 'fixture.json'),'utf8'));log('API_READY with isolated fixtures and JWT');
  await check('API: autenticação, perfil DRIVER e isolamento por cooperativa',async()=>{
   assert.equal((await api('/routes/'+fixture.routes.equipe.id,'GET',undefined,null)).status,401);
@@ -62,6 +66,7 @@ try{
    const fresh=(await api('/routes/'+fixture.routes.rollback.id)).data.route;assert.equal(fresh.name,'QA rollback');assert.equal(fresh.driverId,fixture.driver1.id);assert.equal(fresh.collections[0].driverId,fixture.driver1.id);
   }finally{await db.exec('DROP TRIGGER qa_fail ON "Collection"; DROP FUNCTION qa_fail_assignment();');}
  });
+ await runEmailChecks({api,db,fixture,smtp,check});
  await child(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','5179'],webDir,{VITE_API_BASE_URL:'http://127.0.0.1:3339'},/Local:/);
  browser=await pw.launch({executablePath:process.env.KATUA_CHROMIUM_PATH || await chromium.executablePath(),args:chromium.args,headless:true});
  const guestContext=await browser.newContext({viewport:{width:1280,height:900}});
@@ -79,7 +84,35 @@ try{
   assert.equal(await guestPage.evaluate(()=>localStorage.getItem('auth_token')),null);
   assert.ok(new URL(guestPage.url()).pathname.includes('login'));
  });
+ await check('Navegador painel: recuperar senha pelo formulário e usar o link recebido no SMTP local',async()=>{
+  await guestPage.goto('http://127.0.0.1:5179/forgot-password');
+  await guestPage.locator('#email').fill(fixture.otherUser.email);
+  await guestPage.getByRole('button',{name:'Enviar recuperação',exact:true}).click();
+  await guestPage.getByText('Solicitação de recuperação recebida',{exact:true}).waitFor();
+  const {url,temporaryPassword}=parseMail(smtp.messages.at(-1));assert.ok(temporaryPassword);
+  await guestPage.goto(url.toString());
+  await guestPage.locator('#temporaryPassword').fill(temporaryPassword);
+  await guestPage.locator('#password').fill('SenhaRecuperadaLocal123');
+  await guestPage.locator('#confirm-password').fill('SenhaRecuperadaLocal123');
+  await guestPage.locator('button[type=submit]').click();
+  await guestPage.waitForURL('**/login');
+  assert.equal((await api('/auth/login','POST',{email:fixture.otherUser.email,password:'SenhaRecuperadaLocal123'})).status,200);
+ });
+ await check('Navegador painel: solicitar link por e-mail e confirmar acesso no layout existente',async()=>{
+  await guestPage.getByRole('button',{name:'Acesso rápido',exact:true}).click();
+  await guestPage.locator('#email').fill(fixture.otherUser.email);
+  const mailResponse=guestPage.waitForResponse(r=>r.url().endsWith('/auth/login-link')&&r.request().method()==='POST');
+  await guestPage.getByRole('button',{name:'Enviar link',exact:true}).click();
+  const mailResult=await mailResponse;assert.equal(mailResult.status(),200);assert.equal((await mailResult.json()).success,true);
+  await guestPage.getByText(/Se o e-mail estiver habilitado/).waitFor();
+  const {url}=parseMail(smtp.messages.at(-1));
+  await guestPage.goto(url.toString());
+  await guestPage.getByRole('button',{name:'Confirmar acesso',exact:true}).click();
+  await guestPage.waitForURL('http://127.0.0.1:5179/');
+  assert.ok(await guestPage.evaluate(()=>localStorage.getItem('auth_token')));
+ });
  // Contexts remain open until browser teardown (portable Chromium single-process mode).
+ if (!process.env.KATUA_EMAIL_PANEL_ONLY) {
  const context=await browser.newContext({viewport:{width:1440,height:1000}});
  await context.route('**/*',r=>{const h=new URL(r.request().url()).hostname;return ['127.0.0.1','localhost'].includes(h)?r.continue():r.abort();});
  await context.addInitScript(({token,user})=>{localStorage.setItem('auth_token',token);localStorage.setItem('auth_user',JSON.stringify(user));},{token:fixture.token,user:fixture.owner});
@@ -133,6 +166,20 @@ try{
   await signupPage.reload();assert.equal(await signupPage.getByText('Cadastro realizado com sucesso!',{exact:true}).count(),0);
  });
 
+ await check('App Expo Web: solicitar acesso rápido e confirmar sessão por link de e-mail',async()=>{
+  // Cadastro já deixou uma sessão em disco; limpar para simular entrada em outro navegador.
+  await signupPage.evaluate(()=>localStorage.clear());
+  await signupPage.goto('http://127.0.0.1:8089/(auth)/login?profile=cooperativa');
+  await signupPage.getByText('Acesso rápido',{exact:true}).click();
+  await signupPage.getByPlaceholder('seu@email.com',{exact:true}).fill('cadastro-avisos@katua.test');
+  await signupPage.getByText('ENVIAR LINK',{exact:true}).click();
+  await signupPage.getByText(/Se o e-mail estiver habilitado/).waitFor();
+  const {url}=parseMail(smtp.messages.at(-1));
+  await signupPage.goto(url.toString());
+  await signupPage.getByRole('button',{name:'Confirmar acesso',exact:true}).click();
+  await signupPage.getByText('Login realizado com sucesso!',{exact:true}).waitFor();
+  assert.ok((await signupPage.evaluate(()=>localStorage.getItem('@katu:token'))));
+ });
  const appContext=await browser.newContext({viewport:{width:430,height:932}});
  await appContext.route('**/*',r=>{const url=new URL(r.request().url());if(url.hostname==='vps.katua.com.br')return r.fetch({url:'http://127.0.0.1:3339'+url.pathname+url.search}).then(response=>r.fulfill({response}));return ['127.0.0.1','localhost'].includes(url.hostname)?r.continue():r.abort();});
  await appContext.addInitScript(({token,user})=>{localStorage.setItem('@katu:token',token);localStorage.setItem('@katu:user',JSON.stringify(user));},{token:fixture.token,user:{...fixture.owner,cooperative:fixture.cooperative}});
@@ -151,10 +198,27 @@ try{
   const fresh=(await api('/routes/'+fixture.routes.equipe.id)).data.route;assert.equal(fresh.driverId,null);assert.equal(fresh.vehicleId,null);
   assert.equal(fresh.collections.find(c=>c.id===fixture.collections.historical.id).driverId,fixture.driver1.id);
  });
+ await check('Links: dois consumos concorrentes produzem apenas uma sessão; conta inativada é bloqueada',async()=>{
+  await api('/auth/login-link','POST',{email:'cadastro-avisos@katua.test',audience:'APP'});
+  let url=parseMail(smtp.messages.at(-1)).url;
+  let payload={token:new URLSearchParams(url.hash.slice(1)).get('token'),audience:'APP'};
+  const pair=await Promise.all([api('/auth/login-link/consume','POST',payload),api('/auth/login-link/consume','POST',payload)]);
+  assert.deepEqual(pair.map(r=>r.status).sort(),[200,400]);
+  await api('/auth/login-link','POST',{email:'cadastro-avisos@katua.test',audience:'APP'});
+  url=parseMail(smtp.messages.at(-1)).url;payload={token:new URLSearchParams(url.hash.slice(1)).get('token'),audience:'APP'};
+  await db.query('UPDATE "User" SET "isActive"=false WHERE id=$1',[(await db.query('SELECT id FROM "User" WHERE email=$1',['cadastro-avisos@katua.test'])).rows[0].id]);
+  assert.equal((await api('/auth/login-link/consume','POST',payload)).status,400);
+ });
+ await check('Links: excesso de tentativas retorna HTTP 429',async()=>{
+  let response;
+  for(let i=0;i<21;i++){response=await api('/auth/login-link/consume','POST',{token:'inválido',audience:'PANEL'});if(response.status===429)break;}
+  assert.equal(response.status,429);
+ });
  await appPage.screenshot({path:join(outputDir, 'app-web.png'),fullPage:true});
+ }
 }catch(error){outcomes.push({name:'Preparação/execução do ambiente',status:'FAIL',error:error.message});console.error('RUN_ERROR',error.message.slice(0,2000));}
 finally{
  await writeFile(join(outputDir, 'results.json'),JSON.stringify({generatedAt:new Date().toISOString(),environment:'API Fastify/Prisma real, PGlite PostgreSQL WASM, Chromium, Expo Web; não é concorrência PostgreSQL nativa nem dispositivo',outcomes},null,2));
- await browser?.close();for(const p of children)p.kill('SIGTERM');await pgserver?.stop();await db?.close();
+ await browser?.close();for(const p of children)p.kill('SIGTERM');await pgserver?.stop();await db?.close();await smtp?.stop();
  console.log('REPORT_DIR',outputDir);console.log('RESULTS',JSON.stringify(outcomes));if(outcomes.some(o=>o.status==='FAIL'))process.exitCode=1;
 }

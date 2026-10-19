@@ -44,6 +44,15 @@ export const activateGeneratorAccessSchema = z.object({
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email("E-mail inválido"),
+  audience: z.enum(["APP", "PANEL"]).default("APP"),
+});
+
+export const requestLoginLinkSchema = forgotPasswordSchema.extend({
+  profile: z.enum(["pf", "comercial", "grande", "cooperativa", "catador", "motorista"]).optional(),
+});
+export const consumeLoginLinkSchema = z.object({
+  token: z.string().regex(/^[a-f0-9]{64}$/, "Link inválido ou expirado."),
+  audience: z.enum(["APP", "PANEL"]),
 });
 
 export const resetPasswordSchema = z

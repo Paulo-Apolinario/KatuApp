@@ -189,3 +189,22 @@ Verificações executadas:
 | Verificação visual do cadastro em Android/iOS | P2 | a confirmar | Dispositivo ou emulador não disponível nesta sessão |
 
 Resumo de continuidade: decisões e arquivos acima; alterações restritas à apresentação das notificações e seus testes, sem mudanças na API ou no esquema do banco. Próximo passo: responsável publicar e conferir os dois fluxos no ambiente utilizado. Não houve deploy, alteração da VPS, migração, exclusão de dados ou observação em produção. As pendências anteriores de tipos, lockfile e concorrência nativa continuam registradas nas etapas anteriores.
+
+
+## Correção complementar — acesso por link e recuperação (19/10/2026)
+
+Autorizado pelo responsável: acrescentar a escolha de login Senha/Acesso rápido mantendo o desenho das telas, com envio de links por e-mail nos dois clientes. Implementação e limites estão em [acesso-por-email.md](acesso-por-email.md); contém arquivos, contrato, decisões, configurações e resumo de continuidade.
+
+Validação final local: 24 verificações integradas passaram, com API real, SMTP local, banco PostgreSQL WASM/PGlite, painel e Expo Web. Inclui recuperação pelo formulário do painel, senha antiga preservada até a conclusão, login por link nos dois clientes, hash/expiração/uso único, audiência e perfil, conta inativa, falha e ausência de SMTP, duas tentativas simultâneas e HTTP 429. Os cenários anteriores de rotas, frota e offline também passaram. Mais 18 testes de contrato/SMTP ausente e 4 do painel aprovados. Builds e lint dos arquivos alterados passaram; checagem de tipos mantém apenas os diagnósticos anteriores.
+
+| Item | Prioridade | Estado | Evidência / pendência |
+| --- | --- | --- | --- |
+| Login por link no painel e App Web | P1 | validado | Formulários e sessão na integração local; aguarda publicação |
+| Recuperação muda senha só na conclusão | P1 | validado | Senha anterior funciona até redefinir; token não pode ser reutilizado |
+| Duplicidade de avisos no layout de recuperação | P1 | validado | Removido Toaster de AuthenticationLayout; permanece o global |
+| Tabela de tokens e configuração SMTP na VPS | P1 | pendente de publicação | Migração aditiva preparada; não executada na VPS |
+| Entrega de e-mail real / provedor / domínio | P1 | a confirmar | Sem credenciais ou envio externo nesta sessão |
+| Abrir link no aplicativo Android/iOS atualizado | P2 | a confirmar | Dispositivo/build nativo não disponível |
+| Tela legada de configuração SMTP | P2 | confirmado | Aponta a /api/smtp-config; não configura o backend operacional |
+
+Continuidade: arquivos e decisões no documento vinculado. Próximo passo é a publicação pelo responsável, com conferência do histórico de migrações e do ambiente antes de qualquer comando de banco. Não houve deploy nem alteração da VPS. O envio de e-mail de produção e a concorrência PostgreSQL nativa não foram validados.

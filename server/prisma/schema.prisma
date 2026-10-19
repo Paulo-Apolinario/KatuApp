@@ -22,6 +22,8 @@ model User {
   createdAt              DateTime      @default(now())
   updatedAt              DateTime      @updatedAt
 
+  emailTokens        AuthEmailToken[]
+
   collector          Collector?
   cooperative        Cooperative?
   driver             Driver?
@@ -1055,4 +1057,22 @@ enum MaintenanceStatus {
   PENDING
   SCHEDULED
   OVERDUE
+}
+
+
+// Tokens opacos armazenados apenas como SHA-256; nunca JWTs de sessão.
+model AuthEmailToken {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash             String   @unique
+  purpose               String
+  audience              String
+  temporaryPasswordHash String?
+  expiresAt             DateTime
+  consumedAt            DateTime?
+  createdAt             DateTime @default(now())
+
+  @@index([userId, purpose, createdAt])
+  @@index([expiresAt])
 }

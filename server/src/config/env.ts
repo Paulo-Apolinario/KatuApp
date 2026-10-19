@@ -27,6 +27,8 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
 
+  PANEL_WEB_URL: z.string().url().default("https://painel.katua.com.br"),
+
   APP_WEB_URL: z.string().default("https://app.katua.com.br"),
 });
 

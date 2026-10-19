@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import authService from "@/src/services/authService";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useNotification } from "@/src/contexts/NotificationContext";
 
@@ -44,6 +45,7 @@ export default function LoginScreen() {
   const { signIn } = useAuth();
   const { notifySuccess, notifyError, notifyWarning } = useNotification();
 
+  const [quickAccess, setQuickAccess] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -72,14 +74,19 @@ export default function LoginScreen() {
   async function handleLogin() {
     const normalizedEmail = email.trim().toLowerCase();
 
-    if (!normalizedEmail || !password.trim()) {
-      notifyWarning("Preencha e-mail e senha.");
+    if (!normalizedEmail || (!quickAccess && !password.trim())) {
+      notifyWarning(quickAccess ? "Informe seu e-mail." : "Preencha e-mail e senha.");
       return;
     }
 
     setLoading(true);
 
     try {
+      if (quickAccess) {
+        const result = await authService.requestLoginLink(normalizedEmail, profile);
+        notifySuccess(result.message, "Solicitação enviada");
+        return;
+      }
       const result = await signIn(normalizedEmail, password, profile, rememberMe);
 
       if (result.success) {
@@ -211,7 +218,12 @@ export default function LoginScreen() {
           />
         </View>
 
-        <View style={{ width: "100%", marginBottom: 16 }}>
+        <View style={{ flexDirection: "row", gap: 24, marginBottom: 16 }}>
+          <TouchableOpacity disabled={loading} onPress={() => setQuickAccess(false)} accessibilityRole="radio" accessibilityState={{ checked: !quickAccess }}><Text style={{ color: "#028C56", fontWeight: !quickAccess ? "800" : "400" }}>Senha</Text></TouchableOpacity>
+          <TouchableOpacity disabled={loading} onPress={() => setQuickAccess(true)} accessibilityRole="radio" accessibilityState={{ checked: quickAccess }}><Text style={{ color: "#028C56", fontWeight: quickAccess ? "800" : "400" }}>Acesso rápido</Text></TouchableOpacity>
+        </View>
+        {quickAccess && <Text style={{ color: "#4B5563", marginBottom: 16 }}>Enviaremos um link de acesso ao seu e-mail. Válido por 15 minutos.</Text>}
+        {!quickAccess && <View style={{ width: "100%", marginBottom: 16 }}>
           <View
             style={{
               flexDirection: "row",
@@ -254,7 +266,7 @@ export default function LoginScreen() {
               color: "#111827",
             }}
           />
-        </View>
+        </View>}
 
         <View
           style={{
@@ -324,12 +336,12 @@ export default function LoginScreen() {
                     marginLeft: 8,
                   }}
                 >
-                  ENTRANDO...
+                  AGUARDE...
                 </Text>
               </View>
             ) : (
               <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
-                LOGIN
+                {quickAccess ? "ENVIAR LINK" : "LOGIN"}
               </Text>
             )}
           </LinearGradient>
