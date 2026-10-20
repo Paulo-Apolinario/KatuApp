@@ -1,5 +1,7 @@
 # SINIR — autenticação, catálogos e preparação dos modelos — 20/10/2026
 
+> Continuação: [códigos com (*) e identificação de perigo](sinir-residuos-perigosos-2026-10-20.md), com novos campos, revisão e testes.
+
 ## Resultado e limites
 
 Continuação da central ambiental publicada em `docs/central-ambiental-sinir-2026-10-20.md`. O Swagger oficial foi localizado e revisado. Esta atualização entrega um **conector de autenticação e leitura**, configuração privada por unidade, seleção de catálogos no painel e projeção local dos modelos de MTR/MTR-LR/CDF. Não habilita emissão, recebimento, cancelamento ou alteração de documentos oficiais.

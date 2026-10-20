@@ -1,4 +1,5 @@
 /** Projeção local dos schemas do Swagger. Nunca transmite nem confirma validade oficial. */
+import { materialIntegrationIssues } from "./sinir.material";
 import { validTaxId } from "./environmental.schemas";
 function numberCode(value: unknown, label: string, issues: string[]) {
   const raw = String(value ?? ""),
@@ -44,6 +45,7 @@ export function prepareSinirPayload(doc: any) {
       issues.push("Selecione código IBAMA: " + label + ".");
     if (!(m.quantity > 0) || !Number.isFinite(m.quantity))
       issues.push("Informe quantidade positiva: " + label + ".");
+    issues.push(...materialIntegrationIssues(m, label));
     const out: Record<string, unknown> = {
       resCodigoIbama: m.ibamaCode,
       marQuantidade: m.quantity,
@@ -66,6 +68,14 @@ export function prepareSinirPayload(doc: any) {
       traCodigo: numberCode(m.treatmentCode, label + " / tratamento", issues),
       marDescricaoInterna: m.name,
     };
+    if (m.density != null) out.marDensidade = m.density;
+    for (const [source, target] of Object.entries({
+      unNumber: "marNumeroONU",
+      riskClass: "marClasseRisco",
+      shippingName: "marNomeEmbarque",
+      packingGroup: "marGrupoEmbalagem",
+    }))
+      if (m[source]) out[target] = m[source];
     if (m.pev?.identification) {
       if (process)
         warnings.push(

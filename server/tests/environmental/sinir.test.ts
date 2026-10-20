@@ -314,3 +314,128 @@ test("401 persistente encerra a tentativa e limpa estado autenticado", async () 
   assert.equal(reads, 2);
   assert.equal(c.status().authenticated, false);
 });
+
+test("Código (*) preservado em rascunho e projeção; sintaxes estranhas são rejeitadas", () => {
+  const payload = validatePayload("MTR_REGULAR", {
+    ...base,
+    materials: [{ ...material, ibamaCode: "150202(*)" }],
+  });
+  assert.equal(payload.materials[0].ibamaCode, "150202(*)");
+  const preview = prepareSinirPayload({ family: "MTR_REGULAR", payload, unit });
+  assert.equal(
+    (preview.payload as any)[0].listaManifestoResiduos[0].resCodigoIbama,
+    "150202(*)",
+  );
+  assert.ok(preview.issues.some((s) => s.includes("número ONU")));
+  for (const code of [
+    "150202(**)",
+    "150202(*)/outro",
+    "150202?token=x",
+    "(*)",
+    "150202*abc",
+  ])
+    assert.throws(() =>
+      validatePayload("MTR_REGULAR", {
+        ...base,
+        materials: [{ ...material, ibamaCode: code }],
+      }),
+    );
+});
+test("Densidade e dados de perigo são projetados sem conversão em MTR e LR Processo", () => {
+  const m = {
+    ...material,
+    ibamaCode: "150202(*)",
+    unit: "LITER",
+    officialMeasureCode: "21",
+    density: 0.88,
+    unNumber: "3082",
+    riskClass: "9",
+    shippingName: "Resíduo para conferência",
+    packingGroup: "III",
+  };
+  for (const family of ["MTR_REGULAR", "MTR_LR_PROCESS"]) {
+    const payload = validatePayload(family, {
+      ...base,
+      materials: [m],
+      reverseSystemCode: "7",
+      processGroups: [
+        {
+          originManifestNumber: "001",
+          residueReference: "REF",
+          materials: [m],
+        },
+      ],
+    });
+    const preview = prepareSinirPayload({ family, payload, unit });
+    const out: any = (preview.payload as any)[0];
+    const residue =
+      family === "MTR_REGULAR"
+        ? out.listaManifestoResiduos[0]
+        : out.listaManifestoResiduosOrigem[0].listaManifestoResiduosProcesso[0];
+    assert.equal(preview.issues.length, 0);
+    assert.equal(residue.marDensidade, 0.88);
+    assert.equal(residue.marQuantidade, 3);
+    assert.equal(residue.uniCodigo, 21);
+    assert.equal(residue.marNumeroONU, "3082");
+    assert.equal(residue.marClasseRisco, "9");
+    assert.equal(residue.marNomeEmbarque, m.shippingName);
+    assert.equal(residue.marGrupoEmbalagem, "III");
+    assert.equal(preview.canTransmit, false);
+  }
+});
+test("Volume exige conferência de densidade positiva; branco e zero ficam distintos", () => {
+  for (const measure of ["LITER", "CUBIC_METER"])
+    for (const density of [null, 0]) {
+      const payload = validatePayload("MTR_REGULAR", {
+        ...base,
+        materials: [{ ...material, unit: measure, density }],
+      });
+      assert.equal(payload.materials[0].density, density);
+      const p = prepareSinirPayload({ family: "MTR_REGULAR", payload, unit });
+      assert.ok(p.issues.some((s) => s.includes("densidade positiva")));
+      const projected = (p.payload as any)[0].listaManifestoResiduos[0];
+      assert.equal(projected.marDensidade, density === null ? undefined : 0);
+    }
+  for (const density of [-1, Infinity, NaN])
+    assert.throws(() =>
+      validatePayload("MTR_REGULAR", {
+        ...base,
+        materials: [{ ...material, density }],
+      }),
+    );
+  const old = validatePayload("MTR_REGULAR", base);
+  assert.equal(old.materials[0].density, null);
+  assert.equal(old.materials[0].unNumber, "");
+});
+test("Consulta de classe aceita (*) inteiro e bloqueia manipulação do caminho", async () => {
+  const calls: string[] = [];
+  const c = new SinirReadClient(
+    config,
+    mock((url) => {
+      calls.push(url);
+      return json(
+        url.endsWith("/token")
+          ? { erro: false, objetoResposta: "Bearer fake-access" }
+          : {
+              erro: false,
+              objetoResposta: [{ claCodigo: 1, claDescricao: "Classe I" }],
+            },
+      );
+    }),
+  );
+  await c.catalog(unit, "classes", "150202(*)");
+  assert.ok(
+    calls.some((url) =>
+      url.endsWith("/retornaListaClassePorResiduo/150202(*)"),
+    ),
+  );
+  const count = calls.length;
+  for (const filter of ["150202(*)/outro", "../token", "150202?x=1"])
+    await assert.rejects(c.catalog(unit, "classes", filter), {
+      code: "INVALID_FILTER",
+    });
+  await assert.rejects(c.catalog(unit, "packaging", "150202(*)"), {
+    code: "INVALID_FILTER",
+  });
+  assert.equal(calls.length, count);
+});

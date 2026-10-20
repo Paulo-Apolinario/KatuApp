@@ -1,3 +1,7 @@
+import {
+  IBAMA_CODE_PATTERN,
+  materialIntegrationIssues,
+} from "./sinir.material";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { MUNICIPALITIES, validTaxId } from "./environmental.schemas";
@@ -262,7 +266,7 @@ export function reviewIssues(doc: any) {
       materials.some(
         (m: any) =>
           !m.name ||
-          !/^[A-Za-z0-9][A-Za-z0-9 .-]{0,19}$/.test(m.ibamaCode) ||
+          !IBAMA_CODE_PATTERN.test(m.ibamaCode || "") ||
           !(m.quantity > 0) ||
           !m.physicalStateCode ||
           !m.classificationCode ||
@@ -272,6 +276,10 @@ export function reviewIssues(doc: any) {
     )
       issues.push(
         "Complete os materiais, quantidade positiva, código IBAMA e códigos oficiais de classificação, estado físico, acondicionamento e tratamento.",
+      );
+    for (const [index, material] of (materials || []).entries())
+      issues.push(
+        ...materialIntegrationIssues(material, `Resíduo ${index + 1}`),
       );
     if (!u.officialUnitCode)
       issues.push("Informe o código oficial da unidade emitente.");

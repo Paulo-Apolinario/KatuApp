@@ -1,3 +1,4 @@
+import { IBAMA_CODE_PATTERN } from "./sinir.material";
 /** Cliente estritamente de autenticação e leitura. Nenhuma rota de emissão é executável. */
 export type SinirConfig = {
   enabled: boolean;
@@ -249,7 +250,12 @@ export class SinirReadClient {
     this.assertBinding(unit);
     if (!catalogNames.includes(name))
       throw new SinirError("Catálogo não permitido.", "INVALID_CATALOG", 400);
-    if (filter && !/^[A-Za-z0-9 .-]{1,40}$/.test(filter))
+    if (
+      filter &&
+      !(name === "classes"
+        ? filter.length <= 20 && IBAMA_CODE_PATTERN.test(filter)
+        : name === "packaging" && /^\d{1,10}$/.test(filter))
+    )
       throw new SinirError(
         "Filtro de catálogo inválido.",
         "INVALID_FILTER",

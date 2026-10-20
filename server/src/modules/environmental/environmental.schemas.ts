@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { IBAMA_CODE_PATTERN } from "./sinir.material";
 export const MUNICIPALITIES = [
   { code: "2307254", name: "Jijoca de Jericoacoara", state: "CE", pilot: true },
   { code: "2304251", name: "Cruz", state: "CE", pilot: true },
@@ -70,7 +71,15 @@ const party = z
 const material = z
   .object({
     name: text(180),
-    ibamaCode: text(20).regex(/^[A-Za-z0-9 .-]*$/),
+    ibamaCode: text(20).refine(
+      (value) => value === "" || IBAMA_CODE_PATTERN.test(value),
+      "Código IBAMA inválido; preserve o sufixo (*) quando retornado pelo catálogo.",
+    ),
+    density: quantity,
+    unNumber: text(40).default(""),
+    riskClass: text(80).default(""),
+    shippingName: text(300).default(""),
+    packingGroup: text(80).default(""),
     officialMeasureCode: text(40).regex(/^\d*$/).default(""),
     quantity,
     unit: z.enum(["KG", "TON", "LITER", "CUBIC_METER"]),
