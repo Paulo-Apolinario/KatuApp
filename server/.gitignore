@@ -6,3 +6,6 @@ dist
 coverage
 .prisma
 uploads/
+
+# Evidências ambientais: privadas, acesso somente por endpoint autenticado
+private-environmental-files/

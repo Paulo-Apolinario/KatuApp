@@ -28,7 +28,7 @@ export async function requestAuthEmail(data: { email: string; audience: Audience
   await prisma.authEmailToken.deleteMany({ where: { expiresAt: { lt: new Date(Date.now() - 24 * 60 * 60000) } } });
   const user = await prisma.user.findUnique({ where: { email: data.email.trim().toLowerCase() } });
   if (!user || !user.isActive || user.accountStatus !== AccountStatus.ACTIVE ||
-      (data.audience === "PANEL" && user.role !== "COOPERATIVE") ||
+      (data.audience === "PANEL" && !["COOPERATIVE", "MUNICIPAL_MANAGER"].includes(user.role)) ||
       (data.profile && roles[data.profile] !== user.role)) return { message: genericMessage };
   const recent = await prisma.authEmailToken.count({ where: { userId: user.id, createdAt: { gt: new Date(Date.now() - 15 * 60000) } } });
   if (recent >= 3) return { message: genericMessage };
@@ -61,7 +61,7 @@ export async function consumeLoginLink(data: { token: string; audience: Audience
     const record = await tx.authEmailToken.findUnique({ where: { tokenHash: tokenHash(data.token) }, include: { user: true } });
     if (!record || record.purpose !== "LOGIN" || record.audience !== data.audience || record.consumedAt || record.expiresAt <= new Date()) throw invalid();
     const user = record.user;
-    if (!user.isActive || user.accountStatus !== AccountStatus.ACTIVE || (data.audience === "PANEL" && user.role !== "COOPERATIVE")) throw invalid();
+    if (!user.isActive || user.accountStatus !== AccountStatus.ACTIVE || (data.audience === "PANEL" && !["COOPERATIVE", "MUNICIPAL_MANAGER"].includes(user.role))) throw invalid();
     const claim = await tx.authEmailToken.updateMany({ where: { id: record.id, consumedAt: null, expiresAt: { gt: new Date() } }, data: { consumedAt: new Date() } });
     if (claim.count !== 1) throw invalid();
     const hydrated = await tx.user.findUniqueOrThrow({ where: { id: user.id }, include: { personProfile: true, generator: true, collector: true, cooperative: true, driver: true } });

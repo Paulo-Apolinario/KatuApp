@@ -895,6 +895,7 @@ model MaintenanceLog {
 }
 
 enum UserRole {
+  MUNICIPAL_MANAGER
   PF
   GENERATOR_SMALL
   GENERATOR_LARGE
@@ -1121,4 +1122,87 @@ model BinEvent {
 
   @@index([binId, createdAt])
   @@index([cooperativeId])
+}
+
+
+// Central ambiental: preparação interna independente de confirmação oficial do SINIR.
+model EnvironmentalUnit {
+  id String @id @default(cuid())
+  cooperativeId String?
+  municipalityCode String
+  authorityKey String? @unique
+  kind String
+  name String
+  taxId String
+  officialUnitCode String?
+  address String?
+  responsibleName String?
+  responsiblePosition String?
+  appointmentReference String?
+  operationalRoles String[] @default([])
+  environment String @default("HOMOLOGATION")
+  shareWithMunicipality Boolean @default(false)
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  documents EnvironmentalDocument[]
+  @@index([cooperativeId, municipalityCode])
+}
+model EnvironmentalMunicipalAccess {
+  id String @id @default(cuid())
+  userId String
+  municipalityCode String
+  permission String
+  appointmentReference String
+  grantedBy String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([userId, municipalityCode])
+}
+model EnvironmentalDocument {
+  id String @id @default(cuid())
+  unitId String
+  family String
+  title String
+  referenceYear Int?
+  status String @default("DRAFT")
+  payload Json
+  sourceCollectionId String?
+  version Int @default(1)
+  createdBy String
+  reviewedBy String?
+  reviewedAt DateTime?
+  reviewedUnitVersion Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  unit EnvironmentalUnit @relation(fields:[unitId], references:[id], onDelete:Restrict)
+  events EnvironmentalEvent[]
+  attachments EnvironmentalAttachment[]
+  @@index([unitId, family, updatedAt])
+}
+model EnvironmentalEvent {
+  id String @id @default(cuid())
+  documentId String
+  kind String
+  actorUserId String
+  actorName String
+  documentVersion Int
+  notes String?
+  createdAt DateTime @default(now())
+  document EnvironmentalDocument @relation(fields:[documentId],references:[id],onDelete:Restrict)
+  @@index([documentId, createdAt])
+}
+model EnvironmentalAttachment {
+  id String @id @default(cuid())
+  documentId String
+  filename String
+  storageKey String @unique
+  mediaType String
+  size Int
+  sha256 String
+  createdBy String
+  createdAt DateTime @default(now())
+  document EnvironmentalDocument @relation(fields:[documentId],references:[id],onDelete:Restrict)
+  @@index([documentId])
 }

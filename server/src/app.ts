@@ -6,10 +6,12 @@ import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import path from "node:path";
 
+import { prisma } from "./lib/prisma";
 import { env } from "./config/env";
 import { appRoutes } from "./routes/index";
 import { cooperativesRoutes } from "./modules/cooperatives/cooperatives.routes";
 import { feedbackRoutes } from "./modules/feedback/feedback.routes";
+import { environmentalRoutes } from "./modules/environmental/environmental.routes";
 import { binsRoutes } from "./modules/bins/bins.routes";
 import { vehicleDocumentsRoutes } from "./modules/vehicle-documents/vehicle-documents.routes";
 import { maintenanceLogsRoutes } from "./modules/maintenance-logs/maintenance-logs.routes";
@@ -144,6 +146,10 @@ export async function buildApp() {
     async function (request: any, reply: any) {
       try {
         await request.jwtVerify();
+        const user = await prisma.user.findUnique({ where: { id: request.user.sub }, select: { role: true, isActive: true, accountStatus: true } });
+        if (!user || !user.isActive || user.accountStatus !== "ACTIVE" || user.role !== request.user.role) return reply.unauthorized("Sessão desatualizada ou conta inativa. Entre novamente.");
+        const route = request.routeOptions.url || "";
+        if (user.role === "MUNICIPAL_MANAGER" && !route.startsWith("/environmental/") && !(route === "/auth/me" && request.method === "GET")) return reply.forbidden("Perfil municipal restrito à central ambiental.");
       } catch {
         return reply.unauthorized(
           "Token inválido ou ausente."
@@ -193,6 +199,7 @@ export async function buildApp() {
   await app.register(cooperativesRoutes);
   await app.register(feedbackRoutes);
   await app.register(binsRoutes);
+  await app.register(environmentalRoutes);
   await app.register(vehicleDocumentsRoutes);
   await app.register(maintenanceLogsRoutes);
 
