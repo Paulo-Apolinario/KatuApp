@@ -253,12 +253,16 @@ export function reviewIssues(doc: any) {
       )
     )
       issues.push("Informe motorista e placa válidos.");
+    const materials =
+      doc.family === "MTR_LR_PROCESS"
+        ? (p.processGroups || []).flatMap((g: any) => g.materials)
+        : p.materials;
     if (
-      !p.materials?.length ||
-      p.materials.some(
+      !materials?.length ||
+      materials.some(
         (m: any) =>
           !m.name ||
-          !/^\d{6}$/.test(m.ibamaCode.replace(/[ .-]/g, "")) ||
+          !/^[A-Za-z0-9][A-Za-z0-9 .-]{0,19}$/.test(m.ibamaCode) ||
           !(m.quantity > 0) ||
           !m.physicalStateCode ||
           !m.classificationCode ||
@@ -274,12 +278,28 @@ export function reviewIssues(doc: any) {
     if (!u.operationalRoles.length)
       issues.push("Informe os perfis operacionais da unidade para revisão.");
     if (
-      doc.family === "MTR_LR_PROCESS" &&
-      (!p.originManifestNumbers?.length ||
-        !p.invoiceNumber ||
-        !/^\d{44}$/.test(p.invoiceAccessKey || ""))
+      p.hasTemporaryStorage &&
+      (!validTaxId(p.temporaryStorage?.taxId || "") ||
+        !p.temporaryStorage?.officialUnitCode)
     )
-      issues.push("Relacione MTR LR de origem e número/chave da nota fiscal.");
+      issues.push("Complete CPF/CNPJ e unidade do armazenador temporário.");
+    if (doc.family !== "MTR_REGULAR" && !p.reverseSystemCode)
+      issues.push("Informe o sistema de logística reversa.");
+    if (
+      doc.family === "MTR_LR_PROCESS" &&
+      (!p.processGroups?.length ||
+        p.processGroups.some(
+          (g: any) =>
+            !g.originManifestNumber ||
+            !g.residueReference ||
+            !g.materials.length,
+        ))
+    )
+      issues.push(
+        "Organize os resíduos em grupos com manifesto de origem e referência. Rascunhos antigos precisam dessa conferência.",
+      );
+    if (p.invoiceAccessKey && !/^\d{44}$/.test(p.invoiceAccessKey))
+      issues.push("A chave de NF-e, quando informada, deve ter 44 dígitos.");
   }
   return issues;
 }

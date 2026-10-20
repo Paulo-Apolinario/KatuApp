@@ -1,20 +1,20 @@
-// Não presumir endpoints ou autenticação atuais a partir de cópias antigas.
-// Um adaptador só deve ser registrado após contrato oficial e homologação.
+// Contrato de leitura identificado no Swagger oficial. Escritas seguem indisponíveis.
 export function integrationCapabilities() {
   return {
     provider: "SINIR",
-    status: "PENDING_OFFICIAL_CONTRACT",
+    status: "READ_ONLY_ADAPTER",
     authenticated: false,
     canIssueMtr: false,
     canIssueCdf: false,
     canSubmitMunicipalDeclaration: false,
     reason:
-      "A transmissão oficial depende da especificação vigente da API, habilitação e autorização da organização. Os dados podem ser preparados e revisados no KATUÁ.",
+      "Autenticação e catálogos podem ser consultados após configurar a credencial da unidade no servidor. A emissão continua bloqueada até confirmar o ambiente e homologar os contratos de escrita.",
     requirements: [
-      "Contrato técnico oficial vigente para cada módulo",
-      "Autorização e unidade da organização no SINIR",
-      "Credenciais de integração próprias; não informar senha Gov.br no KATUÁ",
+      "Configuração privada e vínculo da credencial ao CNPJ e à unidade selecionada",
+      "Confirmação oficial do ambiente de testes e permissões da organização",
+      "Validação dos modelos de MTR, MTR-LR e CDF contra respostas reais",
       "Homologação de emissão, consulta, download e prevenção de duplicidades",
+      "Confirmação específica de API para declaração municipal",
     ],
   };
 }

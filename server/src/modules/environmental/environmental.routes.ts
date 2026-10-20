@@ -19,7 +19,10 @@ import {
   environmentalService as s,
   EnvironmentalError,
   findDocument,
+  findUnit,
 } from "./environmental.service";
+import { sinirClient, SinirError, catalogNames } from "./sinir.client";
+import { prepareSinirPayload } from "./sinir.payload";
 const privateRoot = path.join(process.cwd(), "private-environmental-files");
 const idSchema = z.object({ id: z.string().min(1).max(100) }).passthrough();
 const paging = z
@@ -47,15 +50,13 @@ export async function environmentalRoutes(app: FastifyInstance) {
         return await fn(req, reply, ctx);
       } catch (error: any) {
         if (error instanceof ZodError)
-          return reply
-            .code(400)
-            .send({
-              error: error.issues
-                .map((i) => `${i.path.join(".")}: ${i.message}`)
-                .join(" "),
-              code: "VALIDATION_ERROR",
-            });
-        if (error instanceof EnvironmentalError)
+          return reply.code(400).send({
+            error: error.issues
+              .map((i) => `${i.path.join(".")}: ${i.message}`)
+              .join(" "),
+            code: "VALIDATION_ERROR",
+          });
+        if (error instanceof EnvironmentalError || error instanceof SinirError)
           return reply
             .code(error.statusCode)
             .send({ error: error.message, code: error.code });
@@ -68,15 +69,89 @@ export async function environmentalRoutes(app: FastifyInstance) {
             .code(413)
             .send({ error: "Arquivo excede o limite de 10 MB." });
         req.log.error({ code: error.code }, "Falha na central ambiental");
-        return reply
-          .code(500)
-          .send({
-            error:
-              "Não foi possível concluir a operação ambiental. Tente novamente.",
-          });
+        return reply.code(500).send({
+          error:
+            "Não foi possível concluir a operação ambiental. Tente novamente.",
+        });
       }
     };
   const auth = { preHandler: [app.authenticate] };
+  app.get(
+    "/environmental/units/:id/sinir/status",
+    auth,
+    handle(async (r, _p, c) => {
+      const unit = await findUnit(c, idSchema.parse(r.params).id, true);
+      try {
+        sinirClient.assertBinding(unit);
+      } catch (error) {
+        if (!(error instanceof SinirError)) throw error;
+        return {
+          data: {
+            configured: false,
+            authenticated: false,
+            mode: "READ_ONLY",
+            reason: error.message,
+            canIssueMtr: false,
+            canIssueCdf: false,
+          },
+        };
+      }
+      return { data: sinirClient.status() };
+    }),
+  );
+  app.post(
+    "/environmental/units/:id/sinir/check",
+    auth,
+    handle(async (r, _p, c) => {
+      const unit = await findUnit(c, idSchema.parse(r.params).id, true);
+      return { data: await sinirClient.check(unit) };
+    }),
+  );
+  app.get(
+    "/environmental/units/:id/sinir/catalogs/:catalog",
+    auth,
+    handle(async (r, _p, c) => {
+      const ids = idSchema
+        .extend({
+          catalog: z.enum(
+            catalogNames as [
+              (typeof catalogNames)[number],
+              ...(typeof catalogNames)[number][],
+            ],
+          ),
+        })
+        .parse(r.params);
+      const query = z
+        .object({ filter: z.string().max(40).optional() })
+        .strict()
+        .parse(r.query);
+      const unit = await findUnit(c, ids.id, true);
+      return {
+        data: await sinirClient.catalog(unit, ids.catalog, query.filter),
+      };
+    }),
+  );
+  app.post(
+    "/environmental/documents/:id/sinir-preview",
+    auth,
+    handle(async (r, _p, c) => {
+      const d = await findDocument(c, idSchema.parse(r.params).id, true);
+      const v = z.object({ version }).strict().parse(r.body).version;
+      if (d.version !== v)
+        throw new EnvironmentalError(
+          "Recarregue o documento antes de gerar a prévia.",
+          409,
+          "VERSION_CONFLICT",
+        );
+      return {
+        data: {
+          ...prepareSinirPayload(d),
+          documentVersion: d.version,
+          officialConfirmed: false,
+        },
+      };
+    }),
+  );
   app.get(
     "/environmental/context",
     auth,
@@ -241,17 +316,15 @@ export async function environmentalRoutes(app: FastifyInstance) {
         mode: 0o600,
       });
       try {
-        return p
-          .code(201)
-          .send({
-            data: await s.addAttachment(c, id, v, {
-              filename,
-              storageKey,
-              mediaType,
-              size: buffer.length,
-              sha256: createHash("sha256").update(buffer).digest("hex"),
-            }),
-          });
+        return p.code(201).send({
+          data: await s.addAttachment(c, id, v, {
+            filename,
+            storageKey,
+            mediaType,
+            size: buffer.length,
+            sha256: createHash("sha256").update(buffer).digest("hex"),
+          }),
+        });
       } catch (e) {
         await unlink(path.join(privateRoot, storageKey)).catch(() => {});
         throw e;

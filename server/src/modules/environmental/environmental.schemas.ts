@@ -70,13 +70,43 @@ const party = z
 const material = z
   .object({
     name: text(180),
-    ibamaCode: text(20).regex(/^[\d .-]*$/),
+    ibamaCode: text(20).regex(/^[A-Za-z0-9 .-]*$/),
+    officialMeasureCode: text(40).regex(/^\d*$/).default(""),
     quantity,
     unit: z.enum(["KG", "TON", "LITER", "CUBIC_METER"]),
     physicalStateCode: text(40),
     classificationCode: text(40),
     packagingCode: text(40),
     treatmentCode: text(40),
+    pev: z
+      .object({
+        identification: text(180),
+        postalCode: text(8),
+        street: text(300),
+        number: text(40),
+        complement: text(180),
+        neighborhood: text(180),
+        municipalityCode: text(7),
+        state: text(2),
+      })
+      .strict()
+      .default({
+        identification: "",
+        postalCode: "",
+        street: "",
+        number: "",
+        complement: "",
+        neighborhood: "",
+        municipalityCode: "",
+        state: "",
+      }),
+  })
+  .strict();
+const processGroup = z
+  .object({
+    originManifestNumber: text(80),
+    residueReference: text(100),
+    materials: z.array(material).max(50),
   })
   .strict();
 const manifest = z
@@ -84,6 +114,16 @@ const manifest = z
     origin: party,
     carrier: party,
     recipient: party,
+    hasTemporaryStorage: z.boolean().default(false),
+    temporaryStorage: party.default({
+      name: "",
+      taxId: "",
+      officialUnitCode: "",
+      municipalityCode: "",
+      address: "",
+    }),
+    reverseSystemCode: text(40).regex(/^\d*$/).default(""),
+    processGroups: z.array(processGroup).max(50).default([]),
     vehiclePlate: text(10),
     driverName: text(180),
     departureDate: text(30),
@@ -96,6 +136,7 @@ const manifest = z
   .strict();
 const cdf = z
   .object({
+    generators: z.array(party).max(50).default([]),
     manifestNumbers: z.array(text(80)).max(100),
     periodStart: text(10),
     periodEnd: text(10),

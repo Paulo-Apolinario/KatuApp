@@ -1,5 +1,7 @@
 # Central ambiental e SINIR — 20/10/2026
 
+> Continuação: [autenticação, catálogos e modelos SINIR](integracao-sinir-api-2026-10-20.md). O Swagger foi obtido após esta entrega inicial. O conector de leitura está implementado; emissão oficial continua bloqueada.
+
 ## Entrega e limite de funcionamento
 
 O painel passa a preparar documentos na própria página, persistindo dados pela API do KATUÁ. A transmissão ao SINIR **não está ativa**. Não foi obtido contrato técnico oficial vigente suficiente para implementar e homologar emissão. Não há adaptador de envio, autenticação no SINIR, número oficial, PDF oficial ou protocolo simulado. O botão informa o impedimento e a API recusa envio com `503 INTEGRATION_UNAVAILABLE`, mesmo após aprovação interna.
