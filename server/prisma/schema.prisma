@@ -71,6 +71,7 @@ model Cooperative {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   userId    String   @unique
+  reportConfiguration ReportConfiguration?
 
   user                        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   collections                 Collection[]
@@ -1205,4 +1206,14 @@ model EnvironmentalAttachment {
   createdAt DateTime @default(now())
   document EnvironmentalDocument @relation(fields:[documentId],references:[id],onDelete:Restrict)
   @@index([documentId])
+}
+
+model ReportConfiguration {
+  cooperativeId String @id
+  payload Json
+  version Int @default(1)
+  updatedBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
 }

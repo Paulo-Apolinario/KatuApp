@@ -1,3 +1,4 @@
+import { reportsRoutes } from "./modules/reports/reports.routes";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import sensible from "@fastify/sensible";
@@ -200,6 +201,7 @@ export async function buildApp() {
   await app.register(feedbackRoutes);
   await app.register(binsRoutes);
   await app.register(environmentalRoutes);
+  await app.register(reportsRoutes);
   await app.register(vehicleDocumentsRoutes);
   await app.register(maintenanceLogsRoutes);
 
