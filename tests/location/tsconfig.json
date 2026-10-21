@@ -1,0 +1,28 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": [
+    "../../src/services/deviceLocation.ts",
+    "../../src/services/deviceLocation.web.ts",
+    "../../src/services/locationBrowser.ts",
+    "../../src/hooks/useForegroundLocation.ts",
+    "../../src/components/LocationStatus.tsx",
+    "../../src/components/maps/OperationalMap.native.tsx",
+    "../../src/components/maps/OperationalMap.web.tsx",
+    "../../app/(motorista)/mapa.tsx",
+    "../../app/(catador)/mapas.tsx",
+    "../../app/(cooperativa)/mapas.tsx",
+    "../../expo-env.d.ts",
+    "../../app/(cooperativa)/home.tsx",
+    "../../app/(cooperativa)/login.tsx",
+    "../../app/(public)/choose-profile.tsx",
+    "../../app/(pf-tabs)/home.tsx",
+    "../../src/screens/auth-select-location/index.native.tsx",
+    "../../src/screens/auth-select-location/index.web.tsx",
+    "../../src/screens/generator-select-location/index.native.tsx",
+    "../../src/screens/generator-select-location/index.web.tsx"
+  ],
+  "exclude": [
+    "../../server",
+    "../../node_modules"
+  ]
+}

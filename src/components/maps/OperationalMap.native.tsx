@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 
 export type OperationalMapPoint = {
@@ -10,6 +11,7 @@ export type OperationalMapPoint = {
 };
 
 type Props = {
+  baseLabel?: string | null;
   baseLatitude: number;
   baseLongitude: number;
   points: OperationalMapPoint[];
@@ -19,6 +21,7 @@ type Props = {
 };
 
 export default function OperationalMapNative({
+  baseLabel = "Base operacional",
   baseLatitude,
   baseLongitude,
   points,
@@ -26,8 +29,37 @@ export default function OperationalMapNative({
   selectedPointId,
   onSelectPoint,
 }: Props) {
+  const map = useRef<MapView>(null);
+  const centeredGps = useRef(false);
+  const selected = points.find((p) => p.id === selectedPointId);
+  const selectedLat = selected?.latitude,
+    selectedLng = selected?.longitude;
+  useEffect(() => {
+    if (selectedLat != null && selectedLng != null)
+      map.current?.animateCamera(
+        { center: { latitude: selectedLat, longitude: selectedLng } },
+        { duration: 250 },
+      );
+  }, [selectedLat, selectedLng]);
+  useEffect(() => {
+    if (
+      baseLabel === "Minha posição" &&
+      !centeredGps.current &&
+      !selectedPointId
+    ) {
+      centeredGps.current = true;
+      map.current?.animateCamera(
+        {
+          center: { latitude: baseLatitude, longitude: baseLongitude },
+          zoom: 14,
+        },
+        { duration: 300 },
+      );
+    }
+  }, [baseLabel, baseLatitude, baseLongitude, selectedPointId]);
   return (
     <MapView
+      ref={map}
       provider={PROVIDER_GOOGLE}
       style={{ flex: 1 }}
       initialRegion={{
@@ -48,15 +80,17 @@ export default function OperationalMapNative({
         />
       ) : null}
 
-      <Marker
-        coordinate={{
-          latitude: baseLatitude,
-          longitude: baseLongitude,
-        }}
-        title="Base operacional"
-        description="Cooperativa / localização atual"
-        pinColor="#028C56"
-      />
+      {baseLabel && (
+        <Marker
+          coordinate={{
+            latitude: baseLatitude,
+            longitude: baseLongitude,
+          }}
+          title={baseLabel}
+          description={baseLabel}
+          pinColor="#028C56"
+        />
+      )}
 
       {points.map((point) => (
         <Marker
@@ -67,7 +101,9 @@ export default function OperationalMapNative({
           }}
           title={point.title}
           description={point.description}
-          pinColor={selectedPointId === point.id ? "#111827" : point.color || "#2563EB"}
+          pinColor={
+            selectedPointId === point.id ? "#111827" : point.color || "#2563EB"
+          }
           onPress={() => onSelectPoint?.(point.id)}
         />
       ))}

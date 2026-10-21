@@ -1,3 +1,4 @@
+import {dashboardRoutes} from "./modules/dashboard/dashboard.routes";
 import { settingsRoutes } from "./modules/settings/settings.routes";
 import { reportsRoutes } from "./modules/reports/reports.routes";
 import Fastify from "fastify";
@@ -204,6 +205,7 @@ export async function buildApp() {
   await app.register(environmentalRoutes);
   await app.register(reportsRoutes);
   await app.register(settingsRoutes);
+  await app.register(dashboardRoutes);
   await app.register(vehicleDocumentsRoutes);
   await app.register(maintenanceLogsRoutes);
 

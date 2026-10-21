@@ -10,7 +10,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
+import { useForegroundLocation } from "@/src/hooks/useForegroundLocation";
+import { LocationStatus } from "@/src/components/LocationStatus";
 import * as Linking from "expo-linking";
 
 import OperationalMap from "@/src/components/maps/OperationalMap";
@@ -18,10 +19,7 @@ import { OfflineBanner } from "@/src/components/OfflineBanner";
 import { LastSyncBadge } from "@/src/components/LastSyncBadge";
 import { useConnectivity } from "@/src/hooks/useConnectivity";
 import { useNotification } from "@/src/contexts/NotificationContext";
-import {
-  scheduleService,
-  type Schedule,
-} from "@/src/services/scheduleService";
+import { scheduleService, type Schedule } from "@/src/services/scheduleService";
 import {
   collectionService,
   type Collection,
@@ -106,7 +104,7 @@ function getMarkerColor(status: PointStatus) {
 
 function calculateDistance(
   a: { latitude: number; longitude: number },
-  b: { latitude: number; longitude: number }
+  b: { latitude: number; longitude: number },
 ) {
   const dx = a.latitude - b.latitude;
   const dy = a.longitude - b.longitude;
@@ -115,7 +113,7 @@ function calculateDistance(
 
 function optimizeRouteByNearestNeighbor(
   base: { latitude: number; longitude: number },
-  points: MapOperationalPoint[]
+  points: MapOperationalPoint[],
 ): MapOperationalPoint[] {
   const remaining = [...points];
   const ordered: MapOperationalPoint[] = [];
@@ -149,7 +147,7 @@ function optimizeRouteByNearestNeighbor(
 
 function hasValidCoordinates(
   latitude?: number | null,
-  longitude?: number | null
+  longitude?: number | null,
 ) {
   return (
     typeof latitude === "number" &&
@@ -187,7 +185,7 @@ function getGeneratorCoordinates(generator?: any) {
 function normalizeSchedulePoints(schedules: Schedule[]): MapOperationalPoint[] {
   return schedules
     .filter((item) =>
-      ["REQUESTED", "SCHEDULED", "IN_PROGRESS"].includes(item.status)
+      ["REQUESTED", "SCHEDULED", "IN_PROGRESS"].includes(item.status),
     )
     .map((item) => {
       const coordinates = getGeneratorCoordinates(item.generator);
@@ -220,11 +218,11 @@ function normalizeSchedulePoints(schedules: Schedule[]): MapOperationalPoint[] {
 }
 
 function normalizeCollectionPoints(
-  collections: Collection[]
+  collections: Collection[],
 ): MapOperationalPoint[] {
   return collections
     .filter(
-      (item) => item.status === "PENDING" || item.status === "IN_PROGRESS"
+      (item) => item.status === "PENDING" || item.status === "IN_PROGRESS",
     )
     .map((item) => {
       const generator = item.generator || item.schedule?.generator;
@@ -264,18 +262,17 @@ function normalizeCollectionPoints(
       };
     })
     .filter(Boolean) as MapOperationalPoint[];
-
 }
 
 export default function CooperativeMapScreen() {
+  const gps = useForegroundLocation();
   const { isOffline } = useConnectivity();
   const { notifyError, notifyWarning, notifyInfo } = useNotification();
 
-  const [loadingLocation, setLoadingLocation] = useState(true);
   const [loadingData, setLoadingData] = useState(true);
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
   const [selectedStatus, setSelectedStatus] = useState<"ALL" | PointStatus>(
-    "ALL"
+    "ALL",
   );
   const [selectedPoint, setSelectedPoint] =
     useState<MapOperationalPoint | null>(null);
@@ -285,35 +282,16 @@ export default function CooperativeMapScreen() {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadLocation = useCallback(async () => {
-  try {
-    setLoadingLocation(true);
-
-    const { status } = await Location.requestForegroundPermissionsAsync();
-
-    if (status !== "granted") {
-      notifyWarning(
-        "Permissão de localização negada. O mapa será aberto usando a região padrão."
-      );
-      return;
-    }
-
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-
-    setRegion({
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      latitudeDelta: 0.08,
-      longitudeDelta: 0.08,
-    });
-  } catch (error) {
-    console.error("Erro ao carregar localização:", error);
-    notifyWarning("Não foi possível carregar sua localização atual.");
-  } finally {
-    setLoadingLocation(false);
-  }
-}, [notifyWarning]);
+    gps.retry();
+  }, [gps.retry]);
+  useEffect(() => {
+    if (gps.position)
+      setRegion((p) => ({
+        ...p,
+        latitude: gps.position!.coords.latitude,
+        longitude: gps.position!.coords.longitude,
+      }));
+  }, [gps.position]);
 
   const loadOperationalData = useCallback(async () => {
     try {
@@ -324,7 +302,9 @@ export default function CooperativeMapScreen() {
         collectionService.list(),
       ]);
 
-      const schedules = Array.isArray(schedulesResponse) ? schedulesResponse : [];
+      const schedules = Array.isArray(schedulesResponse)
+        ? schedulesResponse
+        : [];
       const collections = Array.isArray(collectionsResponse)
         ? collectionsResponse
         : [];
@@ -347,10 +327,10 @@ export default function CooperativeMapScreen() {
     } catch (error) {
       console.error("Erro ao carregar mapa operacional:", error);
       notifyError(
-  error instanceof Error
-    ? error.message
-    : "Não foi possível carregar os dados operacionais do mapa."
-);
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os dados operacionais do mapa.",
+      );
       setPoints([]);
       setSelectedPoint(null);
     } finally {
@@ -359,18 +339,18 @@ export default function CooperativeMapScreen() {
   }, [notifyError]);
 
   const refreshAll = useCallback(async () => {
-  notifyInfo(
-    isOffline
-      ? "Atualizando com dados salvos no dispositivo..."
-      : "Atualizando mapa operacional..."
-  );
+    notifyInfo(
+      isOffline
+        ? "Atualizando com dados salvos no dispositivo..."
+        : "Atualizando mapa operacional...",
+    );
 
-  await Promise.all([loadLocation(), loadOperationalData()]);
-}, [isOffline, loadLocation, loadOperationalData, notifyInfo]);
+    await Promise.all([loadLocation(), loadOperationalData()]);
+  }, [isOffline, loadLocation, loadOperationalData, notifyInfo]);
 
   useEffect(() => {
-    refreshAll();
-  }, [refreshAll]);
+    void loadOperationalData();
+  }, [loadOperationalData]);
 
   const filteredByStatus = useMemo(() => {
     if (selectedStatus === "ALL") return points;
@@ -391,7 +371,7 @@ export default function CooperativeMapScreen() {
         latitude: region.latitude,
         longitude: region.longitude,
       },
-      routeFocusedPoints
+      routeFocusedPoints,
     );
   }, [routeFocusedPoints, region.latitude, region.longitude]);
 
@@ -422,14 +402,14 @@ export default function CooperativeMapScreen() {
       });
 
     return Array.from(grouped.values()).sort((a, b) =>
-      a.routeName.localeCompare(b.routeName)
+      a.routeName.localeCompare(b.routeName),
     );
   }, [points]);
 
   useEffect(() => {
     if (selectedRouteId) {
       const stillExists = allRouteOptions.some(
-        (item) => item.routeId === selectedRouteId
+        (item) => item.routeId === selectedRouteId,
       );
 
       if (!stillExists) {
@@ -456,7 +436,13 @@ export default function CooperativeMapScreen() {
       { latitude: region.latitude, longitude: region.longitude },
       { latitude: selectedPoint.latitude, longitude: selectedPoint.longitude },
     ];
-  }, [region.latitude, region.longitude, selectedPoint, orderedPoints, viewMode]);
+  }, [
+    region.latitude,
+    region.longitude,
+    selectedPoint,
+    orderedPoints,
+    viewMode,
+  ]);
 
   const summary = useMemo(() => {
     const base = {
@@ -484,28 +470,32 @@ export default function CooperativeMapScreen() {
     }
   }, []);
 
-  const openExternalRoute = useCallback(async (point: MapOperationalPoint) => {
-    try {
-      const destination = `${point.latitude},${point.longitude}`;
-      const googleMapsWebUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`;
-      const appleMapsUrl = `http://maps.apple.com/?daddr=${destination}&dirflg=d`;
+  const openExternalRoute = useCallback(
+    async (point: MapOperationalPoint) => {
+      try {
+        const destination = `${point.latitude},${point.longitude}`;
+        const googleMapsWebUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`;
+        const appleMapsUrl = `http://maps.apple.com/?daddr=${destination}&dirflg=d`;
 
-      const urlToOpen = Platform.OS === "ios" ? appleMapsUrl : googleMapsWebUrl;
-      const supported = await Linking.canOpenURL(urlToOpen);
+        const urlToOpen =
+          Platform.OS === "ios" ? appleMapsUrl : googleMapsWebUrl;
+        const supported = await Linking.canOpenURL(urlToOpen);
 
-      if (!supported) {
-        notifyError("Não foi possível abrir o aplicativo de mapas.");
-        return;
+        if (!supported) {
+          notifyError("Não foi possível abrir o aplicativo de mapas.");
+          return;
+        }
+
+        await Linking.openURL(urlToOpen);
+      } catch (error) {
+        console.error("Erro ao abrir rota externa:", error);
+        notifyError("Não foi possível abrir a rota externa.");
       }
+    },
+    [notifyError],
+  );
 
-      await Linking.openURL(urlToOpen);
-    } catch (error) {
-      console.error("Erro ao abrir rota externa:", error);
-      notifyError("Não foi possível abrir a rota externa.");
-    }
-  }, [notifyError]);
-
-  const isLoading = loadingLocation || loadingData;
+  const isLoading = loadingData;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
@@ -537,7 +527,9 @@ export default function CooperativeMapScreen() {
             </TouchableOpacity>
 
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 22, fontWeight: "900", color: "#FFFFFF" }}>
+              <Text
+                style={{ fontSize: 22, fontWeight: "900", color: "#FFFFFF" }}
+              >
                 MAPA OPERACIONAL
               </Text>
               <Text style={{ fontSize: 13, color: "#E8FFF1", marginTop: 4 }}>
@@ -570,6 +562,12 @@ export default function CooperativeMapScreen() {
       >
         <View style={{ paddingHorizontal: 16, paddingTop: 14, gap: 12 }}>
           <OfflineBanner visible={isOffline} />
+          <LocationStatus
+            position={gps.position}
+            error={gps.error}
+            loading={gps.loading}
+            retry={gps.retry}
+          />
           <LastSyncBadge value={lastSyncAt} />
         </View>
 
@@ -701,10 +699,9 @@ export default function CooperativeMapScreen() {
                 Carregando mapa operacional...
               </Text>
             </View>
-          ) : 
-          
-          (
+          ) : (
             <OperationalMap
+              baseLabel={gps.position ? "Minha posição" : null}
               baseLatitude={region.latitude}
               baseLongitude={region.longitude}
               points={orderedPoints.map((point) => ({
@@ -721,7 +718,7 @@ export default function CooperativeMapScreen() {
                     ? "#111827"
                     : getMarkerColor(point.status),
               }))}
-              routeCoordinates={selectedRouteCoordinates}
+              routeCoordinates={gps.position ? selectedRouteCoordinates : []}
               selectedPointId={selectedPoint?.id ?? null}
               onSelectPoint={(pointId: string) => {
                 if (pointId === "__base__") {
@@ -729,7 +726,9 @@ export default function CooperativeMapScreen() {
                   return;
                 }
 
-                const foundPoint = orderedPoints.find((item) => item.id === pointId);
+                const foundPoint = orderedPoints.find(
+                  (item) => item.id === pointId,
+                );
                 if (foundPoint) {
                   selectPoint(foundPoint);
                 }
@@ -853,7 +852,9 @@ export default function CooperativeMapScreen() {
           </ScrollView>
         </View>
 
-        <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 18 }}>
+        <View
+          style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 18 }}
+        >
           <View
             style={{
               backgroundColor: "#FFFFFF",
@@ -904,25 +905,33 @@ export default function CooperativeMapScreen() {
                     </Text>
 
                     {!!selectedPoint.routeName && (
-                      <Text style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#475569", marginTop: 6 }}
+                      >
                         Rota: {selectedPoint.routeName}
                       </Text>
                     )}
 
                     {!!selectedPoint.driverName && (
-                      <Text style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#475569", marginTop: 6 }}
+                      >
                         Motorista: {selectedPoint.driverName}
                       </Text>
                     )}
 
                     {!!selectedPoint.vehicleLabel && (
-                      <Text style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#475569", marginTop: 6 }}
+                      >
                         Veículo: {selectedPoint.vehicleLabel}
                       </Text>
                     )}
 
                     {!!selectedPoint.collectorName && (
-                      <Text style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#475569", marginTop: 6 }}
+                      >
                         Catador: {selectedPoint.collectorName}
                       </Text>
                     )}
@@ -975,7 +984,8 @@ export default function CooperativeMapScreen() {
                     </Text>
                   </TouchableOpacity>
 
-                  {!!selectedPoint.routeId && typeof selectedPoint.routeId === "string" ? (
+                  {!!selectedPoint.routeId &&
+                  typeof selectedPoint.routeId === "string" ? (
                     <TouchableOpacity
                       onPress={() =>
                         router.push({
@@ -1050,7 +1060,8 @@ export default function CooperativeMapScreen() {
                     textAlign: "center",
                   }}
                 >
-                  Toque em um ponto no mapa ou em um card abaixo para ver detalhes.
+                  Toque em um ponto no mapa ou em um card abaixo para ver
+                  detalhes.
                 </Text>
               </View>
             )}

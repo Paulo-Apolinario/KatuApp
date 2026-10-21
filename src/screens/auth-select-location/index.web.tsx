@@ -1,15 +1,9 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
+import * as Location from "@/src/services/deviceLocation";
 import { registerDraftStore } from "@/src/stores/registerDraftStore";
 
 type Region = {
@@ -68,17 +62,18 @@ export default function SelectLocationWebScreen() {
     longitude: initialRegion.longitude,
   });
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [gpsError, setGpsError] = useState("");
 
   async function handleUseCurrentLocation() {
     try {
       setLoadingLocation(true);
+      setGpsError("");
 
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== "granted") {
-        Alert.alert(
-          "Permissão negada",
-          "Permita o acesso à localização para usar sua posição atual."
+        setGpsError(
+          "Permissão negada. Libere a localização deste site no navegador.",
         );
         return;
       }
@@ -93,7 +88,11 @@ export default function SelectLocationWebScreen() {
       });
     } catch (error) {
       console.error("Erro ao obter localização atual:", error);
-      Alert.alert("Erro", "Não foi possível obter sua localização atual.");
+      setGpsError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível obter sua localização atual.",
+      );
     } finally {
       setLoadingLocation(false);
     }
@@ -133,7 +132,10 @@ export default function SelectLocationWebScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 12 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 12 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -201,6 +203,14 @@ export default function SelectLocationWebScreen() {
             backgroundColor: "#F0FDF4",
           }}
         >
+          {!!gpsError && (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={{ color: "#9B4E11", marginVertical: 10 }}
+            >
+              {gpsError}
+            </Text>
+          )}
           {loadingLocation ? (
             <ActivityIndicator color="#028C56" />
           ) : (

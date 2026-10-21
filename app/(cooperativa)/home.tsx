@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
+import * as Location from "@/src/services/deviceLocation";
 import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -507,9 +507,9 @@ export default function CooperativeHomeScreen() {
       setCurrentCity(city);
       setLocationError(false);
     } else {
-      setCurrentCity("Localização não encontrada");
-      setLocationError(true);
-      notifyWarning("Não foi possível identificar sua cidade atual.");
+      setCurrentCity("GPS ativo — cidade não identificada");
+      setLocationError(false);
+
     }
   } catch (error) {
     console.error("Erro ao obter localização:", error);

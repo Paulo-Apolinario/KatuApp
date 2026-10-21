@@ -15,7 +15,7 @@ import MapView, {
   Region,
   MapPressEvent,
 } from "react-native-maps";
-import * as Location from "expo-location";
+import * as Location from "@/src/services/deviceLocation";
 import { generatorDraftStore } from "@/src/stores/generatorDraftStore";
 
 const DEFAULT_REGION: Region = {

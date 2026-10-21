@@ -1,8 +1,6 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-  Linking,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -11,7 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
+import * as Location from "@/src/services/deviceLocation";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useNotification } from "@/src/contexts/NotificationContext";
@@ -39,14 +37,6 @@ export default function PFHomeScreen() {
 
   const displayName = getUserDisplayName(currentUser);
 
-  const openAppSettings = useCallback(() => {
-    if (Platform.OS === "ios") {
-      Linking.openURL("app-settings:");
-    } else {
-      Linking.openSettings();
-    }
-  }, []);
-
   const getUserLocation = useCallback(async () => {
     setIsLoadingLocation(true);
 
@@ -67,7 +57,6 @@ export default function PFHomeScreen() {
         setLocationError(true);
 
         notifyWarning("Precisamos da sua localização para mostrar a cidade atual.");
-        openAppSettings();
         return;
       }
 
@@ -92,8 +81,8 @@ export default function PFHomeScreen() {
         setCurrentCity(city);
         setLocationError(false);
       } else {
-        setCurrentCity("Localização não encontrada");
-        setLocationError(true);
+        setCurrentCity("GPS ativo — cidade não identificada");
+        setLocationError(false);
       }
     } catch (error) {
       console.error("Erro ao obter localização da PF:", error);
@@ -103,7 +92,7 @@ export default function PFHomeScreen() {
       setIsLoadingLocation(false);
       setRefreshing(false);
     }
-  }, [notifyWarning, openAppSettings]);
+  }, [notifyWarning]);
 
   useFocusEffect(
     useCallback(() => {

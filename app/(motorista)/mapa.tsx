@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import * as Location from "expo-location";
+import { useForegroundLocation } from "@/src/hooks/useForegroundLocation";
+import { LocationStatus } from "@/src/components/LocationStatus";
 import { Ionicons } from "@expo/vector-icons";
 
 import OperationalMap from "@/src/components/maps/OperationalMap";
@@ -136,9 +137,13 @@ function getCollectionGenerator(collection?: Collection | null) {
 }
 
 export default function MotoristaMapaScreen() {
+  const gps = useForegroundLocation();
   const { user } = useAuth();
   const { isOffline } = useConnectivity();
-  const params = useLocalSearchParams<{ routeId?: string; collectionId?: string }>();
+  const params = useLocalSearchParams<{
+    routeId?: string;
+    collectionId?: string;
+  }>();
   const driverId = user?.driver?.id ?? null;
 
   const [loading, setLoading] = useState(true);
@@ -149,10 +154,9 @@ export default function MotoristaMapaScreen() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [profile, setProfile] = useState<DriverProfile | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<RouteItem | null>(null);
-  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(
-    null
-  );
-  const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(null);
+  const [selectedCollection, setSelectedCollection] =
+    useState<Collection | null>(null);
+  const currentLocation = gps.position?.coords ?? null;
   const [error, setError] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
@@ -188,7 +192,9 @@ export default function MotoristaMapaScreen() {
         setProfile(myProfile);
         setLastSyncAt(new Date().toISOString());
 
-        const highlightedRouteId = params.routeId ? String(params.routeId) : null;
+        const highlightedRouteId = params.routeId
+          ? String(params.routeId)
+          : null;
         const highlightedCollectionId = params.collectionId
           ? String(params.collectionId)
           : null;
@@ -200,12 +206,15 @@ export default function MotoristaMapaScreen() {
           try {
             nextRoute = await routeService.getById(highlightedRouteId);
             nextCollection =
-              nextRoute.collections?.find((item) => item.id === highlightedCollectionId) ??
+              nextRoute.collections?.find(
+                (item) => item.id === highlightedCollectionId,
+              ) ??
               nextRoute.collections?.[0] ??
               null;
           } catch {
             nextRoute =
-              activeRoutes.find((item) => item.id === highlightedRouteId) ?? null;
+              activeRoutes.find((item) => item.id === highlightedRouteId) ??
+              null;
           }
         } else if (activeRoutes.length > 0) {
           try {
@@ -218,19 +227,6 @@ export default function MotoristaMapaScreen() {
 
         setSelectedRoute(nextRoute);
         setSelectedCollection(nextCollection);
-
-        const permission = await Location.requestForegroundPermissionsAsync();
-
-        if (permission.status === "granted") {
-          const location = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.High,
-          });
-
-          setCurrentLocation({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-          });
-        }
       } catch (err: any) {
         setError(err?.message || "Não foi possível carregar os dados do mapa.");
       } finally {
@@ -238,13 +234,13 @@ export default function MotoristaMapaScreen() {
         setRefreshing(false);
       }
     },
-    [driverId, params.collectionId, params.routeId]
+    [driverId, params.collectionId, params.routeId],
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadMapData();
-    }, [loadMapData])
+    }, [loadMapData]),
   );
 
   const cooperativeMarker = useMemo<MarkerPoint | null>(() => {
@@ -252,7 +248,7 @@ export default function MotoristaMapaScreen() {
       !profile?.cooperative ||
       !isValidCoordinate(
         profile.cooperative.latitude,
-        profile.cooperative.longitude
+        profile.cooperative.longitude,
       )
     ) {
       return null;
@@ -283,7 +279,7 @@ export default function MotoristaMapaScreen() {
       .filter(
         ({ generator }) =>
           !!generator &&
-          isValidCoordinate(generator.latitude, generator.longitude)
+          isValidCoordinate(generator.latitude, generator.longitude),
       )
       .map(({ raw, generator }) => ({
         id: raw.id,
@@ -385,7 +381,12 @@ export default function MotoristaMapaScreen() {
     }));
 
     return fallback.length >= 2 ? fallback : [];
-  }, [allMarkers, currentLocation, selectedCollection, selectedRouteCoordinates]);
+  }, [
+    allMarkers,
+    currentLocation,
+    selectedCollection,
+    selectedRouteCoordinates,
+  ]);
 
   const handleFocusSelectedRoute = useCallback(() => {
     if (selectedRoute?.collections?.length) {
@@ -398,16 +399,19 @@ export default function MotoristaMapaScreen() {
     setSelectedCollection(null);
   }, []);
 
-  const handleSelectCollection = useCallback(async (collection: Collection | null) => {
-    setSelectedCollection(collection);
+  const handleSelectCollection = useCallback(
+    async (collection: Collection | null) => {
+      setSelectedCollection(collection);
 
-    if (collection?.routeId) {
-      try {
-        const detail = await routeService.getById(collection.routeId);
-        setSelectedRoute(detail);
-      } catch {}
-    }
-  }, []);
+      if (collection?.routeId) {
+        try {
+          const detail = await routeService.getById(collection.routeId);
+          setSelectedRoute(detail);
+        } catch {}
+      }
+    },
+    [],
+  );
 
   const handleSelectRoute = useCallback(async (route: RouteItem) => {
     try {
@@ -502,6 +506,12 @@ export default function MotoristaMapaScreen() {
           </View>
         )}
 
+        <LocationStatus
+          position={gps.position}
+          error={gps.error}
+          loading={gps.loading}
+          retry={gps.retry}
+        />
         <View
           style={{
             height: 340,
@@ -514,11 +524,20 @@ export default function MotoristaMapaScreen() {
           }}
         >
           <OperationalMap
+            baseLabel={
+              currentLocation
+                ? "Minha posição"
+                : cooperativeMarker?.title || null
+            }
             baseLatitude={
-              currentLocation?.latitude ?? cooperativeMarker?.latitude ?? -3.7319
+              currentLocation?.latitude ??
+              cooperativeMarker?.latitude ??
+              -3.7319
             }
             baseLongitude={
-              currentLocation?.longitude ?? cooperativeMarker?.longitude ?? -38.5267
+              currentLocation?.longitude ??
+              cooperativeMarker?.longitude ??
+              -38.5267
             }
             points={allMarkers.map((item) => ({
               id: item.id,
@@ -530,10 +549,10 @@ export default function MotoristaMapaScreen() {
                 item.type === "driver"
                   ? "#2563EB"
                   : item.type === "cooperative"
-                  ? "#028C56"
-                  : selectedCollection?.id === item.id
-                  ? "#111827"
-                  : "#F59E0B",
+                    ? "#028C56"
+                    : selectedCollection?.id === item.id
+                      ? "#111827"
+                      : "#F59E0B",
             }))}
             routeCoordinates={polylineCoordinates}
             selectedPointId={selectedCollection?.id ?? null}
@@ -545,7 +564,8 @@ export default function MotoristaMapaScreen() {
                 return;
               }
 
-              const collection = collections.find((c) => c.id === pointId) || null;
+              const collection =
+                collections.find((c) => c.id === pointId) || null;
               void handleSelectCollection(collection);
             }}
           />
@@ -591,7 +611,10 @@ export default function MotoristaMapaScreen() {
         <InfoCard title="Resumo geográfico">
           <SummaryLine label="Rotas ativas" value={routes.length} />
           <SummaryLine label="Coletas carregadas" value={collections.length} />
-          <SummaryLine label="Pontos com coordenadas" value={collectionMarkers.length} />
+          <SummaryLine
+            label="Pontos com coordenadas"
+            value={collectionMarkers.length}
+          />
           <SummaryLine
             label="Veículo atual"
             value={
@@ -661,7 +684,9 @@ export default function MotoristaMapaScreen() {
                   })
                 }
               >
-                <Text style={{ color: "#028C56", fontWeight: "800", fontSize: 12 }}>
+                <Text
+                  style={{ color: "#028C56", fontWeight: "800", fontSize: 12 }}
+                >
                   VER TELA
                 </Text>
               </TouchableOpacity>
@@ -715,7 +740,10 @@ export default function MotoristaMapaScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {isValidCoordinate(selectedGenerator?.latitude, selectedGenerator?.longitude) && (
+              {isValidCoordinate(
+                selectedGenerator?.latitude,
+                selectedGenerator?.longitude,
+              ) && (
                 <TouchableOpacity
                   onPress={() =>
                     openExternalNavigation({
@@ -758,10 +786,16 @@ export default function MotoristaMapaScreen() {
             </Text>
 
             <Text style={{ color: "#6B7280", lineHeight: 22 }}>
-              Rota: {selectedCollection.route?.name || selectedRoute?.name || "Não vinculada"}
+              Rota:{" "}
+              {selectedCollection.route?.name ||
+                selectedRoute?.name ||
+                "Não vinculada"}
             </Text>
 
-            {isValidCoordinate(selectedGenerator?.latitude, selectedGenerator?.longitude) && (
+            {isValidCoordinate(
+              selectedGenerator?.latitude,
+              selectedGenerator?.longitude,
+            ) && (
               <TouchableOpacity
                 onPress={() =>
                   openExternalNavigation({

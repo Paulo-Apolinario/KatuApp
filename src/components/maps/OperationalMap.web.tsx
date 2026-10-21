@@ -17,6 +17,7 @@ export type OperationalMapPoint = {
 };
 
 type Props = {
+  baseLabel?: string | null;
   baseLatitude: number;
   baseLongitude: number;
   points: OperationalMapPoint[];
@@ -39,6 +40,7 @@ function openGoogleMaps(latitude: number, longitude: number) {
 }
 
 export default function OperationalMapWeb({
+  baseLabel = "Base operacional",
   baseLatitude,
   baseLongitude,
   points,
@@ -77,12 +79,14 @@ export default function OperationalMapWeb({
         >
           <iframe
             src={src}
-            style={{
-              width: "100%",
-              height: "100%",
-              border: "0",
-              display: "block",
-            } as any}
+            style={
+              {
+                width: "100%",
+                height: "100%",
+                border: "0",
+                display: "block",
+              } as any
+            }
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
@@ -92,7 +96,10 @@ export default function OperationalMapWeb({
           <Text style={styles.legendTitle}>Legenda</Text>
 
           <View style={styles.legendItems}>
-            <LegendItem color="#028C56" label="Base / cooperativa" />
+            <LegendItem
+              color="#028C56"
+              label={baseLabel || "Região de referência"}
+            />
             <LegendItem color="#2563EB" label="Ponto operacional" />
             <LegendItem color="#111827" label="Selecionado" />
             <LegendItem color="#F59E0B" label="Coleta / parada" />
@@ -101,7 +108,7 @@ export default function OperationalMapWeb({
 
         <View style={styles.quickActions}>
           <QuickActionButton
-            label="Base"
+            label={baseLabel || "Visão de referência"}
             onPress={() => onSelectPoint?.("__base__")}
           />
           {!!selectedPoint && (
@@ -162,8 +169,16 @@ export default function OperationalMapWeb({
 
             <View style={styles.selectedActions}>
               <TouchableOpacity
-                onPress={() => openGoogleMaps(selectedPoint.latitude, selectedPoint.longitude)}
-                style={[styles.selectedActionButton, styles.selectedActionPrimary]}
+                onPress={() =>
+                  openGoogleMaps(
+                    selectedPoint.latitude,
+                    selectedPoint.longitude,
+                  )
+                }
+                style={[
+                  styles.selectedActionButton,
+                  styles.selectedActionPrimary,
+                ]}
               >
                 <Text style={styles.selectedActionPrimaryText}>
                   Abrir no Google Maps
@@ -172,7 +187,10 @@ export default function OperationalMapWeb({
 
               <TouchableOpacity
                 onPress={() => onSelectPoint?.("__base__")}
-                style={[styles.selectedActionButton, styles.selectedActionSecondary]}
+                style={[
+                  styles.selectedActionButton,
+                  styles.selectedActionSecondary,
+                ]}
               >
                 <Text style={styles.selectedActionSecondaryText}>
                   Voltar para base
@@ -226,7 +244,9 @@ export default function OperationalMapWeb({
                   ]}
                 />
 
-                <Text style={styles.cardTitle}>{truncateText(point.title, 42)}</Text>
+                <Text style={styles.cardTitle}>
+                  {truncateText(point.title, 42)}
+                </Text>
 
                 {!!point.description ? (
                   <Text style={styles.cardText}>
@@ -239,7 +259,9 @@ export default function OperationalMapWeb({
                 </Text>
 
                 <TouchableOpacity
-                  onPress={() => openGoogleMaps(point.latitude, point.longitude)}
+                  onPress={() =>
+                    openGoogleMaps(point.latitude, point.longitude)
+                  }
                   style={styles.inlineMapButton}
                 >
                   <Text style={styles.inlineMapButtonText}>Abrir Maps</Text>
@@ -304,7 +326,9 @@ export default function OperationalMapWeb({
                 </Text>
 
                 <TouchableOpacity
-                  onPress={() => openGoogleMaps(point.latitude, point.longitude)}
+                  onPress={() =>
+                    openGoogleMaps(point.latitude, point.longitude)
+                  }
                   style={styles.inlineMapButton}
                 >
                   <Text style={styles.inlineMapButtonText}>Abrir Maps</Text>
@@ -341,13 +365,17 @@ function QuickActionButton({
       onPress={onPress}
       style={[
         styles.quickActionButton,
-        primary ? styles.quickActionButtonPrimary : styles.quickActionButtonSecondary,
+        primary
+          ? styles.quickActionButtonPrimary
+          : styles.quickActionButtonSecondary,
       ]}
     >
       <Text
         style={[
           styles.quickActionText,
-          primary ? styles.quickActionTextPrimary : styles.quickActionTextSecondary,
+          primary
+            ? styles.quickActionTextPrimary
+            : styles.quickActionTextSecondary,
         ]}
       >
         {label}

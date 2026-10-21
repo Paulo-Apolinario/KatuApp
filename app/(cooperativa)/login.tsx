@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
+import * as Location from "@/src/services/deviceLocation";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useNotification } from "@/src/contexts/NotificationContext";
@@ -27,7 +27,7 @@ export default function CooperativaLoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [locationName, setLocationName] = useState("Jijoca de Jericoacoara");
+  const [locationName, setLocationName] = useState("Localização não obtida");
 
   useEffect(() => {
     getUserLocation();
@@ -47,10 +47,10 @@ export default function CooperativaLoginScreen() {
         if (addresses.length > 0) {
           const address = addresses[0];
           const city =
-            address.city || address.region || "Jijoca de Jericoacoara";
+            address.city || address.region || "GPS ativo — cidade não identificada";
 
           setLocationName(city);
-        }
+        } else { setLocationName("GPS ativo — cidade não identificada"); }
       }
     } catch (error) {
       console.error("Erro ao obter localização:", error);

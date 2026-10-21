@@ -1476,3 +1476,5 @@ export const collectionService = {
 };
 
 export default collectionService;
+
+export function translateCollectionStatus(status:string){return ({PENDING:"Pendente",IN_PROGRESS:"Em andamento",COLLECTED:"Coletada em campo",RECEIVED:"Recebida",SORTING:"Em triagem",COMPLETED:"Concluída",CANCELLED:"Cancelada"} as Record<string,string>)[status]||status;}

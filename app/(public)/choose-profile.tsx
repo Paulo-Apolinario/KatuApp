@@ -5,11 +5,9 @@ import {
   Text,
   View,
   TouchableOpacity,
-  Linking,
-  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as Location from "expo-location";
+import * as Location from "@/src/services/deviceLocation";
 import GradientButton from "@/src/components/GradientButton";
 import { useNotification } from "@/src/contexts/NotificationContext";
 
@@ -23,7 +21,7 @@ export default function ChooseProfile() {
 
   useEffect(() => {
     getUserLocation();
-  }, );
+  }, []);
 
   async function getUserLocation() {
     setIsLoading(true);
@@ -44,14 +42,6 @@ export default function ChooseProfile() {
         setLocationError(true);
 
         notifyWarning("Precisamos da sua localização para mostrar a cidade atual.");
-
-// Ação executada fora da notificação
-if (Platform.OS === "ios") {
-  Linking.openURL("app-settings:");
-} else {
-  Linking.openSettings();
-};
-    
 
         return;
       }
@@ -77,8 +67,8 @@ if (Platform.OS === "ios") {
         setCurrentCity(city);
         setLocationError(false);
       } else {
-        setCurrentCity("Localização não encontrada");
-        setLocationError(true);
+        setCurrentCity("GPS ativo — cidade não identificada");
+        setLocationError(false);
       }
     } catch (error) {
       console.error("Erro ao obter localização:", error);

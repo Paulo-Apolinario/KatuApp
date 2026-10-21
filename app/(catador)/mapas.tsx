@@ -10,7 +10,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
+import { useForegroundLocation } from "@/src/hooks/useForegroundLocation";
+import { LocationStatus } from "@/src/components/LocationStatus";
 import * as Linking from "expo-linking";
 
 import OperationalMap from "@/src/components/maps/OperationalMap";
@@ -60,10 +61,7 @@ const INITIAL_REGION: Coordinates = {
   longitudeDelta: 0.08,
 };
 
-const ACTIVE_STATUSES: CollectionStatus[] = [
-  "PENDING",
-  "IN_PROGRESS",
-];
+const ACTIVE_STATUSES: CollectionStatus[] = ["PENDING", "IN_PROGRESS"];
 
 const FINISHED_STATUSES: CollectionStatus[] = [
   "COLLECTED",
@@ -79,7 +77,7 @@ function safeNumber(value: unknown) {
 
 function hasValidCoordinates(
   latitude?: number | null,
-  longitude?: number | null
+  longitude?: number | null,
 ) {
   return (
     typeof latitude === "number" &&
@@ -137,7 +135,7 @@ function normalizeMaterials(value: unknown): CollectionMaterial[] {
           material.type ??
           material.nameSnapshot ??
           material.materialNameSnapshot ??
-          "Material"
+          "Material",
       ).trim();
 
       const unit = normalizeUnit(material.unit);
@@ -161,9 +159,7 @@ function normalizeMaterials(value: unknown): CollectionMaterial[] {
         type: name,
         name,
         category:
-          typeof material.category === "string"
-            ? material.category
-            : null,
+          typeof material.category === "string" ? material.category : null,
         subcategory:
           typeof material.subcategory === "string"
             ? material.subcategory
@@ -171,10 +167,7 @@ function normalizeMaterials(value: unknown): CollectionMaterial[] {
         quantity,
         quantityKg,
         unit,
-        notes:
-          typeof material.notes === "string"
-            ? material.notes
-            : null,
+        notes: typeof material.notes === "string" ? material.notes : null,
       };
     })
     .filter((item): item is CollectionMaterial => item !== null);
@@ -185,21 +178,15 @@ function getCollectionGenerator(collection?: Collection | null) {
   return collection.generator ?? collection.schedule?.generator ?? null;
 }
 
-
 function getCollectionContactPhone(
   collection: Collection,
-  generator: NonNullable<ReturnType<typeof getCollectionGenerator>>
+  generator: NonNullable<ReturnType<typeof getCollectionGenerator>>,
 ) {
-  const generatorRecord =
-    generator as unknown as Record<string, unknown>;
+  const generatorRecord = generator as unknown as Record<string, unknown>;
 
-  const requestedByRecord =
-    collection.schedule?.requestedBy
-      ? (collection.schedule.requestedBy as unknown as Record<
-          string,
-          unknown
-        >)
-      : null;
+  const requestedByRecord = collection.schedule?.requestedBy
+    ? (collection.schedule.requestedBy as unknown as Record<string, unknown>)
+    : null;
 
   const generatorPhone =
     typeof generatorRecord.phone === "string"
@@ -218,9 +205,7 @@ function getCollectionMaterials(collection: Collection) {
   const collected = normalizeMaterials(collection.materials);
   if (collected.length > 0) return collected;
 
-  const requested = normalizeMaterials(
-    collection.schedule?.requestedMaterials
-  );
+  const requested = normalizeMaterials(collection.schedule?.requestedMaterials);
 
   if (requested.length > 0) return requested;
 
@@ -238,11 +223,8 @@ function getEstimatedWeightKg(collection: Collection) {
     (sum, material) =>
       sum +
       (safeNumber(material.quantityKg) ||
-        quantityToKg(
-          safeNumber(material.quantity),
-          material.unit || "KG"
-        )),
-    0
+        quantityToKg(safeNumber(material.quantity), material.unit || "KG")),
+    0,
   );
 }
 
@@ -268,7 +250,7 @@ function getStatusColor(status: CollectionStatus) {
 }
 
 function getStatusIcon(
-  status: CollectionStatus
+  status: CollectionStatus,
 ): keyof typeof Ionicons.glyphMap {
   switch (status) {
     case "PENDING":
@@ -332,14 +314,10 @@ function formatMaterials(materials: CollectionMaterial[]) {
 
   return materials
     .map((item) => {
-      const quantity =
-        safeNumber(item.quantity) ||
-        safeNumber(item.quantityKg);
+      const quantity = safeNumber(item.quantity) || safeNumber(item.quantityKg);
 
       return `${item.name || item.type || "Material"}${
-        quantity > 0
-          ? ` • ${quantity.toFixed(1)} ${formatUnit(item.unit)}`
-          : ""
+        quantity > 0 ? ` • ${quantity.toFixed(1)} ${formatUnit(item.unit)}` : ""
       }`;
     })
     .join("\n");
@@ -350,23 +328,18 @@ function calculateDistanceKm(
   destination: {
     latitude: number;
     longitude: number;
-  }
+  },
 ) {
   const earthRadiusKm = 6371;
-  const toRadians = (value: number) =>
-    (value * Math.PI) / 180;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
 
-  const latitudeDifference = toRadians(
-    destination.latitude - origin.latitude
-  );
+  const latitudeDifference = toRadians(destination.latitude - origin.latitude);
   const longitudeDifference = toRadians(
-    destination.longitude - origin.longitude
+    destination.longitude - origin.longitude,
   );
 
   const originLatitude = toRadians(origin.latitude);
-  const destinationLatitude = toRadians(
-    destination.latitude
-  );
+  const destinationLatitude = toRadians(destination.latitude);
 
   const a =
     Math.sin(latitudeDifference / 2) ** 2 +
@@ -390,6 +363,7 @@ function normalizePhone(phone?: string | null) {
 }
 
 export default function CatadorMapScreen() {
+  const gps = useForegroundLocation();
   const { isOffline } = useConnectivity();
   const { notifyError } = useNotification();
 
@@ -402,40 +376,16 @@ export default function CatadorMapScreen() {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadLocation = useCallback(async () => {
-    try {
-      const { status } =
-        await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") {
-        notifyError(
-          "Localização necessária",
-          "Permita o acesso à localização para exibir sua posição e calcular as rotas."
-        );
-        return;
-      }
-
-      const position =
-        await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-
-      setRegion({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        latitudeDelta: 0.08,
-        longitudeDelta: 0.08,
-      });
-    } catch (error) {
-      console.error(
-        "Erro ao carregar localização do catador:",
-        error
-      );
-      notifyError(
-        "Erro",
-        "Não foi possível obter sua localização atual."
-      );
-    }
-  }, [notifyError]);
+    gps.retry();
+  }, [gps.retry]);
+  useEffect(() => {
+    if (gps.position)
+      setRegion((p) => ({
+        ...p,
+        latitude: gps.position!.coords.latitude,
+        longitude: gps.position!.coords.longitude,
+      }));
+  }, [gps.position]);
 
   const loadCollections = useCallback(
     async (showLoader = true) => {
@@ -451,20 +401,13 @@ export default function CatadorMapScreen() {
         setLastSyncAt(new Date().toISOString());
 
         setSelectedId((currentId) =>
-          currentId &&
-          nextCollections.some((item) => item.id === currentId)
+          currentId && nextCollections.some((item) => item.id === currentId)
             ? currentId
-            : null
+            : null,
         );
       } catch (error) {
-        console.error(
-          "Erro ao carregar mapa do catador:",
-          error
-        );
-        notifyError(
-          "Erro",
-          "Não foi possível carregar o mapa do catador."
-        );
+        console.error("Erro ao carregar mapa do catador:", error);
+        notifyError("Erro", "Não foi possível carregar o mapa do catador.");
         setCollections([]);
       } finally {
         if (showLoader) {
@@ -474,17 +417,14 @@ export default function CatadorMapScreen() {
         setRefreshing(false);
       }
     },
-    [notifyError]
+    [notifyError],
   );
 
   const refreshAll = useCallback(async () => {
     try {
       setRefreshing(true);
 
-      await Promise.all([
-        loadLocation(),
-        loadCollections(false),
-      ]);
+      await Promise.all([loadLocation(), loadCollections(false)]);
     } finally {
       setRefreshing(false);
     }
@@ -493,25 +433,17 @@ export default function CatadorMapScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadCollections(true);
-    }, [loadCollections])
+    }, [loadCollections]),
   );
-
-  useEffect(() => {
-    void loadLocation();
-  }, [loadLocation]);
 
   const allPoints = useMemo(() => {
     return collections
       .map((collection): MapPoint | null => {
-        const generator =
-          getCollectionGenerator(collection);
+        const generator = getCollectionGenerator(collection);
 
         if (
           !generator ||
-          !hasValidCoordinates(
-            generator.latitude,
-            generator.longitude
-          )
+          !hasValidCoordinates(generator.latitude, generator.longitude)
         ) {
           return null;
         }
@@ -526,9 +458,7 @@ export default function CatadorMapScreen() {
             generator.businessName ||
             generator.name ||
             "Coleta operacional",
-          address:
-            generator.address ||
-            "Endereço não informado",
+          address: generator.address || "Endereço não informado",
           latitude,
           longitude,
           status: collection.status,
@@ -536,49 +466,41 @@ export default function CatadorMapScreen() {
           driverName: collection.driver?.name || null,
           vehicleLabel: collection.vehicle
             ? `${collection.vehicle.model || "Veículo"}${
-                collection.vehicle.plate
-                  ? ` • ${collection.vehicle.plate}`
-                  : ""
+                collection.vehicle.plate ? ` • ${collection.vehicle.plate}` : ""
               }`
             : null,
-          phone: getCollectionContactPhone(
-            collection,
-            generator
-          ),
+          phone: getCollectionContactPhone(collection, generator),
           materials: getCollectionMaterials(collection),
-          estimatedWeightKg:
-            getEstimatedWeightKg(collection),
+          estimatedWeightKg: getEstimatedWeightKg(collection),
           collection,
-          distanceKm: calculateDistanceKm(region, {
-            latitude,
-            longitude,
-          }),
+          distanceKm: gps.position
+            ? calculateDistanceKm(region, {
+                latitude,
+                longitude,
+              })
+            : null,
         };
       })
       .filter((item): item is MapPoint => item !== null);
-  }, [collections, region]);
+  }, [collections, region, gps.position]);
 
   const filteredPoints = useMemo(() => {
     if (filter === "ACTIVE") {
       return allPoints.filter((point) =>
-        ACTIVE_STATUSES.includes(point.status)
+        ACTIVE_STATUSES.includes(point.status),
       );
     }
 
     if (filter === "PENDING") {
-      return allPoints.filter(
-        (point) => point.status === "PENDING"
-      );
+      return allPoints.filter((point) => point.status === "PENDING");
     }
 
     if (filter === "IN_PROGRESS") {
-      return allPoints.filter(
-        (point) => point.status === "IN_PROGRESS"
-      );
+      return allPoints.filter((point) => point.status === "IN_PROGRESS");
     }
 
     return allPoints.filter((point) =>
-      FINISHED_STATUSES.includes(point.status)
+      FINISHED_STATUSES.includes(point.status),
     );
   }, [allPoints, filter]);
 
@@ -646,7 +568,7 @@ export default function CatadorMapScreen() {
   const routeMetrics = useMemo(() => {
     const totalWeightKg = orderedPoints.reduce(
       (sum, point) => sum + point.estimatedWeightKg,
-      0
+      0,
     );
 
     let totalDistanceKm = 0;
@@ -664,7 +586,7 @@ export default function CatadorMapScreen() {
         {
           latitude: point.latitude,
           longitude: point.longitude,
-        }
+        },
       );
 
       currentLatitude = point.latitude;
@@ -686,14 +608,11 @@ export default function CatadorMapScreen() {
 
   const statusCounts = useMemo(() => {
     return {
-      pending: allPoints.filter(
-        (point) => point.status === "PENDING"
-      ).length,
-      inProgress: allPoints.filter(
-        (point) => point.status === "IN_PROGRESS"
-      ).length,
+      pending: allPoints.filter((point) => point.status === "PENDING").length,
+      inProgress: allPoints.filter((point) => point.status === "IN_PROGRESS")
+        .length,
       finished: allPoints.filter((point) =>
-        FINISHED_STATUSES.includes(point.status)
+        FINISHED_STATUSES.includes(point.status),
       ).length,
     };
   }, [allPoints]);
@@ -703,37 +622,22 @@ export default function CatadorMapScreen() {
 
     try {
       const destination = `${selected.latitude},${selected.longitude}`;
-      const googleMapsWebUrl =
-        `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`;
-      const appleMapsUrl =
-        `http://maps.apple.com/?daddr=${destination}&dirflg=d`;
+      const googleMapsWebUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`;
+      const appleMapsUrl = `http://maps.apple.com/?daddr=${destination}&dirflg=d`;
 
-      const urlToOpen =
-        Platform.OS === "ios"
-          ? appleMapsUrl
-          : googleMapsWebUrl;
+      const urlToOpen = Platform.OS === "ios" ? appleMapsUrl : googleMapsWebUrl;
 
-      const supported =
-        await Linking.canOpenURL(urlToOpen);
+      const supported = await Linking.canOpenURL(urlToOpen);
 
       if (!supported) {
-        notifyError(
-          "Erro",
-          "Não foi possível abrir o aplicativo de mapas."
-        );
+        notifyError("Erro", "Não foi possível abrir o aplicativo de mapas.");
         return;
       }
 
       await Linking.openURL(urlToOpen);
     } catch (error) {
-      console.error(
-        "Erro ao abrir rota externa:",
-        error
-      );
-      notifyError(
-        "Erro",
-        "Não foi possível abrir a rota externa."
-      );
+      console.error("Erro ao abrir rota externa:", error);
+      notifyError("Erro", "Não foi possível abrir a rota externa.");
     }
   }, [notifyError, selected]);
 
@@ -743,7 +647,7 @@ export default function CatadorMapScreen() {
     if (!phone) {
       notifyError(
         "Telefone indisponível",
-        "Não há telefone cadastrado para este gerador."
+        "Não há telefone cadastrado para este gerador.",
       );
       return;
     }
@@ -754,20 +658,14 @@ export default function CatadorMapScreen() {
       const supported = await Linking.canOpenURL(url);
 
       if (!supported) {
-        notifyError(
-          "Erro",
-          "Não foi possível abrir o telefone."
-        );
+        notifyError("Erro", "Não foi possível abrir o telefone.");
         return;
       }
 
       await Linking.openURL(url);
     } catch (error) {
       console.error("Erro ao abrir telefone:", error);
-      notifyError(
-        "Erro",
-        "Não foi possível iniciar a ligação."
-      );
+      notifyError("Erro", "Não foi possível iniciar a ligação.");
     }
   }, [notifyError, selected]);
 
@@ -777,13 +675,13 @@ export default function CatadorMapScreen() {
     if (!phone) {
       notifyError(
         "WhatsApp indisponível",
-        "Não há telefone cadastrado para este gerador."
+        "Não há telefone cadastrado para este gerador.",
       );
       return;
     }
 
     const message = encodeURIComponent(
-      `Olá! Sou o catador responsável pela coleta do KATUÁ para ${selected?.title || "seu estabelecimento"}.`
+      `Olá! Sou o catador responsável pela coleta do KATUÁ para ${selected?.title || "seu estabelecimento"}.`,
     );
 
     const url = `https://wa.me/${phone}?text=${message}`;
@@ -792,20 +690,14 @@ export default function CatadorMapScreen() {
       const supported = await Linking.canOpenURL(url);
 
       if (!supported) {
-        notifyError(
-          "Erro",
-          "Não foi possível abrir o WhatsApp."
-        );
+        notifyError("Erro", "Não foi possível abrir o WhatsApp.");
         return;
       }
 
       await Linking.openURL(url);
     } catch (error) {
       console.error("Erro ao abrir WhatsApp:", error);
-      notifyError(
-        "Erro",
-        "Não foi possível abrir o WhatsApp."
-      );
+      notifyError("Erro", "Não foi possível abrir o WhatsApp.");
     }
   }, [notifyError, selected]);
 
@@ -862,16 +754,11 @@ export default function CatadorMapScreen() {
                 borderRadius: 21,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor:
-                  "rgba(255,255,255,0.16)",
+                backgroundColor: "rgba(255,255,255,0.16)",
                 marginRight: 12,
               }}
             >
-              <Ionicons
-                name="arrow-back"
-                size={22}
-                color="#FFFFFF"
-              />
+              <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
             </TouchableOpacity>
 
             <View style={{ flex: 1 }}>
@@ -905,24 +792,16 @@ export default function CatadorMapScreen() {
               width: 42,
               height: 42,
               borderRadius: 21,
-              backgroundColor:
-                "rgba(255,255,255,0.18)",
+              backgroundColor: "rgba(255,255,255,0.18)",
               alignItems: "center",
               justifyContent: "center",
               marginLeft: 12,
             }}
           >
             {refreshing ? (
-              <ActivityIndicator
-                size="small"
-                color="#FFFFFF"
-              />
+              <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Ionicons
-                name="refresh-outline"
-                size={22}
-                color="#FFFFFF"
-              />
+              <Ionicons name="refresh-outline" size={22} color="#FFFFFF" />
             )}
           </TouchableOpacity>
         </View>
@@ -942,6 +821,12 @@ export default function CatadorMapScreen() {
           }}
         >
           <OfflineBanner visible={isOffline} />
+          <LocationStatus
+            position={gps.position}
+            error={gps.error}
+            loading={gps.loading}
+            retry={gps.retry}
+          />
         </View>
 
         <View
@@ -987,10 +872,7 @@ export default function CatadorMapScreen() {
                 minHeight: 360,
               }}
             >
-              <ActivityIndicator
-                size="large"
-                color="#028C56"
-              />
+              <ActivityIndicator size="large" color="#028C56" />
 
               <Text
                 style={{
@@ -1001,7 +883,7 @@ export default function CatadorMapScreen() {
                 Carregando mapa...
               </Text>
             </View>
-          ) : filteredPoints.length === 0 ? (
+          ) : filteredPoints.length === 0 && !gps.position ? (
             <View
               style={{
                 alignItems: "center",
@@ -1010,11 +892,7 @@ export default function CatadorMapScreen() {
                 paddingHorizontal: 24,
               }}
             >
-              <Ionicons
-                name="map-outline"
-                size={48}
-                color="#94A3B8"
-              />
+              <Ionicons name="map-outline" size={48} color="#94A3B8" />
 
               <Text
                 style={{
@@ -1037,11 +915,13 @@ export default function CatadorMapScreen() {
                   lineHeight: 19,
                 }}
               >
-                Não há coletas com coordenadas válidas para o filtro selecionado.
+                Não há coletas com coordenadas válidas para o filtro
+                selecionado.
               </Text>
             </View>
           ) : (
             <OperationalMap
+              baseLabel={gps.position ? "Minha posição" : null}
               baseLatitude={region.latitude}
               baseLongitude={region.longitude}
               points={filteredPoints.map((point) => ({
@@ -1052,7 +932,7 @@ export default function CatadorMapScreen() {
                 description: `${translateStatus(point.status)} • ${point.address}`,
                 color: getStatusColor(point.status),
               }))}
-              routeCoordinates={routeCoordinates}
+              routeCoordinates={gps.position ? routeCoordinates : []}
               selectedPointId={selected?.id ?? null}
               onSelectPoint={(pointId: string) => {
                 if (pointId === "__base__") {
@@ -1075,8 +955,10 @@ export default function CatadorMapScreen() {
           <RouteSummaryCard
             totalCollections={routeMetrics.totalCollections}
             totalWeightKg={routeMetrics.totalWeightKg}
-            totalDistanceKm={routeMetrics.totalDistanceKm}
-            estimatedMinutes={routeMetrics.estimatedMinutes}
+            totalDistanceKm={gps.position ? routeMetrics.totalDistanceKm : null}
+            estimatedMinutes={
+              gps.position ? routeMetrics.estimatedMinutes : null
+            }
           />
         </View>
 
@@ -1120,7 +1002,8 @@ export default function CatadorMapScreen() {
               marginBottom: 10,
             }}
           >
-            Coletas ordenadas pela situação operacional e pela distância aproximada.
+            Coletas ordenadas pela situação operacional e pela distância
+            aproximada.
           </Text>
 
           <View
@@ -1150,11 +1033,7 @@ export default function CatadorMapScreen() {
                   paddingVertical: 24,
                 }}
               >
-                <Ionicons
-                  name="trail-sign-outline"
-                  size={38}
-                  color="#9CA3AF"
-                />
+                <Ionicons name="trail-sign-outline" size={38} color="#9CA3AF" />
 
                 <Text
                   style={{
@@ -1237,20 +1116,14 @@ function FilterBar({
               paddingVertical: 10,
               borderRadius: 999,
               marginRight: 8,
-              backgroundColor: selected
-                ? "#15803D"
-                : "#FFFFFF",
+              backgroundColor: selected ? "#15803D" : "#FFFFFF",
               borderWidth: 1,
-              borderColor: selected
-                ? "#15803D"
-                : "#E5E7EB",
+              borderColor: selected ? "#15803D" : "#E5E7EB",
             }}
           >
             <Text
               style={{
-                color: selected
-                  ? "#FFFFFF"
-                  : "#475569",
+                color: selected ? "#FFFFFF" : "#475569",
                 fontWeight: "800",
                 fontSize: 13,
               }}
@@ -1266,16 +1139,12 @@ function FilterBar({
                 alignItems: "center",
                 justifyContent: "center",
                 marginLeft: 7,
-                backgroundColor: selected
-                  ? "rgba(255,255,255,0.2)"
-                  : "#F1F5F9",
+                backgroundColor: selected ? "rgba(255,255,255,0.2)" : "#F1F5F9",
               }}
             >
               <Text
                 style={{
-                  color: selected
-                    ? "#FFFFFF"
-                    : "#475569",
+                  color: selected ? "#FFFFFF" : "#475569",
                   fontWeight: "900",
                   fontSize: 12,
                 }}
@@ -1298,8 +1167,8 @@ function RouteSummaryCard({
 }: {
   totalCollections: number;
   totalWeightKg: number;
-  totalDistanceKm: number;
-  estimatedMinutes: number;
+  totalDistanceKm: number | null;
+  estimatedMinutes: number | null;
 }) {
   return (
     <View
@@ -1355,13 +1224,21 @@ function RouteSummaryCard({
         <SummaryMetric
           icon="navigate-outline"
           label="Distância"
-          value={`${totalDistanceKm.toFixed(1)} km`}
+          value={
+            totalDistanceKm == null
+              ? "GPS indisponível"
+              : `${totalDistanceKm.toFixed(1)} km`
+          }
         />
 
         <SummaryMetric
           icon="time-outline"
           label="Tempo estimado"
-          value={`${estimatedMinutes} min`}
+          value={
+            estimatedMinutes == null
+              ? "GPS indisponível"
+              : `${estimatedMinutes} min`
+          }
         />
       </View>
     </View>
@@ -1387,11 +1264,7 @@ function SummaryMetric({
         marginBottom: 10,
       }}
     >
-      <Ionicons
-        name={icon}
-        size={19}
-        color="#15803D"
-      />
+      <Ionicons name={icon} size={19} color="#15803D" />
 
       <Text
         style={{
@@ -1442,11 +1315,7 @@ function SelectedCollectionCard({
           alignItems: "center",
         }}
       >
-        <Ionicons
-          name="location-outline"
-          size={42}
-          color="#94A3B8"
-        />
+        <Ionicons name="location-outline" size={42} color="#94A3B8" />
 
         <Text
           style={{
@@ -1468,7 +1337,8 @@ function SelectedCollectionCard({
             lineHeight: 19,
           }}
         >
-          Toque em um marcador ou em um item da ordem sugerida para visualizar os detalhes.
+          Toque em um marcador ou em um item da ordem sugerida para visualizar
+          os detalhes.
         </Text>
       </View>
     );
@@ -1534,10 +1404,7 @@ function SelectedCollectionCard({
         </View>
       </View>
 
-      <DetailRow
-        label="Endereço"
-        value={selected.address}
-      />
+      <DetailRow label="Endereço" value={selected.address} />
 
       <DetailRow
         label="Materiais"
@@ -1558,21 +1425,11 @@ function SelectedCollectionCard({
         }
       />
 
-      <DetailRow
-        label="Rota"
-        value={selected.routeName || "-"}
-      />
+      <DetailRow label="Rota" value={selected.routeName || "-"} />
 
-      <DetailRow
-        label="Motorista"
-        value={selected.driverName || "-"}
-      />
+      <DetailRow label="Motorista" value={selected.driverName || "-"} />
 
-      <DetailRow
-        label="Veículo"
-        value={selected.vehicleLabel || "-"}
-        isLast
-      />
+      <DetailRow label="Veículo" value={selected.vehicleLabel || "-"} isLast />
 
       <View
         style={{
@@ -1592,18 +1449,12 @@ function SelectedCollectionCard({
         <ActionButton
           icon="play-circle-outline"
           label={
-            selected.status === "PENDING"
-              ? "Iniciar coleta"
-              : "Abrir coleta"
+            selected.status === "PENDING" ? "Iniciar coleta" : "Abrir coleta"
           }
           onPress={onOpenCollection}
         />
 
-        <ActionButton
-          icon="call-outline"
-          label="Ligar"
-          onPress={onCall}
-        />
+        <ActionButton icon="call-outline" label="Ligar" onPress={onCall} />
 
         <ActionButton
           icon="logo-whatsapp"
@@ -1682,18 +1533,12 @@ function ActionButton({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: primary
-          ? "#15803D"
-          : "#ECFDF5",
+        backgroundColor: primary ? "#15803D" : "#ECFDF5",
         borderWidth: primary ? 0 : 1,
         borderColor: "#86EFAC",
       }}
     >
-      <Ionicons
-        name={icon}
-        size={18}
-        color={primary ? "#FFFFFF" : "#15803D"}
-      />
+      <Ionicons name={icon} size={18} color={primary ? "#FFFFFF" : "#15803D"} />
 
       <Text
         style={{
@@ -1734,9 +1579,7 @@ function RouteOrderItem({
         marginBottom: isLast ? 0 : 14,
         borderBottomWidth: isLast ? 0 : 1,
         borderBottomColor: "#E5E7EB",
-        backgroundColor: selected
-          ? "#F0FDF4"
-          : "transparent",
+        backgroundColor: selected ? "#F0FDF4" : "transparent",
         borderRadius: selected ? 14 : 0,
         padding: selected ? 10 : 0,
       }}
@@ -1799,11 +1642,7 @@ function RouteOrderItem({
         </Text>
       </View>
 
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color="#94A3B8"
-      />
+      <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
     </TouchableOpacity>
   );
 }
