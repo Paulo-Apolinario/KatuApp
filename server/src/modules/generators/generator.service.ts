@@ -4,7 +4,7 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "../../lib/prisma";
-import { CreateGeneratorInput } from "./generator.schemas";
+import { CreateGeneratorInput, UpdateGeneratorInput } from "./generator.schemas";
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -205,6 +205,19 @@ export class GeneratorService {
     });
 
     return generators;
+  }
+
+  async update(cooperativeUserId: string, generatorId: string, data: UpdateGeneratorInput) {
+    const cooperative = await prisma.cooperative.findUnique({ where: { userId: cooperativeUserId }, select: { id: true } });
+    if (!cooperative) return null;
+    return prisma.$transaction(async (tx) => {
+      const result = await tx.generator.updateMany({
+        where: { id: generatorId, cooperativeId: cooperative.id },
+        data,
+      });
+      if (!result.count) return null;
+      return tx.generator.findFirst({ where: { id: generatorId, cooperativeId: cooperative.id } });
+    });
   }
 
   async findById(cooperativeUserId: string, generatorId: string) {

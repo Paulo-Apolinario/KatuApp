@@ -34,3 +34,19 @@ export const generatorIdParamsSchema = z.object({
 
 export type CreateGeneratorInput = z.infer<typeof createGeneratorSchema>;
 export type GeneratorIdParams = z.infer<typeof generatorIdParamsSchema>;
+
+export const updateGeneratorSchema = createGeneratorSchema
+  .omit({ email: true, status: true })
+  .partial()
+  .extend({
+    latitude: z.number().finite().min(-90).max(90).optional(),
+    longitude: z.number().finite().min(-180).max(180).optional(),
+  })
+  .strict()
+  .refine((data) => (data.latitude === undefined) === (data.longitude === undefined), {
+    message: "Informe latitude e longitude juntas.",
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Informe ao menos um dado para atualizar.",
+  });
+export type UpdateGeneratorInput = z.infer<typeof updateGeneratorSchema>;

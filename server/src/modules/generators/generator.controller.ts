@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import {
   createGeneratorSchema,
+  updateGeneratorSchema,
   generatorIdParamsSchema,
 } from "./generator.schemas";
 import { GeneratorService } from "./generator.service";
@@ -32,6 +33,19 @@ export class GeneratorController {
         error: error.message || "Erro ao criar gerador.",
       });
     }
+  }
+
+  async update(request: FastifyRequest, reply: FastifyReply) {
+    const user = request.user as { sub: string; role: string };
+    if (user.role !== "COOPERATIVE") return reply.forbidden("Apenas cooperativas podem atualizar geradores.");
+    const params = generatorIdParamsSchema.safeParse(request.params);
+    const body = updateGeneratorSchema.safeParse(request.body);
+    if (!params.success || !body.success) return reply.badRequest(
+      !body.success ? body.error.issues.map((issue) => issue.message).join(" ") : "ID inválido.",
+    );
+    const generator = await generatorService.update(user.sub, params.data.id, body.data);
+    if (!generator) return reply.notFound("Gerador não encontrado.");
+    return reply.send({ success: true, generator });
   }
 
   async listMine(request: FastifyRequest, reply: FastifyReply) {

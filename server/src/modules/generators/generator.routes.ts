@@ -8,6 +8,7 @@ export async function generatorRoutes(app: FastifyInstance) {
 
   app.post("/", async (request, reply) => generatorController.create(request, reply));
   app.get("/", async (request, reply) => generatorController.listMine(request, reply));
+  app.patch("/:id", (request, reply) => generatorController.update(request, reply));
   app.get("/:id", async (request, reply) =>
     generatorController.findById(request, reply)
   );
