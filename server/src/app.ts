@@ -1,3 +1,4 @@
+import { settingsRoutes } from "./modules/settings/settings.routes";
 import { reportsRoutes } from "./modules/reports/reports.routes";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
@@ -147,8 +148,8 @@ export async function buildApp() {
     async function (request: any, reply: any) {
       try {
         await request.jwtVerify();
-        const user = await prisma.user.findUnique({ where: { id: request.user.sub }, select: { role: true, isActive: true, accountStatus: true } });
-        if (!user || !user.isActive || user.accountStatus !== "ACTIVE" || user.role !== request.user.role) return reply.unauthorized("Sessão desatualizada ou conta inativa. Entre novamente.");
+        const user = await prisma.user.findUnique({ where: { id: request.user.sub }, select: { role: true, isActive: true, accountStatus: true, authVersion: true } });
+        if (!user || !user.isActive || user.accountStatus !== "ACTIVE" || user.role !== request.user.role || (request.user.authVersion ?? 0) !== user.authVersion) return reply.unauthorized("Sessão desatualizada ou conta inativa. Entre novamente.");
         const route = request.routeOptions.url || "";
         if (user.role === "MUNICIPAL_MANAGER" && !route.startsWith("/environmental/") && !(route === "/auth/me" && request.method === "GET")) return reply.forbidden("Perfil municipal restrito à central ambiental.");
       } catch {
@@ -202,6 +203,7 @@ export async function buildApp() {
   await app.register(binsRoutes);
   await app.register(environmentalRoutes);
   await app.register(reportsRoutes);
+  await app.register(settingsRoutes);
   await app.register(vehicleDocumentsRoutes);
   await app.register(maintenanceLogsRoutes);
 

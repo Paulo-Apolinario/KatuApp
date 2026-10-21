@@ -422,6 +422,7 @@ export class AuthService {
       where: { id: userId },
       data: {
         passwordHash,
+        authVersion: { increment: 1 },
         resetPasswordToken: null,
         resetPasswordExpiresAt: null,
       },
@@ -658,7 +659,7 @@ export class AuthService {
       await prisma.$transaction(async tx => {
         const claim = await tx.authEmailToken.updateMany({ where: { id: emailToken.id, consumedAt: null, expiresAt: { gt: new Date() } }, data: { consumedAt: new Date() } });
         if (claim.count !== 1) throw new Error("Link já utilizado ou expirado.");
-        await tx.user.update({ where: { id: user.id }, data: { passwordHash, resetPasswordToken: null, resetPasswordExpiresAt: null } });
+        await tx.user.update({ where: { id: user.id }, data: { passwordHash, authVersion: { increment: 1 }, resetPasswordToken: null, resetPasswordExpiresAt: null } });
         await tx.authEmailToken.updateMany({ where: { userId: user.id, consumedAt: null }, data: { consumedAt: new Date() } });
       });
       return { message: "Senha redefinida com sucesso." };
@@ -691,6 +692,7 @@ export class AuthService {
       where: { id: user.id },
       data: {
         passwordHash,
+        authVersion: { increment: 1 },
         resetPasswordToken: null,
         resetPasswordExpiresAt: null,
       },

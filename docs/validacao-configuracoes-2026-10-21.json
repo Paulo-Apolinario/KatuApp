@@ -1,0 +1,114 @@
+{
+  "environment": "API real Fastify/Prisma + migração incremental sobre baseline anterior aos relatórios + PGlite + Chromium; SMTP/DNS simulados, sem e-mails externos ou comunicação com SINIR",
+  "outcomes": [
+    {
+      "name": "Migração aditiva, escopo por cooperativa e perfis autorizados",
+      "status": "PASS"
+    },
+    {
+      "name": "Dados institucionais persistem com versão e validação",
+      "status": "PASS"
+    },
+    {
+      "name": "SMTP criptografado, segredo não retornado e credencial preservada ao editar",
+      "status": "PASS"
+    },
+    {
+      "name": "Conexão, envio real simulado e bloqueio de destino SMTP privado",
+      "status": "PASS"
+    },
+    {
+      "name": "Preferências, fila e resumo diário sem duplicação",
+      "status": "PASS"
+    },
+    {
+      "name": "Alertas reais, leitura, responsável, adiamento, isolamento e resolução pela origem",
+      "status": "PASS"
+    },
+    {
+      "name": "Falha de SMTP registrada, nova tentativa explícita e sem segredo no histórico",
+      "status": "PASS"
+    },
+    {
+      "name": "Seis telas reais no desktop e nova senha sem campo de senha antiga",
+      "status": "PASS"
+    },
+    {
+      "name": "Salvar cadastro pelo painel, recarregar e manter dados persistidos",
+      "status": "PASS"
+    },
+    {
+      "name": "Seis telas no celular sem transbordamento horizontal",
+      "status": "PASS"
+    },
+    {
+      "name": "Falha de carregamento limpa dados e oferece recuperação",
+      "status": "PASS"
+    },
+    {
+      "name": "Fila imediata processa pendências além do primeiro lote sem repetir os já enviados",
+      "status": "PASS"
+    },
+    {
+      "name": "Senha por código: cinco tentativas, uso único, sem senha antiga e sessões revogadas",
+      "status": "PASS"
+    }
+  ],
+  "security": {
+    "command": "node --import tsx --test tests/settings/security.test.ts",
+    "passed": 4
+  },
+  "reportsRegression": {
+    "environment": "API real Fastify/Prisma + migração incremental sobre baseline anterior aos relatórios + PGlite + Chromium; sem comunicação com SINIR",
+    "outcomes": [
+      {
+        "name": "Migração incremental e totais por unidade, sem duplicar coleta/estoque",
+        "status": "PASS"
+      },
+      {
+        "name": "Paginação e exportação abrangem o mesmo recorte completo",
+        "status": "PASS"
+      },
+      {
+        "name": "Filtros de unidade/material/status preservam legado e excluem quantidade cancelada",
+        "status": "PASS"
+      },
+      {
+        "name": "Recebimento e destinação respeitam a data própria; estoque é atual",
+        "status": "PASS"
+      },
+      {
+        "name": "Equipe e veículos usam atribuições reais e custos registrados",
+        "status": "PASS"
+      },
+      {
+        "name": "Isolamento de cooperativas, autorização e ausência de dados pessoais",
+        "status": "PASS"
+      },
+      {
+        "name": "Validação de datas, extensão e campos desconhecidos",
+        "status": "PASS"
+      },
+      {
+        "name": "Metas e metodologia persistem com proteção de versão e material da cooperativa",
+        "status": "PASS"
+      },
+      {
+        "name": "Cinco telas reais carregam no desktop, com tabela e sem erro JavaScript",
+        "status": "PASS"
+      },
+      {
+        "name": "Filtros aplicados e salvos, detalhes com Escape e exportações completas reais",
+        "status": "PASS"
+      },
+      {
+        "name": "Layout móvel sem transbordamento da página",
+        "status": "PASS"
+      },
+      {
+        "name": "Falha de API limpa resultados e permite recuperação sem dados antigos",
+        "status": "PASS"
+      }
+    ]
+  }
+}

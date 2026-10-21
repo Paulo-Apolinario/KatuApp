@@ -48,7 +48,7 @@ export class AuthController {
     if (!parsed.success) return reply.code(400).send({ success: false, error: "Link inválido ou expirado." });
     try {
       const user = await consumeLoginLink(parsed.data);
-      const token = await reply.jwtSign({ sub: user.id, role: user.role, email: user.email });
+      const token = await reply.jwtSign({ sub: user.id, role: user.role, email: user.email, authVersion: user.authVersion });
       return reply.send({ success: true, token, user: serializeUser(user) });
     } catch { return reply.code(400).send({ success: false, error: "Link inválido, expirado ou já utilizado. Solicite outro acesso." }); }
   }
@@ -61,6 +61,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: user.id,
+        authVersion: user.authVersion,
         role: user.role,
         email: user.email,
       });
@@ -86,6 +87,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: result.user.id,
+        authVersion: result.user.authVersion,
         role: result.user.role,
         email: result.user.email,
       });
@@ -112,6 +114,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: user.id,
+        authVersion: user.authVersion,
         role: user.role,
         email: user.email,
       });
@@ -256,6 +259,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: result.user.id,
+        authVersion: result.user.authVersion,
         role: result.user.role,
         email: result.user.email,
       });

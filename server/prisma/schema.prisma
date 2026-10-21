@@ -22,6 +22,7 @@ model User {
   createdAt              DateTime      @default(now())
   updatedAt              DateTime      @updatedAt
 
+  authVersion Int @default(0)
   emailTokens        AuthEmailToken[]
 
   collector          Collector?
@@ -72,6 +73,10 @@ model Cooperative {
   updatedAt DateTime @updatedAt
   userId    String   @unique
   reportConfiguration ReportConfiguration?
+  systemSettings CooperativeSettings?
+  settingEvents SettingEvent[]
+  systemAlerts SystemAlert[]
+  mailDeliveries MailDelivery[]
 
   user                        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   collections                 Collection[]
@@ -1098,6 +1103,7 @@ model AuthEmailToken {
   tokenHash             String   @unique
   purpose               String
   audience              String
+  attempts Int @default(0)
   temporaryPasswordHash String?
   expiresAt             DateTime
   consumedAt            DateTime?
@@ -1216,4 +1222,63 @@ model ReportConfiguration {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+}
+
+model CooperativeSettings {
+ cooperativeId String @id
+ payload Json
+ smtp Json?
+ smtpPassword String?
+ version Int @default(1)
+ updatedAt DateTime @updatedAt
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+}
+model SettingEvent {
+ id String @id @default(cuid())
+ cooperativeId String
+ actorId String
+ actorName String
+ section String
+ fields String[]
+ createdAt DateTime @default(now())
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+ @@index([cooperativeId,createdAt])
+}
+model SystemAlert {
+ id String @id @default(cuid())
+ cooperativeId String
+ key String
+ category String
+ priority String
+ title String
+ message String
+ link String
+ status String @default("OPEN")
+ cycle Int @default(1)
+ readAt DateTime?
+ snoozedUntil DateTime?
+ assignee String?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ resolvedAt DateTime?
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+ @@unique([cooperativeId,key])
+ @@index([cooperativeId,status,updatedAt])
+}
+model MailDelivery {
+ id String @id @default(cuid())
+ cooperativeId String
+ dedupeKey String
+ subject String
+ text String
+ recipients String[]
+ status String @default("PENDING")
+ error String?
+ attempts Int @default(0)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ sentAt DateTime?
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+ @@unique([cooperativeId,dedupeKey])
+ @@index([cooperativeId,createdAt])
 }

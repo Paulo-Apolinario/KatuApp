@@ -225,8 +225,9 @@ export async function reportContext(coop: any) {
     }),
     prisma.reportConfiguration.findUnique({ where: { cooperativeId: id } }),
   ]);
+  const branding = await prisma.cooperativeSettings.findUnique({where:{cooperativeId:coop.id},select:{payload:true}});
   return {
-    cooperative: coop,
+    cooperative: { ...coop, logo: (branding?.payload as any)?.company?.logo || "" },
     generators,
     collectors,
     drivers,
