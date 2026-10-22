@@ -1,13 +1,11 @@
+import { getSession } from "./sessionRepository";
 import { runQuery, runSingle } from "../index";
 import { SYNC_STATUS, TABLES } from "../schema";
 
-export type SyncQueueStatus =
-  | "PENDING"
-  | "SYNCING"
-  | "SYNCED"
-  | "ERROR";
+export type SyncQueueStatus = "PENDING" | "SYNCING" | "SYNCED" | "ERROR";
 
 export type SyncQueueOperation =
+  | "COLLECTION_FIELD_ACTION"
   | "UPDATE_COLLECTION_STATUS"
   | "COMPLETE_COLLECTION"
   | "UPDATE_ROUTE_STATUS"
@@ -56,6 +54,10 @@ function mapRow(row: SyncQueueRow | null) {
 
 export async function enqueueSyncItem(input: EnqueueSyncItemInput) {
   const now = new Date().toISOString();
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  if (!ownerId)
+    throw new Error("Sessão necessária para salvar uma operação offline.");
 
   await runQuery(
     `
@@ -78,13 +80,13 @@ export async function enqueueSyncItem(input: EnqueueSyncItemInput) {
       input.operationType,
       input.entityType,
       input.entityId,
-      JSON.stringify(input.payload),
+      JSON.stringify({ ...(input.payload as object), __ownerId: ownerId }),
       input.status ?? SYNC_STATUS.PENDING,
       0,
       null,
       now,
       now,
-    ]
+    ],
   );
 }
 
@@ -93,13 +95,17 @@ export async function getPendingSyncItems() {
     `
     SELECT *
     FROM ${TABLES.SYNC_QUEUE}
-    WHERE status IN (?, ?)
-    ORDER BY created_at ASC
+    WHERE status IN (?, ?, ?)
+    ORDER BY created_at ASC, rowid ASC
     `,
-    [SYNC_STATUS.PENDING, SYNC_STATUS.ERROR]
+    [SYNC_STATUS.PENDING, SYNC_STATUS.ERROR, SYNC_STATUS.SYNCING],
   )) as SyncQueueRow[];
 
-  return rows.map((row) => mapRow(row)).filter(Boolean);
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  return rows
+    .map((row) => mapRow(row))
+    .filter((item) => item && ownerId && item.payload?.__ownerId === ownerId);
 }
 
 export async function getSyncItemById(id: string) {
@@ -110,7 +116,7 @@ export async function getSyncItemById(id: string) {
     WHERE id = ?
     LIMIT 1
     `,
-    [id]
+    [id],
   )) as SyncQueueRow | null;
 
   return mapRow(row);
@@ -122,7 +128,7 @@ export async function updateSyncItemStatus(
   options?: {
     retryCount?: number;
     errorMessage?: string | null;
-  }
+  },
 ) {
   const current = await getSyncItemById(id);
   const now = new Date().toISOString();
@@ -142,7 +148,7 @@ export async function updateSyncItemStatus(
       options?.errorMessage ?? null,
       now,
       id,
-    ]
+    ],
   );
 }
 
@@ -176,6 +182,6 @@ export async function clearSyncedSyncItems() {
     DELETE FROM ${TABLES.SYNC_QUEUE}
     WHERE status = ?
     `,
-    [SYNC_STATUS.SYNCED]
+    [SYNC_STATUS.SYNCED],
   );
 }

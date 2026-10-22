@@ -1,3 +1,4 @@
+import { getSession } from "./sessionRepository";
 import { runQuery, runSingle } from "../index";
 import { TABLES } from "../schema";
 
@@ -24,7 +25,7 @@ function mapRouteRow(row: RouteRow | null) {
   if (!row) return null;
 
   return {
-    id: row.id,
+    id: row.payload_json ? JSON.parse(row.payload_json).id || row.id : row.id,
     status: row.status,
     driverId: row.driver_id,
     scheduledDate: row.scheduled_date,
@@ -35,6 +36,9 @@ function mapRouteRow(row: RouteRow | null) {
 }
 
 export async function upsertRoutes(routes: RouteUpsertInput[]) {
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  if (!ownerId) throw new Error("Sessão necessária para salvar o cache local.");
   const now = new Date().toISOString();
 
   for (const route of routes) {
@@ -52,14 +56,14 @@ export async function upsertRoutes(routes: RouteUpsertInput[]) {
       VALUES (?, ?, ?, ?, ?, ?, ?)
       `,
       [
-        route.id,
+        `${ownerId}:${route.id}`,
         route.status ?? null,
         route.driverId ?? null,
         route.scheduledDate ?? null,
-        JSON.stringify(route.payload),
+        JSON.stringify({ ...(route.payload as object), __cacheOwner: ownerId }),
         now,
         route.updatedAt ?? now,
-      ]
+      ],
     );
   }
 }
@@ -70,13 +74,20 @@ export async function getAllRoutes() {
     SELECT *
     FROM ${TABLES.ROUTES}
     ORDER BY updated_at DESC
-    `
+    `,
   )) as RouteRow[];
 
-  return rows.map((row) => mapRouteRow(row));
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  return rows
+    .map((row) => mapRouteRow(row))
+    .filter((row) => row?.payload?.__cacheOwner === ownerId && ownerId);
 }
 
 export async function getRouteById(id: string) {
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  if (!ownerId) return null;
   const row = (await runSingle(
     `
     SELECT *
@@ -84,10 +95,11 @@ export async function getRouteById(id: string) {
     WHERE id = ?
     LIMIT 1
     `,
-    [id]
+    [`${ownerId}:${id}`],
   )) as RouteRow | null;
 
-  return mapRouteRow(row);
+  const mapped = mapRouteRow(row);
+  return ownerId && mapped?.payload?.__cacheOwner === ownerId ? mapped : null;
 }
 
 export async function getRoutesByDriver(driverId: string) {
@@ -98,10 +110,14 @@ export async function getRoutesByDriver(driverId: string) {
     WHERE driver_id = ?
     ORDER BY updated_at DESC
     `,
-    [driverId]
+    [driverId],
   )) as RouteRow[];
 
-  return rows.map((row) => mapRouteRow(row));
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  return rows
+    .map((row) => mapRouteRow(row))
+    .filter((row) => row?.payload?.__cacheOwner === ownerId && ownerId);
 }
 
 export async function clearRoutes() {

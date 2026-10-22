@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   CollectionEntryStatus,
   CollectionStatus,
@@ -291,7 +292,7 @@ export class CollectionService {
   private assertTransition(
     currentStatus: CollectionStatus,
     expectedStatus: CollectionStatus,
-    targetStatus: CollectionStatus
+    targetStatus: CollectionStatus,
   ) {
     if (currentStatus !== expectedStatus) {
       throw new CollectionDomainError(
@@ -304,7 +305,7 @@ export class CollectionService {
             expectedStatus,
             targetStatus,
           },
-        }
+        },
       );
     }
   }
@@ -318,21 +319,24 @@ export class CollectionService {
   private async normalizeMaterials(
     transaction: TransactionClient,
     cooperativeId: string,
-    materialsInput: CollectionMaterialSchemaInput[]
+    materialsInput: CollectionMaterialSchemaInput[],
   ): Promise<NormalizedCollectionMaterial[]> {
     if (!Array.isArray(materialsInput) || materialsInput.length === 0) {
-      throw new CollectionDomainError("Informe ao menos um material coletado.", {
-        statusCode: 400,
-        code: "COLLECTION_MATERIALS_REQUIRED",
-      });
+      throw new CollectionDomainError(
+        "Informe ao menos um material coletado.",
+        {
+          statusCode: 400,
+          code: "COLLECTION_MATERIALS_REQUIRED",
+        },
+      );
     }
 
     const wasteTypeIds = Array.from(
       new Set(
         materialsInput
           .map((material) => normalizeText(material.wasteTypeId))
-          .filter((value): value is string => Boolean(value))
-      )
+          .filter((value): value is string => Boolean(value)),
+      ),
     );
 
     const wasteTypes =
@@ -365,56 +369,66 @@ export class CollectionService {
           statusCode: 400,
           code: "INVALID_WASTE_TYPES",
           details: { wasteTypeIds: missingIds },
-        }
+        },
       );
     }
 
     const wasteTypesMap = new Map(wasteTypes.map((item) => [item.id, item]));
     const keys = new Set<string>();
 
-    const normalized = materialsInput.map((material, index): NormalizedCollectionMaterial => {
-      const wasteTypeId = normalizeText(material.wasteTypeId);
-      const catalogItem = wasteTypeId ? wasteTypesMap.get(wasteTypeId) : undefined;
-      const quantity = Number(material.quantity);
+    const normalized = materialsInput.map(
+      (material, index): NormalizedCollectionMaterial => {
+        const wasteTypeId = normalizeText(material.wasteTypeId);
+        const catalogItem = wasteTypeId
+          ? wasteTypesMap.get(wasteTypeId)
+          : undefined;
+        const quantity = Number(material.quantity);
 
-      if (!Number.isFinite(quantity) || quantity <= 0) {
-        throw new CollectionDomainError(
-          `A quantidade do material na posição ${index + 1} deve ser maior que zero.`,
-          {
-            statusCode: 400,
-            code: "INVALID_MATERIAL_QUANTITY",
-          }
-        );
-      }
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+          throw new CollectionDomainError(
+            `A quantidade do material na posição ${index + 1} deve ser maior que zero.`,
+            {
+              statusCode: 400,
+              code: "INVALID_MATERIAL_QUANTITY",
+            },
+          );
+        }
 
-      const proposed = material.proposedMaterial;
-      const name = catalogItem?.name || normalizeText(proposed?.name);
+        const proposed = material.proposedMaterial;
+        const name = catalogItem?.name || normalizeText(proposed?.name);
 
-      if (!name) {
-        throw new CollectionDomainError(`Informe o nome do material na posição ${index + 1}.`, {
-          statusCode: 400,
-          code: "MATERIAL_NAME_REQUIRED",
-        });
-      }
+        if (!name) {
+          throw new CollectionDomainError(
+            `Informe o nome do material na posição ${index + 1}.`,
+            {
+              statusCode: 400,
+              code: "MATERIAL_NAME_REQUIRED",
+            },
+          );
+        }
 
-      const unit =
-        material.unit ||
-        proposed?.unit ||
-        catalogItem?.unit ||
-        catalogItem?.defaultUnit ||
-        WasteUnit.KG;
+        const unit =
+          material.unit ||
+          proposed?.unit ||
+          catalogItem?.unit ||
+          catalogItem?.defaultUnit ||
+          WasteUnit.KG;
 
-      return {
-        wasteTypeId: catalogItem?.id || null,
-        name,
-        category: catalogItem?.category || normalizeText(proposed?.category),
-        subcategory: catalogItem?.subcategory || normalizeText(proposed?.subcategory),
-        quantity,
-        quantityKg: quantityToKg(quantity, unit),
-        unit,
-        notes: normalizeText(material.notes),
-      };
-    });
+        if (catalogItem && (catalogItem.unit !== unit || catalogItem.defaultUnit !== unit)) throw new CollectionDomainError("A unidade coletada deve corresponder à unidade do catálogo. Revise o material antes de concluir.", { statusCode: 400, code: "COLLECTION_MATERIAL_UNIT_MISMATCH" });
+
+        return {
+          wasteTypeId: catalogItem?.id || null,
+          name,
+          category: catalogItem?.category || normalizeText(proposed?.category),
+          subcategory:
+            catalogItem?.subcategory || normalizeText(proposed?.subcategory),
+          quantity,
+          quantityKg: quantityToKg(quantity, unit),
+          unit,
+          notes: normalizeText(material.notes),
+        };
+      },
+    );
 
     for (const material of normalized) {
       const key = material.wasteTypeId
@@ -427,7 +441,7 @@ export class CollectionService {
           {
             statusCode: 400,
             code: "DUPLICATE_COLLECTION_MATERIAL",
-          }
+          },
         );
       }
       keys.add(key);
@@ -521,12 +535,19 @@ export class CollectionService {
    * ============================================================
    */
 
-  async create(authUserId: string, authUserRole: string, data: CreateCollectionInput) {
+  async create(
+    authUserId: string,
+    authUserRole: string,
+    data: CreateCollectionInput,
+  ) {
     if (normalizeRole(authUserRole) !== UserRole.COOPERATIVE) {
-      throw new CollectionDomainError("Apenas cooperativas podem delegar coletas.", {
-        statusCode: 403,
-        code: "ONLY_COOPERATIVE_CAN_CREATE_COLLECTION",
-      });
+      throw new CollectionDomainError(
+        "Apenas cooperativas podem delegar coletas.",
+        {
+          statusCode: 403,
+          code: "ONLY_COOPERATIVE_CAN_CREATE_COLLECTION",
+        },
+      );
     }
 
     const context = await this.getAccessContext(authUserId, authUserRole);
@@ -550,27 +571,36 @@ export class CollectionService {
       });
 
       if (!schedule) {
-        throw new CollectionDomainError("Agendamento não encontrado para esta cooperativa.", {
-          statusCode: 404,
-          code: "SCHEDULE_NOT_FOUND",
-        });
+        throw new CollectionDomainError(
+          "Agendamento não encontrado para esta cooperativa.",
+          {
+            statusCode: 404,
+            code: "SCHEDULE_NOT_FOUND",
+          },
+        );
       }
 
       if (
         schedule.status === ScheduleStatus.CANCELLED ||
         schedule.status === ScheduleStatus.COMPLETED
       ) {
-        throw new CollectionDomainError("Não é possível delegar um agendamento encerrado.", {
-          statusCode: 409,
-          code: "SCHEDULE_ALREADY_CLOSED",
-        });
+        throw new CollectionDomainError(
+          "Não é possível delegar um agendamento encerrado.",
+          {
+            statusCode: 409,
+            code: "SCHEDULE_ALREADY_CLOSED",
+          },
+        );
       }
 
       if (schedule.collections.length > 0) {
-        throw new CollectionDomainError("Este agendamento já possui uma coleta vinculada.", {
-          statusCode: 409,
-          code: "SCHEDULE_ALREADY_HAS_COLLECTION",
-        });
+        throw new CollectionDomainError(
+          "Este agendamento já possui uma coleta vinculada.",
+          {
+            statusCode: 409,
+            code: "SCHEDULE_ALREADY_HAS_COLLECTION",
+          },
+        );
       }
 
       const collector = await transaction.collector.findFirst({
@@ -584,7 +614,7 @@ export class CollectionService {
       if (!collector) {
         throw new CollectionDomainError(
           "Catador não encontrado ou indisponível para esta cooperativa.",
-          { statusCode: 404, code: "COLLECTOR_UNAVAILABLE" }
+          { statusCode: 404, code: "COLLECTOR_UNAVAILABLE" },
         );
       }
 
@@ -602,10 +632,13 @@ export class CollectionService {
         });
 
         if (!driver) {
-          throw new CollectionDomainError("Motorista não encontrado ou indisponível.", {
-            statusCode: 404,
-            code: "DRIVER_UNAVAILABLE",
-          });
+          throw new CollectionDomainError(
+            "Motorista não encontrado ou indisponível.",
+            {
+              statusCode: 404,
+              code: "DRIVER_UNAVAILABLE",
+            },
+          );
         }
         driverId = driver.id;
       }
@@ -615,22 +648,28 @@ export class CollectionService {
           where: {
             id: data.vehicleId,
             cooperativeId: context.cooperativeId,
-            status: { not: VehicleStatus.INACTIVE },
+            status: VehicleStatus.ACTIVE,
           },
         });
 
         if (!vehicle) {
-          throw new CollectionDomainError("Veículo não encontrado ou indisponível.", {
-            statusCode: 404,
-            code: "VEHICLE_UNAVAILABLE",
-          });
+          throw new CollectionDomainError(
+            "Veículo não encontrado ou indisponível.",
+            {
+              statusCode: 404,
+              code: "VEHICLE_UNAVAILABLE",
+            },
+          );
         }
 
         if (driverId && vehicle.driverId && vehicle.driverId !== driverId) {
-          throw new CollectionDomainError("O veículo informado está vinculado a outro motorista.", {
-            statusCode: 409,
-            code: "VEHICLE_DRIVER_CONFLICT",
-          });
+          throw new CollectionDomainError(
+            "O veículo informado está vinculado a outro motorista.",
+            {
+              statusCode: 409,
+              code: "VEHICLE_DRIVER_CONFLICT",
+            },
+          );
         }
         vehicleId = vehicle.id;
       }
@@ -645,30 +684,46 @@ export class CollectionService {
         });
 
         if (!route) {
-          throw new CollectionDomainError("Rota não encontrada ou indisponível.", {
-            statusCode: 404,
-            code: "ROUTE_UNAVAILABLE",
-          });
+          throw new CollectionDomainError(
+            "Rota não encontrada ou indisponível.",
+            {
+              statusCode: 404,
+              code: "ROUTE_UNAVAILABLE",
+            },
+          );
         }
 
         if (driverId && route.driverId && route.driverId !== driverId) {
-          throw new CollectionDomainError("A rota informada pertence a outro motorista.", {
-            statusCode: 409,
-            code: "ROUTE_DRIVER_CONFLICT",
-          });
+          throw new CollectionDomainError(
+            "A rota informada pertence a outro motorista.",
+            {
+              statusCode: 409,
+              code: "ROUTE_DRIVER_CONFLICT",
+            },
+          );
         }
 
         if (vehicleId && route.vehicleId && route.vehicleId !== vehicleId) {
-          throw new CollectionDomainError("A rota informada pertence a outro veículo.", {
-            statusCode: 409,
-            code: "ROUTE_VEHICLE_CONFLICT",
-          });
+          throw new CollectionDomainError(
+            "A rota informada pertence a outro veículo.",
+            {
+              statusCode: 409,
+              code: "ROUTE_VEHICLE_CONFLICT",
+            },
+          );
         }
 
         driverId = driverId || route.driverId || null;
         vehicleId = vehicleId || route.vehicleId || null;
         routeId = route.id;
       }
+
+      await this.validateTeam(
+        transaction,
+        context.cooperativeId!,
+        driverId,
+        vehicleId,
+      );
 
       const collection = await transaction.collection.create({
         data: {
@@ -792,24 +847,60 @@ export class CollectionService {
    * ============================================================
    */
 
+  private async validateTeam(
+    transaction: TransactionClient,
+    cooperativeId: string,
+    driverId: string | null,
+    vehicleId: string | null,
+  ) {
+    const driver = driverId
+      ? await transaction.driver.findFirst({
+          where: {
+            id: driverId,
+            cooperativeId,
+            status: { not: DriverStatus.INACTIVE },
+          },
+        })
+      : null;
+    const vehicle = vehicleId
+      ? await transaction.vehicle.findFirst({
+          where: { id: vehicleId, cooperativeId, status: VehicleStatus.ACTIVE },
+        })
+      : null;
+    if ((driverId && !driver) || (vehicleId && !vehicle))
+      throw new CollectionDomainError(
+        "Motorista ou veículo indisponível. Revise a equipe antes de iniciar.",
+        { statusCode: 409, code: "TEAM_UNAVAILABLE" },
+      );
+    if (vehicle?.driverId && driverId && vehicle.driverId !== driverId)
+      throw new CollectionDomainError(
+        "O veículo está vinculado a outro motorista.",
+        { statusCode: 409, code: "VEHICLE_DRIVER_CONFLICT" },
+      );
+  }
+
   async start(
     authUserId: string,
     authUserRole: string,
     collectionId: string,
-    data: StartCollectionInput
+    data: StartCollectionInput,
   ) {
     const context = await this.getAccessContext(authUserId, authUserRole);
 
     if (context.role !== "COLLECTOR") {
-      throw new CollectionDomainError("Apenas o catador responsável pode iniciar a coleta.", {
-        statusCode: 403,
-        code: "ONLY_COLLECTOR_CAN_START",
-      });
+      throw new CollectionDomainError(
+        "Apenas o catador responsável pode iniciar a coleta.",
+        {
+          statusCode: 403,
+          code: "ONLY_COLLECTOR_CAN_START",
+        },
+      );
     }
 
     const collectorId = context.collectorId;
 
     return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Collection" WHERE id = ${collectionId} FOR UPDATE`;
       const collection = await transaction.collection.findFirst({
         where: {
           id: collectionId,
@@ -819,13 +910,44 @@ export class CollectionService {
       });
 
       if (!collection) {
-        throw new CollectionDomainError("Coleta não encontrada para este catador.", {
-          statusCode: 404,
-          code: "COLLECTION_NOT_FOUND",
-        });
+        throw new CollectionDomainError(
+          "Coleta não encontrada para este catador.",
+          {
+            statusCode: 404,
+            code: "COLLECTION_NOT_FOUND",
+          },
+        );
       }
 
-      this.assertTransition(collection.status, CollectionStatus.PENDING, CollectionStatus.IN_PROGRESS);
+      const operationHash = createHash("sha256")
+        .update(JSON.stringify(data))
+        .digest("hex");
+      if (
+        data.operationId &&
+        collection.startOperationId === data.operationId
+      ) {
+        if (collection.startOperationHash !== operationHash)
+          throw new CollectionDomainError(
+            "Operação já registrada com dados diferentes.",
+            { statusCode: 409, code: "OPERATION_PAYLOAD_CONFLICT" },
+          );
+        return transaction.collection.findUniqueOrThrow({
+          where: { id: collection.id },
+          include: collectionInclude,
+        });
+      }
+      this.assertTransition(
+        collection.status,
+        CollectionStatus.PENDING,
+        CollectionStatus.IN_PROGRESS,
+      );
+
+      await this.validateTeam(
+        transaction,
+        collection.cooperativeId,
+        collection.driverId,
+        collection.vehicleId,
+      );
 
       await transaction.collector.update({
         where: { id: collectorId },
@@ -843,9 +965,14 @@ export class CollectionService {
         where: { id: collection.id },
         data: {
           status: CollectionStatus.IN_PROGRESS,
+          startOperationId: data.operationId,
+          startOperationHash: data.operationId ? operationHash : undefined,
           startedAt: normalizeDate(data.startedAt),
           startedByUserId: authUserId,
-          notes: data.notes !== undefined ? normalizeText(data.notes) : collection.notes,
+          notes:
+            data.notes !== undefined
+              ? normalizeText(data.notes)
+              : collection.notes,
         },
         include: collectionInclude,
       });
@@ -862,20 +989,21 @@ export class CollectionService {
     authUserId: string,
     authUserRole: string,
     collectionId: string,
-    data: CompleteFieldCollectionInput
+    data: CompleteFieldCollectionInput,
   ) {
     const context = await this.getAccessContext(authUserId, authUserRole);
 
     if (context.role !== "COLLECTOR") {
       throw new CollectionDomainError(
         "Apenas o catador responsável pode concluir a etapa de campo.",
-        { statusCode: 403, code: "ONLY_COLLECTOR_CAN_COMPLETE_FIELD" }
+        { statusCode: 403, code: "ONLY_COLLECTOR_CAN_COMPLETE_FIELD" },
       );
     }
 
     const collectorId = context.collectorId;
 
     return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Collection" WHERE id = ${collectionId} FOR UPDATE`;
       const collection = await transaction.collection.findFirst({
         where: {
           id: collectionId,
@@ -888,25 +1016,52 @@ export class CollectionService {
       });
 
       if (!collection) {
-        throw new CollectionDomainError("Coleta não encontrada para este catador.", {
-          statusCode: 404,
-          code: "COLLECTION_NOT_FOUND",
-        });
+        throw new CollectionDomainError(
+          "Coleta não encontrada para este catador.",
+          {
+            statusCode: 404,
+            code: "COLLECTION_NOT_FOUND",
+          },
+        );
       }
 
-      this.assertTransition(collection.status, CollectionStatus.IN_PROGRESS, CollectionStatus.COLLECTED);
+      const operationHash = createHash("sha256")
+        .update(JSON.stringify(data))
+        .digest("hex");
+      if (
+        data.operationId &&
+        collection.fieldOperationId === data.operationId
+      ) {
+        if (collection.fieldOperationHash !== operationHash)
+          throw new CollectionDomainError(
+            "Operação já registrada com dados diferentes.",
+            { statusCode: 409, code: "OPERATION_PAYLOAD_CONFLICT" },
+          );
+        return transaction.collection.findUniqueOrThrow({
+          where: { id: collection.id },
+          include: collectionInclude,
+        });
+      }
+      this.assertTransition(
+        collection.status,
+        CollectionStatus.IN_PROGRESS,
+        CollectionStatus.COLLECTED,
+      );
 
       if (collection.collectionMaterials.length > 0) {
-        throw new CollectionDomainError("Os materiais desta coleta já foram registrados.", {
-          statusCode: 409,
-          code: "COLLECTION_MATERIALS_ALREADY_CREATED",
-        });
+        throw new CollectionDomainError(
+          "Os materiais desta coleta já foram registrados.",
+          {
+            statusCode: 409,
+            code: "COLLECTION_MATERIALS_ALREADY_CREATED",
+          },
+        );
       }
 
       const normalizedMaterials = await this.normalizeMaterials(
         transaction,
         collection.cooperativeId,
-        data.materials
+        data.materials,
       );
 
       const authenticatedUser = await transaction.user.findUnique({
@@ -922,38 +1077,92 @@ export class CollectionService {
         normalizedMaterials,
         authUserId,
         authenticatedUser?.displayName || authenticatedUser?.email || null,
-        collectedAt
+        collectedAt,
       );
 
       const totalWeightKg =
         data.totalWeightKg ??
-        normalizedMaterials.reduce((total, material) => total + material.quantityKg, 0);
+        normalizedMaterials.reduce(
+          (total, material) => total + material.quantityKg,
+          0,
+        );
 
       const updated = await transaction.collection.update({
         where: { id: collection.id },
         data: {
           status: CollectionStatus.COLLECTED,
+          fieldOperationId: data.operationId,
+          fieldOperationHash: data.operationId ? operationHash : undefined,
           collectedAt,
           fieldCompletedByUserId: authUserId,
           totalWeightKg,
           materials: normalizedMaterials as unknown as Prisma.InputJsonValue,
-          notes: data.notes !== undefined ? normalizeText(data.notes) : collection.notes,
+          notes:
+            data.notes !== undefined
+              ? normalizeText(data.notes)
+              : collection.notes,
         },
         include: collectionInclude,
       });
 
       if (collection.binId) {
-        await transaction.bin.update({where:{id:collection.binId},data:{needsPickup:false,pickupReason:null}});
-        await transaction.binEvent.create({data:{binId:collection.binId,cooperativeId:collection.cooperativeId,kind:"PICKUP_COLLECTED",actorUserId:authUserId,actorName:authenticatedUser?.displayName || null,notes:"Retirada finalizada em campo. Recebimento e destinação seguem o fluxo de resíduos.",data:{collectionId:collection.id}}});
+        await transaction.bin.update({
+          where: { id: collection.binId },
+          data: { needsPickup: false, pickupReason: null },
+        });
+        await transaction.binEvent.create({
+          data: {
+            binId: collection.binId,
+            cooperativeId: collection.cooperativeId,
+            kind: "PICKUP_COLLECTED",
+            actorUserId: authUserId,
+            actorName: authenticatedUser?.displayName || null,
+            notes:
+              "Retirada finalizada em campo. Recebimento e destinação seguem o fluxo de resíduos.",
+            data: { collectionId: collection.id },
+          },
+        });
       }
 
+      await transaction.$queryRaw`SELECT id FROM "Collector" WHERE id = ${collectorId} FOR UPDATE`;
+      const collectorState = await transaction.collector.findUniqueOrThrow({
+        where: { id: collectorId },
+      });
+      const localDay = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Fortaleza",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+      const dayStart = new Date(`${localDay}T00:00:00-03:00`);
+      const monthStart = new Date(`${localDay.slice(0, 7)}-01T00:00:00-03:00`);
+      const monthEnd = new Date(monthStart);
+      monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
+      const dayEnd = new Date(dayStart.getTime() + 86400000);
+      const kgMonth = await transaction.collection.aggregate({
+        where: { collectorId, collectedAt: { gte: monthStart, lt: monthEnd } },
+        _sum: { totalWeightKg: true },
+      });
+      const collectionsToday = await transaction.collection.count({
+        where: { collectorId, collectedAt: { gte: dayStart, lt: dayEnd } },
+      });
       await transaction.collector.update({
         where: { id: collectorId },
         data: {
-          status: CollectorStatus.AVAILABLE,
+          status:
+            collectorState.status === CollectorStatus.INACTIVE
+              ? CollectorStatus.INACTIVE
+              : (await transaction.collection.count({
+                    where: {
+                      collectorId,
+                      status: CollectionStatus.IN_PROGRESS,
+                    },
+                  })) > 0
+                ? CollectorStatus.ON_ROUTE
+                : CollectorStatus.AVAILABLE,
           totalKg: { increment: totalWeightKg },
-          kgMonth: { increment: totalWeightKg },
-          collectionsToday: { increment: 1 },
+          kgMonth: kgMonth._sum.totalWeightKg || 0,
+          collectionsToday,
         },
       });
 
@@ -982,18 +1191,22 @@ export class CollectionService {
     collectionId: string,
     expectedStatus: CollectionStatus,
     targetStatus: CollectionStatus,
-    data: Prisma.CollectionUncheckedUpdateInput
+    data: Prisma.CollectionUncheckedUpdateInput,
   ) {
     const context = await this.getAccessContext(authUserId, authUserRole);
 
     if (context.role !== "COOPERATIVE") {
-      throw new CollectionDomainError("Apenas a cooperativa pode executar esta operação.", {
-        statusCode: 403,
-        code: "ONLY_COOPERATIVE_CAN_TRANSITION",
-      });
+      throw new CollectionDomainError(
+        "Apenas a cooperativa pode executar esta operação.",
+        {
+          statusCode: 403,
+          code: "ONLY_COOPERATIVE_CAN_TRANSITION",
+        },
+      );
     }
 
     return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Collection" WHERE id = ${collectionId} FOR UPDATE`;
       const collection = await transaction.collection.findFirst({
         where: {
           id: collectionId,
@@ -1002,10 +1215,13 @@ export class CollectionService {
       });
 
       if (!collection) {
-        throw new CollectionDomainError("Coleta não encontrada para esta cooperativa.", {
-          statusCode: 404,
-          code: "COLLECTION_NOT_FOUND",
-        });
+        throw new CollectionDomainError(
+          "Coleta não encontrada para esta cooperativa.",
+          {
+            statusCode: 404,
+            code: "COLLECTION_NOT_FOUND",
+          },
+        );
       }
 
       this.assertTransition(collection.status, expectedStatus, targetStatus);
@@ -1083,18 +1299,19 @@ export class CollectionService {
     authUserId: string,
     authUserRole: string,
     collectionId: string,
-    data: CompleteCollectionInput
+    data: CompleteCollectionInput,
   ) {
     const context = await this.getAccessContext(authUserId, authUserRole);
 
     if (context.role !== "COOPERATIVE") {
       throw new CollectionDomainError(
         "Apenas a cooperativa pode concluir operacionalmente a coleta.",
-        { statusCode: 403, code: "ONLY_COOPERATIVE_CAN_COMPLETE" }
+        { statusCode: 403, code: "ONLY_COOPERATIVE_CAN_COMPLETE" },
       );
     }
 
     return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Collection" WHERE id = ${collectionId} FOR UPDATE`;
       const collection = await transaction.collection.findFirst({
         where: {
           id: collectionId,
@@ -1111,34 +1328,60 @@ export class CollectionService {
       });
 
       if (!collection) {
-        throw new CollectionDomainError("Coleta não encontrada para esta cooperativa.", {
-          statusCode: 404,
-          code: "COLLECTION_NOT_FOUND",
-        });
+        throw new CollectionDomainError(
+          "Coleta não encontrada para esta cooperativa.",
+          {
+            statusCode: 404,
+            code: "COLLECTION_NOT_FOUND",
+          },
+        );
       }
 
-      this.assertTransition(collection.status, CollectionStatus.SORTING, CollectionStatus.COMPLETED);
+      this.assertTransition(
+        collection.status,
+        CollectionStatus.SORTING,
+        CollectionStatus.COMPLETED,
+      );
 
       if (collection.collectionWasteEntries.length === 0) {
-        throw new CollectionDomainError("A coleta não possui entradas de resíduos.", {
-          statusCode: 409,
-          code: "COLLECTION_WITHOUT_WASTE_ENTRIES",
-        });
+        throw new CollectionDomainError(
+          "A coleta não possui entradas de resíduos.",
+          {
+            statusCode: 409,
+            code: "COLLECTION_WITHOUT_WASTE_ENTRIES",
+          },
+        );
       }
 
       const pendingEntries = collection.collectionWasteEntries.filter(
-        (entry) => Number(entry.remainingQuantity) > 0
+        (entry) => Number(entry.remainingQuantity) > 0,
       );
 
       if (pendingEntries.length > 0) {
-        throw new CollectionDomainError("Ainda existem resíduos com saldo pendente de destinação.", {
-          statusCode: 409,
-          code: "COLLECTION_HAS_PENDING_DESTINATIONS",
-          details: {
-            pendingEntryIds: pendingEntries.map((entry) => entry.id),
+        throw new CollectionDomainError(
+          "Ainda existem resíduos com saldo pendente de destinação.",
+          {
+            statusCode: 409,
+            code: "COLLECTION_HAS_PENDING_DESTINATIONS",
+            details: {
+              pendingEntryIds: pendingEntries.map((entry) => entry.id),
+            },
           },
-        });
+        );
       }
+
+      const reservations = await transaction.collectionWasteDestination.count({
+        where: {
+          collectionWasteEntry: { collectionId },
+          type: "RESERVATION",
+          status: { not: "CANCELLED" },
+        },
+      });
+      if (reservations)
+        throw new CollectionDomainError(
+          "Existem reservas temporárias. Confirme a destinação antes de encerrar.",
+          { statusCode: 409, code: "COLLECTION_HAS_RESERVATIONS" },
+        );
 
       const updated = await transaction.collection.update({
         where: { id: collection.id },
@@ -1146,7 +1389,10 @@ export class CollectionService {
           status: CollectionStatus.COMPLETED,
           completedAt: normalizeDate(data.completedAt),
           completedByUserId: authUserId,
-          notes: data.notes !== undefined ? normalizeText(data.notes) : collection.notes,
+          notes:
+            data.notes !== undefined
+              ? normalizeText(data.notes)
+              : collection.notes,
         },
         include: collectionInclude,
       });
@@ -1172,18 +1418,22 @@ export class CollectionService {
     authUserId: string,
     authUserRole: string,
     collectionId: string,
-    data: CancelCollectionInput
+    data: CancelCollectionInput,
   ) {
     const context = await this.getAccessContext(authUserId, authUserRole);
 
     if (context.role !== "COOPERATIVE") {
-      throw new CollectionDomainError("Apenas a cooperativa pode cancelar uma coleta.", {
-        statusCode: 403,
-        code: "ONLY_COOPERATIVE_CAN_CANCEL",
-      });
+      throw new CollectionDomainError(
+        "Apenas a cooperativa pode cancelar uma coleta.",
+        {
+          statusCode: 403,
+          code: "ONLY_COOPERATIVE_CAN_CANCEL",
+        },
+      );
     }
 
     return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Collection" WHERE id = ${collectionId} FOR UPDATE`;
       const collection = await transaction.collection.findFirst({
         where: {
           id: collectionId,
@@ -1195,26 +1445,32 @@ export class CollectionService {
       });
 
       if (!collection) {
-        throw new CollectionDomainError("Coleta não encontrada para esta cooperativa.", {
-          statusCode: 404,
-          code: "COLLECTION_NOT_FOUND",
-        });
+        throw new CollectionDomainError(
+          "Coleta não encontrada para esta cooperativa.",
+          {
+            statusCode: 404,
+            code: "COLLECTION_NOT_FOUND",
+          },
+        );
       }
 
       if (
         collection.status === CollectionStatus.COMPLETED ||
         collection.status === CollectionStatus.CANCELLED
       ) {
-        throw new CollectionDomainError("Não é possível cancelar uma coleta já encerrada.", {
-          statusCode: 409,
-          code: "COLLECTION_ALREADY_CLOSED",
-        });
+        throw new CollectionDomainError(
+          "Não é possível cancelar uma coleta já encerrada.",
+          {
+            statusCode: 409,
+            code: "COLLECTION_ALREADY_CLOSED",
+          },
+        );
       }
 
       if (collection.collectionWasteEntries.length > 0) {
         throw new CollectionDomainError(
           "Não é possível cancelar uma coleta que já possui entradas de resíduos.",
-          { statusCode: 409, code: "COLLECTION_HAS_WASTE_ENTRIES" }
+          { statusCode: 409, code: "COLLECTION_HAS_WASTE_ENTRIES" },
         );
       }
 
@@ -1230,9 +1486,25 @@ export class CollectionService {
       });
 
       if (collection.collectorId) {
+        await transaction.$queryRaw`SELECT id FROM "Collector" WHERE id = ${collection.collectorId} FOR UPDATE`;
+        const collectorState = await transaction.collector.findUniqueOrThrow({
+          where: { id: collection.collectorId },
+        });
         await transaction.collector.update({
           where: { id: collection.collectorId },
-          data: { status: CollectorStatus.AVAILABLE },
+          data: {
+            status:
+              collectorState.status === CollectorStatus.INACTIVE
+                ? CollectorStatus.INACTIVE
+                : (await transaction.collection.count({
+                      where: {
+                        collectorId: collection.collectorId,
+                        status: CollectionStatus.IN_PROGRESS,
+                      },
+                    })) > 0
+                  ? CollectorStatus.ON_ROUTE
+                  : CollectorStatus.AVAILABLE,
+          },
         });
       }
 

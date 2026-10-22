@@ -57,17 +57,14 @@ const optionalTrimmedString = (maxLength = 255) =>
       .string({
         invalid_type_error: "O campo deve ser um texto.",
       })
-      .max(
-        maxLength,
-        `O campo deve possuir no máximo ${maxLength} caracteres.`
-      )
-      .optional()
+      .max(maxLength, `O campo deve possuir no máximo ${maxLength} caracteres.`)
+      .optional(),
   );
 
 const requiredTrimmedString = (
   fieldName: string,
   minLength = 1,
-  maxLength = 255
+  maxLength = 255,
 ) =>
   z
     .string({
@@ -78,7 +75,7 @@ const requiredTrimmedString = (
     .min(minLength, `${fieldName} é obrigatório.`)
     .max(
       maxLength,
-      `${fieldName} deve possuir no máximo ${maxLength} caracteres.`
+      `${fieldName} deve possuir no máximo ${maxLength} caracteres.`,
     );
 
 const optionalNumber = z.preprocess(
@@ -470,69 +467,38 @@ export const collectionMaterialSchema =
       };
     });
 
-export const collectionMaterialsSchema =
-  z
-    .array(
-      collectionMaterialSchema,
-      {
-        required_error:
-          "Informe ao menos um material coletado.",
+export const collectionMaterialsSchema = z
+  .array(collectionMaterialSchema, {
+    required_error: "Informe ao menos um material coletado.",
 
-        invalid_type_error:
-          "A lista de materiais deve ser um array.",
+    invalid_type_error: "A lista de materiais deve ser um array.",
+  })
+  .min(1, "Informe ao menos um material coletado.")
+  .max(200, "Uma coleta pode possuir no máximo 200 materiais.")
+  .superRefine((materials, context) => {
+    const keys = new Set<string>();
+
+    materials.forEach((material, index) => {
+      const key = material.wasteTypeId
+        ? `catalog:${material.wasteTypeId}:${material.unit}`
+        : `proposal:${String(material.proposedMaterial?.name ?? "")
+            .trim()
+            .toLocaleLowerCase("pt-BR")}:${material.unit}`;
+
+      if (keys.has(key)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+
+          path: [index],
+
+          message:
+            "O mesmo material foi informado mais de uma vez com a mesma unidade.",
+        });
       }
-    )
-    .min(
-      1,
-      "Informe ao menos um material coletado."
-    )
-    .max(
-      200,
-      "Uma coleta pode possuir no máximo 200 materiais."
-    )
-    .superRefine(
-      (materials, context) => {
-        const keys =
-          new Set<string>();
 
-        materials.forEach(
-          (
-            material,
-            index
-          ) => {
-            const key =
-              material.wasteTypeId
-                ? `catalog:${material.wasteTypeId}:${material.unit}`
-                : `proposal:${String(
-                    material
-                      .proposedMaterial
-                      ?.name ?? ""
-                  )
-                    .trim()
-                    .toLocaleLowerCase(
-                      "pt-BR"
-                    )}:${material.unit}`;
-
-            if (
-              keys.has(key)
-            ) {
-              context.addIssue({
-                code:
-                  z.ZodIssueCode.custom,
-
-                path:
-                  [index],
-
-                message:
-                  "O mesmo material foi informado mais de uma vez com a mesma unidade.",
-              });
-            }
-
-            keys.add(key);
-          }
-        );
-      }
-    );
+      keys.add(key);
+    });
+  });
 
 /*
  * ============================================================
@@ -575,29 +541,23 @@ export const createCollectionSchema =
  * ============================================================
  */
 
-export const startCollectionSchema =
-  z.object({
-    startedAt:
-      optionalIsoDate,
+export const startCollectionSchema = z.object({
+  operationId: z.string().trim().min(8).max(150).optional(),
+  startedAt: optionalIsoDate,
 
-    notes:
-      optionalTrimmedString(2000),
-  });
+  notes: optionalTrimmedString(2000),
+});
 
-export const completeFieldCollectionSchema =
-  z.object({
-    collectedAt:
-      optionalIsoDate,
+export const completeFieldCollectionSchema = z.object({
+  operationId: z.string().trim().min(8).max(150).optional(),
+  collectedAt: optionalIsoDate,
 
-    materials:
-      collectionMaterialsSchema,
+  materials: collectionMaterialsSchema,
 
-    totalWeightKg:
-      optionalPositiveNumber,
+  totalWeightKg: optionalPositiveNumber,
 
-    notes:
-      optionalTrimmedString(2000),
-  });
+  notes: optionalTrimmedString(2000),
+});
 
 export const receiveCollectionSchema =
   z.object({

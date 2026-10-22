@@ -1,62 +1,78 @@
-type WebSessionRow = {
-  id: number;
-  token: string | null;
-  user_id: string | null;
-  payload_json: string | null;
-  updated_at: string | null;
-};
-
-const memory = {
-  session: [] as WebSessionRow[],
-};
-
-function normalizeSql(sql: string) {
-  return sql.replace(/\s+/g, " ").trim().toUpperCase();
-}
-
+/** Adaptador persistente para os repositórios offline usados no navegador.
+ * Suporta somente as consultas parametrizadas desses repositórios. */
+const tables = new Set([
+  "session_local",
+  "collections_local",
+  "routes_local",
+  "schedules_local",
+  "sync_queue",
+]);
+let writer: Promise<unknown> = Promise.resolve();
 export async function getDatabase() {
   return null;
 }
-
 export async function execute(_sql: string) {
-  return;
+  /* DDL é gerenciado pelo SQLite nativo. */
 }
-
-export async function runQuery(sql: string, params: any[] = []) {
-  const normalized = normalizeSql(sql);
-
-  if (normalized.startsWith("DELETE FROM SESSION_LOCAL")) {
-    memory.session = [];
+export function runQuery(sql: string, params: any[] = []): Promise<any[]> {
+  const operation = writer.then(() => {
+    if (typeof localStorage === "undefined")
+      throw new Error("Armazenamento local indisponível.");
+    const normalized = sql.replace(/\s+/g, " ").trim();
+    const table = /(?:FROM|INTO|UPDATE)\s+(\w+)/i
+      .exec(normalized)?.[1]
+      ?.toLowerCase();
+    if (!table || !tables.has(table))
+      throw new Error("Consulta offline não suportada.");
+    const key = `@katu:offline:${table}`;
+    let rows: any[] = JSON.parse(localStorage.getItem(key) || "[]");
+    if (/^INSERT/i.test(normalized)) {
+      const cols = /\(([^)]+)\)/
+        .exec(normalized)![1]
+        .split(",")
+        .map((c) => c.trim());
+      const row: any = Object.fromEntries(cols.map((c, i) => [c, params[i]]));
+      if (table === "session_local") row.id = Date.now();
+      rows = [...rows.filter((r) => r.id !== row.id), row];
+    } else if (/^UPDATE sync_queue/i.test(normalized)) {
+      rows = rows.map((r) =>
+        r.id === params[4]
+          ? {
+              ...r,
+              status: params[0],
+              retry_count: params[1],
+              error_message: params[2],
+              updated_at: params[3],
+            }
+          : r,
+      );
+    } else if (/^DELETE/i.test(normalized)) {
+      rows = /WHERE status =/i.test(normalized)
+        ? rows.filter((r) => r.status !== params[0])
+        : [];
+    } else if (/^SELECT/i.test(normalized)) {
+      const field = /WHERE (id|driver_id|route_id|generator_id) =/i.exec(
+        normalized,
+      )?.[1];
+      if (field) rows = rows.filter((r) => r[field] === params[0]);
+      if (/WHERE status IN/i.test(normalized))
+        rows = rows.filter((r) => params.includes(r.status));
+      if (/ORDER BY created_at ASC/i.test(normalized))
+        rows.sort((a, b) => a.created_at.localeCompare(b.created_at));
+      else
+        rows.sort((a, b) =>
+          String(b.updated_at || b.id).localeCompare(
+            String(a.updated_at || a.id),
+          ),
+        );
+      return /LIMIT 1/i.test(normalized) ? rows.slice(0, 1) : rows;
+    } else throw new Error("Consulta offline não suportada.");
+    localStorage.setItem(key, JSON.stringify(rows));
     return [];
-  }
-
-  if (normalized.startsWith("INSERT INTO SESSION_LOCAL")) {
-    const nextId =
-      memory.session.length > 0
-        ? memory.session[memory.session.length - 1].id + 1
-        : 1;
-
-    memory.session.push({
-      id: nextId,
-      token: (params[0] as string) ?? null,
-      user_id: (params[1] as string) ?? null,
-      payload_json: (params[2] as string) ?? null,
-      updated_at: (params[3] as string) ?? null,
-    });
-
-    return [];
-  }
-
-  if (normalized.startsWith("SELECT * FROM SESSION_LOCAL")) {
-    return [...memory.session]
-      .sort((a, b) => b.id - a.id)
-      .slice(0, 1);
-  }
-
-  return [];
+  });
+  writer = operation.catch(() => {});
+  return operation;
 }
-
 export async function runSingle(sql: string, params: any[] = []) {
-  const rows = await runQuery(sql, params);
-  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  return (await runQuery(sql, params))[0] || null;
 }

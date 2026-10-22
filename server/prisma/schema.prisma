@@ -365,6 +365,10 @@ model CollectorDocument {
 }
 
 model Collection {
+  startOperationId String?
+  startOperationHash String?
+  fieldOperationId String?
+  fieldOperationHash String?
   id            String  @id @default(cuid())
   cooperativeId String
   generatorId   String?
@@ -549,6 +553,7 @@ model CollectionWasteEntry {
 }
 
 model CollectionWasteDestination {
+  auditEvents CollectionWasteDestinationEvent[]
   id String @id @default(cuid())
 
   cooperativeId          String
@@ -1282,4 +1287,17 @@ model MailDelivery {
  cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
  @@unique([cooperativeId,dedupeKey])
  @@index([cooperativeId,createdAt])
+}
+
+// Histórico de alterações: sem endpoints de edição ou exclusão.
+model CollectionWasteDestinationEvent {
+  id String @id @default(cuid())
+  destinationId String
+  actorUserId String
+  actorName String?
+  operation String
+  snapshot Json
+  createdAt DateTime @default(now())
+  destination CollectionWasteDestination @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+  @@index([destinationId, createdAt])
 }

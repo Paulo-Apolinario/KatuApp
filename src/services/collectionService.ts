@@ -13,6 +13,9 @@ import {
 
 import {
   enqueueSyncItem,
+  getPendingSyncItems,
+  markSyncItemSynced,
+  markSyncItemError,
 } from "../database/repositories/syncQueueRepository";
 
 import {
@@ -571,114 +574,63 @@ function normalizeCollection(
  */
 
 function serializeCompleteFieldMaterials(
-  payload: CompleteFieldCollectionPayload
+  payload: CompleteFieldCollectionPayload,
 ) {
-  return payload.materials.map(
-    (
-      material,
-      index
-    ) => {
-      const wasteTypeId =
-        normalizeOptionalText(
-          material.wasteTypeId
-        );
+  return payload.materials.map((material, index) => {
+    const wasteTypeId = normalizeOptionalText(material.wasteTypeId);
 
-      const proposedMaterial =
-        material.proposedMaterial
-          ? {
-              name:
-                String(
-                  material
-                    .proposedMaterial
-                    .name ||
-                    ""
-                ).trim(),
+    const proposedMaterial = material.proposedMaterial
+      ? {
+          name: String(material.proposedMaterial.name || "").trim(),
 
-              category:
-                normalizeOptionalText(
-                  material
-                    .proposedMaterial
-                    .category
-                ) ||
-                undefined,
+          category:
+            normalizeOptionalText(material.proposedMaterial.category) ||
+            undefined,
 
-              subcategory:
-                normalizeOptionalText(
-                  material
-                    .proposedMaterial
-                    .subcategory
-                ) ||
-                undefined,
+          subcategory:
+            normalizeOptionalText(material.proposedMaterial.subcategory) ||
+            undefined,
 
-              unit:
-                normalizeWasteUnit(
-                  material
-                    .proposedMaterial
-                    .unit
-                ),
-            }
-          : undefined;
+          unit: normalizeWasteUnit(material.proposedMaterial.unit),
+        }
+      : undefined;
 
-      if (
-        !wasteTypeId &&
-        !proposedMaterial?.name
-      ) {
-        throw new Error(
-          `Material inválido na posição ${
-            index + 1
-          }.`
-        );
-      }
-
-      if (
-        wasteTypeId &&
-        proposedMaterial
-      ) {
-        throw new Error(
-          `Informe somente um material do catálogo ou um material proposto na posição ${
-            index + 1
-          }.`
-        );
-      }
-
-      const quantity =
-        normalizeNumber(
-          material.quantity
-        );
-
-      if (
-        quantity <= 0
-      ) {
-        throw new Error(
-          `A quantidade do material na posição ${
-            index + 1
-          } deve ser maior que zero.`
-        );
-      }
-
-      const unit =
-        normalizeWasteUnit(
-          material.unit ||
-            proposedMaterial?.unit
-        );
-
-      return {
-        wasteTypeId:
-          wasteTypeId ||
-          undefined,
-
-        proposedMaterial,
-
-        quantity,
-
-        unit,
-
-        notes:
-          material.notes?.trim() ||
-          undefined,
-      };
+    if (!wasteTypeId && !proposedMaterial?.name) {
+      throw new Error(`Material inválido na posição ${index + 1}.`);
     }
-  );
+
+    if (wasteTypeId && proposedMaterial) {
+      throw new Error(
+        `Informe somente um material do catálogo ou um material proposto na posição ${
+          index + 1
+        }.`,
+      );
+    }
+
+    const quantity = normalizeNumber(material.quantity);
+
+    if (quantity <= 0) {
+      throw new Error(
+        `A quantidade do material na posição ${
+          index + 1
+        } deve ser maior que zero.`,
+      );
+    }
+
+    const unit = normalizeWasteUnit(material.unit || proposedMaterial?.unit);
+
+    return {
+      wasteTypeId: wasteTypeId || undefined,
+
+      proposedMaterial,
+
+      quantity,
+
+      unit,
+
+      notes: material.notes?.trim() || undefined,
+    };
+  });
 }
 
 /*
@@ -686,6 +638,28 @@ function serializeCompleteFieldMaterials(
  * CACHE
  * ============================================================
  */
+
+async function overlayPending(collection: Collection): Promise<Collection> {
+  const pending = await getPendingSyncItems();
+  let result = collection;
+  for (const item of pending) {
+    if (
+      item?.operationType !== "COLLECTION_FIELD_ACTION" ||
+      item.entityId !== collection.id
+    )
+      continue;
+    const { action, body } = item.payload;
+    result = normalizeCollection({
+      ...result,
+      ...body,
+      ...(item.payload.localMaterials ? { materials: item.payload.localMaterials } : {}),
+      status: action === "start" ? "IN_PROGRESS" : "COLLECTED",
+      syncStatus: "PENDING",
+      syncError: item.errorMessage,
+    } as Collection);
+  }
+  return result;
+}
 
 async function saveCollectionsToCache(
   collections: Collection[]
@@ -784,114 +758,68 @@ function createSyncQueueId(
 
 async function saveCollectionStatusOffline(
   id: string,
-  payload: UpdateCollectionStatusPayload
-): Promise<
-  Collection
-> {
-  const existing =
-    await readCollectionByIdFromCache(
-      id
-    );
+  payload: UpdateCollectionStatusPayload,
+): Promise<Collection> {
+  const existing = await readCollectionByIdFromCache(id);
 
   if (!existing) {
     throw new Error(
-      "Coleta não encontrada no cache local para atualização offline."
+      "Coleta não encontrada no cache local para atualização offline.",
     );
   }
 
-  const updatedCollection =
-    normalizeCollection({
-      ...existing,
+  const updatedCollection = normalizeCollection({
+    ...existing,
 
-      status:
-        payload.status,
+    status: payload.status,
 
-      collectedAt:
-        payload.collectedAt !==
-          undefined
-          ? payload.collectedAt
-          : existing.collectedAt ??
-            null,
+    collectedAt:
+      payload.collectedAt !== undefined
+        ? payload.collectedAt
+        : (existing.collectedAt ?? null),
 
-      totalWeightKg:
-        payload.totalWeightKg !==
-          undefined
-          ? normalizeNumber(
-              payload.totalWeightKg
-            )
-          : normalizeNumber(
-              existing.totalWeightKg
-            ),
+    totalWeightKg:
+      payload.totalWeightKg !== undefined
+        ? normalizeNumber(payload.totalWeightKg)
+        : normalizeNumber(existing.totalWeightKg),
 
-      materials:
-        payload.materials !==
-          undefined
-          ? normalizeMaterials(
-              payload.materials
-            )
-          : normalizeMaterials(
-              existing.materials
-            ),
+    materials:
+      payload.materials !== undefined
+        ? normalizeMaterials(payload.materials)
+        : normalizeMaterials(existing.materials),
 
-      notes:
-        payload.notes !==
-          undefined
-          ? payload.notes?.trim() ||
-            null
-          : existing.notes ??
-            null,
+    notes:
+      payload.notes !== undefined
+        ? payload.notes?.trim() || null
+        : (existing.notes ?? null),
 
-      cancellationReason:
-        payload.cancellationReason !==
-          undefined
-          ? payload.cancellationReason
-              .trim() ||
-            null
-          : existing.cancellationReason ??
-            null,
+    cancellationReason:
+      payload.cancellationReason !== undefined
+        ? payload.cancellationReason.trim() || null
+        : (existing.cancellationReason ?? null),
 
-      updatedAt:
-        new Date().toISOString(),
-    });
+    updatedAt: new Date().toISOString(),
+  });
 
-  await saveCollectionsToCache(
-    [updatedCollection]
-  );
+  await saveCollectionsToCache([updatedCollection]);
 
   await enqueueSyncItem({
-    id:
-      createSyncQueueId(
-        "collection_status",
-        id
-      ),
+    id: createSyncQueueId("collection_status", id),
 
-    operationType:
-      SYNC_OPERATION.UPDATE_COLLECTION_STATUS,
+    operationType: SYNC_OPERATION.UPDATE_COLLECTION_STATUS,
 
-    entityType:
-      SYNC_ENTITY.COLLECTION,
+    entityType: SYNC_ENTITY.COLLECTION,
 
-    entityId:
-      id,
+    entityId: id,
 
     payload: {
       id,
-      status:
-        payload.status,
-      collectedAt:
-        payload.collectedAt ||
-        undefined,
-      totalWeightKg:
-        payload.totalWeightKg,
-      materials:
-        payload.materials,
-      notes:
-        payload.notes?.trim() ||
-        undefined,
-      cancellationReason:
-        payload.cancellationReason
-          ?.trim() ||
-        undefined,
+      status: payload.status,
+      collectedAt: payload.collectedAt || undefined,
+      totalWeightKg: payload.totalWeightKg,
+      materials: payload.materials,
+      notes: payload.notes?.trim() || undefined,
+      cancellationReason: payload.cancellationReason?.trim() || undefined,
     },
   });
 
@@ -904,43 +832,31 @@ async function saveCollectionStatusOffline(
  * ============================================================
  */
 
-async function list(): Promise<
-  Collection[]
-> {
+let lastRemoteSyncAt: string | null = null;
+
+async function list(): Promise<Collection[]> {
   try {
-    const response =
-      await api.get<ListCollectionsApiResponse>(
-        "/collections",
-        true
-      );
-
-    const collections =
-      Array.isArray(
-        response
-      )
-        ? response
-        : Array.isArray(
-              response?.collections
-            )
-          ? response.collections
-          : [];
-
-    const normalized =
-      collections.map(
-        normalizeCollection
-      );
-
-    await saveCollectionsToCache(
-      normalized
+    const response = await api.get<ListCollectionsApiResponse>(
+      "/collections",
+      true,
     );
+
+    const collections = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.collections)
+        ? response.collections
+        : [];
+
+    lastRemoteSyncAt = new Date().toISOString();
+    const normalized = await Promise.all(
+      collections.map((c) => overlayPending(normalizeCollection(c))),
+    );
+
+    await saveCollectionsToCache(normalized);
 
     return normalized;
   } catch (error) {
-    if (
-      isApiNetworkError(
-        error
-      )
-    ) {
+    if (isApiNetworkError(error)) {
       return readCollectionsFromCache();
     }
 
@@ -1071,61 +987,36 @@ async function listActiveByDriver(
   );
 }
 
-async function getById(
-  id: string
-): Promise<
-  Collection
-> {
-  const normalizedId =
-    String(id || "").trim();
+async function getById(id: string): Promise<Collection> {
+  const normalizedId = String(id || "").trim();
 
   if (!normalizedId) {
-    throw new Error(
-      "ID da coleta não informado."
-    );
+    throw new Error("ID da coleta não informado.");
   }
 
   try {
-    const response =
-      await api.get<GetCollectionApiResponse>(
-        `/collections/${normalizedId}`,
-        true
-      );
+    const response = await api.get<GetCollectionApiResponse>(
+      `/collections/${normalizedId}`,
+      true,
+    );
 
     const collection =
-      response &&
-      typeof response ===
-        "object" &&
-      "collection" in response
+      response && typeof response === "object" && "collection" in response
         ? response.collection
         : (response as Collection);
 
     if (!collection) {
-      throw new Error(
-        "Coleta não retornada pela API."
-      );
+      throw new Error("Coleta não retornada pela API.");
     }
 
-    const normalized =
-      normalizeCollection(
-        collection
-      );
+    const normalized = await overlayPending(normalizeCollection(collection));
 
-    await saveCollectionsToCache(
-      [normalized]
-    );
+    await saveCollectionsToCache([normalized]);
 
     return normalized;
   } catch (error) {
-    if (
-      isApiNetworkError(
-        error
-      )
-    ) {
-      const cached =
-        await readCollectionByIdFromCache(
-          normalizedId
-        );
+    if (isApiNetworkError(error)) {
+      const cached = await readCollectionByIdFromCache(normalizedId);
 
       if (cached) {
         return cached;
@@ -1215,35 +1106,19 @@ async function start(
   );
 }
 
-async function completeField(
-  id: string,
-  payload: CompleteFieldCollectionPayload
-): Promise<
-  Collection
-> {
-  const materials =
-    serializeCompleteFieldMaterials(
-      payload
-    );
-
-  return postCollectionAction(
-    id,
-    "complete-field",
-    {
-      collectedAt:
-        payload.collectedAt ||
-        undefined,
-
-      materials,
-
-      totalWeightKg:
-        payload.totalWeightKg,
-
-      notes:
-        payload.notes?.trim() ||
-        undefined,
-    }
-  );
+async function completeField(id: string, payload: CompleteFieldCollectionPayload): Promise<Collection> {
+  const materials = serializeCompleteFieldMaterials(payload);
+  const localMaterials = payload.materials.map(material => {
+    const name = material.displayName || material.proposedMaterial?.name || "Material do catálogo";
+    const unit = normalizeWasteUnit(material.unit || material.proposedMaterial?.unit);
+    return { wasteTypeId: material.wasteTypeId, name, type: name, quantity: material.quantity, quantityKg: unit === "KG" ? material.quantity : unit === "TON" ? material.quantity * 1000 : 0, unit, notes: material.notes };
+  });
+  return postCollectionAction(id, "complete-field", {
+    collectedAt: payload.collectedAt || undefined,
+    materials,
+    totalWeightKg: payload.totalWeightKg,
+    notes: payload.notes?.trim() || undefined,
+  }, localMaterials);
 }
 
 async function receive(
@@ -1347,41 +1222,98 @@ async function postCollectionAction(
     | "start-sorting"
     | "complete"
     | "cancel",
-  body: unknown
-): Promise<
-  Collection
-> {
-  const normalizedId =
-    String(id || "").trim();
+  body: unknown,
+  localMaterials?: CollectionMaterial[],
+): Promise<Collection> {
+  const normalizedId = String(id || "").trim();
 
   if (!normalizedId) {
-    throw new Error(
-      "ID da coleta não informado."
-    );
+    throw new Error("ID da coleta não informado.");
   }
 
-  const response =
-    await api.post<CollectionApiResponse>(
-      `/collections/${normalizedId}/${action}`,
-      body,
-      true
+  if (action === "start" || action === "complete-field") {
+    const existing = await readCollectionByIdFromCache(normalizedId);
+    if (!existing)
+      throw new Error(
+        "Abra a coleta enquanto estiver conectado antes de registrar operações em campo.",
+      );
+    const pending = await getPendingSyncItems();
+    const duplicate = pending.find(
+      (item) =>
+        item?.entityId === normalizedId &&
+        item.operationType === "COLLECTION_FIELD_ACTION" &&
+        item.payload.action === action,
     );
-
-  if (!response?.collection) {
-    throw new Error(
-      "Coleta não retornada pela API."
-    );
+    if (duplicate) {
+      const before = duplicate.payload.body;
+      const after = body as Record<string, unknown>;
+      if (
+        JSON.stringify(before.materials) !== JSON.stringify(after.materials) ||
+        (before.notes || "") !== (after.notes || "")
+      )
+        throw new Error(
+          "Esta etapa já aguarda sincronização com dados diferentes. Sincronize e confira a coleta antes de alterar os materiais.",
+        );
+      return overlayPending(existing);
+    }
+    const expected = action === "start" ? "PENDING" : "IN_PROGRESS";
+    if (existing.status !== expected)
+      throw new Error(
+        "A etapa da coleta mudou. Atualize os dados antes de continuar.",
+      );
+    const operationId = createSyncQueueId("field", normalizedId);
+    const payload = { ...(body as object), operationId };
+    await enqueueSyncItem({
+      id: operationId,
+      operationType: "COLLECTION_FIELD_ACTION",
+      entityType: "COLLECTION",
+      entityId: normalizedId,
+      payload: { id: normalizedId, action, body: payload, localMaterials },
+    });
+    // A fila é a fonte durável. Só após gravá-la atualizamos a projeção local.
+    const local = await overlayPending(existing);
+    await saveCollectionsToCache([local]);
+    if (pending.some((item) => item?.entityId === normalizedId)) return local;
+    try {
+      const response = await api.post<CollectionApiResponse>(
+        `/collections/${normalizedId}/${action}`,
+        payload,
+        true,
+      );
+      if (!response?.collection)
+        throw new Error(
+          "Resposta sem coleta. Operação mantida na fila para conferência.",
+        );
+      await markSyncItemSynced(operationId);
+      const normalized = await overlayPending(
+        normalizeCollection({
+          ...response.collection,
+          syncStatus: "SYNCED",
+        } as Collection),
+      );
+      await saveCollectionsToCache([normalized]);
+      return normalized;
+    } catch (error: any) {
+      if (isApiNetworkError(error) || !error?.status || error.status >= 500) {
+        await markSyncItemError(
+          operationId,
+          error?.message || "Aguardando sincronização.",
+        );
+        return local;
+      }
+      // Rejeições definitivas ficam na fila para revisão, nunca são descartadas.
+      await markSyncItemError(operationId, error.message);
+      throw error;
+    }
   }
-
-  const normalized =
-    normalizeCollection(
-      response.collection
-    );
-
-  await saveCollectionsToCache(
-    [normalized]
+  const response = await api.post<CollectionApiResponse>(
+    `/collections/${normalizedId}/${action}`,
+    body,
+    true,
   );
-
+  if (!response?.collection) throw new Error("Coleta não retornada pela API.");
+  const normalized = normalizeCollection(response.collection);
+  await saveCollectionsToCache([normalized]);
   return normalized;
 }
 
@@ -1393,66 +1325,39 @@ async function postCollectionAction(
 
 async function updateStatus(
   id: string,
-  payload: UpdateCollectionStatusPayload
-): Promise<
-  Collection
-> {
+  payload: UpdateCollectionStatusPayload,
+): Promise<Collection> {
   try {
-    const response =
-      await api.patch<CollectionApiResponse>(
-        `/collections/${id}/status`,
-        {
-          status:
-            payload.status,
+    const response = await api.patch<CollectionApiResponse>(
+      `/collections/${id}/status`,
+      {
+        status: payload.status,
 
-          collectedAt:
-            payload.collectedAt ||
-            undefined,
+        collectedAt: payload.collectedAt || undefined,
 
-          totalWeightKg:
-            payload.totalWeightKg,
+        totalWeightKg: payload.totalWeightKg,
 
-          materials:
-            payload.materials,
+        materials: payload.materials,
 
-          notes:
-            payload.notes?.trim() ||
-            undefined,
+        notes: payload.notes?.trim() || undefined,
 
-          cancellationReason:
-            payload.cancellationReason
-              ?.trim() ||
-            undefined,
-        },
-        true
-      );
+        cancellationReason: payload.cancellationReason?.trim() || undefined,
+      },
+      true,
+    );
 
     if (!response?.collection) {
-      throw new Error(
-        "Coleta não retornada pela API."
-      );
+      throw new Error("Coleta não retornada pela API.");
     }
 
-    const normalized =
-      normalizeCollection(
-        response.collection
-      );
+    const normalized = normalizeCollection(response.collection);
 
-    await saveCollectionsToCache(
-      [normalized]
-    );
+    await saveCollectionsToCache([normalized]);
 
     return normalized;
   } catch (error) {
-    if (
-      isApiNetworkError(
-        error
-      )
-    ) {
-      return saveCollectionStatusOffline(
-        id,
-        payload
-      );
+    if (isApiNetworkError(error)) {
+      return saveCollectionStatusOffline(id, payload);
     }
 
     throw error;
@@ -1460,6 +1365,7 @@ async function updateStatus(
 }
 
 export const collectionService = {
+  getLastRemoteSyncAt: () => lastRemoteSyncAt,
   list,
   listByDriver,
   listByRoute,
@@ -1477,4 +1383,18 @@ export const collectionService = {
 
 export default collectionService;
 
-export function translateCollectionStatus(status:string){return ({PENDING:"Pendente",IN_PROGRESS:"Em andamento",COLLECTED:"Coletada em campo",RECEIVED:"Recebida",SORTING:"Em triagem",COMPLETED:"Concluída",CANCELLED:"Cancelada"} as Record<string,string>)[status]||status;}
+export function translateCollectionStatus(status: string) {
+  return (
+    (
+      {
+        PENDING: "Pendente",
+        IN_PROGRESS: "Em andamento",
+        COLLECTED: "Coletada em campo",
+        RECEIVED: "Recebida",
+        SORTING: "Em triagem",
+        COMPLETED: "Concluída",
+        CANCELLED: "Cancelada",
+      } as Record<string, string>
+    )[status] || status
+  );
+}

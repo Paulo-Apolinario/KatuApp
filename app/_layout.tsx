@@ -10,7 +10,7 @@ import { syncManager } from "../src/offline/syncManager";
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const wasOfflineRef = useRef(false);
+  const wasOfflineRef = useRef(true);
 
   useEffect(() => {
     async function bootstrap() {
@@ -50,7 +50,11 @@ export default function RootLayout() {
       }
     });
 
+    const timer = setInterval(() => {
+      void syncManager.runSyncNow();
+    }, 30000);
     return () => {
+      clearInterval(timer);
       unsubscribe();
     };
   }, [ready]);

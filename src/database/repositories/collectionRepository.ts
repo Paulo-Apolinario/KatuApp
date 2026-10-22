@@ -1,3 +1,4 @@
+import { getSession } from "./sessionRepository";
 import { runQuery, runSingle } from "../index";
 import { TABLES } from "../schema";
 
@@ -28,7 +29,7 @@ function mapCollectionRow(row: CollectionRow | null) {
   if (!row) return null;
 
   return {
-    id: row.id,
+    id: row.payload_json ? JSON.parse(row.payload_json).id || row.id : row.id,
     status: row.status,
     routeId: row.route_id,
     driverId: row.driver_id,
@@ -41,6 +42,9 @@ function mapCollectionRow(row: CollectionRow | null) {
 }
 
 export async function upsertCollections(collections: CollectionUpsertInput[]) {
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  if (!ownerId) throw new Error("Sessão necessária para salvar o cache local.");
   const now = new Date().toISOString();
 
   for (const collection of collections) {
@@ -60,16 +64,19 @@ export async function upsertCollections(collections: CollectionUpsertInput[]) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
-        collection.id,
+        `${ownerId}:${collection.id}`,
         collection.status ?? null,
         collection.routeId ?? null,
         collection.driverId ?? null,
         collection.collectorId ?? null,
         collection.totalWeightKg ?? 0,
-        JSON.stringify(collection.payload),
+        JSON.stringify({
+          ...(collection.payload as object),
+          __cacheOwner: ownerId,
+        }),
         now,
         collection.updatedAt ?? now,
-      ]
+      ],
     );
   }
 }
@@ -80,13 +87,20 @@ export async function getAllCollections() {
     SELECT *
     FROM ${TABLES.COLLECTIONS}
     ORDER BY updated_at DESC
-    `
+    `,
   )) as CollectionRow[];
 
-  return rows.map((row) => mapCollectionRow(row));
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  return rows
+    .map((row) => mapCollectionRow(row))
+    .filter((row) => row?.payload?.__cacheOwner === ownerId && ownerId);
 }
 
 export async function getCollectionById(id: string) {
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  if (!ownerId) return null;
   const row = (await runSingle(
     `
     SELECT *
@@ -94,10 +108,11 @@ export async function getCollectionById(id: string) {
     WHERE id = ?
     LIMIT 1
     `,
-    [id]
+    [`${ownerId}:${id}`],
   )) as CollectionRow | null;
 
-  return mapCollectionRow(row);
+  const mapped = mapCollectionRow(row);
+  return ownerId && mapped?.payload?.__cacheOwner === ownerId ? mapped : null;
 }
 
 export async function getCollectionsByDriver(driverId: string) {
@@ -108,10 +123,14 @@ export async function getCollectionsByDriver(driverId: string) {
     WHERE driver_id = ?
     ORDER BY updated_at DESC
     `,
-    [driverId]
+    [driverId],
   )) as CollectionRow[];
 
-  return rows.map((row) => mapCollectionRow(row));
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  return rows
+    .map((row) => mapCollectionRow(row))
+    .filter((row) => row?.payload?.__cacheOwner === ownerId && ownerId);
 }
 
 export async function getCollectionsByRoute(routeId: string) {
@@ -122,10 +141,14 @@ export async function getCollectionsByRoute(routeId: string) {
     WHERE route_id = ?
     ORDER BY updated_at DESC
     `,
-    [routeId]
+    [routeId],
   )) as CollectionRow[];
 
-  return rows.map((row) => mapCollectionRow(row));
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  return rows
+    .map((row) => mapCollectionRow(row))
+    .filter((row) => row?.payload?.__cacheOwner === ownerId && ownerId);
 }
 
 export async function clearCollections() {

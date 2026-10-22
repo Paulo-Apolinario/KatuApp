@@ -71,11 +71,11 @@ function isRouteOperation(operationType: SyncQueueOperation) {
 function ensureEntity(
   entityType: SyncQueueEntity,
   expected: SyncQueueEntity,
-  operationType: SyncQueueOperation
+  operationType: SyncQueueOperation,
 ) {
   if (entityType !== expected) {
     throw new Error(
-      `Entidade inválida para ${operationType}. Esperado ${expected}, recebido ${entityType}.`
+      `Entidade inválida para ${operationType}. Esperado ${expected}, recebido ${entityType}.`,
     );
   }
 }
@@ -96,7 +96,7 @@ async function syncCollectionStatus(payload: SyncCollectionPayload) {
           : undefined,
       notes: payload.notes?.trim() || undefined,
     },
-    true
+    true,
   );
 
   if (!response?.collection) {
@@ -125,7 +125,7 @@ async function syncRouteStatus(payload: SyncRoutePayload) {
     {
       status: payload.status,
     },
-    true
+    true,
   );
 
   if (!response?.route) {
@@ -146,11 +146,60 @@ async function syncRouteStatus(payload: SyncRoutePayload) {
   ]);
 }
 
+async function syncFieldAction(
+  payload: { id: string; action: "start" | "complete-field"; body: unknown },
+  currentId: string,
+) {
+  if (!["start", "complete-field"].includes(payload.action))
+    throw new Error("Etapa de campo inválida.");
+  const response = await api.post<UpdateCollectionStatusApiResponse>(
+    `/collections/${payload.id}/${payload.action}`,
+    payload.body,
+    true,
+  );
+  if (!response?.collection)
+    throw new Error("Coleta não retornada durante sincronização.");
+  let collection = response.collection;
+  const queued = await getPendingSyncItems();
+  for (const item of queued) {
+    if (
+      item?.id === currentId ||
+      item?.entityId !== collection.id ||
+      item?.operationType !== "COLLECTION_FIELD_ACTION"
+    )
+      continue;
+    collection = {
+      ...collection,
+      ...item.payload.body,
+      ...(item.payload.localMaterials ? { materials: item.payload.localMaterials } : {}),
+      status: item.payload.action === "start" ? "IN_PROGRESS" : "COLLECTED",
+      syncStatus: "PENDING",
+    };
+  }
+  await upsertCollections([
+    {
+      id: collection.id,
+      status: collection.status,
+      routeId: collection.routeId,
+      driverId: collection.driverId,
+      collectorId: collection.collectorId,
+      totalWeightKg: Number(collection.totalWeightKg || 0),
+      payload: { ...collection, syncStatus: collection.syncStatus || "SYNCED" },
+      updatedAt: collection.updatedAt,
+    },
+  ]);
+}
+
 async function processSyncItem(item: PendingSyncItem) {
+  if (!(await getPendingSyncItems()).some((pending) => pending?.id === item.id))
+    return false;
   await markSyncItemSyncing(item.id);
 
   try {
-    if (isCollectionOperation(item.operationType)) {
+    if (item.operationType === "COLLECTION_FIELD_ACTION") {
+      ensureEntity(item.entityType, "COLLECTION", item.operationType);
+      await syncFieldAction(item.payload as any, item.id);
+    } else if (isCollectionOperation(item.operationType)) {
       ensureEntity(item.entityType, "COLLECTION", item.operationType);
       await syncCollectionStatus(item.payload as SyncCollectionPayload);
     } else if (isRouteOperation(item.operationType)) {
@@ -165,7 +214,7 @@ async function processSyncItem(item: PendingSyncItem) {
   } catch (error: any) {
     await markSyncItemError(
       item.id,
-      error?.message || "Erro desconhecido na sincronização."
+      error?.message || "Erro desconhecido na sincronização.",
     );
     return false;
   }
@@ -194,18 +243,28 @@ export async function syncPendingOperations() {
 
   let synced = 0;
   let failed = 0;
+  const blockedEntities = new Set<string>();
   for (const item of pendingItems) {
+    // Nunca confirmar a conclusão antes de sincronizar o início da mesma coleta.
+    if (blockedEntities.has(item.entityId)) {
+      failed += 1;
+      continue;
+    }
     if (await processSyncItem(item)) synced += 1;
-    else failed += 1;
+    else {
+      failed += 1;
+      blockedEntities.add(item.entityId);
+    }
   }
 
   await clearSyncedSyncItems();
 
   return {
     success: failed === 0,
-    message: failed > 0
-      ? `${synced} operação(ões) sincronizada(s); ${failed} com erro. As operações com erro permanecem na fila para revisão ou nova tentativa.`
-      : "Sincronização concluída.",
+    message:
+      failed > 0
+        ? `${synced} operação(ões) sincronizada(s); ${failed} com erro. As operações com erro permanecem na fila para revisão ou nova tentativa.`
+        : "Sincronização concluída.",
     processed: pendingItems.length,
     synced,
     failed,

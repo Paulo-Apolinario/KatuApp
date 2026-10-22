@@ -1,0 +1,257 @@
+{
+  "date": "2026-10-22",
+  "scope": "Correções autorizadas da auditoria de coleta, recebimento, destinação e estoque",
+  "productionDataAccessed": false,
+  "apiAndBrowser": {
+    "environment": "Validação das correções por API real Fastify/Prisma + PGlite local descartável; sem acesso à VPS",
+    "outcomes": [
+      {
+        "name": "Controle: solicitação, rota, delegação, campo, recebimento, destinação parcial e conclusão",
+        "status": "PASS"
+      },
+      {
+        "name": "Imagem: trocar ESTOQUE → destino direto → ESTOQUE conserva lote cancelado e cria outro",
+        "status": "PASS"
+      },
+      {
+        "name": "Bloqueia estoque antes do recebimento e aceita destinação direta sem criar lote",
+        "status": "PASS"
+      },
+      {
+        "name": "Rejeita troca do catálogo KG por LITER e alteração da unidade de catálogo com histórico",
+        "status": "PASS"
+      },
+      {
+        "name": "Coleta encerrada preserva destinações e saldo zero",
+        "status": "PASS"
+      },
+      {
+        "name": "Delegação direta rejeita veículo em manutenção",
+        "status": "PASS"
+      },
+      {
+        "name": "Finalizar uma coleta mantém catador em rota enquanto outra está em andamento",
+        "status": "PASS"
+      },
+      {
+        "name": "Cadastro legado preserva unidade LITER, disponibilidade e rejeita lote incompatível",
+        "status": "PASS"
+      },
+      {
+        "name": "Equipe herdada da rota é revalidada na delegação e no início",
+        "status": "PASS"
+      },
+      {
+        "name": "Reserva temporária impede encerramento até destinação definitiva",
+        "status": "PASS"
+      },
+      {
+        "name": "Reenvio identificado de início e conclusão não duplica materiais e rejeita payload divergente",
+        "status": "PASS"
+      },
+      {
+        "name": "Controle: cancelamento do estoque restaura saldo e lote vendido bloqueia cancelamento",
+        "status": "PASS"
+      },
+      {
+        "name": "Controle: cancelar e registrar nova destinação deixa somente um lote disponível",
+        "status": "PASS"
+      },
+      {
+        "name": "Controle: destinação externa não cria lote; estoque parcial respeita o saldo",
+        "status": "PASS"
+      },
+      {
+        "name": "Lote cancelado permanece cancelado e não pode ser descartado",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel executa recebimento, triagem, valida pendências e encerra após destinação",
+        "status": "PASS"
+      }
+    ]
+  },
+  "apiEvidence": [
+    {
+      "id": "CONTROL_FULL",
+      "collection": "cmvjyda0e001ili1xl81e834m",
+      "lotCount": 2,
+      "availableKg": 50,
+      "repeatedCompletionStatus": 409
+    },
+    {
+      "id": "IMAGE_REPRO",
+      "lotCount": 2,
+      "cancelledKg": 50,
+      "availableKg": 50,
+      "lots": [
+        {
+          "id": "cmvjydasp002fli1xoiqcyi9i",
+          "status": "AVAILABLE",
+          "quantity": 50,
+          "availableQuantity": 50
+        },
+        {
+          "id": "cmvjydapg0029li1x6exjf4lp",
+          "status": "CANCELLED",
+          "quantity": 50,
+          "availableQuantity": 0
+        }
+      ]
+    },
+    {
+      "id": "A02",
+      "prematureStockStatus": 409,
+      "directDestinationStatus": 201
+    },
+    {
+      "id": "A04",
+      "catalogReclassificationStatus": 400,
+      "catalogUnitEditStatus": 400
+    },
+    {
+      "id": "A03",
+      "cancelStatus": 409,
+      "editStatus": 409,
+      "remainingQuantity": 0
+    },
+    {
+      "id": "A05",
+      "maintenanceDelegationStatus": 404
+    },
+    {
+      "id": "COLLECTOR_AVAILABILITY",
+      "afterFirstCompletion": "ON_ROUTE",
+      "afterBoth": "AVAILABLE"
+    },
+    {
+      "id": "LEGACY_UNITS",
+      "unit": "LITER",
+      "availableQuantity": 5,
+      "incompatibleLotRejected": true
+    },
+    {
+      "id": "TEAM_REVALIDATION",
+      "startWithMaintenanceBlocked": true,
+      "inheritedMaintenanceBlocked": true
+    },
+    {
+      "id": "RESERVATION",
+      "temporaryReservationBlocksClosure": true
+    },
+    {
+      "id": "REPLAY",
+      "oneMaterial": true,
+      "differentPayloadStatus": 409,
+      "replayAfterReceiving": true
+    },
+    {
+      "id": "CONTROL_GUARDS",
+      "soldCancelStatus": 409,
+      "linkedQuantityEditStatus": 400,
+      "otherCooperativeDenied": true
+    },
+    {
+      "id": "IMAGE_CANCEL_RECREATE",
+      "destinationsDifferent": true,
+      "lots": [
+        {
+          "status": "AVAILABLE",
+          "quantity": 50,
+          "availableQuantity": 50
+        },
+        {
+          "status": "CANCELLED",
+          "quantity": 50,
+          "availableQuantity": 0
+        }
+      ],
+      "available": 50
+    },
+    {
+      "id": "CONTROL_SPLIT",
+      "collectedKg": 100,
+      "stockKg": 40,
+      "externalKg": 60,
+      "lotCount": 1
+    },
+    {
+      "id": "A07",
+      "deleteStatus": 400,
+      "preservedStatus": "CANCELLED",
+      "availableQuantity": 0
+    },
+    {
+      "id": "A01",
+      "receiving": true,
+      "sorting": true,
+      "pendingBalanceRejected": true,
+      "closure": true
+    }
+  ],
+  "offline": {
+    "method": "Serviços/repositórios TypeScript reais e adaptador web real, transporte controlado; sem aparelho físico.",
+    "results": [
+      {
+        "name": "Início offline grava fila antes de confirmar e mantém projeção local",
+        "status": "PASS"
+      },
+      {
+        "name": "Conclusão aguarda início sem perder unidade LITER e sobrevive ao reinício",
+        "status": "PASS"
+      },
+      {
+        "name": "Dados divergentes em etapa já enfileirada são rejeitados",
+        "status": "PASS"
+      },
+      {
+        "name": "Falha no início bloqueia envio da conclusão dependente",
+        "status": "PASS"
+      },
+      {
+        "name": "Consulta online preserva projeção de operações pendentes",
+        "status": "PASS"
+      },
+      {
+        "name": "Recuperação envia início e conclusão em ordem e limpa fila após confirmação",
+        "status": "PASS"
+      },
+      {
+        "name": "Resposta perdida após gravação usa mesmo identificador na nova tentativa",
+        "status": "PASS"
+      },
+      {
+        "name": "Troca de conta isola cache e fila; voltar à conta recupera pendências",
+        "status": "PASS"
+      },
+      {
+        "name": "Operação interrompida em SYNCING é retomada após reinício",
+        "status": "PASS"
+      },
+      {
+        "name": "Falha de armazenamento não informa operação como salva",
+        "status": "PASS"
+      }
+    ]
+  },
+  "existingSyncContractTests": {
+    "passed": 2,
+    "failed": 0
+  },
+  "checks": {
+    "apiTypes": "PASS",
+    "apiBuild": "PASS",
+    "panelLintChangedFiles": "PASS",
+    "panelBuild": "PASS",
+    "appLintChangedFiles": "PASS",
+    "appFocusedTypes": "PASS",
+    "appWebExport": "PASS",
+    "appFullTypes": "FAIL_EXISTING_OUTSIDE_SCOPE"
+  },
+  "knownValidationLimits": [
+    "Sem teste em aparelho físico.",
+    "PGlite com uma conexão Prisma; não comprova concorrência entre sessões PostgreSQL.",
+    "Checagem geral do app contém erros anteriores em agendamentos e fixtures de teste."
+  ],
+  "migration": "20261022210000_collection_operation_replay"
+}

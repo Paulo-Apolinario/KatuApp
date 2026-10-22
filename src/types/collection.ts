@@ -13,12 +13,7 @@ export type CollectionStatus =
   | "COMPLETED"
   | "CANCELLED";
 
-export type WasteUnit =
-  | "KG"
-  | "TON"
-  | "LITER"
-  | "UNIT"
-  | "CUBIC_METER";
+export type WasteUnit = "KG" | "TON" | "LITER" | "UNIT" | "CUBIC_METER";
 
 /*
  * ============================================================
@@ -260,6 +255,8 @@ export interface CollectionScheduleSummary {
  */
 
 export interface Collection {
+  syncStatus?: "PENDING" | "SYNCED";
+  syncError?: string | null;
   id: string;
   cooperativeId: string;
   generatorId?: string | null;
@@ -318,6 +315,7 @@ export interface StartCollectionPayload {
 }
 
 export interface CompleteFieldCollectionMaterialPayload {
+  displayName?: string;
   wasteTypeId?: string;
   proposedMaterial?: ProposedCollectionMaterial;
   quantity: number;

@@ -50,12 +50,7 @@ function normalizeRequiredText(value: string) {
   return String(value).trim();
 }
 
-function normalizeSearchText(
-  value:
-    | string
-    | null
-    | undefined
-) {
+function normalizeSearchText(value: string | null | undefined) {
   return String(value ?? "")
     .trim()
     .toLocaleLowerCase("pt-BR");
@@ -119,73 +114,53 @@ function quantityToKgCompatibility(
 }
 
 function getEffectiveLotQuantity(lot: {
-  quantity?:
-    | Prisma.Decimal
-    | number
-    | null;
+  quantity?: Prisma.Decimal | number | null;
 
-  quantityKg?:
-    | number
-    | null;
+  quantityKg?: number | null;
 }) {
-  const currentQuantity = Number(
-    lot.quantity ?? 0
-  );
+  const currentQuantity = Number(lot.quantity ?? 0);
 
-  if (
-    Number.isFinite(currentQuantity) &&
-    currentQuantity > 0
-  ) {
+  if (Number.isFinite(currentQuantity) && currentQuantity > 0) {
     return currentQuantity;
   }
 
-  const legacyQuantityKg = Number(
-    lot.quantityKg ?? 0
-  );
+  const legacyQuantityKg = Number(lot.quantityKg ?? 0);
 
-  return Number.isFinite(
-    legacyQuantityKg
-  )
-    ? legacyQuantityKg
-    : 0;
+  return Number.isFinite(legacyQuantityKg) ? legacyQuantityKg : 0;
 }
 
 function mapWasteStockItem(item: any) {
-  const lots = Array.isArray(item?.lots)
-    ? item.lots
-    : [];
+  const lots = Array.isArray(item?.lots) ? item.lots : [];
 
   const validLots = lots.filter(
     (lot: any) =>
-      lot.status !== WasteLotStatus.DISCARDED
+      ![
+        WasteLotStatus.DISCARDED,
+        WasteLotStatus.CANCELLED,
+        WasteLotStatus.SOLD,
+      ].includes(lot.status),
   );
 
   const totalQuantity = validLots.reduce(
-    (sum: number, lot: any) =>
-      sum + getEffectiveLotQuantity(lot),
-    0
+    (sum: number, lot: any) => sum + getEffectiveLotQuantity(lot),
+    0,
   );
 
   const totalsByUnit = validLots.reduce(
-    (
-      accumulator: Record<string, number>,
-      lot: any
-    ) => {
+    (accumulator: Record<string, number>, lot: any) => {
       const unit = lot.unit || item.unit || WasteUnit.KG;
       const quantity = getEffectiveLotQuantity(lot);
 
-      accumulator[unit] =
-        (accumulator[unit] || 0) + quantity;
+      accumulator[unit] = (accumulator[unit] || 0) + quantity;
 
       return accumulator;
     },
-    {}
+    {},
   );
 
   const totalQuantityKg = validLots.reduce(
-    (sum: number, lot: any) =>
-      sum + Number(lot.quantityKg || 0),
-    0
+    (sum: number, lot: any) => sum + Number(lot.quantityKg || 0),
+    0,
   );
 
   return {
@@ -354,20 +329,18 @@ export class WasteStockService {
 
   private async ensureItemBelongsToCooperative(
     cooperativeId: string,
-    itemId: string
+    itemId: string,
+    transaction: Prisma.TransactionClient = prisma,
   ) {
-    const item =
-      await prisma.wasteStockItem.findFirst({
-        where: {
-          id: itemId,
-          cooperativeId,
-        },
-      });
+    const item = await transaction.wasteStockItem.findFirst({
+      where: {
+        id: itemId,
+        cooperativeId,
+      },
+    });
 
     if (!item) {
-      throw new Error(
-        "Tipo de resíduo não encontrado."
-      );
+      throw new Error("Tipo de resíduo não encontrado.");
     }
 
     return item;
@@ -375,18 +348,18 @@ export class WasteStockService {
 
   private async ensureLotBelongsToCooperative(
     cooperativeId: string,
-    lotId: string
+    lotId: string,
+    transaction: Prisma.TransactionClient = prisma,
   ) {
-    const lot =
-      await prisma.wasteStockLot.findFirst({
-        where: {
-          id: lotId,
-          cooperativeId,
-        },
-        include: {
-          stockItem: true,
-        },
-      });
+    const lot = await transaction.wasteStockLot.findFirst({
+      where: {
+        id: lotId,
+        cooperativeId,
+      },
+      include: {
+        stockItem: true,
+      },
+    });
 
     if (!lot) {
       throw new Error("Lote não encontrado.");
@@ -398,113 +371,100 @@ export class WasteStockService {
   private async ensureUniqueItemName(
     cooperativeId: string,
     name: string,
-    ignoredItemId?: string
+    ignoredItemId?: string,
+    transaction: Prisma.TransactionClient = prisma,
   ) {
-    const normalizedName =
-      normalizeSearchText(name);
+    const normalizedName = normalizeSearchText(name);
 
-    const items =
-      await prisma.wasteStockItem.findMany({
-        where: {
-          cooperativeId,
-          ...(ignoredItemId
-            ? {
-                id: {
-                  not: ignoredItemId,
-                },
-              }
-            : {}),
-        },
-        select: {
-          id: true,
-          name: true,
-        },
-      });
+    const items = await transaction.wasteStockItem.findMany({
+      where: {
+        cooperativeId,
+        ...(ignoredItemId
+          ? {
+              id: {
+                not: ignoredItemId,
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
 
     const duplicate = items.find(
-      (item) =>
-        normalizeSearchText(item.name) ===
-        normalizedName
+      (item) => normalizeSearchText(item.name) === normalizedName,
     );
 
     if (duplicate) {
-      throw new Error(
-        "Já existe um tipo de resíduo com este nome."
-      );
+      throw new Error("Já existe um tipo de resíduo com este nome.");
     }
   }
 
   private async ensureUniqueInternalCode(
     cooperativeId: string,
     internalCode?: string | null,
-    ignoredItemId?: string
+    ignoredItemId?: string,
+    transaction: Prisma.TransactionClient = prisma,
   ) {
-    const normalizedCode =
-      normalizeInternalCode(internalCode);
+    const normalizedCode = normalizeInternalCode(internalCode);
 
     if (!normalizedCode) return;
 
-    const duplicate =
-      await prisma.wasteStockItem.findFirst({
-        where: {
-          cooperativeId,
-          internalCode: normalizedCode,
-          ...(ignoredItemId
-            ? {
-                id: {
-                  not: ignoredItemId,
-                },
-              }
-            : {}),
-        },
-        select: {
-          id: true,
-        },
-      });
+    const duplicate = await transaction.wasteStockItem.findFirst({
+      where: {
+        cooperativeId,
+        internalCode: normalizedCode,
+        ...(ignoredItemId
+          ? {
+              id: {
+                not: ignoredItemId,
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+      },
+    });
 
     if (duplicate) {
-      throw new Error(
-        "Já existe um tipo de resíduo com este código interno."
-      );
+      throw new Error("Já existe um tipo de resíduo com este código interno.");
     }
   }
 
   private async ensureUniqueLotCode(
     cooperativeId: string,
     lotCode: string,
-    ignoredLotId?: string
+    ignoredLotId?: string,
+    transaction: Prisma.TransactionClient = prisma,
   ) {
-    const normalizedCode =
-      normalizeSearchText(lotCode);
+    const normalizedCode = normalizeSearchText(lotCode);
 
-    const lots =
-      await prisma.wasteStockLot.findMany({
-        where: {
-          cooperativeId,
-          ...(ignoredLotId
-            ? {
-                id: {
-                  not: ignoredLotId,
-                },
-              }
-            : {}),
-        },
-        select: {
-          id: true,
-          lotCode: true,
-        },
-      });
+    const lots = await transaction.wasteStockLot.findMany({
+      where: {
+        cooperativeId,
+        ...(ignoredLotId
+          ? {
+              id: {
+                not: ignoredLotId,
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        lotCode: true,
+      },
+    });
 
     const duplicate = lots.find(
-      (lot) =>
-        normalizeSearchText(lot.lotCode) ===
-        normalizedCode
+      (lot) => normalizeSearchText(lot.lotCode) === normalizedCode,
     );
 
     if (duplicate) {
-      throw new Error(
-        "Já existe um lote com este código."
-      );
+      throw new Error("Já existe um lote com este código.");
     }
   }
 
@@ -850,35 +810,46 @@ export class WasteStockService {
   async updateItem(
     user: AuthUser,
     itemId: string,
-    data: UpdateWasteStockItemInput
+    data: UpdateWasteStockItemInput,
   ) {
-    const cooperative =
-      await this.getAuthenticatedCooperative(user);
+    const cooperative = await this.getAuthenticatedCooperative(user);
 
-    const currentItem =
-      await this.ensureItemBelongsToCooperative(
+    return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "WasteStockItem" WHERE id = ${itemId} FOR UPDATE`;
+      const currentItem = await this.ensureItemBelongsToCooperative(
         cooperative.id,
-        itemId
+        itemId,
+        transaction,
       );
 
-    if (data.name !== undefined) {
-      await this.ensureUniqueItemName(
-        cooperative.id,
-        data.name,
-        itemId
-      );
-    }
+      if (
+        data.unit &&
+        data.unit !== currentItem.unit &&
+        ((await transaction.wasteStockLot.count({ where: { stockItemId: itemId } })) || (await transaction.collectionMaterial.count({ where: { wasteTypeId: itemId } })) || (await transaction.scheduleRequestedMaterial.count({ where: { wasteTypeId: itemId } })))
+      )
+        throw new Error(
+          "A unidade de um catálogo já utilizado em solicitações, coletas ou lotes não pode ser alterada. Cadastre outro material.",
+        );
 
-    if (data.internalCode !== undefined) {
-      await this.ensureUniqueInternalCode(
-        cooperative.id,
-        data.internalCode,
-        itemId
-      );
-    }
+      if (data.name !== undefined) {
+        await this.ensureUniqueItemName(
+          cooperative.id,
+          data.name,
+          itemId,
+          transaction,
+        );
+      }
 
-    const item =
-      await prisma.wasteStockItem.update({
+      if (data.internalCode !== undefined) {
+        await this.ensureUniqueInternalCode(
+          cooperative.id,
+          data.internalCode,
+          itemId,
+          transaction,
+        );
+      }
+
+      const item = await transaction.wasteStockItem.update({
         where: {
           id: currentItem.id,
         },
@@ -886,28 +857,19 @@ export class WasteStockService {
         data: {
           ...(data.name !== undefined
             ? {
-                name:
-                  normalizeRequiredText(
-                    data.name
-                  ),
+                name: normalizeRequiredText(data.name),
               }
             : {}),
 
           ...(data.category !== undefined
             ? {
-                category:
-                  normalizeRequiredText(
-                    data.category
-                  ),
+                category: normalizeRequiredText(data.category),
               }
             : {}),
 
           ...(data.subcategory !== undefined
             ? {
-                subcategory:
-                  normalizeText(
-                    data.subcategory
-                  ),
+                subcategory: normalizeText(data.subcategory),
               }
             : {}),
 
@@ -920,34 +882,25 @@ export class WasteStockService {
 
           ...(data.ncm !== undefined
             ? {
-                ncm: normalizeNcm(
-                  data.ncm
-                ),
+                ncm: normalizeNcm(data.ncm),
               }
             : {}),
 
           ...(data.internalCode !== undefined
             ? {
-                internalCode:
-                  normalizeInternalCode(
-                    data.internalCode
-                  ),
+                internalCode: normalizeInternalCode(data.internalCode),
               }
             : {}),
 
           ...(data.wasteClass !== undefined
             ? {
-                wasteClass:
-                  data.wasteClass,
+                wasteClass: data.wasteClass,
               }
             : {}),
 
           ...(data.description !== undefined
             ? {
-                description:
-                  normalizeText(
-                    data.description
-                  ),
+                description: normalizeText(data.description),
               }
             : {}),
 
@@ -968,12 +921,12 @@ export class WasteStockService {
         },
       });
 
-    return {
-      success: true,
-      message:
-        "Tipo de resíduo atualizado com sucesso.",
-      item: mapWasteStockItem(item),
-    };
+      return {
+        success: true,
+        message: "Tipo de resíduo atualizado com sucesso.",
+        item: mapWasteStockItem(item),
+      };
+    });
   }
 
   async deactivateItem(
@@ -1072,42 +1025,42 @@ export class WasteStockService {
   async createLot(
     user: AuthUser,
     stockItemId: string,
-    data: CreateWasteStockLotInput
+    data: CreateWasteStockLotInput,
   ) {
-    const cooperative =
-      await this.getAuthenticatedCooperative(user);
+    const cooperative = await this.getAuthenticatedCooperative(user);
 
-    const item =
-      await this.ensureItemBelongsToCooperative(
+    return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "WasteStockItem" WHERE id = ${stockItemId} FOR UPDATE`;
+      const item = await this.ensureItemBelongsToCooperative(
         cooperative.id,
-        stockItemId
+        stockItemId,
+        transaction,
       );
 
-    if (
-      item.status ===
-      WasteStockStatus.INACTIVE
-    ) {
-      throw new Error(
-        "Não é possível adicionar lotes a um tipo de resíduo inativo."
+      if (item.status === WasteStockStatus.INACTIVE) {
+        throw new Error(
+          "Não é possível adicionar lotes a um tipo de resíduo inativo.",
+        );
+      }
+
+      if (data.unit && data.unit !== item.unit)
+        throw new Error(
+          "A unidade do lote deve ser igual à unidade do catálogo.",
+        );
+      const lotCode = normalizeRequiredText(data.lotCode);
+
+      await this.ensureUniqueLotCode(
+        cooperative.id,
+        lotCode,
+        undefined,
+        transaction,
       );
-    }
 
-    const lotCode =
-      normalizeRequiredText(data.lotCode);
+      const quantity = normalizeQuantity(data.quantity);
 
-    await this.ensureUniqueLotCode(
-      cooperative.id,
-      lotCode
-    );
+      const unit = normalizeUnit(data.unit || item.unit);
 
-    const quantity =
-      normalizeQuantity(data.quantity);
-
-    const unit =
-      normalizeUnit(data.unit || item.unit);
-
-    const lot =
-      await prisma.wasteStockLot.create({
+      const lot = await transaction.wasteStockLot.create({
         data: {
           cooperativeId: cooperative.id,
           stockItemId: item.id,
@@ -1115,32 +1068,22 @@ export class WasteStockService {
           lotCode,
 
           quantity,
-          availableQuantity: quantity,
+          availableQuantity: [WasteLotStatus.AVAILABLE, WasteLotStatus.RESERVED].includes((data.status || WasteLotStatus.AVAILABLE) as any) ? quantity : 0,
+          createdByUserId: getAuthUserId(user),
 
-          quantityKg:
-            quantityToKgCompatibility(
-              quantity,
-              unit
-            ),
+          quantityKg: quantityToKgCompatibility(quantity, unit),
 
           unit,
 
-          storageLocation:
-            normalizeText(
-              data.storageLocation
-            ),
+          storageLocation: normalizeText(data.storageLocation),
 
-          processingStage:
-            data.processingStage ||
-            WasteProcessingStage.TRIADO,
+          processingStage: data.processingStage || WasteProcessingStage.TRIADO,
 
           origin: normalizeText(data.origin),
 
           notes: normalizeText(data.notes),
 
-          status:
-            data.status ||
-            WasteLotStatus.AVAILABLE,
+          status: data.status || WasteLotStatus.AVAILABLE,
         },
 
         include: {
@@ -1148,65 +1091,88 @@ export class WasteStockService {
         },
       });
 
-    return {
-      success: true,
-      message:
-        "Lote cadastrado com sucesso.",
-      lot,
-    };
+      return {
+        success: true,
+        message: "Lote cadastrado com sucesso.",
+        lot,
+      };
+    });
   }
 
   async updateLot(
     user: AuthUser,
     lotId: string,
-    data: UpdateWasteStockLotInput
+    data: UpdateWasteStockLotInput,
   ) {
-    const cooperative =
-      await this.getAuthenticatedCooperative(user);
+    const cooperative = await this.getAuthenticatedCooperative(user);
 
-    const currentLot =
-      await this.ensureLotBelongsToCooperative(
+    return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT c.id FROM "Collection" c JOIN "CollectionWasteEntry" e ON e."collectionId" = c.id JOIN "WasteStockLot" l ON l."originCollectionWasteEntryId" = e.id WHERE l.id = ${lotId} FOR UPDATE OF c`;
+      await transaction.$queryRaw`SELECT id FROM "WasteStockLot" WHERE id = ${lotId} FOR UPDATE`;
+      const currentLot = await this.ensureLotBelongsToCooperative(
         cooperative.id,
-        lotId
+        lotId,
+        transaction,
       );
 
-    if (currentLot.status === WasteLotStatus.CANCELLED) {
-      throw new Error("Lote cancelado é mantido somente para consulta do histórico.");
-    }
+      if (currentLot.status === WasteLotStatus.CANCELLED) {
+        throw new Error(
+          "Lote cancelado é mantido somente para consulta do histórico.",
+        );
+      }
 
-    const linked = !!(currentLot.originCollectionWasteEntryId || currentLot.originCollectionId || currentLot.originCollectionMaterialId);
-    const changesOrigin =
-      (data.quantity !== undefined && Number(data.quantity) !== getEffectiveLotQuantity(currentLot)) ||
-      (data.unit !== undefined && data.unit !== currentLot.unit) ||
-      (data.lotCode !== undefined && data.lotCode !== (currentLot.lotCode || currentLot.code)) ||
-      (data.origin !== undefined && normalizeText(data.origin) !== currentLot.origin);
-    if (linked && changesOrigin) {
-      throw new Error("Lote vinculado a uma coleta: quantidade, unidade, código e origem devem ser preservados. Consulte a destinação de origem.");
-    }
+      if (
+        [WasteLotStatus.SOLD, WasteLotStatus.DISCARDED].includes(
+          currentLot.status as any,
+        ) &&
+        data.status &&
+        data.status !== currentLot.status
+      )
+        throw new Error(
+          "Lote finalizado não pode retornar ao estoque. Registre uma movimentação de ajuste autorizada.",
+        );
 
-    if (data.lotCode !== undefined) {
-      await this.ensureUniqueLotCode(
-        cooperative.id,
-        data.lotCode,
-        lotId
+      const linked = !!(
+        currentLot.originCollectionWasteEntryId ||
+        currentLot.originCollectionId ||
+        currentLot.originCollectionMaterialId
       );
-    }
+      const changesOrigin =
+        (data.quantity !== undefined &&
+          Number(data.quantity) !== getEffectiveLotQuantity(currentLot)) ||
+        (data.unit !== undefined && data.unit !== currentLot.unit) ||
+        (data.lotCode !== undefined &&
+          data.lotCode !== (currentLot.lotCode || currentLot.code)) ||
+        (data.origin !== undefined &&
+          normalizeText(data.origin) !== currentLot.origin);
+      if (linked && changesOrigin) {
+        throw new Error(
+          "Lote vinculado a uma coleta: quantidade, unidade, código e origem devem ser preservados. Consulte a destinação de origem.",
+        );
+      }
 
-    const nextQuantity =
-      data.quantity !== undefined
-        ? normalizeQuantity(data.quantity)
-        : getEffectiveLotQuantity(
-            currentLot
-          );
+      if (data.lotCode !== undefined) {
+        await this.ensureUniqueLotCode(
+          cooperative.id,
+          data.lotCode,
+          lotId,
+          transaction,
+        );
+      }
 
-    const nextUnit =
-      data.unit ||
-      currentLot.unit ||
-      currentLot.stockItem.unit ||
-      WasteUnit.KG;
+      const nextQuantity =
+        data.quantity !== undefined
+          ? normalizeQuantity(data.quantity)
+          : getEffectiveLotQuantity(currentLot);
 
-    const lot =
-      await prisma.wasteStockLot.update({
+      if (data.unit && data.unit !== currentLot.stockItem.unit) throw new Error("A unidade do lote deve ser igual à unidade do catálogo.");
+      const nextUnit =
+        data.unit ||
+        currentLot.unit ||
+        currentLot.stockItem.unit ||
+        WasteUnit.KG;
+
+      const lot = await transaction.wasteStockLot.update({
         where: {
           id: currentLot.id,
         },
@@ -1214,31 +1180,25 @@ export class WasteStockService {
         data: {
           ...(data.lotCode !== undefined
             ? {
-                lotCode:
-                  normalizeRequiredText(
-                    data.lotCode
-                  ),
+                lotCode: normalizeRequiredText(data.lotCode),
               }
             : {}),
 
           ...(data.quantity !== undefined
             ? {
                 quantity: nextQuantity,
-                ...(!linked && (Number(currentLot.availableQuantity) === 0 || Number(currentLot.availableQuantity) === getEffectiveLotQuantity(currentLot)) ? { availableQuantity: nextQuantity } : {}),
+                ...(!linked &&
+                (Number(currentLot.availableQuantity) === 0 ||
+                  Number(currentLot.availableQuantity) ===
+                    getEffectiveLotQuantity(currentLot))
+                  ? { availableQuantity: nextQuantity }
+                  : {}),
 
-                quantityKg:
-                  quantityToKgCompatibility(
-                    nextQuantity,
-                    nextUnit
-                  ),
+                quantityKg: quantityToKgCompatibility(nextQuantity, nextUnit),
               }
             : data.unit !== undefined
               ? {
-                  quantityKg:
-                    quantityToKgCompatibility(
-                      nextQuantity,
-                      nextUnit
-                    ),
+                  quantityKg: quantityToKgCompatibility(nextQuantity, nextUnit),
                 }
               : {}),
 
@@ -1248,45 +1208,38 @@ export class WasteStockService {
               }
             : {}),
 
-          ...(data.storageLocation !==
-          undefined
+          ...(data.storageLocation !== undefined
             ? {
-                storageLocation:
-                  normalizeText(
-                    data.storageLocation
-                  ),
+                storageLocation: normalizeText(data.storageLocation),
               }
             : {}),
 
-          ...(data.processingStage !==
-          undefined
+          ...(data.processingStage !== undefined
             ? {
-                processingStage:
-                  data.processingStage,
+                processingStage: data.processingStage,
               }
             : {}),
 
           ...(data.origin !== undefined
             ? {
-                origin:
-                  normalizeText(
-                    data.origin
-                  ),
+                origin: normalizeText(data.origin),
               }
             : {}),
 
           ...(data.notes !== undefined
             ? {
-                notes:
-                  normalizeText(
-                    data.notes
-                  ),
+                notes: normalizeText(data.notes),
               }
             : {}),
 
           ...(data.status !== undefined
             ? {
                 status: data.status,
+                ...([WasteLotStatus.SOLD, WasteLotStatus.DISCARDED].includes(
+                  data.status as any,
+                )
+                  ? { availableQuantity: 0 }
+                  : {}),
               }
             : {}),
         },
@@ -1296,48 +1249,49 @@ export class WasteStockService {
         },
       });
 
-    return {
-      success: true,
-      message:
-        "Lote atualizado com sucesso.",
-      lot,
-    };
-  }
-
-  async discardLot(
-    user: AuthUser,
-    lotId: string
-  ) {
-    const cooperative =
-      await this.getAuthenticatedCooperative(user);
-
-    const currentLot =
-      await this.ensureLotBelongsToCooperative(
-        cooperative.id,
-        lotId
-      );
-
-    if (
-      currentLot.status ===
-      WasteLotStatus.DISCARDED
-    ) {
       return {
         success: true,
-        message:
-          "O lote já está descartado.",
-        lot: currentLot,
+        message: "Lote atualizado com sucesso.",
+        lot,
       };
-    }
+    });
+  }
 
-    const lot =
-      await prisma.wasteStockLot.update({
+  async discardLot(user: AuthUser, lotId: string) {
+    const cooperative = await this.getAuthenticatedCooperative(user);
+
+    return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT c.id FROM "Collection" c JOIN "CollectionWasteEntry" e ON e."collectionId" = c.id JOIN "WasteStockLot" l ON l."originCollectionWasteEntryId" = e.id WHERE l.id = ${lotId} FOR UPDATE OF c`;
+      await transaction.$queryRaw`SELECT id FROM "WasteStockLot" WHERE id = ${lotId} FOR UPDATE`;
+      const currentLot = await this.ensureLotBelongsToCooperative(
+        cooperative.id,
+        lotId,
+        transaction,
+      );
+
+      if (
+        [WasteLotStatus.CANCELLED, WasteLotStatus.SOLD].includes(
+          currentLot.status as any,
+        )
+      )
+        throw new Error("Lote cancelado ou vendido não pode ser descartado.");
+
+      if (currentLot.status === WasteLotStatus.DISCARDED) {
+        return {
+          success: true,
+          message: "O lote já está descartado.",
+          lot: currentLot,
+        };
+      }
+
+      const lot = await transaction.wasteStockLot.update({
         where: {
           id: currentLot.id,
         },
 
         data: {
-          status:
-            WasteLotStatus.DISCARDED,
+          status: WasteLotStatus.DISCARDED,
+          availableQuantity: 0,
         },
 
         include: {
@@ -1345,12 +1299,12 @@ export class WasteStockService {
         },
       });
 
-    return {
-      success: true,
-      message:
-        "Lote descartado com sucesso.",
-      lot,
-    };
+      return {
+        success: true,
+        message: "Lote descartado com sucesso.",
+        lot,
+      };
+    });
   }
 
   /*
@@ -1416,6 +1370,8 @@ export class WasteStockService {
           WasteUnit.KG
       );
 
+    if (unit !== normalizeUnit(itemData.unit)) throw new Error("A unidade do lote deve ser igual à unidade do catálogo.");
+
     const result =
       await prisma.$transaction(
         async (transaction) => {
@@ -1437,10 +1393,9 @@ export class WasteStockService {
                     itemData.subcategory
                   ),
 
-                unit:
-                  normalizeUnit(
-                    itemData.unit
-                  ),
+                unit,
+                defaultUnit: unit,
+                isActive: itemData.status !== WasteStockStatus.INACTIVE,
 
                 ncm:
                   normalizeNcm(
@@ -1478,6 +1433,8 @@ export class WasteStockService {
                 lotCode,
 
                 quantity,
+                availableQuantity: [WasteLotStatus.AVAILABLE, WasteLotStatus.RESERVED].includes((lotData.status || WasteLotStatus.AVAILABLE) as any) ? quantity : 0,
+                createdByUserId: getAuthUserId(user),
 
                 quantityKg:
                   quantityToKgCompatibility(
