@@ -1,3 +1,4 @@
+import { ZodError } from "zod";
 import { FastifyReply, FastifyRequest } from "fastify";
 import {
   createRouteSchema,
@@ -9,6 +10,12 @@ import {
 import { RouteService } from "./route.service";
 
 const routeService = new RouteService();
+function routeError(error: any, fallback: string) {
+  if (error instanceof ZodError) return error.issues.map((i) => i.message).join(" ");
+  if (error.code === "P2034") return "A operação foi alterada simultaneamente. Atualize a lista e tente novamente.";
+  if (error.name?.startsWith("PrismaClient") || error.code) return fallback;
+  return error.message || fallback;
+}
 
 export class RouteController {
   async create(request: FastifyRequest, reply: FastifyReply) {
@@ -30,9 +37,9 @@ export class RouteController {
         route,
       });
     } catch (error: any) {
-      return reply.status(400).send({
+      return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: error.message || "Erro ao criar rota.",
+        error: routeError(error, "Não foi possível criar a rota. Tente novamente ou contate o suporte."),
       });
     }
   }
@@ -70,7 +77,7 @@ export class RouteController {
     } catch (error: any) {
       return reply.status(400).send({
         success: false,
-        error: error.message || "Erro ao listar rotas.",
+        error: routeError(error, "Erro ao listar rotas."),
       });
     }
   }
@@ -100,7 +107,7 @@ export class RouteController {
     } catch (error: any) {
       return reply.status(404).send({
         success: false,
-        error: error.message || "Erro ao buscar rota.",
+        error: routeError(error, "Erro ao buscar rota."),
       });
     }
   }
@@ -131,7 +138,7 @@ export class RouteController {
     } catch (error: any) {
       return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: error.code === "P2034" ? "A rota foi alterada simultaneamente. Recarregue e tente novamente." : error.message || "Erro ao atualizar rota.",
+        error: routeError(error, "Não foi possível atualizar a rota. Tente novamente ou contate o suporte."),
       });
     }
   }
@@ -162,7 +169,7 @@ export class RouteController {
     } catch (error: any) {
       return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: error.code === "P2034" ? "A rota foi alterada simultaneamente. Recarregue e tente novamente." : error.message || "Erro ao atualizar status da rota.",
+        error: routeError(error, "Erro ao atualizar status da rota."),
       });
     }
   }
@@ -189,7 +196,7 @@ export class RouteController {
     } catch (error: any) {
       return reply.status(400).send({
         success: false,
-        error: error.message || "Erro ao listar coletas disponíveis.",
+        error: routeError(error, "Erro ao listar coletas disponíveis."),
       });
     }
   }
@@ -219,7 +226,7 @@ export class RouteController {
     } catch (error: any) {
       return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: error.code === "P2034" ? "A rota ou coleta foi alterada simultaneamente. Recarregue e tente novamente." : error.message || "Erro ao adicionar coleta na rota.",
+        error: routeError(error, "Erro ao adicionar coleta na rota."),
       });
     }
   }
@@ -249,7 +256,7 @@ export class RouteController {
     } catch (error: any) {
       return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: error.code === "P2034" ? "A rota ou coleta foi alterada simultaneamente. Recarregue e tente novamente." : error.message || "Erro ao remover coleta da rota.",
+        error: routeError(error, "Erro ao remover coleta da rota."),
       });
     }
   }

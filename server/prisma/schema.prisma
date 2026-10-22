@@ -666,6 +666,7 @@ model Route {
   description   String?
   scheduledDate DateTime?
   stops         String[]
+  collectionOrder String[] @default([])
   status        RouteStatus @default(SCHEDULED)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt

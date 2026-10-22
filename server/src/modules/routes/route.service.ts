@@ -42,6 +42,8 @@ const routeInclude = {
       email: true,
       phone: true,
       address: true,
+      latitude: true,
+      longitude: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -49,6 +51,8 @@ const routeInclude = {
 } as const;
 
 const collectionInclude = {
+  bin: { select: { id: true, binId: true, name: true, street: true, number: true, neighborhood: true, city: true, state: true, latitude: true, longitude: true } },
+  collectionMaterials: { select: { id: true, nameSnapshot: true, quantity: true, unit: true } },
   collector: {
     select: {
       id: true,
@@ -172,94 +176,58 @@ function buildRouteStats(
   };
 }
 
+async function validateResources(tx: Prisma.TransactionClient, cooperativeId: string, driverId?: string | null, vehicleId?: string | null) {
+  if (driverId) {
+    const driver = await tx.driver.findFirst({ where: { id: driverId, cooperativeId } });
+    if (!driver) throw new Error("Motorista não encontrado para esta cooperativa.");
+    if (driver.status === "INACTIVE") throw new Error("O motorista selecionado está inativo.");
+  }
+  if (vehicleId) {
+    const vehicle = await tx.vehicle.findFirst({ where: { id: vehicleId, cooperativeId } });
+    if (!vehicle) throw new Error("Veículo não encontrado para esta cooperativa.");
+    if (vehicle.status !== "ACTIVE") throw new Error("Selecione um veículo ativo, fora de manutenção.");
+    if (driverId && vehicle.driverId && vehicle.driverId !== driverId) throw new Error("Este veículo já está vinculado a outro motorista.");
+  }
+}
+
+async function syncCollections(tx: Prisma.TransactionClient, route: { id: string; cooperativeId: string; driverId: string | null; vehicleId: string | null }, ids: string[]) {
+  const current = await tx.collection.findMany({ where: { routeId: route.id, cooperativeId: route.cooperativeId }, select: { id: true, status: true } });
+  const removed = current.filter((c) => !ids.includes(c.id));
+  if (removed.some((c) => !fieldPendingStatuses.includes(c.status))) throw new Error("Preserve as coletas finalizadas ou canceladas no histórico da rota.");
+  const wanted = await tx.collection.findMany({ where: { id: { in: ids }, cooperativeId: route.cooperativeId }, select: { id: true, status: true, routeId: true } });
+  if (wanted.length !== ids.length || wanted.some((c) => c.routeId && c.routeId !== route.id)) throw new Error("Uma coleta não está mais disponível ou não pertence à cooperativa. Atualize a lista.");
+  const added = wanted.filter((c) => c.routeId !== route.id);
+  if (added.some((c) => !fieldPendingStatuses.includes(c.status))) throw new Error("Somente coletas pendentes ou em andamento podem ser adicionadas.");
+  if (removed.length) await tx.collection.updateMany({ where: { id: { in: removed.map((c) => c.id) }, routeId: route.id, cooperativeId: route.cooperativeId, status: { in: fieldPendingStatuses } }, data: { routeId: null, driverId: null, vehicleId: null } });
+  if (added.length) {
+    const claimed = await tx.collection.updateMany({ where: { id: { in: added.map((c) => c.id) }, routeId: null, cooperativeId: route.cooperativeId, status: { in: fieldPendingStatuses } }, data: { routeId: route.id, driverId: route.driverId, vehicleId: route.vehicleId } });
+    if (claimed.count !== added.length) throw new Error("Uma coleta acabou de ser vinculada a outra rota. Atualize a lista.");
+  }
+  await tx.route.update({ where: { id: route.id }, data: { collectionOrder: ids } });
+}
+
+function orderedCollections<T extends { id: string }>(collections: T[], order: string[]) {
+  const index = new Map(order.map((id, i) => [id, i]));
+  return [...collections].sort((a, b) => (index.get(a.id) ?? order.length) - (index.get(b.id) ?? order.length));
+}
+
 export class RouteService {
   async create(cooperativeUserId: string, data: CreateRouteInput) {
-    const cooperative = await prisma.cooperative.findUnique({
-      where: { userId: cooperativeUserId },
-    });
-
-    if (!cooperative) {
-      throw new Error("Cooperativa do usuário autenticado não encontrada.");
-    }
-
-    if (data.driverId) {
-      const driver = await prisma.driver.findFirst({
-        where: {
-          id: data.driverId,
-          cooperativeId: cooperative.id,
-        },
-      });
-
-      if (!driver) {
-        throw new Error("Motorista não encontrado para esta cooperativa.");
-      }
-    }
-
-    if (data.vehicleId) {
-      const vehicle = await prisma.vehicle.findFirst({
-        where: {
-          id: data.vehicleId,
-          cooperativeId: cooperative.id,
-        },
-      });
-
-      if (!vehicle) {
-        throw new Error("Veículo não encontrado para esta cooperativa.");
-      }
-    }
-
-    if (data.driverId && data.vehicleId) {
-      const vehicle = await prisma.vehicle.findFirst({
-        where: {
-          id: data.vehicleId,
-          cooperativeId: cooperative.id,
-        },
-      });
-
-      if (vehicle?.driverId && vehicle.driverId !== data.driverId) {
-        throw new Error("Este veículo já está vinculado a outro motorista.");
-      }
-    }
-
-    if (data.status === RouteStatus.COMPLETED) {
-      throw new Error("Para concluir a rota, finalize ao menos uma coleta em campo e resolva as demais coletas.");
-    }
-
-    const normalizedStops = data.stops
-      .map((stop) => stop.trim())
-      .filter(Boolean);
-
-    const route = await prisma.route.create({
-      data: {
-        cooperativeId: cooperative.id,
-        driverId: data.driverId || null,
-        vehicleId: data.vehicleId || null,
-        name: data.name.trim(),
-        description: data.description?.trim() || null,
-        scheduledDate: normalizeDate(data.scheduledDate),
-        stops: normalizedStops,
-        status: data.status ?? RouteStatus.SCHEDULED,
-      },
-      include: routeInclude,
-    });
-
-    const collections = await prisma.collection.findMany({
-      where: {
-        routeId: route.id,
-      },
-      include: collectionInclude,
-      orderBy: [{ collectedAt: "asc" }, { createdAt: "desc" }],
-    });
-
-    return {
-      ...route,
-      collections,
-      activeCollections: collections.filter(
-        (item) =>
-          fieldPendingStatuses.includes(item.status)
-      ),
-      stats: buildRouteStats(collections),
-    };
+    const cooperative = await prisma.cooperative.findUnique({ where: { userId: cooperativeUserId } });
+    if (!cooperative) throw new Error("Cooperativa do usuário autenticado não encontrada.");
+    if (data.status && data.status !== "SCHEDULED") throw new Error("Crie a rota como Agendada. Inicie ou encerre a operação pelas ações da rota.");
+    const date = normalizeDate(data.scheduledDate);
+    const id = await prisma.$transaction(async (tx) => {
+      await validateResources(tx, cooperative.id, data.driverId, data.vehicleId);
+      const route = await tx.route.create({ data: {
+        cooperativeId: cooperative.id, name: data.name.trim(), description: data.description?.trim() || null,
+        driverId: data.driverId || null, vehicleId: data.vehicleId || null, scheduledDate: date,
+        stops: data.stops.map((s) => s.trim()).filter(Boolean), status: "SCHEDULED",
+      } });
+      if (data.collectionIds) await syncCollections(tx, route, data.collectionIds);
+      return route.id;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return this.findById(cooperativeUserId, UserRole.COOPERATIVE, id);
   }
 
   async addCollectionToRoute(cooperativeUserId: string, routeId: string, collectionId: string) {
@@ -287,7 +255,7 @@ export class RouteService {
       if (!remove && collection.routeId && collection.routeId !== route.id) {
         throw new Error("Esta coleta já está vinculada a outra rota.");
       }
-      return transaction.collection.update({
+      const updated = await transaction.collection.update({
         where: { id: collection.id },
         data: {
           routeId: remove ? null : route.id,
@@ -296,6 +264,11 @@ export class RouteService {
         },
         include: { ...collectionInclude, route: { select: { id: true, name: true, description: true, scheduledDate: true, status: true } } },
       });
+      const current = await transaction.collection.findMany({ where: { routeId: route.id, cooperativeId: cooperative.id }, select: { id: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+      const remaining = new Set(current.map((c) => c.id));
+      const order = [...route.collectionOrder.filter((id) => remaining.has(id)), ...current.map((c) => c.id).filter((id) => !route.collectionOrder.includes(id))];
+      await transaction.route.update({ where: { id: route.id }, data: { collectionOrder: order } });
+      return updated;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
@@ -336,16 +309,13 @@ export class RouteService {
       if (!route) throw new Error("Rota não encontrada.");
       const driverId = data.driverId === undefined ? route.driverId : data.driverId;
       const vehicleId = data.vehicleId === undefined ? route.vehicleId : data.vehicleId;
-      if (driverId) {
-        const driver = await transaction.driver.findFirst({ where: { id: driverId, cooperativeId: cooperative.id } });
-        if (!driver) throw new Error("Motorista não encontrado para esta cooperativa.");
-      }
-      if (vehicleId) {
-        const vehicle = await transaction.vehicle.findFirst({ where: { id: vehicleId, cooperativeId: cooperative.id } });
-        if (!vehicle) throw new Error("Veículo não encontrado para esta cooperativa.");
-        if (driverId && vehicle.driverId && vehicle.driverId !== driverId) {
-          throw new Error("Este veículo já está vinculado a outro motorista.");
-        }
+      if ([RouteStatus.COMPLETED, RouteStatus.CANCELLED].includes(route.status as any)) throw new Error("A rota está encerrada. Seu planejamento e histórico são somente leitura.");
+      if (data.driverId !== undefined || data.vehicleId !== undefined || data.collectionIds !== undefined || data.status === "IN_PROGRESS") await validateResources(transaction, cooperative.id, driverId, vehicleId);
+      const scheduledDate = data.scheduledDate === undefined ? route.scheduledDate : normalizeDate(data.scheduledDate);
+      if (data.collectionIds) await syncCollections(transaction, { ...route, driverId, vehicleId }, data.collectionIds);
+      if (data.status === "IN_PROGRESS" && route.status !== "IN_PROGRESS") {
+        const count = await transaction.collection.count({ where: { routeId: route.id, cooperativeId: cooperative.id, status: { in: fieldPendingStatuses } } });
+        if (!driverId || !vehicleId || !scheduledDate || !count) throw new Error("Para iniciar, defina data, motorista, veículo e ao menos uma coleta pendente/em andamento.");
       }
       if (data.status === RouteStatus.COMPLETED && route.status !== RouteStatus.COMPLETED) {
         const collections = await transaction.collection.findMany({ where: { routeId: route.id, cooperativeId: cooperative.id }, select: { status: true } });
@@ -520,13 +490,10 @@ export class RouteService {
       throw new Error("Rota não encontrada.");
     }
 
-    const collections = await prisma.collection.findMany({
-      where: {
-        routeId: route.id,
-      },
-      include: collectionInclude,
-      orderBy: [{ collectedAt: "asc" }, { createdAt: "desc" }],
-    });
+    const collections = orderedCollections(await prisma.collection.findMany({
+      where: { routeId: route.id }, include: collectionInclude,
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    }), route.collectionOrder);
 
     const activeCollections = collections.filter(
       (item) =>
