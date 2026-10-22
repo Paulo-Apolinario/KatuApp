@@ -57,7 +57,7 @@
   "evidencias": [
     {
       "id": "CONTROL_FULL",
-      "collection": "cmvjx0cun001ili2cuz4dy9ms",
+      "collection": "cmvjxc0pw001ili2cmv5ig8ou",
       "lotCount": 2,
       "availableKg": 50,
       "repeatedCompletionStatus": 409
@@ -69,13 +69,13 @@
       "availableKg": 50,
       "lots": [
         {
-          "id": "cmvjx0dit0027li2cbesr3qti",
+          "id": "cmvjxc1ci0027li2cp3vs5a62",
           "status": "AVAILABLE",
           "quantity": 50,
           "availableQuantity": 50
         },
         {
-          "id": "cmvjx0dg60025li2c1xfgr7jl",
+          "id": "cmvjxc19k0025li2cgsjdkdmp",
           "status": "CANCELLED",
           "quantity": 50,
           "availableQuantity": 0
@@ -153,6 +153,7 @@
     },
     {
       "id": "F_PANEL_RECEIPT",
+      "collectionStatus": "COLLECTED",
       "buttons": [
         ""
       ],

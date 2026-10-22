@@ -30,7 +30,7 @@ Resultados e evidências: [validacao-auditoria-fluxo-2026-10-22.json](validacao-
 | LOT-20261022-121007-GUSASD | 50 kg | Cancelado | 0 kg |
 | Total disponível mostrado | | | 50 kg |
 
-Os códigos são os visíveis na imagem; os IDs e vínculos reais não foram consultados. A tela pagina materiais, por isso “1–1 de 1” pode coexistir com dois lotes expandidos de um material.
+Os códigos são os visíveis na imagem; os IDs e vínculos reais não foram consultados. A tela agrupa e pagina materiais, podendo reunir lotes de diferentes coletas sob o mesmo catálogo. Exibir os IDs da coleta, entrada e destinação em cada lote tornaria a origem inequívoca. Por isso “1–1 de 1” pode coexistir com dois lotes expandidos de um material.
 
 Uma coleta pode conter vários materiais; cada material gera sua entrada. Cada entrada pode ter várias destinações parciais. Cada destinação STOCK cria seu próprio lote. Portanto, quantidade de lotes não precisa ser igual a quantidade de coletas.
 
@@ -74,7 +74,7 @@ Esses conceitos precisam de rótulos e regras coerentes para evitar que um opera
 
 ### A01 — Falta fechar recebimento, triagem e conclusão na interface do painel — P1
 
-A API e o serviço frontend possuem as operações receive/start-sorting/complete. A lista atual e seu modal apresentam situação, histórico e materiais, mas não oferecem os comandos de receber, iniciar triagem e concluir. O teste abriu o detalhe real e confirmou a ausência desses botões; a busca no código não encontrou uso dessas funções pelas telas de produção.
+A API e o serviço frontend possuem as operações receive/start-sorting/complete. A lista atual e seu modal apresentam situação, histórico e materiais, mas não oferecem os comandos de receber, iniciar triagem e concluir. O teste abriu o detalhe real de uma coleta COLLECTED e confirmou a ausência desses botões; a busca no código não encontrou uso dessas funções pelas telas de produção.
 
 As telas antigas AddWaste/EditWaste continuam registradas por URL, usam o contrato antigo e não oferecem um fluxo completo para as novas etapas. Sua existência não resolve a falta de recebimento.
 
