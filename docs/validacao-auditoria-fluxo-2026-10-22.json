@@ -1,0 +1,175 @@
+{
+  "data": "2026-10-22",
+  "interpretacao": "PASS significa observação reproduzida; inclui defeitos confirmados, não aprovação do sistema.",
+  "ambiente": {
+    "environment": "Auditoria por API real Fastify/Prisma + PGlite local descartável; sem acesso à VPS",
+    "outcomes": [
+      {
+        "name": "Controle: solicitação, rota, delegação, campo, recebimento, destinação parcial e conclusão",
+        "status": "PASS"
+      },
+      {
+        "name": "Imagem: trocar ESTOQUE → destino direto → ESTOQUE conserva lote cancelado e cria outro",
+        "status": "PASS"
+      },
+      {
+        "name": "Achado: lote disponível antes do recebimento físico",
+        "status": "PASS"
+      },
+      {
+        "name": "Achado: edição permite vincular lote KG a catálogo LITER",
+        "status": "PASS"
+      },
+      {
+        "name": "Achado: cancelar destinação de coleta concluída reabre saldo sem reabrir coleta",
+        "status": "PASS"
+      },
+      {
+        "name": "Achado: delegação direta aceita veículo em manutenção",
+        "status": "PASS"
+      },
+      {
+        "name": "Regra a decidir: reserva de todo o saldo permite concluir a coleta",
+        "status": "PASS"
+      },
+      {
+        "name": "Controle: cancelamento do estoque restaura saldo e lote vendido bloqueia cancelamento",
+        "status": "PASS"
+      },
+      {
+        "name": "Controle: cancelar e registrar nova destinação deixa somente um lote disponível",
+        "status": "PASS"
+      },
+      {
+        "name": "Controle: destinação externa não cria lote; estoque parcial respeita o saldo",
+        "status": "PASS"
+      },
+      {
+        "name": "Achado: DELETE de lote cancelado muda histórico para descartado",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel: detalhe da coleta mostra histórico, sem ações de receber/triagem/concluir",
+        "status": "PASS"
+      }
+    ]
+  },
+  "evidencias": [
+    {
+      "id": "CONTROL_FULL",
+      "collection": "cmvjx0cun001ili2cuz4dy9ms",
+      "lotCount": 2,
+      "availableKg": 50,
+      "repeatedCompletionStatus": 409
+    },
+    {
+      "id": "IMAGE_REPRO",
+      "lotCount": 2,
+      "cancelledKg": 50,
+      "availableKg": 50,
+      "lots": [
+        {
+          "id": "cmvjx0dit0027li2cbesr3qti",
+          "status": "AVAILABLE",
+          "quantity": 50,
+          "availableQuantity": 50
+        },
+        {
+          "id": "cmvjx0dg60025li2c1xfgr7jl",
+          "status": "CANCELLED",
+          "quantity": 50,
+          "availableQuantity": 0
+        }
+      ]
+    },
+    {
+      "id": "F_PRE_RECEIPT",
+      "status": "COLLECTED",
+      "receivedAt": null,
+      "lotStatus": "AVAILABLE",
+      "lotAvailableQuantity": 50
+    },
+    {
+      "id": "F_UNIT_EDIT",
+      "destinationUnit": "KG",
+      "lotUnit": "KG",
+      "catalogUnit": "LITER",
+      "status": 200
+    },
+    {
+      "id": "F_CLOSED_BALANCE",
+      "collectionStatus": "COMPLETED",
+      "remainingQuantity": 50,
+      "entryStatus": "PENDING_DESTINATION"
+    },
+    {
+      "id": "F_MAINTENANCE",
+      "creationStatus": 201,
+      "vehicleStatus": "MAINTENANCE",
+      "collectionStatus": "PENDING"
+    },
+    {
+      "id": "RULE_RESERVATION",
+      "collectionStatus": "COMPLETED",
+      "availableLots": 0,
+      "reservedQuantity": 50
+    },
+    {
+      "id": "CONTROL_GUARDS",
+      "soldCancelStatus": 409,
+      "linkedQuantityEditStatus": 400,
+      "otherCooperativeDenied": true
+    },
+    {
+      "id": "IMAGE_CANCEL_RECREATE",
+      "destinationsDifferent": true,
+      "lots": [
+        {
+          "status": "AVAILABLE",
+          "quantity": 50,
+          "availableQuantity": 50
+        },
+        {
+          "status": "CANCELLED",
+          "quantity": 50,
+          "availableQuantity": 0
+        }
+      ],
+      "available": 50
+    },
+    {
+      "id": "CONTROL_SPLIT",
+      "collectedKg": 100,
+      "stockKg": 40,
+      "externalKg": 60,
+      "lotCount": 1
+    },
+    {
+      "id": "F_CANCELLED_DISCARD",
+      "before": "CANCELLED",
+      "after": "DISCARDED",
+      "quantity": 50,
+      "availableQuantity": 0
+    },
+    {
+      "id": "F_PANEL_RECEIPT",
+      "buttons": [
+        ""
+      ],
+      "dedicatedActions": 0,
+      "note": "Confirmado também por busca das chamadas no código de produção do painel."
+    }
+  ],
+  "offline": {
+    "finding": "F_OFFLINE_FIELD",
+    "requestsRejected": 2,
+    "operationsQueued": 0,
+    "writesToCache": 0,
+    "metodo": "Serviço TS real com transporte simulado."
+  },
+  "limites": [
+    "Sem acesso ao banco real da VPS.",
+    "Sem validação em aparelho Android/iPhone físico.",
+    "PGlite/proxy não equivale a concorrência com múltiplas sessões PostgreSQL reais."
+  ]
+}
