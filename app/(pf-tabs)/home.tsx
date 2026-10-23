@@ -1,9 +1,5 @@
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { router } from "expo-router";
 import {
-  Alert,
-  Linking,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -12,7 +8,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
+import { useForegroundLocation } from "@/src/hooks/useForegroundLocation";
+import { DeviceLocationCard } from "@/src/components/DeviceLocationCard";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 
@@ -30,108 +27,21 @@ function getUserDisplayName(user: AuthUserLike | null) {
 export default function PFHomeScreen() {
   const { user } = useAuth();
   const currentUser = user as AuthUserLike | null;
-
-  const [refreshing, setRefreshing] = useState(false);
-  const [currentCity, setCurrentCity] = useState("Carregando localização...");
-  const [locationError, setLocationError] = useState(false);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const deviceLocation = useForegroundLocation();
 
   const displayName = getUserDisplayName(currentUser);
-
-  const getUserLocation = useCallback(async () => {
-    setIsLoadingLocation(true);
-
-    try {
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
-
-      if (!servicesEnabled) {
-        setCurrentCity("Localização desativada");
-        setLocationError(true);
-        return;
-      }
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") {
-        setCurrentCity("Permissão negada");
-        setLocationError(true);
-
-        Alert.alert(
-          "Permissão necessária",
-          "Precisamos da sua localização para mostrar a cidade atual. Deseja abrir as configurações?",
-          [
-            { text: "Agora não", style: "cancel" },
-            {
-              text: "Abrir Configurações",
-              onPress: () => {
-                if (Platform.OS === "ios") {
-                  Linking.openURL("app-settings:");
-                } else {
-                  Linking.openSettings();
-                }
-              },
-            },
-          ]
-        );
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const addresses = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-
-      if (addresses.length > 0) {
-        const address = addresses[0];
-        const city =
-          address.city ||
-          address.subregion ||
-          address.region ||
-          address.country ||
-          "Localização desconhecida";
-
-        setCurrentCity(city);
-        setLocationError(false);
-      } else {
-        setCurrentCity("Localização não encontrada");
-        setLocationError(true);
-      }
-    } catch (error) {
-      console.error("Erro ao obter localização da PF:", error);
-      setCurrentCity("Erro ao carregar");
-      setLocationError(true);
-    } finally {
-      setIsLoadingLocation(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      getUserLocation();
-    }, [getUserLocation])
-  );
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await getUserLocation();
-  }, [getUserLocation]);
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: "#F3F4F6" }}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl refreshing={deviceLocation.loading} onRefresh={deviceLocation.retry} />
       }
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
-        colors={["#16a34a", "#22c55e"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -157,7 +67,7 @@ export default function PFHomeScreen() {
               style={{
                 color: "#FFFFFF",
                 fontSize: 30,
-                fontWeight: "800",
+                fontWeight: "700",
                 marginTop: 6,
               }}
             >
@@ -170,37 +80,7 @@ export default function PFHomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          onPress={locationError ? getUserLocation : undefined}
-          disabled={isLoadingLocation || !locationError}
-          style={{
-            marginTop: 14,
-            alignSelf: "flex-start",
-            backgroundColor: locationError
-              ? "rgba(220,38,38,0.18)"
-              : "rgba(255,255,255,0.18)",
-            paddingHorizontal: 14,
-            paddingVertical: 8,
-            borderRadius: 20,
-            flexDirection: "row",
-            alignItems: "center",
-          }}
-        >
-          <Ionicons
-            name={locationError ? "alert-circle-outline" : "location-sharp"}
-            size={18}
-            color={locationError ? "#FEE2E2" : "#FFFFFF"}
-          />
-          <Text
-            style={{
-              color: "#FFFFFF",
-              marginLeft: 8,
-              fontWeight: "600",
-            }}
-          >
-            {isLoadingLocation ? "Carregando..." : currentCity}
-          </Text>
-        </TouchableOpacity>
+        <DeviceLocationCard location={deviceLocation} />
 
         <Text
           style={{
@@ -210,7 +90,8 @@ export default function PFHomeScreen() {
             lineHeight: 22,
           }}
         >
-          Solicite sua coleta, acompanhe seu histórico e participe da rede de reciclagem do KATUÁ.
+          Solicite sua coleta, acompanhe seu histórico e participe da rede de
+          reciclagem do KATUÁ.
         </Text>
 
         <View style={{ flexDirection: "row", marginTop: 18 }}>
@@ -290,25 +171,6 @@ export default function PFHomeScreen() {
             subtitle="Acessar recursos complementares"
             onPress={() => router.push("/(pf-tabs)/calculator")}
           />
-          <QuickAction
-            icon="scan-outline"
-            title="NFC"
-            subtitle="Explorar integração futura"
-            onPress={() => router.push("/(pf-tabs)/nfc")}
-          />
-          <QuickAction
-            icon="storefront-outline"
-            title="Loja"
-            subtitle="Ver benefícios e itens disponíveis"
-            onPress={() => router.push("/(pf-tabs)/store")}
-          />
-          <QuickAction
-            icon="chatbubble-outline"
-            title="Chat"
-            subtitle="Abrir comunicação da conta"
-            onPress={() => router.push("/(pf-tabs)/chat")}
-            isLast
-          />
         </View>
       </View>
     </ScrollView>
@@ -361,7 +223,7 @@ function ActionButton({
 function SectionHeader({ title }: { title: string }) {
   return (
     <View style={{ marginTop: 18, marginBottom: 10 }}>
-      <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>
+      <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
         {title}
       </Text>
     </View>

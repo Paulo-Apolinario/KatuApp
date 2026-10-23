@@ -52,15 +52,18 @@ export default function CalculatorScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 15 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>
@@ -93,7 +96,7 @@ export default function CalculatorScreen() {
               <Text
                 style={{
                   fontSize: 14,
-                  color: "#028C56",
+                  color: "#047857",
                   marginBottom: 6,
                   fontWeight: "600",
                 }}
@@ -126,7 +129,7 @@ export default function CalculatorScreen() {
             <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
               Total estimado
             </Text>
-            <Text style={{ fontSize: 36, fontWeight: "800", color: "#028C56" }}>
+            <Text style={{ fontSize: 36, fontWeight: "700", color: "#047857" }}>
               {total.toFixed(2)} kg
             </Text>
             <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 8 }}>
@@ -153,10 +156,14 @@ export default function CalculatorScreen() {
                   borderBottomColor: "#E5E7EB",
                 }}
               >
-                <Text style={{ fontSize: 15, color: "#111827", fontWeight: "600" }}>
+                <Text
+                  style={{ fontSize: 15, color: "#111827", fontWeight: "600" }}
+                >
                   {item.name}
                 </Text>
-                <Text style={{ fontSize: 15, color: "#028C56", fontWeight: "800" }}>
+                <Text
+                  style={{ fontSize: 15, color: "#047857", fontWeight: "700" }}
+                >
                   {item.numeric.toFixed(2)} kg
                 </Text>
               </View>

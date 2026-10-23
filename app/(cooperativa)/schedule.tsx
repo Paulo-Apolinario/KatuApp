@@ -5,18 +5,14 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
-import {
-  scheduleService,
-  type Schedule,
-  type ScheduleStatus,
-} from "@/src/services/scheduleService";
+import { scheduleService, type Schedule } from "@/src/services/scheduleService";
 
 function formatDate(value?: string | null) {
   if (!value) return "Sem data";
@@ -59,7 +55,7 @@ function mapStatusColor(status?: string) {
     case "IN_PROGRESS":
       return "#8B5CF6";
     case "COMPLETED":
-      return "#028C56";
+      return "#047857";
     case "CANCELLED":
       return "#DC2626";
     default:
@@ -127,29 +123,30 @@ export default function ScheduleScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const { notifyError, notifySuccess } = useNotification();
 
-  const loadSchedules = useCallback(async (showLoader = true) => {
-    try {
-      if (showLoader) setLoading(true);
+  const loadSchedules = useCallback(
+    async (showLoader = true) => {
+      try {
+        if (showLoader) setLoading(true);
 
-      const response = await scheduleService.list();
-      setSchedules(response);
-    } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível carregar os agendamentos."
-      );
-      setSchedules([]);
-    } finally {
-      if (showLoader) setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+        const response = await scheduleService.list();
+        setSchedules(response);
+      } catch {
+        notifyError("Não foi possível carregar os agendamentos.");
+        setSchedules([]);
+      } finally {
+        if (showLoader) setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [notifyError],
+  );
 
   useFocusEffect(
     useCallback(() => {
       loadSchedules(true);
-    }, [loadSchedules])
+    }, [loadSchedules]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -163,13 +160,14 @@ export default function ScheduleScreen() {
       solicitados: schedules.filter((item) => item.status === "REQUESTED")
         .length,
       agendados: schedules.filter((item) => item.status === "SCHEDULED").length,
-      concluidos: schedules.filter((item) => item.status === "COMPLETED").length,
+      concluidos: schedules.filter((item) => item.status === "COMPLETED")
+        .length,
     };
   }, [schedules]);
 
   const handleUpdateStatus = async (
     scheduleId: string,
-    status: ScheduleStatus
+    status: "SCHEDULED" | "CANCELLED",
   ) => {
     try {
       setUpdatingId(scheduleId);
@@ -177,26 +175,25 @@ export default function ScheduleScreen() {
       await scheduleService.updateStatus(scheduleId, { status });
       await loadSchedules(false);
 
-      Alert.alert("Sucesso", "Status do agendamento atualizado.");
-    } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível atualizar o status."
-      );
+      notifySuccess({
+        message: "Status do agendamento atualizado.",
+        title: "Sucesso",
+      });
+    } catch {
+      notifyError("Não foi possível atualizar o status.");
     } finally {
       setUpdatingId(null);
     }
   };
 
-  
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -217,8 +214,10 @@ export default function ScheduleScreen() {
       </LinearGradient>
 
       {loading ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator size="large" color="#028C56" />
+        <View
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        >
+          <ActivityIndicator size="large" color="#047857" />
           <Text style={{ marginTop: 12, color: "#6B7280" }}>
             Carregando agendamentos...
           </Text>
@@ -238,7 +237,12 @@ export default function ScheduleScreen() {
               marginBottom: 25,
             }}
           >
-            <SummaryCard label="Total" value={summary.total} color="#028C56" bg="#F0FDF4" />
+            <SummaryCard
+              label="Total"
+              value={summary.total}
+              color="#047857"
+              bg="#F0FDF4"
+            />
             <SummaryCard
               label="Solicitados"
               value={summary.solicitados}
@@ -265,7 +269,9 @@ export default function ScheduleScreen() {
               <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
                 Concluídos
               </Text>
-              <Text style={{ fontSize: 28, fontWeight: "800", color: "#028C56" }}>
+              <Text
+                style={{ fontSize: 28, fontWeight: "700", color: "#047857" }}
+              >
                 {summary.concluidos}
               </Text>
             </View>
@@ -341,7 +347,9 @@ export default function ScheduleScreen() {
                       </Text>
                     </View>
 
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <View
+                      style={{ flexDirection: "row", alignItems: "center" }}
+                    >
                       <View
                         style={{
                           backgroundColor: mapStatusColor(item.status),
@@ -373,25 +381,33 @@ export default function ScheduleScreen() {
                   <Text
                     style={{
                       fontSize: 13,
-                      color: "#028C56",
+                      color: "#047857",
                       fontWeight: "700",
                     }}
                   >
                     Origem: {getScheduleOrigin(item)}
                   </Text>
 
-                  <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 6 }}>
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginTop: 6 }}
+                  >
                     Endereço: {getScheduleAddress(item)}
                   </Text>
 
-                  <Text style={{ fontSize: 14, color: "#4B5563", marginTop: 4 }}>
+                  <Text
+                    style={{ fontSize: 14, color: "#4B5563", marginTop: 4 }}
+                  >
                     Data:{" "}
                     {formatDate(
-                      item.scheduledDate || item.preferredDate || item.createdAt
+                      item.scheduledDate ||
+                        item.preferredDate ||
+                        item.createdAt,
                     )}
                   </Text>
 
-                  <Text style={{ fontSize: 14, color: "#4B5563", marginTop: 4 }}>
+                  <Text
+                    style={{ fontSize: 14, color: "#4B5563", marginTop: 4 }}
+                  >
                     Materiais:{" "}
                     {materials.length > 0
                       ? materials.join(", ")
@@ -399,7 +415,9 @@ export default function ScheduleScreen() {
                   </Text>
 
                   {!!item.notes && (
-                    <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 6 }}>
+                    <Text
+                      style={{ fontSize: 13, color: "#6B7280", marginTop: 6 }}
+                    >
                       Observações: {item.notes}
                     </Text>
                   )}
@@ -420,29 +438,21 @@ export default function ScheduleScreen() {
                       />
                     )}
 
-                    
-                    {item.status === "SCHEDULED" && (
-                      <ActionChip
-                        label="Iniciar"
-                        color="#8B5CF6"
+                    {["SCHEDULED", "IN_PROGRESS"].includes(item.status) && (
+                      <TouchableOpacity
+                        accessibilityRole="button"
                         onPress={() =>
-                          handleUpdateStatus(item.id, "IN_PROGRESS")
+                          router.push({
+                            pathname: "/(cooperativa)/schedule/[id]",
+                            params: { id: item.id },
+                          })
                         }
-                        loading={updatingId === item.id}
-                      />
+                      >
+                        <Text style={{ color: "#047857" }}>
+                          Acompanhar execução e equipe
+                        </Text>
+                      </TouchableOpacity>
                     )}
-
-                    {item.status === "IN_PROGRESS" && (
-                      <ActionChip
-                        label="Concluir"
-                        color="#028C56"
-                        onPress={() =>
-                          handleUpdateStatus(item.id, "COMPLETED")
-                        }
-                        loading={updatingId === item.id}
-                      />
-                    )}
-
                     {item.status !== "COMPLETED" &&
                       item.status !== "CANCELLED" && (
                         <ActionChip
@@ -490,7 +500,7 @@ function SummaryCard({
       <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
         {label}
       </Text>
-      <Text style={{ fontSize: 24, fontWeight: "800", color }}>{value}</Text>
+      <Text style={{ fontSize: 24, fontWeight: "700", color }}>{value}</Text>
     </View>
   );
 }

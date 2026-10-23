@@ -1,3 +1,4 @@
+import { useBottomTabOptions } from "@/src/hooks/useBottomTabOptions";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { View } from "react-native";
@@ -5,27 +6,15 @@ import LogoutButton from "@/src/components/LogoutButton.tsx";
 import ProtectedRoute from "@/src/components/ProtectedRoute";
 
 export default function PFLayout() {
+  const bottomTabOptions = useBottomTabOptions();
   return (
     <ProtectedRoute allowedUserTypes={["PF"]}>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: "#028C56",
-          tabBarInactiveTintColor: "#9CA3AF",
-          tabBarStyle: {
-            backgroundColor: "#FFFFFF",
-            borderTopWidth: 1,
-            borderTopColor: "#E5E7EB",
-            paddingBottom: 5,
-            paddingTop: 5,
-            height: 60,
-          },
-          tabBarLabelStyle: {
-            fontSize: 11,
-            fontWeight: "500",
-          },
+          ...bottomTabOptions,
           headerShown: true,
           headerStyle: {
-            backgroundColor: "#028C56",
+            backgroundColor: "#047857",
           },
           headerTintColor: "#FFFFFF",
           headerTitleStyle: {
@@ -71,7 +60,7 @@ export default function PFLayout() {
         <Tabs.Screen
           name="ranking"
           options={{
-            title: "Ranking",
+            title: "Participação",
             tabBarIcon: ({ color }) => (
               <Ionicons name="trophy-outline" size={24} color={color} />
             ),

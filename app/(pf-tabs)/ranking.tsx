@@ -58,7 +58,7 @@ export default function RankingScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData(true);
-    }, [loadData])
+    }, [loadData]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -74,7 +74,12 @@ export default function RankingScreen() {
     const materialMap: Record<string, number> = {};
 
     schedules.forEach((item) => {
-      const materials = extractRequestedMaterials(item.notes);
+      const materials = item.requestedMaterials?.length
+        ? item.requestedMaterials.map(
+            (material) =>
+              material.nameSnapshot || material.wasteType?.name || "Material",
+          )
+        : extractRequestedMaterials(item.notes);
       materials.forEach((material) => {
         const key = material.toUpperCase();
         materialMap[key] = (materialMap[key] || 0) + 1;
@@ -111,9 +116,9 @@ export default function RankingScreen() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
-          Carregando ranking...
+          Carregando participação...
         </Text>
       </View>
     );
@@ -129,9 +134,9 @@ export default function RankingScreen() {
       showsVerticalScrollIndicator={false}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 24,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -150,7 +155,7 @@ export default function RankingScreen() {
           </TouchableOpacity>
 
           <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>
-            RANKING
+            MEU ENGAJAMENTO
           </Text>
 
           <Ionicons name="trophy-outline" size={24} color="#FFFFFF" />
@@ -168,13 +173,13 @@ export default function RankingScreen() {
               marginBottom: 12,
             }}
           >
-            <Ionicons name="person" size={48} color="#028C56" />
+            <Ionicons name="person" size={48} color="#047857" />
           </View>
 
           <Text
             style={{
               fontSize: 22,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#FFFFFF",
               textAlign: "center",
             }}
@@ -190,7 +195,9 @@ export default function RankingScreen() {
               textAlign: "center",
             }}
           >
-            O ranking global será exibido quando o endpoint oficial estiver ativo.
+            Seus indicadores de participação são calculados a partir de
+            solicitações. Eles não representam classificação pública entre
+            usuários.
           </Text>
         </View>
       </LinearGradient>
@@ -199,7 +206,9 @@ export default function RankingScreen() {
         <SectionCard>
           <Text style={sectionTitle}>Minha participação</Text>
 
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <View
+            style={{ flexDirection: "row", justifyContent: "space-between" }}
+          >
             <MetricCard
               title="Concluídas"
               value={String(stats.completed)}
@@ -232,17 +241,23 @@ export default function RankingScreen() {
                   flexDirection: "row",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  paddingBottom: index === stats.topMaterials.length - 1 ? 0 : 12,
-                  marginBottom: index === stats.topMaterials.length - 1 ? 0 : 12,
+                  paddingBottom:
+                    index === stats.topMaterials.length - 1 ? 0 : 12,
+                  marginBottom:
+                    index === stats.topMaterials.length - 1 ? 0 : 12,
                   borderBottomWidth:
                     index === stats.topMaterials.length - 1 ? 0 : 1,
                   borderBottomColor: "#E5E7EB",
                 }}
               >
-                <Text style={{ fontSize: 15, color: "#111827", fontWeight: "600" }}>
+                <Text
+                  style={{ fontSize: 15, color: "#111827", fontWeight: "600" }}
+                >
                   {item.name}
                 </Text>
-                <Text style={{ fontSize: 15, color: "#028C56", fontWeight: "800" }}>
+                <Text
+                  style={{ fontSize: 15, color: "#047857", fontWeight: "700" }}
+                >
                   {item.count}
                 </Text>
               </View>
@@ -312,7 +327,14 @@ function MetricCard({
       </View>
 
       <Text style={{ fontSize: 13, color: "#6B7280" }}>{title}</Text>
-      <Text style={{ marginTop: 4, fontSize: 21, fontWeight: "800", color: "#111827" }}>
+      <Text
+        style={{
+          marginTop: 4,
+          fontSize: 21,
+          fontWeight: "700",
+          color: "#111827",
+        }}
+      >
         {value}
       </Text>
     </View>
@@ -353,7 +375,14 @@ function MetricCardFull({
       </View>
 
       <Text style={{ fontSize: 13, color: "#6B7280" }}>{title}</Text>
-      <Text style={{ marginTop: 4, fontSize: 21, fontWeight: "800", color: "#111827" }}>
+      <Text
+        style={{
+          marginTop: 4,
+          fontSize: 21,
+          fontWeight: "700",
+          color: "#111827",
+        }}
+      >
         {value}
       </Text>
     </View>
@@ -372,7 +401,14 @@ function EmptyState({
   return (
     <View style={{ alignItems: "center", paddingVertical: 20 }}>
       <Ionicons name={icon} size={40} color="#9CA3AF" />
-      <Text style={{ marginTop: 10, fontSize: 16, fontWeight: "700", color: "#374151" }}>
+      <Text
+        style={{
+          marginTop: 10,
+          fontSize: 16,
+          fontWeight: "700",
+          color: "#374151",
+        }}
+      >
         {title}
       </Text>
       <Text

@@ -51,7 +51,7 @@ function getStatusColor(status: string) {
     case "REQUESTED":
       return "#F59E0B";
     case "SCHEDULED":
-      return "#028C56";
+      return "#047857";
     case "IN_PROGRESS":
       return "#3B82F6";
     case "COMPLETED":
@@ -86,7 +86,7 @@ export default function HistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData(true);
-    }, [loadData])
+    }, [loadData]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -100,15 +100,18 @@ export default function HistoryScreen() {
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       {/* Header */}
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 15 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -119,8 +122,10 @@ export default function HistoryScreen() {
       </LinearGradient>
 
       {loading ? (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <ActivityIndicator color="#028C56" />
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <ActivityIndicator color="#047857" />
           <Text style={{ marginTop: 10 }}>Carregando histórico...</Text>
         </View>
       ) : (
@@ -148,8 +153,8 @@ export default function HistoryScreen() {
             <Text
               style={{
                 fontSize: 36,
-                fontWeight: "800",
-                color: "#028C56",
+                fontWeight: "700",
+                color: "#047857",
               }}
             >
               {totalColetas}
@@ -167,7 +172,9 @@ export default function HistoryScreen() {
                   borderBottomColor: "#F3F4F6",
                 }}
               >
-                <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
+                <Text
+                  style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}
+                >
                   {formatDate(item.scheduledDate || item.createdAt)}
                 </Text>
 

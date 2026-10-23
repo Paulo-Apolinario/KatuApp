@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { generatorService } from "@/src/services/generatorService";
 import { collectorService } from "@/src/services/collectorService";
@@ -25,6 +25,7 @@ export default function CooperativaRankingScreen() {
   const [loading, setLoading] = useState(true);
   const [rankingGeradores, setRankingGeradores] = useState<RankingItem[]>([]);
   const [rankingCatadores, setRankingCatadores] = useState<RankingItem[]>([]);
+  const { notifyError } = useNotification();
 
   const loadRanking = useCallback(async () => {
     try {
@@ -59,22 +60,32 @@ export default function CooperativaRankingScreen() {
       setRankingCatadores(catadoresOrdenados);
     } catch (error: any) {
       console.error("Erro ao carregar ranking:", error);
-      Alert.alert("Erro", error.message || "Não foi possível carregar o ranking.");
+      notifyError("Não foi possível carregar o ranking.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {
       loadRanking();
-    }, [loadRanking])
+    }, [loadRanking]),
   );
 
-  const topGerador = useMemo(() => rankingGeradores[0] ?? null, [rankingGeradores]);
-  const topCatador = useMemo(() => rankingCatadores[0] ?? null, [rankingCatadores]);
+  const topGerador = useMemo(
+    () => rankingGeradores[0] ?? null,
+    [rankingGeradores],
+  );
+  const topCatador = useMemo(
+    () => rankingCatadores[0] ?? null,
+    [rankingCatadores],
+  );
 
-  function renderRankingList(items: RankingItem[], emptyText: string, color: string) {
+  function renderRankingList(
+    items: RankingItem[],
+    emptyText: string,
+    color: string,
+  ) {
     if (items.length === 0) {
       return (
         <View
@@ -116,7 +127,9 @@ export default function CooperativaRankingScreen() {
               marginRight: 12,
             }}
           >
-            <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>{index + 1}</Text>
+            <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>
+              {index + 1}
+            </Text>
           </View>
 
           <Text
@@ -134,7 +147,7 @@ export default function CooperativaRankingScreen() {
         <Text
           style={{
             fontSize: 15,
-            fontWeight: "800",
+            fontWeight: "700",
             color,
             marginLeft: 12,
           }}
@@ -148,11 +161,11 @@ export default function CooperativaRankingScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -160,7 +173,10 @@ export default function CooperativaRankingScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 15 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -170,10 +186,13 @@ export default function CooperativaRankingScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+      >
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 50 }}>
-            <ActivityIndicator size="large" color="#028C56" />
+            <ActivityIndicator size="large" color="#047857" />
             <Text style={{ marginTop: 12, color: "#6B7280" }}>
               Carregando ranking...
             </Text>
@@ -196,11 +215,13 @@ export default function CooperativaRankingScreen() {
                   marginRight: 10,
                 }}
               >
-                <Text style={{ fontSize: 13, color: "#4B5563" }}>Top Gerador</Text>
+                <Text style={{ fontSize: 13, color: "#4B5563" }}>
+                  Top Gerador
+                </Text>
                 <Text
                   style={{
                     fontSize: 16,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     color: "#2563EB",
                     marginTop: 6,
                   }}
@@ -221,11 +242,13 @@ export default function CooperativaRankingScreen() {
                   marginLeft: 10,
                 }}
               >
-                <Text style={{ fontSize: 13, color: "#4B5563" }}>Top Catador</Text>
+                <Text style={{ fontSize: 13, color: "#4B5563" }}>
+                  Top Catador
+                </Text>
                 <Text
                   style={{
                     fontSize: 16,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     color: "#DB2777",
                     marginTop: 6,
                   }}
@@ -253,7 +276,7 @@ export default function CooperativaRankingScreen() {
               {renderRankingList(
                 rankingGeradores,
                 "Nenhum gerador com volume registrado ainda.",
-                "#2563EB"
+                "#2563EB",
               )}
             </View>
 
@@ -272,7 +295,7 @@ export default function CooperativaRankingScreen() {
               {renderRankingList(
                 rankingCatadores,
                 "Nenhum catador com volume registrado ainda.",
-                "#DB2777"
+                "#DB2777",
               )}
             </View>
           </>

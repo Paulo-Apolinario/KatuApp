@@ -58,18 +58,18 @@ function StatusBadge({ label }: { label: string }) {
   const backgroundColor = isInProgress
     ? "#FEF3C7"
     : isCompleted
-    ? "#DCFCE7"
-    : isCancelled
-    ? "#FEE2E2"
-    : "#ECFDF5";
+      ? "#DCFCE7"
+      : isCancelled
+        ? "#FEE2E2"
+        : "#ECFDF5";
 
   const textColor = isInProgress
     ? "#B45309"
     : isCompleted
-    ? "#166534"
-    : isCancelled
-    ? "#B91C1C"
-    : "#047857";
+      ? "#166534"
+      : isCancelled
+        ? "#B91C1C"
+        : "#047857";
 
   return (
     <View
@@ -132,13 +132,13 @@ export default function MotoristaRotasScreen() {
         setRefreshing(false);
       }
     },
-    [driverId, params.highlightRouteId]
+    [driverId, params.highlightRouteId],
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadRoutes();
-    }, [loadRoutes])
+    }, [loadRoutes]),
   );
 
   const handleToggleRoute = useCallback(
@@ -155,11 +155,13 @@ export default function MotoristaRotasScreen() {
           const detail = await routeService.getById(routeId);
           setDetailsById((prev) => ({ ...prev, [routeId]: detail }));
         } catch (err: any) {
-          setError(err?.message || "Não foi possível carregar os detalhes da rota.");
+          setError(
+            err?.message || "Não foi possível carregar os detalhes da rota.",
+          );
         }
       }
     },
-    [detailsById, expandedId]
+    [detailsById, expandedId],
   );
 
   const routeItems = useMemo(
@@ -168,7 +170,7 @@ export default function MotoristaRotasScreen() {
         ...item,
         detail: detailsById[item.id] ?? item,
       })),
-    [detailsById, routes]
+    [detailsById, routes],
   );
 
   if (loading) {
@@ -181,7 +183,7 @@ export default function MotoristaRotasScreen() {
           backgroundColor: "#F8FAFC",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
           Carregando rotas...
         </Text>
@@ -206,8 +208,8 @@ export default function MotoristaRotasScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void loadRoutes(true)}
-            colors={["#028C56"]}
-            tintColor="#028C56"
+            colors={["#047857"]}
+            tintColor="#047857"
           />
         }
       >
@@ -234,7 +236,7 @@ export default function MotoristaRotasScreen() {
               padding: 16,
             }}
           >
-            <Text style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}>
+            <Text style={{ color: "#111827", fontSize: 16, fontWeight: "700" }}>
               Nenhuma rota disponível
             </Text>
             <Text style={{ color: "#6B7280", marginTop: 10, lineHeight: 22 }}>
@@ -250,7 +252,7 @@ export default function MotoristaRotasScreen() {
               detail.collections?.find(
                 (collection) =>
                   collection.generator?.latitude != null &&
-                  collection.generator?.longitude != null
+                  collection.generator?.longitude != null,
               )?.generator || null;
 
             return (
@@ -273,7 +275,13 @@ export default function MotoristaRotasScreen() {
                   }}
                 >
                   <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text style={{ color: "#111827", fontSize: 17, fontWeight: "800" }}>
+                    <Text
+                      style={{
+                        color: "#111827",
+                        fontSize: 17,
+                        fontWeight: "700",
+                      }}
+                    >
                       {item.name}
                     </Text>
 
@@ -291,10 +299,17 @@ export default function MotoristaRotasScreen() {
                           : "Não definida"
                       }
                     />
-                    <DetailLine label="Paradas" value={item.stops?.length || 0} />
+                    <DetailLine
+                      label="Paradas"
+                      value={item.stops?.length || 0}
+                    />
                     <DetailLine
                       label="Coletas"
-                      value={item.stats?.totalCollections ?? detail.collections?.length ?? 0}
+                      value={
+                        item.stats?.totalCollections ??
+                        detail.collections?.length ??
+                        0
+                      }
                     />
                     {!!item.vehicle?.plate && (
                       <DetailLine label="Veículo" value={item.vehicle.plate} />
@@ -323,7 +338,7 @@ export default function MotoristaRotasScreen() {
                       style={{
                         color: "#111827",
                         fontSize: 15,
-                        fontWeight: "800",
+                        fontWeight: "700",
                         marginBottom: 10,
                       }}
                     >
@@ -347,7 +362,7 @@ export default function MotoristaRotasScreen() {
                       style={{
                         color: "#111827",
                         fontSize: 14,
-                        fontWeight: "800",
+                        fontWeight: "700",
                         marginTop: 14,
                         marginBottom: 8,
                       }}
@@ -374,7 +389,7 @@ export default function MotoristaRotasScreen() {
                       style={{
                         color: "#111827",
                         fontSize: 14,
-                        fontWeight: "800",
+                        fontWeight: "700",
                         marginTop: 14,
                         marginBottom: 8,
                       }}
@@ -398,7 +413,7 @@ export default function MotoristaRotasScreen() {
                           <Text
                             style={{
                               color: "#111827",
-                              fontWeight: "800",
+                              fontWeight: "700",
                               marginBottom: 4,
                             }}
                           >
@@ -407,10 +422,12 @@ export default function MotoristaRotasScreen() {
                               "Ponto de coleta"}
                           </Text>
                           <Text style={{ color: "#6B7280", lineHeight: 20 }}>
-                            Status: {translateCollectionStatus(collection.status)}
+                            Status:{" "}
+                            {translateCollectionStatus(collection.status)}
                           </Text>
                           <Text style={{ color: "#6B7280", lineHeight: 20 }}>
-                            Endereço: {collection.generator?.address || "Não informado"}
+                            Endereço:{" "}
+                            {collection.generator?.address || "Não informado"}
                           </Text>
                           <Text style={{ color: "#6B7280", lineHeight: 20 }}>
                             Data:{" "}
@@ -419,7 +436,7 @@ export default function MotoristaRotasScreen() {
                               ? new Date(
                                   collection.schedule?.scheduledDate ||
                                     collection.schedule?.preferredDate ||
-                                    ""
+                                    "",
                                 ).toLocaleString("pt-BR")
                               : "Não definida"}
                           </Text>
@@ -453,7 +470,7 @@ export default function MotoristaRotasScreen() {
                           borderRadius: 12,
                         }}
                       >
-                        <Text style={{ color: "#047857", fontWeight: "800" }}>
+                        <Text style={{ color: "#047857", fontWeight: "700" }}>
                           VER NO MAPA
                         </Text>
                       </TouchableOpacity>
@@ -468,13 +485,15 @@ export default function MotoristaRotasScreen() {
                               })
                             }
                             style={{
-                              backgroundColor: "#028C56",
+                              backgroundColor: "#047857",
                               paddingHorizontal: 14,
                               paddingVertical: 10,
                               borderRadius: 12,
                             }}
                           >
-                            <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
+                            <Text
+                              style={{ color: "#FFFFFF", fontWeight: "700" }}
+                            >
                               TRAÇAR ROTA
                             </Text>
                           </TouchableOpacity>

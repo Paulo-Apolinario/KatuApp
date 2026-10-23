@@ -1,3 +1,5 @@
+import { requestAuthEmail, consumeLoginLink } from "./auth-email.service";
+import { requestLoginLinkSchema, consumeLoginLinkSchema } from "./auth.schemas";
 import { FastifyReply, FastifyRequest } from "fastify";
 
 import { AuthService } from "./auth.service";
@@ -33,6 +35,24 @@ function serializeUser(user: any) {
 }
 
 export class AuthController {
+  async requestLoginLink(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = requestLoginLinkSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ success: false, error: "Informe um e-mail e perfil válidos." });
+    try { return reply.send({ success: true, ...await requestAuthEmail(parsed.data, "LOGIN") }); }
+    catch { return reply.code(503).send({ success: false, error: "Envio de e-mail indisponível. Tente novamente mais tarde ou contate o suporte." }); }
+  }
+
+  async consumeLoginLink(request: FastifyRequest, reply: FastifyReply) {
+    reply.header("Cache-Control", "no-store");
+    const parsed = consumeLoginLinkSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ success: false, error: "Link inválido ou expirado." });
+    try {
+      const user = await consumeLoginLink(parsed.data);
+      const token = await reply.jwtSign({ sub: user.id, role: user.role, email: user.email, authVersion: user.authVersion });
+      return reply.send({ success: true, token, user: serializeUser(user) });
+    } catch { return reply.code(400).send({ success: false, error: "Link inválido, expirado ou já utilizado. Solicite outro acesso." }); }
+  }
+
   async registerPf(request: FastifyRequest, reply: FastifyReply) {
     try {
       const body = registerPfSchema.parse(request.body);
@@ -41,6 +61,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: user.id,
+        authVersion: user.authVersion,
         role: user.role,
         email: user.email,
       });
@@ -66,6 +87,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: result.user.id,
+        authVersion: result.user.authVersion,
         role: result.user.role,
         email: result.user.email,
       });
@@ -92,6 +114,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: user.id,
+        authVersion: user.authVersion,
         role: user.role,
         email: user.email,
       });
@@ -127,6 +150,104 @@ export class AuthController {
     }
   }
 
+  async updateProfile(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const authUser = request.user as { sub: string };
+      const body = request.body as {
+        displayName?: string;
+        name?: string;
+      };
+
+      const displayName = String(
+        body?.displayName || body?.name || ""
+      ).trim();
+
+      if (!displayName) {
+        return reply.status(400).send({
+          success: false,
+          error: "Informe o nome completo.",
+        });
+      }
+
+      if (displayName.length < 3) {
+        return reply.status(400).send({
+          success: false,
+          error: "O nome precisa ter pelo menos 3 caracteres.",
+        });
+      }
+
+      const user = await authService.updateProfile(authUser.sub, {
+        displayName,
+      });
+
+      return reply.send({
+        success: true,
+        message: "Perfil atualizado com sucesso.",
+        user: serializeUser(user),
+      });
+    } catch (error: any) {
+      return reply.status(400).send({
+        success: false,
+        error: error.message || "Erro ao atualizar perfil.",
+      });
+    }
+  }
+
+  async changePassword(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const authUser = request.user as { sub: string };
+
+      const body = request.body as {
+        currentPassword?: string;
+        current_password?: string;
+        newPassword?: string;
+        password?: string;
+      };
+
+      const currentPassword = String(
+        body?.currentPassword || body?.current_password || ""
+      );
+
+      const newPassword = String(body?.newPassword || body?.password || "");
+
+      if (!currentPassword) {
+        return reply.status(400).send({
+          success: false,
+          error: "Informe a senha atual.",
+        });
+      }
+
+      if (!newPassword) {
+        return reply.status(400).send({
+          success: false,
+          error: "Informe a nova senha.",
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return reply.status(400).send({
+          success: false,
+          error: "A nova senha precisa ter pelo menos 6 caracteres.",
+        });
+      }
+
+      await authService.changePassword(authUser.sub, {
+        currentPassword,
+        newPassword,
+      });
+
+      return reply.send({
+        success: true,
+        message: "Senha alterada com sucesso.",
+      });
+    } catch (error: any) {
+      return reply.status(400).send({
+        success: false,
+        error: error.message || "Erro ao alterar senha.",
+      });
+    }
+  }
+
   async activateGeneratorAccess(
     request: FastifyRequest,
     reply: FastifyReply
@@ -138,6 +259,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: result.user.id,
+        authVersion: result.user.authVersion,
         role: result.user.role,
         email: result.user.email,
       });
@@ -168,8 +290,7 @@ export class AuthController {
       return reply.send({
         success: true,
         message: result.message,
-        resetToken: result.resetToken,
-        expiresAt: result.expiresAt ?? null,
+        expiresAt: null,
       });
     } catch (error: any) {
       return reply.status(400).send({

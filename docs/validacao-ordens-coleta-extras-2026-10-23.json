@@ -1,0 +1,326 @@
+{
+  "date": "2026-10-23",
+  "scope": "Ordens de coleta extras, paradas não planejadas na rota, análise cooperativa e integração com materiais; ambiente local descartável, sem VPS.",
+  "migrationTested": "20261023120000_extra_collection_orders",
+  "checks": {
+    "appTypeScript": "PASS",
+    "serverTypeScript": "PASS",
+    "appEslint": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "changedPanelFilesEslint": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "serverBuild": "PASS",
+    "panelViteBuild": "PASS (aviso de tamanho de chunks)",
+    "expoWebExport": "PASS",
+    "expoAndroidJavaScriptExport": "PASS"
+  },
+  "integrationAndBrowser": {
+    "environment": "Validação das correções por API real Fastify/Prisma + PGlite local descartável; sem acesso à VPS",
+    "outcomes": [
+      {
+        "name": "Controle: solicitação, rota, delegação, campo, recebimento, destinação parcial e conclusão",
+        "status": "PASS"
+      },
+      {
+        "name": "Imagem: trocar ESTOQUE → destino direto → ESTOQUE conserva lote cancelado e cria outro",
+        "status": "PASS"
+      },
+      {
+        "name": "Bloqueia estoque antes do recebimento e aceita destinação direta sem criar lote",
+        "status": "PASS"
+      },
+      {
+        "name": "Rejeita troca do catálogo KG por LITER e alteração da unidade de catálogo com histórico",
+        "status": "PASS"
+      },
+      {
+        "name": "Coleta encerrada preserva destinações e saldo zero",
+        "status": "PASS"
+      },
+      {
+        "name": "Delegação direta rejeita veículo em manutenção",
+        "status": "PASS"
+      },
+      {
+        "name": "Finalizar uma coleta mantém catador em rota enquanto outra está em andamento",
+        "status": "PASS"
+      },
+      {
+        "name": "Cadastro legado preserva unidade LITER, disponibilidade e rejeita lote incompatível",
+        "status": "PASS"
+      },
+      {
+        "name": "Equipe herdada da rota é revalidada na delegação e no início",
+        "status": "PASS"
+      },
+      {
+        "name": "Reserva temporária impede encerramento até destinação definitiva",
+        "status": "PASS"
+      },
+      {
+        "name": "Reenvio identificado de início e conclusão não duplica materiais e rejeita payload divergente",
+        "status": "PASS"
+      },
+      {
+        "name": "Controle: cancelamento do estoque restaura saldo e lote vendido bloqueia cancelamento",
+        "status": "PASS"
+      },
+      {
+        "name": "Controle: cancelar e registrar nova destinação deixa somente um lote disponível",
+        "status": "PASS"
+      },
+      {
+        "name": "Controle: destinação externa não cria lote; estoque parcial respeita o saldo",
+        "status": "PASS"
+      },
+      {
+        "name": "Lote cancelado permanece cancelado e não pode ser descartado",
+        "status": "PASS"
+      },
+      {
+        "name": "Ocorrência: reenvio identificado, permissões e bloqueio de encerramento",
+        "status": "PASS"
+      },
+      {
+        "name": "Solicitação PF preserva catálogo, unidade, endereço e coordenadas",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. restringe criação/análise por perfil e cooperativa",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. de sábado preserva reenvio e não cria coleta ou lote antes da análise",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. aceita uma única vez, preserva unidades e não gera estoque automático",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. confirma chegada antes da análise sem criar entradas e preserva recebimento ao aceitar",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. recebe pelo fluxo normal da coleta e atualiza guarda e histórico da ordem",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. de parada extra conserva o planejamento e aceita rota de contexto já encerrada",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. solicita complementação, preserva versões e rejeita revisão desatualizada",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. recusada exige encaminhamento e preserva ocorrência física",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. solicitada cria tarefa pendente e mantém estimativas sem simular coleta realizada",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. bloqueia segunda aprovação para a mesma solicitação original",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. valida datas, fotos e guarda sem transformar relato em recebimento",
+        "status": "PASS"
+      },
+      {
+        "name": "O.C. aceita percorre recebimento, triagem, estoque e encerramento sem duplicar entrada",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel executa recebimento, triagem, valida pendências e encerra após destinação",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel trata ocorrência e libera conclusão após conferência",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel O.C. confirma recebimento antes de aceitar e abre uma única coleta",
+        "status": "PASS"
+      },
+      {
+        "name": "App catador registra parada extra offline com foto e sincroniza sem duplicar",
+        "status": "PASS"
+      },
+      {
+        "name": "Visual: acesso e perfis responsivos sem solicitar GPS antecipado",
+        "status": "PASS"
+      },
+      {
+        "name": "Visual: seis perfis de login preservam senha, recuperação e acesso por e-mail",
+        "status": "PASS"
+      },
+      {
+        "name": "App PF solicita coleta pelo catálogo e confirma ponto no mapa",
+        "status": "PASS"
+      },
+      {
+        "name": "App cooperativa recebe e inicia triagem com confirmação explícita",
+        "status": "PASS"
+      },
+      {
+        "name": "App cria e edita roteiro com coletas reais e ordem preservada",
+        "status": "PASS"
+      },
+      {
+        "name": "App catador atualiza nome pelo perfil e mantém e-mail somente leitura",
+        "status": "PASS"
+      },
+      {
+        "name": "Mapa web do motorista mostra PEV e marcadores interativos",
+        "status": "PASS"
+      },
+      {
+        "name": "Layout do motorista redireciona PF e saída limpa credencial",
+        "status": "PASS"
+      }
+    ]
+  },
+  "contracts": {
+    "method": "Funções/serviços reais transpilados, armazenamento e rede controlados; sem aparelho físico.",
+    "results": [
+      {
+        "name": "Data de Fortaleza rejeita calendário impossível e conserva fuso",
+        "status": "PASS"
+      },
+      {
+        "name": "Materiais conservam litros e unidades sem inventar massa",
+        "status": "PASS"
+      },
+      {
+        "name": "PDF escreve 50 L em vez de zero kg",
+        "status": "PASS"
+      },
+      {
+        "name": "Agenda local isola contas inclusive IDs compartilhados",
+        "status": "PASS"
+      },
+      {
+        "name": "401 limpa sessão; erro de rede conserva consulta local",
+        "status": "PASS"
+      },
+      {
+        "name": "Resposta antiga de auth/me não apaga uma sessão nova",
+        "status": "PASS"
+      },
+      {
+        "name": "Cofre nativo migra token legado e remove cópia em texto",
+        "status": "PASS"
+      },
+      {
+        "name": "Origem reconhece PEV, gerador e endereço PF com faixa válida",
+        "status": "PASS"
+      },
+      {
+        "name": "Rota serializa IDs de coleta e conserva PEV e ordem recebidos",
+        "status": "PASS"
+      }
+    ]
+  },
+  "existingOfflineRegressions": {
+    "method": "Serviços/repositórios TypeScript reais e adaptador web real, transporte controlado; sem aparelho físico.",
+    "results": [
+      {
+        "name": "Início offline grava fila antes de confirmar e mantém projeção local",
+        "status": "PASS"
+      },
+      {
+        "name": "Conclusão aguarda início sem perder unidade LITER e sobrevive ao reinício",
+        "status": "PASS"
+      },
+      {
+        "name": "Dados divergentes em etapa já enfileirada são rejeitados",
+        "status": "PASS"
+      },
+      {
+        "name": "Falha no início bloqueia envio da conclusão dependente",
+        "status": "PASS"
+      },
+      {
+        "name": "Consulta online preserva projeção de operações pendentes",
+        "status": "PASS"
+      },
+      {
+        "name": "Recuperação envia início e conclusão em ordem e limpa fila após confirmação",
+        "status": "PASS"
+      },
+      {
+        "name": "Resposta perdida após gravação usa mesmo identificador na nova tentativa",
+        "status": "PASS"
+      },
+      {
+        "name": "Troca de conta isola cache e fila; voltar à conta recupera pendências",
+        "status": "PASS"
+      },
+      {
+        "name": "Operação interrompida em SYNCING é retomada após reinício",
+        "status": "PASS"
+      },
+      {
+        "name": "Falha de armazenamento não informa operação como salva",
+        "status": "PASS"
+      },
+      {
+        "name": "Ocorrência offline mantém etapa, sobrevive ao reinício e sincroniza uma vez",
+        "status": "PASS"
+      }
+    ]
+  },
+  "extraOrdersOffline": {
+    "method": "Serviços/filas/repositórios reais transpilados; rede e armazenamento controlados, sem aparelho físico.",
+    "results": [
+      {
+        "name": "O.C. offline salva protocolo, rota de contexto, foto e unidade sem criar coleta",
+        "status": "PASS"
+      },
+      {
+        "name": "Reinício recupera O.C. e impede duplicar envio pendente",
+        "status": "PASS"
+      },
+      {
+        "name": "Troca de conta isola ordens, rascunhos e fila; retorno recupera pendências",
+        "status": "PASS"
+      },
+      {
+        "name": "Resposta perdida após gravação reenvia mesmo UUID sem duplicar ordem",
+        "status": "PASS"
+      },
+      {
+        "name": "Falha de armazenamento não confirma O.C. salva",
+        "status": "PASS"
+      },
+      {
+        "name": "Rascunho permanece na conta de origem e não é enviado automaticamente",
+        "status": "PASS"
+      },
+      {
+        "name": "Correção confirmada remove somente sua pendência e preserva outra O.C.",
+        "status": "PASS"
+      }
+    ]
+  },
+  "totals": {
+    "integrationAndBrowser": 41,
+    "contracts": 9,
+    "existingOffline": 11,
+    "extraOrdersOffline": 7,
+    "total": 68
+  },
+  "limits": [
+    "Sem instalação ou homologação em Android/iOS físicos.",
+    "Foto sintética selecionada no navegador; não comprova câmera/galeria nativas.",
+    "GPS simulado, provedores externos bloqueados e banco descartável.",
+    "Sem teste de carga e sem deploy na VPS."
+  ]
+}

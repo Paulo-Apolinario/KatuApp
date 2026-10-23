@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,12 +12,11 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
+import { sendFeedback } from "@/src/services/feedbackService";
+import { useNotification } from "@/src/contexts/NotificationContext";
+
 type FeedbackCategory =
-  | "ATENDIMENTO"
-  | "PONTUALIDADE"
-  | "COLETA"
-  | "APLICATIVO"
-  | "COMUNICACAO";
+  "ATENDIMENTO" | "PONTUALIDADE" | "COLETA" | "APLICATIVO" | "COMUNICACAO";
 
 function getNpsLabel(score: number | null) {
   if (score === null) return "Selecione uma nota";
@@ -36,12 +34,15 @@ function getNpsColor(score: number | null) {
 
 export default function FeedbackScreen() {
   const [npsScore, setNpsScore] = useState<number | null>(null);
-  const [selectedCategories, setSelectedCategories] = useState<FeedbackCategory[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<
+    FeedbackCategory[]
+  >([]);
   const [reason, setReason] = useState("");
   const [improvement, setImprovement] = useState("");
   const [likes, setLikes] = useState("");
   const [continuity, setContinuity] = useState("");
   const [sending, setSending] = useState(false);
+  const { notifyError, notifySuccess } = useNotification();
 
   const categories: FeedbackCategory[] = [
     "ATENDIMENTO",
@@ -74,33 +75,40 @@ export default function FeedbackScreen() {
 
   const handleSubmit = async () => {
     if (npsScore === null) {
-      Alert.alert("Atenção", "Selecione uma nota de 0 a 10.");
+      notifyError({
+        message: "Selecione uma nota de 0 a 10.",
+        title: "Atenção",
+      });
       return;
     }
 
     try {
       setSending(true);
 
-      // Integração real com endpoint de feedback será conectada na próxima etapa,
-      // quando confirmarmos o contrato do backend.
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const result = await sendFeedback({
+        npsScore,
+        categories: selectedCategories,
+        reason: reason.trim() || undefined,
+        improvement: improvement.trim() || undefined,
+        likes: likes.trim() || undefined,
+        continuity: continuity.trim() || undefined,
+      });
 
-      Alert.alert(
-        "Obrigado!",
-        "Seu feedback foi registrado com sucesso. Ele será importante para melhorar a experiência do gerador no KATUÁ.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              resetForm();
-              router.back();
-            },
-          },
-        ]
+      notifySuccess(
+        result.emailSent
+          ? "Seu feedback foi enviado com sucesso para a cooperativa."
+          : "Seu feedback foi registrado, mas o envio do email ainda não foi concluído.",
       );
-    } catch (error) {
+
+      resetForm();
+      router.back();
+    } catch (error: any) {
       console.error("Erro ao enviar feedback:", error);
-      Alert.alert("Erro", "Não foi possível enviar seu feedback.");
+
+      notifyError({
+        message: error?.message || "Não foi possível enviar seu feedback.",
+        title: "Erro",
+      });
     } finally {
       setSending(false);
     }
@@ -112,11 +120,11 @@ export default function FeedbackScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -144,7 +152,8 @@ export default function FeedbackScreen() {
             marginTop: 10,
           }}
         >
-          Conte como foi sua experiência com o serviço e com a operação da coleta.
+          Conte como foi sua experiência com o serviço e com a operação da
+          coleta.
         </Text>
       </LinearGradient>
 
@@ -182,7 +191,8 @@ export default function FeedbackScreen() {
               lineHeight: 20,
             }}
           >
-            De 0 a 10, qual a probabilidade de você recomendar nossa operação de coleta para outra empresa?
+            De 0 a 10, qual a probabilidade de você recomendar nossa operação de
+            coleta para outra empresa?
           </Text>
 
           <View
@@ -201,12 +211,12 @@ export default function FeedbackScreen() {
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: npsScore === score ? "#028C56" : "#F3F4F6",
+                  backgroundColor: npsScore === score ? "#047857" : "#F3F4F6",
                   margin: 4,
                   alignItems: "center",
                   justifyContent: "center",
                   borderWidth: 1,
-                  borderColor: npsScore === score ? "#028C56" : "#D1D5DB",
+                  borderColor: npsScore === score ? "#047857" : "#D1D5DB",
                 }}
               >
                 <Text
@@ -231,9 +241,7 @@ export default function FeedbackScreen() {
             <Text style={{ fontSize: 12, color: "#6B7280" }}>
               Não recomendaria
             </Text>
-            <Text style={{ fontSize: 12, color: "#6B7280" }}>
-              Recomendaria
-            </Text>
+            <Text style={{ fontSize: 12, color: "#6B7280" }}>Recomendaria</Text>
           </View>
 
           <View
@@ -287,14 +295,14 @@ export default function FeedbackScreen() {
                   key={category}
                   onPress={() => toggleCategory(category)}
                   style={{
-                    backgroundColor: selected ? "#028C56" : "#FFFFFF",
+                    backgroundColor: selected ? "#047857" : "#FFFFFF",
                     paddingHorizontal: 16,
                     paddingVertical: 10,
                     borderRadius: 22,
                     marginRight: 8,
                     marginBottom: 8,
                     borderWidth: 1,
-                    borderColor: selected ? "#028C56" : "#D1D5DB",
+                    borderColor: selected ? "#047857" : "#D1D5DB",
                   }}
                 >
                   <Text
@@ -344,19 +352,6 @@ export default function FeedbackScreen() {
           minHeight={80}
         />
 
-        <View
-          style={{
-            backgroundColor: "#FEFCE8",
-            borderRadius: 16,
-            padding: 16,
-            marginBottom: 20,
-            borderWidth: 1,
-            borderColor: "#FDE68A",
-          }}
-        >
-                
-        </View>
-
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={handleSubmit}
@@ -367,7 +362,7 @@ export default function FeedbackScreen() {
             colors={
               sending || !canSubmit
                 ? ["#9CA3AF", "#6B7280"]
-                : ["#10F35D", "#028C56"]
+                : ["#059669", "#047857"]
             }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -388,7 +383,7 @@ export default function FeedbackScreen() {
               style={{
                 color: "#FFFFFF",
                 fontSize: 17,
-                fontWeight: "800",
+                fontWeight: "700",
                 marginLeft: 8,
               }}
             >

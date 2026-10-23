@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -15,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { driverService } from "@/src/services/driverService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 export default function NovoMotoristaScreen() {
   const [nome, setNome] = useState("");
@@ -25,6 +25,7 @@ export default function NovoMotoristaScreen() {
   const [cnhCategoria, setCnhCategoria] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [loading, setLoading] = useState(false);
+  const { notifyError, notifySuccess } = useNotification();
 
   function formatCpf(value: string) {
     return value
@@ -45,7 +46,10 @@ export default function NovoMotoristaScreen() {
 
   async function handleSalvar() {
     if (!nome.trim() || !email.trim()) {
-      Alert.alert("Atenção", "Preencha nome e email do motorista.");
+      notifyError({
+        message: "Preencha nome e email do motorista.",
+        title: "Atenção",
+      });
       return;
     }
 
@@ -62,18 +66,17 @@ export default function NovoMotoristaScreen() {
         notes: observacoes,
       });
 
-      Alert.alert("Sucesso", "Motorista cadastrado com sucesso!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/motoristas"),
-        },
-      ]);
+      notifySuccess({
+        message: "Motorista cadastrado com sucesso!",
+        title: "Sucesso",
+      });
+      router.replace("/(cooperativa)/motoristas");
     } catch (error: any) {
       console.error("Erro ao cadastrar motorista:", error);
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível cadastrar o motorista."
-      );
+      notifyError({
+        message: error?.message || "Não foi possível cadastrar o motorista.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -85,11 +88,11 @@ export default function NovoMotoristaScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
         }}
@@ -113,7 +116,7 @@ export default function NovoMotoristaScreen() {
         style={{ flex: 1, padding: 20 }}
       >
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Nome Completo *
           </Text>
           <TextInput
@@ -133,7 +136,7 @@ export default function NovoMotoristaScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Email *
           </Text>
           <TextInput
@@ -155,7 +158,7 @@ export default function NovoMotoristaScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             CPF
           </Text>
           <TextInput
@@ -177,7 +180,7 @@ export default function NovoMotoristaScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Telefone
           </Text>
           <TextInput
@@ -198,7 +201,7 @@ export default function NovoMotoristaScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             CNH
           </Text>
           <TextInput
@@ -218,7 +221,7 @@ export default function NovoMotoristaScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Categoria da CNH
           </Text>
           <TextInput
@@ -240,7 +243,7 @@ export default function NovoMotoristaScreen() {
         </View>
 
         <View style={{ marginBottom: 30 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Observações
           </Text>
           <TextInput
@@ -270,7 +273,7 @@ export default function NovoMotoristaScreen() {
           style={{ marginBottom: 30 }}
         >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -289,7 +292,7 @@ export default function NovoMotoristaScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 18,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     marginLeft: 10,
                   }}
                 >
@@ -297,7 +300,9 @@ export default function NovoMotoristaScreen() {
                 </Text>
               </>
             ) : (
-              <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "700" }}
+              >
                 SALVAR MOTORISTA
               </Text>
             )}

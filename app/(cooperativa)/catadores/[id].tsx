@@ -5,11 +5,11 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   collectorService,
@@ -40,8 +40,7 @@ function normalizeMaterials(materials: unknown): CollectionMaterial[] {
       };
     })
     .filter(
-      (item): item is CollectionMaterial =>
-        !!item && item.type.length > 0
+      (item): item is CollectionMaterial => !!item && item.type.length > 0,
     );
 }
 
@@ -49,7 +48,7 @@ function getCollectionTotalKg(collection: Collection) {
   const materials = normalizeMaterials(collection.materials);
   const materialsTotal = materials.reduce(
     (sum, item) => sum + Number(item.quantityKg || 0),
-    0
+    0,
   );
 
   if (materialsTotal > 0) return materialsTotal;
@@ -76,7 +75,9 @@ function formatMaterials(materials?: CollectionMaterial[]) {
   if (normalized.length === 0) return "-";
 
   return normalized
-    .map((item) => `${item.type}: ${Number(item.quantityKg || 0).toFixed(1)} kg`)
+    .map(
+      (item) => `${item.type}: ${Number(item.quantityKg || 0).toFixed(1)} kg`,
+    )
     .join(" • ");
 }
 
@@ -152,6 +153,7 @@ export default function CatadorDetailScreen() {
   const [savingStatus, setSavingStatus] = useState(false);
   const [catador, setCatador] = useState<Collector | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const { notifyError, notifySuccess } = useNotification();
 
   const loadCatador = useCallback(async () => {
     if (!routeId) {
@@ -179,16 +181,14 @@ export default function CatadorDetailScreen() {
       setCollections(Array.isArray(collectionsData) ? collectionsData : []);
     } catch (error) {
       console.error("Erro ao carregar catador:", error);
-      Alert.alert("Erro", "Não foi possível carregar os dados do catador.", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/catadores"),
-        },
-      ]);
+      notifyError({
+        message: "Não foi possível carregar os dados do catador.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
-  }, [routeId]);
+  }, [routeId, notifyError]);
 
   useEffect(() => {
     loadCatador();
@@ -201,26 +201,25 @@ export default function CatadorDetailScreen() {
       setSavingStatus(true);
       const updated = await collectorService.updateStatus(routeId, status);
       setCatador(updated);
-      Alert.alert("Sucesso", "Status do catador atualizado com sucesso.");
+      notifySuccess({
+        message: "Status do catador atualizado com sucesso.",
+        title: "Sucesso",
+      });
     } catch (error: any) {
       console.error("Erro ao atualizar status do catador:", error);
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível atualizar o status."
-      );
+      notifyError("Não foi possível atualizar o status.");
     } finally {
       setSavingStatus(false);
     }
   }
 
-  
   const completedCollections = useMemo(() => {
     if (!catador?.id) return [];
 
     return collections
       .filter(
         (item) =>
-          item.collectorId === catador.id && item.status === "COMPLETED"
+          item.collectorId === catador.id && item.status === "COMPLETED",
       )
       .sort((a, b) => {
         const aTime = new Date(a.collectedAt || a.createdAt || 0).getTime();
@@ -248,7 +247,10 @@ export default function CatadorDetailScreen() {
       const date = new Date(rawDate);
       if (Number.isNaN(date.getTime())) continue;
 
-      if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+      if (
+        date.getMonth() === currentMonth &&
+        date.getFullYear() === currentYear
+      ) {
         kgMonth += total;
       }
 
@@ -274,7 +276,7 @@ export default function CatadorDetailScreen() {
           backgroundColor: "#FFFFFF",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>Carregando...</Text>
       </View>
     );
@@ -297,11 +299,11 @@ export default function CatadorDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
         }}
@@ -432,23 +434,31 @@ export default function CatadorDetailScreen() {
             Estatísticas
           </Text>
 
-          <View style={{ flexDirection: "row", justifyContent: "space-around" }}>
+          <View
+            style={{ flexDirection: "row", justifyContent: "space-around" }}
+          >
             <View style={{ alignItems: "center" }}>
-              <Text style={{ fontSize: 24, fontWeight: "700", color: "#028C56" }}>
+              <Text
+                style={{ fontSize: 24, fontWeight: "700", color: "#047857" }}
+              >
                 {stats.totalKg.toFixed(1)} kg
               </Text>
               <Text style={{ fontSize: 12, color: "#6B7280" }}>Total</Text>
             </View>
 
             <View style={{ alignItems: "center" }}>
-              <Text style={{ fontSize: 24, fontWeight: "700", color: "#028C56" }}>
+              <Text
+                style={{ fontSize: 24, fontWeight: "700", color: "#047857" }}
+              >
                 {stats.kgMonth.toFixed(1)} kg
               </Text>
               <Text style={{ fontSize: 12, color: "#6B7280" }}>Este mês</Text>
             </View>
 
             <View style={{ alignItems: "center" }}>
-              <Text style={{ fontSize: 24, fontWeight: "700", color: "#028C56" }}>
+              <Text
+                style={{ fontSize: 24, fontWeight: "700", color: "#047857" }}
+              >
                 {stats.kgToday.toFixed(1)} kg
               </Text>
               <Text style={{ fontSize: 12, color: "#6B7280" }}>Hoje</Text>
@@ -489,7 +499,7 @@ export default function CatadorDetailScreen() {
                   disabled={savingStatus}
                   onPress={() => handleChangeStatus(item.value)}
                   style={{
-                    backgroundColor: selected ? "#028C56" : "#F3F4F6",
+                    backgroundColor: selected ? "#047857" : "#F3F4F6",
                     paddingHorizontal: 14,
                     paddingVertical: 8,
                     borderRadius: 20,
@@ -513,9 +523,13 @@ export default function CatadorDetailScreen() {
 
           {savingStatus && (
             <View
-              style={{ marginTop: 8, flexDirection: "row", alignItems: "center" }}
+              style={{
+                marginTop: 8,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
             >
-              <ActivityIndicator size="small" color="#028C56" />
+              <ActivityIndicator size="small" color="#047857" />
               <Text style={{ marginLeft: 8, color: "#6B7280" }}>
                 Atualizando status...
               </Text>
@@ -576,22 +590,33 @@ export default function CatadorDetailScreen() {
                         "Gerador não informado"}
                     </Text>
 
-                    <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
-                      Data: {formatDateTime(collection.collectedAt || collection.createdAt)}
+                    <Text
+                      style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}
+                    >
+                      Data:{" "}
+                      {formatDateTime(
+                        collection.collectedAt || collection.createdAt,
+                      )}
                     </Text>
 
-                    <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                    <Text
+                      style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}
+                    >
                       Peso: {getCollectionTotalKg(collection).toFixed(1)} kg
                     </Text>
 
-                    <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                    <Text
+                      style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}
+                    >
                       Materiais: {formatMaterials(collection.materials)}
                     </Text>
                   </View>
 
                   <View
                     style={{
-                      backgroundColor: getCollectionBadgeColor(collection.status),
+                      backgroundColor: getCollectionBadgeColor(
+                        collection.status,
+                      ),
                       borderRadius: 999,
                       paddingHorizontal: 10,
                       paddingVertical: 6,

@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import { useFocusEffect, useLocalSearchParams, router } from "expo-router";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Text,
   TouchableOpacity,
@@ -10,35 +9,42 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
-import { generatorService, type Generator } from "@/src/services/generatorService";
+import {
+  generatorService,
+  type Generator,
+} from "@/src/services/generatorService";
 
 export default function GeradoresScreen() {
   const params = useLocalSearchParams<{ type?: string | string[] }>();
-  const selectedType = Array.isArray(params.type) ? params.type[0] : params.type;
+  const selectedType = Array.isArray(params.type)
+    ? params.type[0]
+    : params.type;
 
   const [generators, setGenerators] = useState<Generator[]>([]);
   const [loading, setLoading] = useState(true);
+  const { notifyError } = useNotification();
 
-  async function loadGenerators() {
+  const loadGenerators = useCallback(async () => {
     try {
       setLoading(true);
       const response = await generatorService.list();
       setGenerators(response);
     } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível carregar os geradores."
-      );
+      notifyError({
+        message: error?.message || "Não foi possível carregar os geradores.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
-  }
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {
       loadGenerators();
-    }, [])
+    }, [loadGenerators]),
   );
 
   const filteredGenerators = useMemo(() => {
@@ -57,15 +63,15 @@ export default function GeradoresScreen() {
     selectedType === "SMALL"
       ? "PEQUENOS GERADORES"
       : selectedType === "LARGE"
-      ? "GRANDES GERADORES"
-      : "GERADORES";
+        ? "GRANDES GERADORES"
+        : "GERADORES";
 
   const pageSubtitle =
     selectedType === "SMALL"
       ? "Lista de pequenos geradores vinculados à cooperativa"
       : selectedType === "LARGE"
-      ? "Lista de grandes geradores vinculados à cooperativa"
-      : "Lista de geradores vinculados à cooperativa";
+        ? "Lista de grandes geradores vinculados à cooperativa"
+        : "Lista de geradores vinculados à cooperativa";
 
   const newGeneratorRoute =
     selectedType === "LARGE"
@@ -85,7 +91,7 @@ export default function GeradoresScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando geradores...
         </Text>
@@ -96,11 +102,11 @@ export default function GeradoresScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 22,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -121,7 +127,7 @@ export default function GeradoresScreen() {
           <Text
             style={{
               fontSize: 22,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#FFFFFF",
               marginLeft: 14,
             }}
@@ -148,7 +154,7 @@ export default function GeradoresScreen() {
           style={{ marginBottom: 16 }}
         >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -163,7 +169,7 @@ export default function GeradoresScreen() {
             <Text
               style={{
                 color: "#FFFFFF",
-                fontWeight: "800",
+                fontWeight: "700",
                 fontSize: 16,
                 marginLeft: 8,
               }}
@@ -181,7 +187,9 @@ export default function GeradoresScreen() {
           renderItem={({ item }) => (
             <TouchableOpacity
               activeOpacity={0.9}
-              onPress={() => router.push(`/(cooperativa)/geradores/${item.id}` as any)}
+              onPress={() =>
+                router.push(`/(cooperativa)/geradores/${item.id}` as any)
+              }
               style={{
                 backgroundColor: "#FFFFFF",
                 borderRadius: 18,
@@ -202,7 +210,7 @@ export default function GeradoresScreen() {
                   <Text
                     style={{
                       fontSize: 16,
-                      fontWeight: "800",
+                      fontWeight: "700",
                       color: "#111827",
                     }}
                   >
@@ -242,7 +250,7 @@ export default function GeradoresScreen() {
                   <Text
                     style={{
                       fontSize: 14,
-                      color: "#028C56",
+                      color: "#047857",
                       fontWeight: "700",
                       marginTop: 8,
                     }}
@@ -253,11 +261,7 @@ export default function GeradoresScreen() {
                   </Text>
                 </View>
 
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color="#9CA3AF"
-                />
+                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
               </View>
             </TouchableOpacity>
           )}

@@ -1,0 +1,103 @@
+{
+  "generatedAt": "2026-10-19T15:54:34.189Z",
+  "environment": "API Fastify/Prisma real, PGlite PostgreSQL WASM, Chromium, Expo Web; não é concorrência PostgreSQL nativa nem dispositivo",
+  "outcomes": [
+    {
+      "name": "API: autenticação, perfil DRIVER e isolamento por cooperativa",
+      "status": "PASS"
+    },
+    {
+      "name": "API+DB: bloqueio de conclusão com pendência, sem gravação parcial",
+      "status": "PASS"
+    },
+    {
+      "name": "API+DB: conclusão com COLLECTED e CANCELLED mantém estados e atribuições",
+      "status": "PASS"
+    },
+    {
+      "name": "DB: rollback de rota/coletas provocado por trigger SQL",
+      "status": "PASS"
+    },
+    {
+      "name": "E-mail/API: SMTP real local, hash, destino painel, uso único e audiência",
+      "status": "PASS"
+    },
+    {
+      "name": "E-mail/API: endereço ausente e perfil incompatível não recebem links; expiração bloqueada",
+      "status": "PASS"
+    },
+    {
+      "name": "Recuperação: senha atual preservada até redefinir, destino painel e consumo único",
+      "status": "PASS"
+    },
+    {
+      "name": "SMTP: rejeição não retorna sucesso, não deixa token válido e preserva senha",
+      "status": "PASS"
+    },
+    {
+      "name": "Notificações painel: campos vazios e credenciais inválidas antes de autenticar",
+      "status": "PASS"
+    },
+    {
+      "name": "Navegador painel: recuperar senha pelo formulário e usar o link recebido no SMTP local",
+      "status": "PASS"
+    },
+    {
+      "name": "Navegador painel: solicitar link por e-mail e confirmar acesso no layout existente",
+      "status": "PASS"
+    },
+    {
+      "name": "Navegador painel: trocar equipe, salvar, recarregar e conferir histórico no banco",
+      "status": "PASS"
+    },
+    {
+      "name": "Navegador painel: remover equipe, salvar e recarregar",
+      "status": "PASS"
+    },
+    {
+      "name": "Navegador painel: editar veículo e confirmar persistência após recarga",
+      "status": "PASS"
+    },
+    {
+      "name": "Offline+SQLite: operação rejeitada permanece na fila ERROR, servidor preservado",
+      "status": "PASS"
+    },
+    {
+      "name": "Offline: resultado da sincronização indica corretamente a rejeição",
+      "status": "PASS",
+      "detail": "success=false; existe item ERROR"
+    },
+    {
+      "name": "Offline+SQLite: reconexão sincroniza rota elegível e nova consulta confirma o servidor",
+      "status": "PASS"
+    },
+    {
+      "name": "App services + SQLite: rejeição e reconexão com API local",
+      "status": "PASS"
+    },
+    {
+      "name": "Notificações cadastro: rejeição sem sucesso; cadastro persistido com aviso após navegar ao login",
+      "status": "PASS"
+    },
+    {
+      "name": "App Expo Web: solicitar acesso rápido e confirmar sessão por link de e-mail",
+      "status": "PASS"
+    },
+    {
+      "name": "App Expo Web: carregar equipe e editar motorista/veículo",
+      "status": "PASS"
+    },
+    {
+      "name": "App Expo Web: remover equipe, recarregar e preservar vínculos históricos",
+      "status": "PASS"
+    },
+    {
+      "name": "Links: dois consumos concorrentes produzem apenas uma sessão; conta inativada é bloqueada",
+      "status": "PASS"
+    },
+    {
+      "name": "Links: excesso de tentativas retorna HTTP 429",
+      "status": "PASS"
+    }
+  ]
+}

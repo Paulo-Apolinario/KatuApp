@@ -20,8 +20,8 @@ function StatusBadge({ status }: { status: string }) {
   const backgroundColor = isMaintenance
     ? "#FEF3C7"
     : isInactive
-    ? "#FEE2E2"
-    : "#DCFCE7";
+      ? "#FEE2E2"
+      : "#DCFCE7";
 
   const color = isMaintenance ? "#B45309" : isInactive ? "#B91C1C" : "#166534";
 
@@ -42,7 +42,7 @@ function StatusBadge({ status }: { status: string }) {
         backgroundColor,
       }}
     >
-      <Text style={{ color, fontWeight: "800", fontSize: 12 }}>
+      <Text style={{ color, fontWeight: "700", fontSize: 12 }}>
         {labelMap[status] || status}
       </Text>
     </View>
@@ -76,7 +76,8 @@ export default function MotoristaVeiculosScreen() {
           setLoading(true);
         }
 
-        const currentVehicle = await vehicleService.getCurrentByDriver(driverId);
+        const currentVehicle =
+          await vehicleService.getCurrentByDriver(driverId);
         setVehicle(currentVehicle);
       } catch (err: any) {
         setError(err?.message || "Não foi possível carregar o veículo.");
@@ -85,23 +86,23 @@ export default function MotoristaVeiculosScreen() {
         setRefreshing(false);
       }
     },
-    [driverId]
+    [driverId],
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadVehicle();
-    }, [loadVehicle])
+    }, [loadVehicle]),
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 48,
+          paddingTop: 20,
           paddingBottom: 18,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 26,
@@ -125,7 +126,7 @@ export default function MotoristaVeiculosScreen() {
           </TouchableOpacity>
 
           <View>
-            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}>
+            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "700" }}>
               Veículos
             </Text>
             <Text style={{ color: "#E8FFF1", fontSize: 13, marginTop: 2 }}>
@@ -143,7 +144,7 @@ export default function MotoristaVeiculosScreen() {
             justifyContent: "center",
           }}
         >
-          <ActivityIndicator size="large" color="#028C56" />
+          <ActivityIndicator size="large" color="#047857" />
           <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
             Carregando veículo...
           </Text>
@@ -155,8 +156,8 @@ export default function MotoristaVeiculosScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void loadVehicle(true)}
-              colors={["#028C56"]}
-              tintColor="#028C56"
+              colors={["#047857"]}
+              tintColor="#047857"
             />
           }
         >
@@ -171,7 +172,9 @@ export default function MotoristaVeiculosScreen() {
                 marginBottom: 16,
               }}
             >
-              <Text style={{ color: "#B91C1C", fontWeight: "700" }}>{error}</Text>
+              <Text style={{ color: "#B91C1C", fontWeight: "700" }}>
+                {error}
+              </Text>
             </View>
           )}
 
@@ -184,7 +187,9 @@ export default function MotoristaVeiculosScreen() {
                 marginBottom: 14,
               }}
             >
-              <Text style={{ color: "#111827", fontSize: 18, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#111827", fontSize: 18, fontWeight: "700" }}
+              >
                 Nenhum veículo vinculado
               </Text>
               <Text style={{ color: "#6B7280", marginTop: 10, lineHeight: 22 }}>
@@ -200,7 +205,9 @@ export default function MotoristaVeiculosScreen() {
                 marginBottom: 14,
               }}
             >
-              <Text style={{ color: "#111827", fontSize: 18, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#111827", fontSize: 18, fontWeight: "700" }}
+              >
                 {vehicle.model}
               </Text>
 

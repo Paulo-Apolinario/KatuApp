@@ -1,3 +1,4 @@
+import { onSessionExpired } from "../services/sessionEvents";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { router, Href } from "expo-router";
 import authService from "../services/authService";
@@ -14,6 +15,7 @@ type AuthActionResult = {
 type ResetPasswordInput = {
   email: string;
   token: string;
+  temporaryPassword: string;
   newPassword: string;
   confirmPassword: string;
 };
@@ -25,17 +27,18 @@ interface AuthContextData {
     email: string,
     password: string,
     expectedProfile?: string,
-    rememberMe?: boolean
+    rememberMe?: boolean,
   ) => Promise<AuthActionResult>;
+  signInWithLink: (token: string) => Promise<AuthActionResult>;
   signOut: () => Promise<void>;
   register: (
     email: string,
     password: string,
-    userData: any
+    userData: any,
   ) => Promise<AuthActionResult>;
   activateGeneratorAccess: (
     email: string,
-    password: string
+    password: string,
   ) => Promise<AuthActionResult>;
   forgotPassword: (email: string) => Promise<AuthActionResult>;
   resetPassword: (data: ResetPasswordInput) => Promise<AuthActionResult>;
@@ -46,11 +49,13 @@ const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export const useAuth = () => useContext(AuthContext);
 
-function normalizeRole(role?: string) {
-  return String(role || "").toUpperCase();
+function normalizeRole(role?: string | null) {
+  return String(role || "")
+    .trim()
+    .toUpperCase();
 }
 
-function getRouteByRole(role?: string): Href {
+function getRouteByRole(role?: string | null): Href {
   const normalized = normalizeRole(role);
 
   switch (normalized) {
@@ -89,7 +94,7 @@ function mapExpectedProfileToRole(profile?: string) {
   }
 }
 
-function isActivatableRole(role?: string) {
+function isActivatableRole(role?: string | null) {
   const normalized = normalizeRole(role);
 
   return (
@@ -109,8 +114,8 @@ function checkRequiresActivation(result: any) {
 
   return Boolean(
     result?.requiresActivation ||
-      result?.firstAccess ||
-      result?.mustChangePassword
+    result?.firstAccess ||
+    result?.mustChangePassword,
   );
 }
 
@@ -119,34 +124,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<UserDoc | null>(null);
   const [loading, setLoading] = useState(true);
+  useEffect(
+    () =>
+      onSessionExpired(() => {
+        setUser(null);
+        router.replace("/(public)/access-type");
+      }),
+    [],
+  );
 
   async function refreshUser() {
-    const currentUser = await authService.getCurrentUserData();
-    setUser(currentUser);
-  }
-
-  useEffect(() => {
-  async function bootstrap() {
     try {
-      await authService.clearSession();
       const currentUser = await authService.getCurrentUserData();
       setUser(currentUser);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error("Erro ao atualizar usuário:", error);
+      setUser(null);
     }
   }
 
-  bootstrap();
-}, []);
+  useEffect(() => {
+    async function bootstrap() {
+      try {
+        const currentUser = await authService.getCurrentUserData();
+        setUser(currentUser);
+      } catch (error) {
+        console.error("Erro ao carregar sessão:", error);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    bootstrap();
+  }, []);
 
   const signIn = async (
     email: string,
     password: string,
     expectedProfile?: string,
-    rememberMe?: boolean
+    rememberMe?: boolean,
+    linkToken?: string,
   ): Promise<AuthActionResult> => {
     try {
-      const result = await authService.login(email, password);
+      const result = linkToken
+        ? await authService.loginWithLink(linkToken)
+        : await authService.login(email, password);
 
       if (result.success === false) {
         return {
@@ -159,7 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const userRole = normalizeRole(result.user?.role);
 
       if (expectedRole && userRole !== expectedRole) {
-        await authService.logout();
+        await authService.clearSession();
         setUser(null);
 
         return {
@@ -192,7 +215,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         success: true,
         message: result.message,
       };
-    } catch {
+    } catch (error) {
+      console.error("Erro inesperado ao entrar:", error);
+
       return {
         success: false,
         error: "Erro inesperado ao entrar.",
@@ -201,15 +226,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const signOut = async (): Promise<void> => {
-    await authService.logout();
-    setUser(null);
-    router.replace("/(public)/access-type");
+    try {
+      setLoading(true);
+      await authService.clearSession();
+    } catch (error) {
+      console.error("Erro ao sair:", error);
+    } finally {
+      setUser(null);
+      setLoading(false);
+      router.replace("/(public)/access-type");
+    }
   };
 
   const register = async (
     email: string,
     password: string,
-    userData: any
+    userData: any,
   ): Promise<AuthActionResult> => {
     try {
       let result;
@@ -224,7 +256,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           address: userData.address,
           rememberMe: userData.rememberMe,
         });
-      } else if (userData.userType === "COOPERATIVE") {
+      } else if (
+        userData.userType === "COOPERATIVE" ||
+        userData.userType === "cooperativa"
+      ) {
         result = await authService.registerCooperative({
           displayName: userData.displayName,
           email,
@@ -258,7 +293,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         success: true,
         message: result.message,
       };
-    } catch {
+    } catch (error) {
+      console.error("Erro ao registrar usuário:", error);
+
       return {
         success: false,
         error: "Erro ao registrar usuário.",
@@ -268,66 +305,95 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const activateGeneratorAccess = async (
     email: string,
-    password: string
+    password: string,
   ): Promise<AuthActionResult> => {
-    const result = await authService.activateGeneratorAccess(email, password);
+    try {
+      const result = await authService.activateGeneratorAccess(email, password);
 
-    if (result.success === false) {
+      if (result.success === false) {
+        return {
+          success: false,
+          error: result.error,
+        };
+      }
+
+      if (result.user) {
+        setUser(result.user);
+        router.replace(getRouteByRole(result.user.role));
+      }
+
+      return {
+        success: true,
+        message: result.message,
+      };
+    } catch (error) {
+      console.error("Erro ao ativar acesso:", error);
+
       return {
         success: false,
-        error: result.error,
+        error: "Erro ao ativar acesso.",
       };
     }
-
-    if (result.user) {
-      setUser(result.user);
-      router.replace(getRouteByRole(result.user.role));
-    }
-
-    return {
-      success: true,
-      message: result.message,
-    };
   };
 
   const forgotPassword = async (email: string): Promise<AuthActionResult> => {
-    const result = await authService.forgotPassword(email);
+    try {
+      const result = await authService.forgotPassword(email);
 
-    if (result.success === false) {
+      if (result.success === false) {
+        return {
+          success: false,
+          error: result.error,
+        };
+      }
+
+      return {
+        success: true,
+        message:
+          result.message ||
+          "Se o e-mail existir em nossa base, enviamos as instruções de recuperação.",
+      };
+    } catch (error) {
+      console.error("Erro ao solicitar recuperação de senha:", error);
+
       return {
         success: false,
-        error: result.error,
+        error: "Erro ao solicitar recuperação de senha.",
       };
     }
-
-    return {
-      success: true,
-      message: result.message,
-      resetToken: result.resetToken,
-    };
   };
 
   const resetPassword = async (
-    data: ResetPasswordInput
+    data: ResetPasswordInput,
   ): Promise<AuthActionResult> => {
-    const result = await authService.resetPassword({
-      email: data.email,
-      token: data.token,
-      newPassword: data.newPassword,
-      confirmPassword: data.confirmPassword,
-    });
+    try {
+      const result = await authService.resetPassword({
+        email: data.email,
+        token: data.token,
+        temporaryPassword: data.temporaryPassword,
+        newPassword: data.newPassword,
+        confirmPassword: data.confirmPassword,
+      });
 
-    if (result.success === false) {
+      if (result.success === false) {
+        return {
+          success: false,
+          error: result.error,
+        };
+      }
+
+      return {
+        success: true,
+        message: result.message || "Senha alterada com sucesso.",
+      };
+    } catch (error) {
+      console.error("Erro ao redefinir senha:", error);
+
       return {
         success: false,
-        error: result.error,
+        error: "Erro ao redefinir senha.",
       };
     }
-
-    return {
-      success: true,
-      message: result.message,
-    };
   };
 
   return (
@@ -336,6 +402,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         loading,
         signIn,
+        signInWithLink: (token: string) =>
+          signIn("", "", undefined, false, token),
         signOut,
         register,
         activateGeneratorAccess,

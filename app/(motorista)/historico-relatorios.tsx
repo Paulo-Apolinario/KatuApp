@@ -78,7 +78,7 @@ function ReportCard({ item }: { item: DriverReport }) {
           marginBottom: 12,
         }}
       >
-        <Text style={{ color: colors.text, fontWeight: "800", fontSize: 12 }}>
+        <Text style={{ color: colors.text, fontWeight: "700", fontSize: 12 }}>
           {formatReportType(item.type)}
         </Text>
       </View>
@@ -151,7 +151,7 @@ export default function MotoristaHistoricoRelatoriosScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadReports();
-    }, [loadReports])
+    }, [loadReports]),
   );
 
   return (
@@ -179,11 +179,11 @@ export default function MotoristaHistoricoRelatoriosScreen() {
               marginRight: 12,
             }}
           >
-            <Ionicons name="arrow-back" size={22} color="#028C56" />
+            <Ionicons name="arrow-back" size={22} color="#047857" />
           </TouchableOpacity>
 
           <View>
-            <Text style={{ color: "#111827", fontSize: 22, fontWeight: "800" }}>
+            <Text style={{ color: "#111827", fontSize: 22, fontWeight: "700" }}>
               Histórico de relatórios
             </Text>
             <Text style={{ color: "#6B7280", fontSize: 13, marginTop: 2 }}>
@@ -201,7 +201,7 @@ export default function MotoristaHistoricoRelatoriosScreen() {
             justifyContent: "center",
           }}
         >
-          <ActivityIndicator size="large" color="#028C56" />
+          <ActivityIndicator size="large" color="#047857" />
           <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
             Carregando histórico...
           </Text>
@@ -213,8 +213,8 @@ export default function MotoristaHistoricoRelatoriosScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void loadReports(true)}
-              colors={["#028C56"]}
-              tintColor="#028C56"
+              colors={["#047857"]}
+              tintColor="#047857"
             />
           }
         >
@@ -229,7 +229,9 @@ export default function MotoristaHistoricoRelatoriosScreen() {
                 marginBottom: 16,
               }}
             >
-              <Text style={{ color: "#B91C1C", fontWeight: "700" }}>{error}</Text>
+              <Text style={{ color: "#B91C1C", fontWeight: "700" }}>
+                {error}
+              </Text>
             </View>
           )}
 
@@ -241,7 +243,9 @@ export default function MotoristaHistoricoRelatoriosScreen() {
                 padding: 18,
               }}
             >
-              <Text style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#111827", fontSize: 16, fontWeight: "700" }}
+              >
                 Nenhum relatório encontrado
               </Text>
               <Text style={{ color: "#6B7280", marginTop: 8, lineHeight: 22 }}>

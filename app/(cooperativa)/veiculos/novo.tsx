@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,6 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { vehicleService } from "@/src/services/vehicleService";
 
@@ -23,21 +23,28 @@ export default function NovoVeiculoScreen() {
   const [year, setYear] = useState("");
   const [capacityKg, setCapacityKg] = useState("");
   const [loading, setLoading] = useState(false);
+  const { notifyError, notifySuccess } = useNotification();
 
   function formatPlate(value: string) {
-    return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+    return value
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 7);
   }
 
   async function handleSalvar() {
     if (!model.trim() || !plate.trim()) {
-      Alert.alert("Atenção", "Preencha modelo e placa do veículo.");
+      notifyError({
+        message: "Preencha modelo e placa do veículo.",
+        title: "Atenção",
+      });
       return;
     }
 
     if (year.trim()) {
       const parsedYear = Number(year);
       if (Number.isNaN(parsedYear) || parsedYear < 1900) {
-        Alert.alert("Atenção", "Informe um ano válido.");
+        notifyError({ message: "Informe um ano válido.", title: "Atenção" });
         return;
       }
     }
@@ -45,7 +52,10 @@ export default function NovoVeiculoScreen() {
     if (capacityKg.trim()) {
       const parsedCapacity = Number(capacityKg.replace(",", "."));
       if (Number.isNaN(parsedCapacity) || parsedCapacity <= 0) {
-        Alert.alert("Atenção", "Informe uma capacidade válida.");
+        notifyError({
+          message: "Informe uma capacidade válida.",
+          title: "Atenção",
+        });
         return;
       }
     }
@@ -61,18 +71,17 @@ export default function NovoVeiculoScreen() {
         capacityKg,
       });
 
-      Alert.alert("Sucesso", "Veículo cadastrado com sucesso!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/veiculos"),
-        },
-      ]);
+      notifySuccess({
+        message: "Veículo cadastrado com sucesso!",
+        title: "Sucesso",
+      });
+      router.replace("/(cooperativa)/veiculos");
     } catch (error: any) {
       console.error("Erro ao cadastrar veículo:", error);
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível cadastrar o veículo."
-      );
+      notifyError({
+        message: error?.message || "Não foi possível cadastrar o veículo.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -84,11 +93,11 @@ export default function NovoVeiculoScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
         }}
@@ -107,9 +116,12 @@ export default function NovoVeiculoScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1, padding: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Modelo *
           </Text>
           <TextInput
@@ -129,7 +141,7 @@ export default function NovoVeiculoScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Placa *
           </Text>
           <TextInput
@@ -151,7 +163,7 @@ export default function NovoVeiculoScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Marca
           </Text>
           <TextInput
@@ -171,7 +183,7 @@ export default function NovoVeiculoScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Ano
           </Text>
           <TextInput
@@ -192,7 +204,7 @@ export default function NovoVeiculoScreen() {
         </View>
 
         <View style={{ marginBottom: 30 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Capacidade (kg)
           </Text>
           <TextInput
@@ -212,9 +224,13 @@ export default function NovoVeiculoScreen() {
           />
         </View>
 
-        <TouchableOpacity onPress={handleSalvar} disabled={loading} activeOpacity={0.9}>
+        <TouchableOpacity
+          onPress={handleSalvar}
+          disabled={loading}
+          activeOpacity={0.9}
+        >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -234,7 +250,7 @@ export default function NovoVeiculoScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 18,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     marginLeft: 10,
                   }}
                 >
@@ -242,7 +258,9 @@ export default function NovoVeiculoScreen() {
                 </Text>
               </>
             ) : (
-              <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "700" }}
+              >
                 SALVAR VEÍCULO
               </Text>
             )}

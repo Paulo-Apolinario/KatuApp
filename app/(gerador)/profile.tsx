@@ -2,7 +2,6 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -11,12 +10,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { useAuth } from "@/src/contexts/AuthContext";
-import {
-  scheduleService,
-  type Schedule,
-} from "@/src/services/scheduleService";
+import { scheduleService, type Schedule } from "@/src/services/scheduleService";
 import {
   collectionService,
   type Collection,
@@ -64,7 +61,7 @@ function getGeneratorAddress(user: AuthUserLike | null) {
 
 function getGeneratorTypeLabel(
   role?: string,
-  generatorType?: GeneratorType | null
+  generatorType?: GeneratorType | null,
 ) {
   if (generatorType === "SMALL" || role === "GENERATOR_SMALL") {
     return "Gerador de Pequeno Porte";
@@ -129,7 +126,7 @@ function normalizeMaterials(materials: unknown): CollectionMaterial[] {
         return {
           type: String((item as { type?: unknown }).type ?? "Não informado"),
           quantityKg: Number(
-            (item as { quantityKg?: unknown }).quantityKg ?? 0
+            (item as { quantityKg?: unknown }).quantityKg ?? 0,
           ),
         };
       }
@@ -142,7 +139,7 @@ function normalizeMaterials(materials: unknown): CollectionMaterial[] {
 function getCollectionTotalKg(collection: Collection) {
   const materialsKg = normalizeMaterials(collection.materials).reduce(
     (sum, item) => sum + Number(item.quantityKg ?? 0),
-    0
+    0,
   );
 
   if (materialsKg > 0) return materialsKg;
@@ -154,37 +151,45 @@ export default function GeneratorProfileScreen() {
   const currentUser: AuthUserLike | null = user
     ? (user as unknown as AuthUserLike)
     : null;
-
+  const { notifyError } = useNotification();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
 
-  const loadProfileData = useCallback(async (showLoader = true) => {
-    try {
-      if (showLoader) setLoading(true);
+  const loadProfileData = useCallback(
+    async (showLoader = true) => {
+      try {
+        if (showLoader) setLoading(true);
 
-      const [scheduleResponse, collectionResponse] = await Promise.all([
-        scheduleService.list(),
-        collectionService.list(),
-      ]);
+        const [scheduleResponse, collectionResponse] = await Promise.all([
+          scheduleService.list(),
+          collectionService.list(),
+        ]);
 
-      setSchedules(Array.isArray(scheduleResponse) ? scheduleResponse : []);
-      setCollections(Array.isArray(collectionResponse) ? collectionResponse : []);
-    } catch (error) {
-      console.error("Erro ao carregar perfil do gerador:", error);
-      Alert.alert("Erro", "Não foi possível carregar os dados do perfil.");
-    } finally {
-      if (showLoader) setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+        setSchedules(Array.isArray(scheduleResponse) ? scheduleResponse : []);
+        setCollections(
+          Array.isArray(collectionResponse) ? collectionResponse : [],
+        );
+      } catch (error) {
+        console.error("Erro ao carregar perfil do gerador:", error);
+        notifyError({
+          message: "Não foi possível carregar os dados do perfil.",
+          title: "Erro",
+        });
+      } finally {
+        if (showLoader) setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [notifyError],
+  );
 
   useFocusEffect(
     useCallback(() => {
       loadProfileData(true);
-    }, [loadProfileData])
+    }, [loadProfileData]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -196,16 +201,16 @@ export default function GeneratorProfileScreen() {
     const totalSchedules = schedules.length;
 
     const openSchedules = schedules.filter(
-      (item) => item.status === "REQUESTED" || item.status === "SCHEDULED"
+      (item) => item.status === "REQUESTED" || item.status === "SCHEDULED",
     ).length;
 
     const completedCollections = collections.filter(
-      (item) => item.status === "COMPLETED"
+      (item) => item.status === "COMPLETED",
     );
 
     const totalKg = completedCollections.reduce(
       (acc, item) => acc + getCollectionTotalKg(item),
-      0
+      0,
     );
 
     const lastCollection =
@@ -241,7 +246,7 @@ export default function GeneratorProfileScreen() {
   const displayAddress = getGeneratorAddress(currentUser);
   const displayType = getGeneratorTypeLabel(
     currentUser?.role,
-    currentUser?.generator?.type
+    currentUser?.generator?.type,
   );
   const accessStatus = currentUser?.generator?.accessStatus || null;
   const accessReleased = currentUser?.generator?.accessReleased;
@@ -256,7 +261,7 @@ export default function GeneratorProfileScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando perfil...
         </Text>
@@ -274,7 +279,7 @@ export default function GeneratorProfileScreen() {
       contentContainerStyle={{ paddingBottom: 30 }}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -303,7 +308,7 @@ export default function GeneratorProfileScreen() {
           <Text
             style={{
               fontSize: 24,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#FFFFFF",
               textAlign: "center",
             }}
@@ -559,7 +564,7 @@ function MetricCard({
       <Text
         style={{
           fontSize: 21,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
           marginTop: 4,
         }}

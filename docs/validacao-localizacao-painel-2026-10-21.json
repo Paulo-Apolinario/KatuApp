@@ -1,0 +1,55 @@
+{
+  "data": "2026-10-21",
+  "dashboard": {
+    "environment": "API real Fastify/Prisma + migração incremental sobre baseline anterior aos relatórios + PGlite + Chromium; sem comunicação com SINIR",
+    "outcomes": [
+      {
+        "name": "Painel: contagens reais, unidades distintas e estoque sem duplicar produção",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel: isolamento por cooperativa, autorização e datas inválidas",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel desktop real: gráficos, mapa sem chave Google e filtros de pontos",
+        "status": "PASS"
+      },
+      {
+        "name": "Posição no mapa obtida do navegador e falha de permissão explícita",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel móvel sem transbordamento e mapa com lista de pontos",
+        "status": "PASS"
+      },
+      {
+        "name": "Falha de API não vira zero nem mensagem de ausência de pendências",
+        "status": "PASS"
+      }
+    ]
+  },
+  "app_web": {
+    "environment": "Export Expo web estático real + Chromium com geolocalização simulada do aparelho; sem chamadas externas",
+    "outcomes": [
+      {
+        "name": "App web exportado: GPS permitido não é confundido com ausência de cidade",
+        "status": "PASS"
+      },
+      {
+        "name": "App web exportado: negação de localização tem mensagem explícita",
+        "status": "PASS"
+      }
+    ]
+  },
+  "testes_unitarios_gps": {
+    "aprovados": 5
+  },
+  "typescript_gps": "aprovado no escopo tests/location/tsconfig.json",
+  "backend_check_build": "aprovados",
+  "frontend_lint_build": "aprovados",
+  "limitacoes": [
+    "Dispositivos físicos Android/iOS ainda precisam de validação.",
+    "Typecheck completo do app possui erros anteriores fora deste escopo."
+  ]
+}

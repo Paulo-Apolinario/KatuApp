@@ -9,11 +9,11 @@ import {
   TextInput,
   Platform,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { generatorService, Generator } from "@/src/services/generatorService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type GeradorStatus = "ativo" | "pendente" | "inativo";
 
@@ -49,9 +49,12 @@ function mapGeneratorToPequeno(item: Generator): Gerador {
 
 export default function PequenoGeradorScreen() {
   const [searchText, setSearchText] = useState("");
-  const [filterStatus, setFilterStatus] = useState<GeradorStatus | "todos">("todos");
+  const [filterStatus, setFilterStatus] = useState<GeradorStatus | "todos">(
+    "todos",
+  );
   const [loading, setLoading] = useState(true);
   const [geradores, setGeradores] = useState<Gerador[]>([]);
+  const { notifyError } = useNotification();
 
   const carregarGeradores = useCallback(async () => {
     try {
@@ -65,19 +68,20 @@ export default function PequenoGeradorScreen() {
 
       setGeradores(lista);
     } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error.message || "Não foi possível carregar os pequenos geradores."
-      );
+      notifyError({
+        message:
+          error.message || "Não foi possível carregar os pequenos geradores.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {
       carregarGeradores();
-    }, [carregarGeradores])
+    }, [carregarGeradores]),
   );
 
   const getStatusColor = (status: GeradorStatus) => {
@@ -112,7 +116,8 @@ export default function PequenoGeradorScreen() {
         g.nome.toLowerCase().includes(searchText.toLowerCase()) ||
         g.endereco.toLowerCase().includes(searchText.toLowerCase());
 
-      const matchesFilter = filterStatus === "todos" || g.status === filterStatus;
+      const matchesFilter =
+        filterStatus === "todos" || g.status === filterStatus;
 
       return matchesSearch && matchesFilter;
     });
@@ -121,11 +126,11 @@ export default function PequenoGeradorScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -149,7 +154,7 @@ export default function PequenoGeradorScreen() {
               resizeMode="contain"
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
-            <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
+            <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>
               KATUÁ
             </Text>
           </View>
@@ -216,7 +221,7 @@ export default function PequenoGeradorScreen() {
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {[
-              { label: "TODOS", value: "todos", color: "#028C56" },
+              { label: "TODOS", value: "todos", color: "#047857" },
               { label: "ATIVOS", value: "ativo", color: "#10B981" },
               { label: "PENDENTES", value: "pendente", color: "#F59E0B" },
               { label: "INATIVOS", value: "inativo", color: "#6B7280" },
@@ -226,7 +231,9 @@ export default function PequenoGeradorScreen() {
               return (
                 <TouchableOpacity
                   key={item.value}
-                  onPress={() => setFilterStatus(item.value as GeradorStatus | "todos")}
+                  onPress={() =>
+                    setFilterStatus(item.value as GeradorStatus | "todos")
+                  }
                   style={{
                     backgroundColor: selected ? item.color : "#F3F4F6",
                     paddingHorizontal: 16,
@@ -249,10 +256,13 @@ export default function PequenoGeradorScreen() {
           </ScrollView>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} style={{ paddingHorizontal: 20 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          style={{ paddingHorizontal: 20 }}
+        >
           {loading ? (
             <View style={{ alignItems: "center", paddingVertical: 40 }}>
-              <ActivityIndicator size="large" color="#028C56" />
+              <ActivityIndicator size="large" color="#047857" />
               <Text style={{ marginTop: 10, color: "#6B7280" }}>
                 Carregando geradores...
               </Text>
@@ -261,7 +271,9 @@ export default function PequenoGeradorScreen() {
             filteredGeradores.map((gerador) => (
               <TouchableOpacity
                 key={gerador.id}
-                onPress={() => router.push(`/(cooperativa)/geradores/${gerador.id}`)}
+                onPress={() =>
+                  router.push(`/(cooperativa)/geradores/${gerador.id}`)
+                }
                 style={{
                   backgroundColor: "#F9FAFB",
                   borderRadius: 16,
@@ -332,18 +344,24 @@ export default function PequenoGeradorScreen() {
                   }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                    <Text style={{ fontSize: 12, color: "#6B7280", marginLeft: 4 }}>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={14}
+                      color="#6B7280"
+                    />
+                    <Text
+                      style={{ fontSize: 12, color: "#6B7280", marginLeft: 4 }}
+                    >
                       Última: {gerador.ultimaColeta}
                     </Text>
                   </View>
 
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Ionicons name="trash-outline" size={14} color="#028C56" />
+                    <Ionicons name="trash-outline" size={14} color="#047857" />
                     <Text
                       style={{
                         fontSize: 12,
-                        color: "#028C56",
+                        color: "#047857",
                         fontWeight: "600",
                         marginLeft: 4,
                       }}

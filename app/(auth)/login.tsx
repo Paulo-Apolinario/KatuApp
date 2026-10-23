@@ -1,25 +1,15 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import {
-  Image,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { Text, TouchableOpacity, View } from "react-native";
+import { AccessShell, AccessLink } from "@/src/components/auth/AccessShell";
+import { Action, Field, Notice } from "@/src/components/ui/Workspace";
 import { Ionicons } from "@expo/vector-icons";
+import authService from "@/src/services/authService";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 type ProfileType =
-  | "pf"
-  | "comercial"
-  | "grande"
-  | "cooperativa"
-  | "catador"
-  | "motorista";
+  "pf" | "comercial" | "grande" | "cooperativa" | "catador" | "motorista";
 
 const allowedProfiles: ProfileType[] = [
   "pf",
@@ -42,7 +32,9 @@ export default function LoginScreen() {
   const profile = normalizeProfile(params.profile);
 
   const { signIn } = useAuth();
+  const { notifySuccess, notifyError, notifyWarning } = useNotification();
 
+  const [quickAccess, setQuickAccess] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -69,29 +61,48 @@ export default function LoginScreen() {
   }, [profile]);
 
   async function handleLogin() {
+    if (loading) return;
     const normalizedEmail = email.trim().toLowerCase();
 
-    if (!normalizedEmail || !password.trim()) {
-      Alert.alert("Atenção", "Preencha e-mail e senha.");
+    if (!normalizedEmail || (!quickAccess && !password.trim())) {
+      notifyWarning(
+        quickAccess ? "Informe seu e-mail." : "Preencha e-mail e senha.",
+      );
       return;
     }
 
     setLoading(true);
 
     try {
-      const result = await signIn(normalizedEmail, password, profile, rememberMe);
+      if (quickAccess) {
+        const result = await authService.requestLoginLink(
+          normalizedEmail,
+          profile,
+        );
+        notifySuccess({
+          message: result.message,
+          title: "Solicitação enviada",
+        });
+        return;
+      }
+      const result = await signIn(
+        normalizedEmail,
+        password,
+        profile,
+        rememberMe,
+      );
 
       if (result.success) {
         if (!result.requiresActivation) {
-          Alert.alert("Sucesso", "Login realizado com sucesso!");
+          notifySuccess("Login realizado com sucesso!");
         }
         return;
       }
 
-      Alert.alert("Erro", result.error || "Não foi possível realizar o login.");
+      notifyError(result.error || "Não foi possível realizar o login.");
     } catch (error) {
       console.error("Erro no login:", error);
-      Alert.alert("Erro", "Ocorreu um erro inesperado ao fazer login.");
+      notifyError("Ocorreu um erro inesperado ao fazer login.");
     } finally {
       setLoading(false);
     }
@@ -112,243 +123,149 @@ export default function LoginScreen() {
   }
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: "#FFFFFF",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
+    <AccessShell
+      eyebrow="ACESSE SUA CONTA"
+      title="Bom ter você por aqui."
+      subtitle={`Entre com seu cadastro de ${profileLabel.toLocaleLowerCase("pt-BR")} para continuar.`}
+      onBack={() => router.replace("/(public)/access-type")}
     >
-      <TouchableOpacity
-        onPress={() => router.push("/(public)/access-type")}
-        style={{
-          position: "absolute",
-          top: 60,
-          left: 20,
-          zIndex: 10,
-          backgroundColor: "rgba(2, 140, 86, 0.1)",
-          borderRadius: 30,
-          padding: 10,
-          flexDirection: "row",
-          alignItems: "center",
-        }}
-      >
-        <Ionicons name="arrow-back" size={28} color="#028C56" />
-        <Text style={{ color: "#028C56", marginLeft: 5, fontWeight: "600" }}>
-          Voltar
-        </Text>
-      </TouchableOpacity>
-
       <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Forma de acesso"
         style={{
-          width: "100%",
-          maxWidth: 420,
-          paddingHorizontal: 24,
-          alignItems: "center",
+          flexDirection: "row",
+          padding: 4,
+          backgroundColor: "#F0F4F2",
+          borderRadius: 10,
+          marginBottom: 20,
         }}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 30,
-          }}
-        >
-          <Image
-            source={require("../../assets/images/logo.png")}
-            resizeMode="contain"
-            style={{ width: 70, height: 70, marginRight: 10 }}
-          />
-          <Text style={{ fontSize: 30, fontWeight: "700", color: "#111827" }}>
-            KATUÁ
-          </Text>
-        </View>
-
-        <View style={{ alignItems: "center", marginBottom: 30 }}>
-          <Text style={{ fontSize: 28, fontWeight: "800", color: "#111827" }}>
-            Login
-          </Text>
-          <Text
+        {[
+          { label: "Com senha", value: false },
+          { label: "Acesso por e-mail", value: true },
+        ].map((item) => (
+          <TouchableOpacity
+            key={item.label}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: quickAccess === item.value }}
+            disabled={loading}
+            onPress={() => setQuickAccess(item.value)}
             style={{
-              color: "#028C56",
-              fontSize: 14,
-              marginTop: 6,
-              fontWeight: "600",
-            }}
-          >
-            {profileLabel}
-          </Text>
-        </View>
-
-        <View style={{ width: "100%", marginBottom: 24 }}>
-          <View
-            style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}
-          >
-            <Ionicons name="mail-outline" size={20} color="#028C56" />
-            <Text style={{ color: "#028C56", marginLeft: 8, fontWeight: "500" }}>
-              E-mail
-            </Text>
-          </View>
-
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="seu@email.com"
-            placeholderTextColor="#9CA3AF"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            editable={!loading}
-            style={{
-              borderBottomWidth: 1,
-              borderBottomColor: "#D1D5DB",
-              paddingVertical: 10,
-              fontSize: 16,
-              color: "#111827",
-            }}
-          />
-        </View>
-
-        <View style={{ width: "100%", marginBottom: 16 }}>
-          <View
-            style={{
-              flexDirection: "row",
+              flex: 1,
+              minHeight: 44,
+              borderRadius: 8,
+              justifyContent: "center",
               alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 8,
+              backgroundColor:
+                quickAccess === item.value ? "white" : "transparent",
             }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Ionicons name="lock-closed-outline" size={20} color="#028C56" />
-              <Text style={{ color: "#028C56", marginLeft: 8, fontWeight: "500" }}>
-                Senha
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              disabled={loading}
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "600",
+                color: quickAccess === item.value ? "#047857" : "#64748B",
+              }}
             >
-              <Ionicons
-                name={showPassword ? "eye-outline" : "eye-off-outline"}
-                size={20}
-                color="#028C56"
-              />
-            </TouchableOpacity>
-          </View>
-
-          <TextInput
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Field
+        label="E-mail"
+        value={email}
+        onChangeText={setEmail}
+        placeholder="seu@email.com"
+        autoCapitalize="none"
+        autoComplete="email"
+        keyboardType="email-address"
+        editable={!loading}
+      />
+      {quickAccess ? (
+        <Notice text="Receba um link de acesso no seu e-mail, válido por 15 minutos. Confira também a pasta de spam." />
+      ) : (
+        <>
+          <Field
+            label="Senha"
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
-            placeholder="••••••••"
-            placeholderTextColor="#9CA3AF"
+            autoComplete="current-password"
+            placeholder="Digite sua senha"
             editable={!loading}
-            style={{
-              borderBottomWidth: 1,
-              borderBottomColor: "#D1D5DB",
-              paddingVertical: 10,
-              fontSize: 16,
-              color: "#111827",
-            }}
+            onSubmitEditing={() => void handleLogin()}
           />
-        </View>
-
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={
+              showPassword ? "Ocultar senha" : "Mostrar senha"
+            }
+            onPress={() => setShowPassword((v) => !v)}
+            disabled={loading}
+            style={{
+              flexDirection: "row",
+              gap: 6,
+              minHeight: 44,
+              alignItems: "center",
+              alignSelf: "flex-end",
+            }}
+          >
+            <Ionicons
+              name={showPassword ? "eye-off-outline" : "eye-outline"}
+              size={18}
+              color="#64748B"
+            />
+            <Text style={{ fontSize: 12, color: "#64748B" }}>
+              {showPassword ? "Ocultar senha" : "Mostrar senha"}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
+      {!quickAccess && (
         <View
           style={{
-            width: "100%",
             flexDirection: "row",
-            justifyContent: "space-between",
-            marginBottom: 30,
             alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            marginBottom: 14,
           }}
         >
           <TouchableOpacity
-            onPress={() => setRememberMe(!rememberMe)}
-            style={{ flexDirection: "row", alignItems: "center" }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: rememberMe }}
+            onPress={() => setRememberMe((v) => !v)}
             disabled={loading}
-          >
-            <View
-              style={{
-                width: 18,
-                height: 18,
-                borderWidth: 1,
-                borderColor: "#028C56",
-                borderRadius: 4,
-                marginRight: 8,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: rememberMe ? "#028C56" : "transparent",
-              }}
-            >
-              {rememberMe && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
-            </View>
-            <Text style={{ fontSize: 12, color: "#4B5563" }}>Lembrar de mim</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={handleGoToForgotPassword} disabled={loading}>
-            <Text style={{ fontSize: 12, color: "#028C56", fontWeight: "500" }}>
-              Esqueceu a senha?
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={handleLogin}
-          disabled={loading}
-          style={{ width: "100%", marginBottom: 18 }}
-        >
-          <LinearGradient
-            colors={["#10F35D", "#028C56"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
             style={{
-              height: 52,
-              borderRadius: 8,
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-              opacity: loading ? 0.7 : 1,
+              gap: 8,
+              minHeight: 44,
             }}
           >
-            {loading ? (
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <ActivityIndicator color="#FFFFFF" />
-                <Text
-                  style={{
-                    color: "#FFFFFF",
-                    fontSize: 16,
-                    fontWeight: "800",
-                    marginLeft: 8,
-                  }}
-                >
-                  ENTRANDO...
-                </Text>
-              </View>
-            ) : (
-              <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
-                LOGIN
-              </Text>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <View style={{ flexDirection: "row", justifyContent: "center" }}>
-          <Text style={{ color: "#4B5563" }}>Não tem uma conta? </Text>
-          <TouchableOpacity onPress={handleGoToRegister} disabled={loading}>
-            <Text
-              style={{
-                color: "#028C56",
-                fontWeight: "700",
-                textDecorationLine: "underline",
-              }}
-            >
-              Cadastre-se
+            <Ionicons
+              name={rememberMe ? "checkbox" : "square-outline"}
+              size={22}
+              color="#047857"
+            />
+            <Text style={{ fontSize: 12, color: "#475569" }}>
+              Lembrar de mim
             </Text>
           </TouchableOpacity>
+          <AccessLink
+            label="Esqueceu a senha?"
+            onPress={handleGoToForgotPassword}
+          />
         </View>
-      </View>
-    </View>
+      )}
+      <Action
+        label={quickAccess ? "Enviar link de acesso" : "Entrar na minha conta"}
+        busy={loading}
+        onPress={() => void handleLogin()}
+      />
+      <AccessLink label="Criar uma conta" onPress={handleGoToRegister} />
+      <Notice text="Se a cooperativa já cadastrou você, utilize a opção de liberar acesso na tela inicial." />
+    </AccessShell>
   );
 }

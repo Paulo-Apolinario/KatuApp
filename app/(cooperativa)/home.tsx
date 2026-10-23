@@ -1,9 +1,8 @@
+import { loadSections } from "@/src/utils/loadSections";
+import { Action } from "@/src/components/ui/Workspace";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
-  Linking,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -14,13 +13,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
+import { useForegroundLocation } from "@/src/hooks/useForegroundLocation";
+import { DeviceLocationCard } from "@/src/components/DeviceLocationCard";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { useAuth } from "@/src/contexts/AuthContext";
-import {
-  scheduleService,
-  type Schedule,
-} from "@/src/services/scheduleService";
+import { scheduleService, type Schedule } from "@/src/services/scheduleService";
 import { routeService, type RouteItem } from "@/src/services/routeService";
 import {
   collectionService,
@@ -213,7 +211,7 @@ function MetricCard({
           style={{
             marginTop: 4,
             fontSize: 24,
-            fontWeight: "900",
+            fontWeight: "700",
             color: "#0F172A",
           }}
         >
@@ -289,7 +287,7 @@ function MenuCard({
           style={{
             color,
             fontSize: 14,
-            fontWeight: "900",
+            fontWeight: "700",
           }}
         >
           {title}
@@ -310,13 +308,7 @@ function MenuCard({
   );
 }
 
-function Badge({
-  label,
-  color,
-}: {
-  label: string;
-  color: string;
-}) {
+function Badge({ label, color }: { label: string; color: string }) {
   return (
     <View
       style={{
@@ -329,7 +321,7 @@ function Badge({
       <Text
         style={{
           color: "#FFFFFF",
-          fontWeight: "900",
+          fontWeight: "700",
           fontSize: 11,
         }}
       >
@@ -363,7 +355,7 @@ function SectionHeader({
         <Text
           style={{
             fontSize: 20,
-            fontWeight: "900",
+            fontWeight: "700",
             color: "#0F172A",
           }}
         >
@@ -386,8 +378,8 @@ function SectionHeader({
         <TouchableOpacity onPress={onPress}>
           <Text
             style={{
-              color: "#028C56",
-              fontWeight: "900",
+              color: "#047857",
+              fontWeight: "700",
               fontSize: 12,
             }}
           >
@@ -420,7 +412,7 @@ function EmptyState({
       <Text
         style={{
           fontSize: 16,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
           marginTop: 10,
           textAlign: "center",
@@ -446,10 +438,10 @@ function EmptyState({
 export default function CooperativeHomeScreen() {
   const { user } = useAuth();
   const currentUser = user as AuthUserLike | null;
+  const { notifyError, notifyInfo } = useNotification();
 
-  const [currentCity, setCurrentCity] = useState("Carregando localização...");
-  const [locationError, setLocationError] = useState(false);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const deviceLocation = useForegroundLocation();
+  const { retry: retryLocation } = deviceLocation;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -460,135 +452,80 @@ export default function CooperativeHomeScreen() {
 
   const displayName = getUserDisplayName(currentUser);
 
-  const getUserLocation = useCallback(async () => {
-    setIsLoadingLocation(true);
+  const loadHome = useCallback(
+    async (showLoader = true) => {
+      try {
+        if (showLoader) setLoading(true);
 
-    try {
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
-
-      if (!servicesEnabled) {
-        setCurrentCity("Localização desativada");
-        setLocationError(true);
-        return;
-      }
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") {
-        setCurrentCity("Permissão negada");
-        setLocationError(true);
-
-        Alert.alert(
-          "Permissão necessária",
-          "Precisamos da sua localização para mostrar a cidade atual. Deseja abrir as configurações?",
-          [
-            { text: "Agora não", style: "cancel" },
-            {
-              text: "Abrir Configurações",
-              onPress: () => {
-                if (Platform.OS === "ios") {
-                  Linking.openURL("app-settings:");
-                } else {
-                  Linking.openSettings();
-                }
-              },
-            },
-          ]
-        );
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const addresses = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-
-      if (addresses.length > 0) {
-        const address = addresses[0];
-        const city =
-          address.city ||
-          address.subregion ||
-          address.region ||
-          address.country ||
-          "Localização desconhecida";
-
-        setCurrentCity(city);
-        setLocationError(false);
-      } else {
-        setCurrentCity("Localização não encontrada");
-        setLocationError(true);
-      }
-    } catch (error) {
-      console.error("Erro ao obter localização:", error);
-      setCurrentCity("Erro ao carregar");
-      setLocationError(true);
-    } finally {
-      setIsLoadingLocation(false);
-    }
-  }, []);
-
-  const loadHome = useCallback(async (showLoader = true) => {
-    try {
-      if (showLoader) setLoading(true);
-
-      const [scheduleResponse, routeResponse, collectionResponse] =
-        await Promise.all([
-          scheduleService.list(),
-          routeService.list(),
-          collectionService.list(),
+        const failed = await loadSections([
+          {
+            label: "Solicitações",
+            load: () => scheduleService.list(),
+            apply: (rows) => setSchedules(Array.isArray(rows) ? rows : []),
+          },
+          {
+            label: "Rotas",
+            load: () => routeService.list(),
+            apply: (rows) => setRoutes(Array.isArray(rows) ? rows : []),
+          },
+          {
+            label: "Coletas",
+            load: () => collectionService.list(),
+            apply: (rows) => setCollections(Array.isArray(rows) ? rows : []),
+          },
         ]);
+        if (failed.length)
+          notifyError(
+            `Não foi possível atualizar: ${failed.join(", ")}. Dados anteriores preservados.`,
+          );
+      } catch (error) {
+        console.error("Erro ao carregar home da cooperativa:", error);
 
-      setSchedules(Array.isArray(scheduleResponse) ? scheduleResponse : []);
-      setRoutes(Array.isArray(routeResponse) ? routeResponse : []);
-      setCollections(Array.isArray(collectionResponse) ? collectionResponse : []);
-    } catch (error) {
-      console.error("Erro ao carregar home da cooperativa:", error);
-      setSchedules([]);
-      setRoutes([]);
-      setCollections([]);
-    } finally {
-      if (showLoader) setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+        notifyError(
+          "Não foi possível atualizar os dados. Os últimos dados carregados foram preservados.",
+        );
+      } finally {
+        if (showLoader) setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [notifyError],
+  );
 
   useFocusEffect(
     useCallback(() => {
-      getUserLocation();
       loadHome(true);
-    }, [getUserLocation, loadHome])
+    }, [loadHome]),
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([getUserLocation(), loadHome(false)]);
-  }, [getUserLocation, loadHome]);
+    notifyInfo("Atualizando dados...");
+    retryLocation();
+    await loadHome(false);
+  }, [retryLocation, loadHome, notifyInfo]);
 
   const metrics = useMemo(() => {
     const requestedSchedules = schedules.filter(
-      (item) => item.status === "REQUESTED"
+      (item) => item.status === "REQUESTED",
     );
     const scheduledSchedules = schedules.filter(
-      (item) => item.status === "SCHEDULED"
+      (item) => item.status === "SCHEDULED",
     );
     const inProgressSchedules = schedules.filter(
-      (item) => item.status === "IN_PROGRESS"
+      (item) => item.status === "IN_PROGRESS",
     );
 
     const activeRoutes = routes.filter(
-      (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS"
+      (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS",
     );
 
     const activeCollections = collections.filter(
-      (item) => item.status === "IN_PROGRESS"
+      (item) => item.status === "IN_PROGRESS",
     );
 
     const pendingCollections = collections.filter(
-      (item) => item.status === "PENDING"
+      (item) => item.status === "PENDING",
     );
 
     const highlightedSchedules = [...schedules]
@@ -596,14 +533,14 @@ export default function CooperativeHomeScreen() {
         (item) =>
           item.status === "REQUESTED" ||
           item.status === "SCHEDULED" ||
-          item.status === "IN_PROGRESS"
+          item.status === "IN_PROGRESS",
       )
       .sort((a, b) => {
         const aTime = new Date(
-          a.scheduledDate || a.preferredDate || a.createdAt || 0
+          a.scheduledDate || a.preferredDate || a.createdAt || 0,
         ).getTime();
         const bTime = new Date(
-          b.scheduledDate || b.preferredDate || b.createdAt || 0
+          b.scheduledDate || b.preferredDate || b.createdAt || 0,
         ).getTime();
         return aTime - bTime;
       })
@@ -639,7 +576,7 @@ export default function CooperativeHomeScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -663,12 +600,14 @@ export default function CooperativeHomeScreen() {
               resizeMode="contain"
               style={{ width: 44, height: 44, marginRight: 10 }}
             />
-            <Text style={{ fontSize: 28, fontWeight: "900", color: "#FFFFFF" }}>
+            <Text style={{ fontSize: 28, fontWeight: "700", color: "#FFFFFF" }}>
               KATUÁ
             </Text>
           </View>
 
-          <TouchableOpacity onPress={() => router.replace("/(public)/access-type")}>
+          <TouchableOpacity
+            onPress={() => router.replace("/(public)/access-type")}
+          >
             <Ionicons name="log-out-outline" size={28} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -677,7 +616,7 @@ export default function CooperativeHomeScreen() {
           <Text
             style={{
               fontSize: 30,
-              fontWeight: "900",
+              fontWeight: "700",
               color: "#FFFFFF",
             }}
           >
@@ -695,40 +634,16 @@ export default function CooperativeHomeScreen() {
             Central operacional da cooperativa
           </Text>
 
-          <TouchableOpacity
-            onPress={locationError ? getUserLocation : undefined}
-            disabled={isLoadingLocation || !locationError}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginTop: 14,
-              alignSelf: "flex-start",
-              backgroundColor: "rgba(255,255,255,0.16)",
-              borderRadius: 999,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-            }}
-          >
-            <Ionicons
-              name={locationError ? "alert-circle-outline" : "location"}
-              size={18}
-              color="#FFFFFF"
-            />
-            <Text
-              style={{
-                fontSize: 14,
-                fontWeight: "800",
-                color: "#FFFFFF",
-                marginLeft: 8,
-              }}
-            >
-              {isLoadingLocation ? "Carregando..." : currentCity}
-            </Text>
-          </TouchableOpacity>
+          <DeviceLocationCard location={deviceLocation} />
         </View>
       </LinearGradient>
 
       <View style={{ paddingHorizontal: 20, paddingTop: 18 }}>
+        <Action
+          secondary
+          label="Analisar ordens de coleta extras"
+          onPress={() => router.push("/(cooperativa)/extra-orders")}
+        />
         <SectionHeader
           title="Resumo da operação"
           subtitle="Visão rápida do que precisa de atenção agora."
@@ -796,7 +711,7 @@ export default function CooperativeHomeScreen() {
         >
           {loading ? (
             <View style={{ alignItems: "center", paddingVertical: 24 }}>
-              <ActivityIndicator size="large" color="#028C56" />
+              <ActivityIndicator size="large" color="#047857" />
               <Text style={{ marginTop: 12, color: "#6B7280" }}>
                 Carregando dados operacionais...
               </Text>
@@ -835,7 +750,7 @@ export default function CooperativeHomeScreen() {
                       <Text
                         style={{
                           fontSize: 16,
-                          fontWeight: "900",
+                          fontWeight: "700",
                           color: "#0F172A",
                         }}
                       >
@@ -845,7 +760,7 @@ export default function CooperativeHomeScreen() {
                       <Text
                         style={{
                           fontSize: 13,
-                          fontWeight: "800",
+                          fontWeight: "700",
                           color: "#0B8F4D",
                           marginTop: 8,
                         }}
@@ -872,7 +787,9 @@ export default function CooperativeHomeScreen() {
                       >
                         Data:{" "}
                         {formatDateTime(
-                          item.scheduledDate || item.preferredDate || item.createdAt
+                          item.scheduledDate ||
+                            item.preferredDate ||
+                            item.createdAt,
                         )}
                       </Text>
 
@@ -884,7 +801,9 @@ export default function CooperativeHomeScreen() {
                         }}
                       >
                         Materiais:{" "}
-                        {materials.length > 0 ? materials.join(", ") : "Não informado"}
+                        {materials.length > 0
+                          ? materials.join(", ")
+                          : "Não informado"}
                       </Text>
                     </View>
 
@@ -910,7 +829,7 @@ export default function CooperativeHomeScreen() {
                       }
                       style={{
                         flex: 1,
-                        backgroundColor: "#028C56",
+                        backgroundColor: "#047857",
                         borderRadius: 12,
                         paddingVertical: 11,
                         alignItems: "center",
@@ -919,7 +838,7 @@ export default function CooperativeHomeScreen() {
                       <Text
                         style={{
                           color: "#FFFFFF",
-                          fontWeight: "900",
+                          fontWeight: "700",
                           fontSize: 13,
                         }}
                       >
@@ -942,7 +861,7 @@ export default function CooperativeHomeScreen() {
                       <Text
                         style={{
                           color: "#2E63E6",
-                          fontWeight: "900",
+                          fontWeight: "700",
                           fontSize: 13,
                         }}
                       >
@@ -981,7 +900,7 @@ export default function CooperativeHomeScreen() {
         >
           {loading ? (
             <View style={{ alignItems: "center", paddingVertical: 24 }}>
-              <ActivityIndicator size="large" color="#028C56" />
+              <ActivityIndicator size="large" color="#047857" />
             </View>
           ) : metrics.highlightedRoutes.length > 0 ? (
             metrics.highlightedRoutes.map((item) => (
@@ -1011,7 +930,7 @@ export default function CooperativeHomeScreen() {
                     <Text
                       style={{
                         fontSize: 16,
-                        fontWeight: "900",
+                        fontWeight: "700",
                         color: "#0F172A",
                       }}
                     >
@@ -1098,7 +1017,7 @@ export default function CooperativeHomeScreen() {
           <Text
             style={{
               color: "#475569",
-              fontWeight: "800",
+              fontWeight: "700",
               fontSize: 12,
             }}
           >
@@ -1114,6 +1033,12 @@ export default function CooperativeHomeScreen() {
             flexWrap: "wrap",
           }}
         >
+          <View style={{ width: "100%", marginBottom: 16 }}>
+            <Action
+              label="Recebimento, triagem e ocorrências"
+              onPress={() => router.push("/(cooperativa)/operations")}
+            />
+          </View>
           <MenuCard
             title="PEQUENO GERADOR"
             subtitle="Cadastre, acompanhe e gerencie pequenos geradores."

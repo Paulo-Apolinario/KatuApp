@@ -23,7 +23,7 @@ function InfoItem({ label, value }: { label: string; value?: string | null }) {
     <View style={{ marginBottom: 14 }}>
       <Text
         style={{
-          color: "#028C56",
+          color: "#047857",
           fontSize: 12,
           fontWeight: "700",
           marginBottom: 4,
@@ -50,7 +50,7 @@ function SectionTitle({ title }: { title: string }) {
       style={{
         color: "#111827",
         fontSize: 16,
-        fontWeight: "800",
+        fontWeight: "700",
         marginBottom: 14,
       }}
     >
@@ -67,30 +67,33 @@ export default function MotoristaProfileScreen() {
   const [profile, setProfile] = useState<DriverProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProfile = useCallback(async (showRefresh = false) => {
-    try {
-      setError(null);
+  const loadProfile = useCallback(
+    async (showRefresh = false) => {
+      try {
+        setError(null);
 
-      if (showRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+        if (showRefresh) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
+
+        const response = await driverService.getMeWithVehicle(user?.driver?.id);
+        setProfile(response);
+      } catch (err: any) {
+        setError(err?.message || "Não foi possível carregar o perfil.");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      const response = await driverService.getMeWithVehicle(user?.driver?.id);
-      setProfile(response);
-    } catch (err: any) {
-      setError(err?.message || "Não foi possível carregar o perfil.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user?.driver?.id]);
+    },
+    [user?.driver?.id],
+  );
 
   useFocusEffect(
     useCallback(() => {
       void loadProfile();
-    }, [loadProfile])
+    }, [loadProfile]),
   );
 
   if (loading) {
@@ -103,7 +106,7 @@ export default function MotoristaProfileScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
           Carregando perfil...
         </Text>
@@ -114,11 +117,11 @@ export default function MotoristaProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 48,
+          paddingTop: 20,
           paddingBottom: 18,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 26,
@@ -142,7 +145,7 @@ export default function MotoristaProfileScreen() {
           </TouchableOpacity>
 
           <View>
-            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}>
+            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "700" }}>
               Perfil
             </Text>
             <Text style={{ color: "#E8FFF1", fontSize: 13, marginTop: 2 }}>
@@ -158,8 +161,8 @@ export default function MotoristaProfileScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void loadProfile(true)}
-            colors={["#028C56"]}
-            tintColor="#028C56"
+            colors={["#047857"]}
+            tintColor="#047857"
           />
         }
       >

@@ -16,6 +16,20 @@ const envSchema = z.object({
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .default("info"),
+
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().default(587),
+  SMTP_SECURE: z
+    .string()
+    .default("false")
+    .transform((value) => value === "true"),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+
+  PANEL_WEB_URL: z.string().url().default("https://painel.katua.com.br"),
+
+  APP_WEB_URL: z.string().default("https://app.katua.com.br"),
 });
 
 const parsed = envSchema.safeParse(process.env);

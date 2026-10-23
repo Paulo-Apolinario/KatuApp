@@ -1,11 +1,18 @@
-import * as FileSystem from "expo-file-system/legacy";
+import { materialQuantity } from "../utils/materials";
+import { Platform } from "react-native";
+import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { Alert } from "react-native";
-import type { CollectionMaterial } from "@/src/types/collection";
+import type {
+  CollectionMaterial,
+  CollectionQuantityReview,
+  WasteUnit,
+} from "@/src/types/collection";
 
 type TopMaterial = {
   type: string;
   quantityKg: number;
+  quantity?: number;
+  unit?: WasteUnit;
 };
 
 interface UserData {
@@ -20,9 +27,14 @@ interface UserData {
   totalKg?: number;
   since?: string;
   topMaterials?: TopMaterial[];
+  cooperativeName?: string;
+  collectionCount?: number;
+  periodStart?: string;
+  periodEnd?: string;
 }
 
 interface ReceiptData {
+  quantityReviews?: CollectionQuantityReview[];
   id: string;
   local: string;
   date: string;
@@ -33,6 +45,8 @@ interface ReceiptData {
 interface GenerateReceiptResult {
   success: boolean;
   filePath?: string;
+  mode?: "share" | "print";
+  error?: string;
 }
 
 const escapeHtml = (value: string | number | null | undefined): string => {
@@ -44,509 +58,184 @@ const escapeHtml = (value: string | number | null | undefined): string => {
     .replace(/'/g, "&#39;");
 };
 
-const formatKg = (value?: number) => Number(value ?? 0).toFixed(1);
+const formatKg = (value?: number) =>
+  Number(value ?? 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 3,
+  });
 
-const renderMaterials = (materials?: CollectionMaterial[]) => {
+const sanitizeFileNamePart = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const renderMaterialsTable = (materials?: CollectionMaterial[]) => {
   if (!materials || materials.length === 0) {
-    return `<div class="empty-text">Nenhum material informado</div>`;
+    return `
+      <tr>
+        <td colspan="2" class="empty-cell">Nenhum material informado</td>
+      </tr>
+    `;
   }
 
   return materials
     .map(
       (item) => `
-        <div class="material-line">
-          <div class="material-name">${escapeHtml(item.type)}</div>
-          <div class="material-kg">${escapeHtml(formatKg(item.quantityKg))} kg</div>
-        </div>
-      `
+        <tr>
+          <td>${escapeHtml(item.type)}</td>
+          <td class="text-right">${escapeHtml(materialQuantity(item))}</td>
+        </tr>
+      `,
     )
     .join("");
 };
 
-const renderTopMaterials = (materials?: TopMaterial[]) => {
+const renderTopMaterialsTable = (materials?: TopMaterial[]) => {
   if (!materials || materials.length === 0) {
-    return `<div class="empty-text">Nenhum material consolidado até o momento</div>`;
+    return `
+      <tr>
+        <td colspan="3" class="empty-cell">Nenhum material consolidado até o momento</td>
+      </tr>
+    `;
   }
 
   return materials
     .map(
       (item, index) => `
-        <div class="ranking-item">
-          <div class="ranking-left">
-            <div class="ranking-badge">${index + 1}</div>
-            <div class="ranking-name">${escapeHtml(item.type)}</div>
-          </div>
-          <div class="ranking-value">${escapeHtml(formatKg(item.quantityKg))} kg</div>
-        </div>
-      `
+        <tr>
+          <td class="text-center">${index + 1}</td>
+          <td>${escapeHtml(item.type)}</td>
+          <td class="text-right">${escapeHtml(materialQuantity(item))}</td>
+        </tr>
+      `,
     )
     .join("");
 };
 
+export const buildReceiptHtml = (
+  userData: UserData,
+  receipt?: ReceiptData,
+): { html: string; fileName: string } => {
+  const now = new Date(),
+    currentDate = now.toLocaleDateString("pt-BR", {
+      timeZone: "America/Fortaleza",
+    }),
+    currentTime = now.toLocaleTimeString("pt-BR", {
+      timeZone: "America/Fortaleza",
+    });
+  const text = (value?: string) => value?.trim() || "Não informado";
+  const name = text(userData.name),
+    code = text(userData.code || userData.id);
+  const documentTitle = receipt
+    ? "Comprovante de coleta"
+    : "Comprovante consolidado de serviço";
+  const reference =
+    receipt?.id || userData.code || userData.id || "sem-identificador";
+  const documentNumber = `${receipt ? "COL" : "CON"}-${reference.toUpperCase()}-${now.getTime().toString(36).toUpperCase()}`;
+  const fileName = `KATUA_${receipt ? "Coleta" : "Consolidado"}_${sanitizeFileNamePart(reference)}_${currentDate.replace(/\//g, "-")}.pdf`;
+  const mass = receipt?.kg ?? userData.totalKg ?? 0;
+  const period = receipt
+    ? receipt.date
+    : [userData.periodStart || userData.since, userData.periodEnd]
+        .filter(Boolean)
+        .join(" a ") || "Histórico disponível até a emissão";
+  const row = (label: string, value: string) =>
+    `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(text(value))}</td></tr>`;
+  const html = `<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(documentTitle)}</title><style>
+ @page {size:A4;margin:15mm 14mm 16mm;} *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#172E2A;font-size:12px;line-height:1.5;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact} .document{max-width:760px;margin:auto} .header{display:table;width:100%;border-bottom:2px solid #17674F;padding-bottom:18px;margin-bottom:24px}.brand{display:table-cell;vertical-align:top}.brand-name{font-size:27px;font-weight:700;letter-spacing:1.6px;color:#14533F}.brand-subtitle{font-size:9px;color:#64766E;margin-top:4px}.metadata{display:table-cell;text-align:right;vertical-align:top;font-size:9px;color:#52675E}.eyebrow{color:#36755D;font-size:9px;font-weight:700;letter-spacing:1.6px;margin-bottom:7px}h1{font-size:25px;line-height:1.2;letter-spacing:-.6px;margin:0 0 9px;color:#153B30;font-weight:600}.lead{margin:0 0 22px;color:#66786E;font-size:10px}.summary{display:table;width:100%;background:#EEF6F1;border:1px solid #D6E5DC;border-radius:10px;margin:0 0 22px}.summary-cell{display:table-cell;width:33%;padding:15px 17px;vertical-align:top}.summary-label{display:block;font-size:8px;letter-spacing:.8px;text-transform:uppercase;color:#587163;margin-bottom:7px}.summary-value{font-size:23px;line-height:1.2;font-weight:600;color:#14533F}.summary-value small{font-size:11px;font-weight:400}.summary-description{font-size:10px;line-height:1.5;color:#234E3B}.section{margin:0 0 22px}h2{font-size:12px;font-weight:600;color:#234E3B;margin:0 0 10px;padding-bottom:7px;border-bottom:1px solid #DCE6DF}.columns{display:table;width:100%;table-layout:fixed}.column{display:table-cell;width:50%;vertical-align:top}.column:first-child{padding-right:18px}.column:last-child{padding-left:18px;border-left:1px solid #E3EBE5}.info{border-collapse:collapse;width:100%;font-size:11px}.info th{color:#6A7A71;font-weight:400;text-align:left;width:30%;vertical-align:top;padding:5px 8px 5px 0}.info td{padding:5px 0;vertical-align:top;color:#203B2F;overflow-wrap:anywhere;word-break:break-word}.reference{font-family:monospace;font-size:8px;word-break:break-all;color:#52675E}.data-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}.data-table thead{display:table-header-group}.data-table th{text-align:left;background:#F0F4F1;color:#4A6657;font-size:8px;text-transform:uppercase;letter-spacing:.7px;padding:10px;border-top:1px solid #DAE5DD;border-bottom:1px solid #DAE5DD}.data-table td{padding:10px;border-bottom:1px solid #E6ECE8;overflow-wrap:anywhere}.data-table th:first-child{width:12%}.data-table.individual th:first-child{width:75%}.data-table th:last-child{width:25%;text-align:right}.data-table tr{break-inside:avoid;page-break-inside:avoid}.text-right{text-align:right;font-variant-numeric:tabular-nums}.text-center{text-align:center;color:#64766E}.empty-cell{color:#758279;text-align:center}.note{font-size:10px;color:#6A7A71;margin-top:9px}.statement{padding:15px 17px;border-left:3px solid #72A88B;background:#F7F9F7;border-radius:0 8px 8px 0;break-inside:avoid;page-break-inside:avoid}.statement h2{border:0;padding:0;margin:0 0 6px;font-size:10px}.statement p{margin:0;color:#5A6C61;font-size:9px}.signature{margin:42px 0 24px;break-inside:avoid;text-align:center}.signature-line{width:260px;max-width:80%;border-top:1px solid #AEBFB4;margin:auto auto 7px}.signature span{font-size:9px;color:#64766E}.footer{border-top:1px solid #DCE6DF;padding-top:12px;color:#748177;font-size:9px;line-height:1.6;break-inside:avoid}.footer strong{color:#3F5C49;font-weight:600}.print-tools{padding:14px;background:#123C35;color:white;font:13px Arial;margin-bottom:24px}.print-tools button{background:white;color:#123C35;padding:8px 14px;border:0;border-radius:6px;margin-right:12px;cursor:pointer}@media print{.print-tools{display:none}h2{break-after:avoid;page-break-after:avoid}}@media screen{body{background:#EAF0EC;padding:24px}.document{background:white;padding:42px;box-shadow:0 4px 24px #123C3510}}
+ </style></head><body><div class="print-tools"><button id="print-document" type="button">Imprimir ou salvar PDF</button>Para salvar, escolha “Salvar como PDF” e desative os cabeçalhos e rodapés do navegador.</div><main class="document"><header class="header"><div class="brand"><div class="brand-name">KATUÁ</div><div class="brand-subtitle">Gestão da coleta seletiva</div></div><div class="metadata">REGISTRO OPERACIONAL<br>Emissão: ${escapeHtml(currentDate)} · ${escapeHtml(currentTime)}<br>Horário de Fortaleza (UTC−03)</div></header><div class="eyebrow">${receipt ? "REGISTRO INDIVIDUAL" : "HISTÓRICO CONSOLIDADO"}</div><h1>${escapeHtml(documentTitle)}</h1><p class="lead">${receipt ? "Materiais registrados na coleta identificada neste documento." : "Resumo das coletas concluídas presentes no histórico do catador."}</p>
+ <section class="summary"><div class="summary-cell"><span class="summary-label">Massa registrada</span><div class="summary-value">${escapeHtml(formatKg(mass))} <small>kg</small></div></div><div class="summary-cell"><span class="summary-label">${receipt ? "Data da coleta" : "Coletas concluídas"}</span><div class="summary-description">${escapeHtml(receipt ? receipt.date : String(userData.collectionCount ?? "Não informado"))}</div></div><div class="summary-cell"><span class="summary-label">Período do histórico</span><div class="summary-description">${escapeHtml(period)}</div></div></section>
+ <section class="section columns"><div class="column"><h2>Identificação do catador</h2><table class="info"><tbody>${row("Nome", name)}${row("CPF", userData.cpf || "")}${row("Telefone", userData.phone || "")}${row("E-mail", userData.email || "")}${row("Localidade", userData.location || "")}</tbody></table></div><div class="column"><h2>Identificação do registro</h2><table class="info"><tbody>${row("Cooperativa / OSC", userData.cooperativeName || "")}${row("Referência", receipt?.id || code)}${receipt ? row("Observações", receipt.local) : row("Abrangência", "Histórico disponível no sistema")}</tbody></table><p class="note">Documento <span class="reference">${escapeHtml(documentNumber)}</span></p></div></section>
+ <section class="section"><h2>${receipt ? "Materiais da coleta" : "Materiais consolidados"}</h2><table class="data-table ${receipt ? "individual" : ""}"><thead><tr>${receipt ? "" : "<th scope=col>Item</th>"}<th scope=col>Material</th><th scope=col class="text-right">Quantidade registrada</th></tr></thead><tbody>${receipt ? renderMaterialsTable(receipt.materials) : renderTopMaterialsTable(userData.topMaterials)}</tbody></table><p class="note">Quantidades preservadas na unidade de origem. A massa em kg considera apenas kg e toneladas; litros, unidades e m³ não são convertidos em peso.</p></section>
+ ${receipt?.quantityReviews?.map((review) => `<section class="section"><h2>Conferência ${review.version} da cooperativa</h2><p>${escapeHtml(review.actorName)} · ${escapeHtml(new Date(review.createdAt).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" }))}</p><p>${escapeHtml(review.reason)}</p><table class="data-table"><thead><tr><th>Material</th><th>Informado</th><th>Anterior</th><th>Conferido</th></tr></thead><tbody>${review.items.map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(materialQuantity({ quantity: item.reportedQuantity, unit: item.unit }))}</td><td>${escapeHtml(materialQuantity({ quantity: item.previousQuantity, unit: item.unit }))}</td><td>${escapeHtml(materialQuantity({ quantity: item.confirmedQuantity, unit: item.unit }))}</td></tr>`).join("")}</tbody></table></section>`).join("") || ""}
+ <section class="statement"><h2>Sobre este comprovante</h2><p>Este documento apresenta os registros operacionais de <strong>${escapeHtml(name)}</strong> disponíveis no sistema KATUÁ na data de emissão. As informações refletem o histórico consultado e não constituem certificação independente de pesagem ou destinação ambiental. Não substitui MTR, CDF ou documento fiscal.</p></section><section class="signature"><div class="signature-line"></div><span>Responsável pela conferência · nome e identificação</span></section><footer class="footer"><strong>KATUÁ · Registro operacional de coleta seletiva</strong><br>Gerado em ${escapeHtml(currentDate)} às ${escapeHtml(currentTime)} (Fortaleza). Para conferência, utilize a referência completa no histórico da cooperativa.</footer></main></body></html>`;
+  return { html, fileName };
+};
+
+const printHtmlOnWeb = async (html: string) => {
+  if (typeof window === "undefined") {
+    throw new Error("Ambiente web indisponível para impressão.");
+  }
+
+  const printWindow = window.open("", "_blank", "width=900,height=1200");
+
+  if (!printWindow) {
+    throw new Error(
+      "Não foi possível abrir a janela de impressão. Verifique se o navegador bloqueou pop-ups.",
+    );
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+
+  printWindow.focus();
+
+  printWindow.document
+    .getElementById("print-document")
+    ?.addEventListener("click", () => printWindow.print());
+  void printWindow.document.fonts.ready.then(() => {
+    setTimeout(() => {
+      if (!printWindow.closed) printWindow.print();
+    }, 250);
+  });
+};
+
 export const generateReceiptPDF = async (
   userData: UserData | null | undefined,
-  receipt?: ReceiptData
+  receipt?: ReceiptData,
 ): Promise<GenerateReceiptResult> => {
   try {
     if (!userData) {
-      Alert.alert("Erro", "Dados do usuário não encontrados.");
-      return { success: false };
+      return {
+        success: false,
+        error: "Dados do usuário não encontrados.",
+      };
     }
 
-    if (!FileSystem.documentDirectory) {
-      Alert.alert("Erro", "Não foi possível acessar o armazenamento do dispositivo.");
-      return { success: false };
+    const { html } = buildReceiptHtml(userData, receipt);
+
+    if (Platform.OS === "web") {
+      await printHtmlOnWeb(html);
+
+      return {
+        success: true,
+        mode: "print",
+      };
     }
 
-    const now = new Date();
-    const currentDate = now.toLocaleDateString("pt-BR");
-    const currentTime = now.toLocaleTimeString("pt-BR");
-
-    const safeName = userData.name ?? "Catador";
-    const safeLocation = userData.location ?? "-";
-    const safeCpf = userData.cpf ?? "-";
-    const safePhone = userData.phone ?? "-";
-    const safeEmail = userData.email ?? "-";
-    const safeCode = userData.code ?? "-";
-    const safeSince = userData.since ?? "-";
-    const safeTotalKg = Number(userData.totalKg ?? 0);
-    const safeTopMaterials = userData.topMaterials ?? [];
-
-    const documentTitle = receipt
-      ? "Comprovante Individual de Coleta"
-      : "Comprovante Consolidado de Serviço";
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>${escapeHtml(documentTitle)}</title>
-        <style>
-          * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-          }
-
-          body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #eef2f7;
-            color: #111827;
-            padding: 24px;
-          }
-
-          .page {
-            max-width: 900px;
-            margin: 0 auto;
-            background: #ffffff;
-            border-radius: 24px;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
-          }
-
-          .header {
-            background: linear-gradient(135deg, #10f35d 0%, #028c56 100%);
-            padding: 32px;
-            color: #ffffff;
-          }
-
-          .brand {
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: 1px;
-          }
-
-          .subtitle {
-            margin-top: 8px;
-            font-size: 15px;
-            opacity: 0.95;
-          }
-
-          .document-tag {
-            display: inline-block;
-            margin-top: 18px;
-            background: rgba(255, 255, 255, 0.18);
-            border: 1px solid rgba(255, 255, 255, 0.28);
-            padding: 10px 16px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-          }
-
-          .content {
-            padding: 28px;
-          }
-
-          .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 18px;
-            margin-bottom: 18px;
-          }
-
-          .card {
-            background: #f8fafc;
-            border: 1px solid #e5e7eb;
-            border-radius: 18px;
-            padding: 20px;
-          }
-
-          .card.full {
-            grid-column: 1 / -1;
-          }
-
-          .card-title {
-            font-size: 14px;
-            font-weight: 800;
-            color: #028c56;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin-bottom: 16px;
-          }
-
-          .info-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 10px 0;
-            border-bottom: 1px solid #e5e7eb;
-          }
-
-          .info-row:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-          }
-
-          .info-label {
-            color: #6b7280;
-            font-size: 13px;
-          }
-
-          .info-value {
-            color: #111827;
-            font-size: 13px;
-            font-weight: 700;
-            text-align: right;
-          }
-
-          .hero {
-            background: linear-gradient(135deg, #ecfdf5 0%, #dcfce7 100%);
-            border: 1px solid #bbf7d0;
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 18px;
-            text-align: center;
-          }
-
-          .hero-label {
-            font-size: 13px;
-            font-weight: 700;
-            color: #166534;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-          }
-
-          .hero-value {
-            font-size: 42px;
-            line-height: 1.1;
-            font-weight: 900;
-            color: #047857;
-            margin-top: 10px;
-          }
-
-          .hero-unit {
-            font-size: 22px;
-            margin-left: 4px;
-          }
-
-          .material-line,
-          .ranking-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 0;
-            border-bottom: 1px solid #e5e7eb;
-          }
-
-          .material-line:last-child,
-          .ranking-item:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-          }
-
-          .material-name,
-          .ranking-name {
-            font-size: 14px;
-            color: #111827;
-            font-weight: 700;
-          }
-
-          .material-kg,
-          .ranking-value {
-            font-size: 14px;
-            color: #028c56;
-            font-weight: 800;
-            white-space: nowrap;
-          }
-
-          .ranking-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-          }
-
-          .ranking-badge {
-            width: 28px;
-            height: 28px;
-            border-radius: 14px;
-            background: #dcfce7;
-            color: #166534;
-            font-size: 13px;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-
-          .declaration {
-            margin-top: 18px;
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            border-radius: 18px;
-            padding: 20px;
-            color: #7c2d12;
-            line-height: 1.7;
-            font-size: 14px;
-          }
-
-          .signature {
-            margin-top: 28px;
-            text-align: center;
-            padding-top: 18px;
-          }
-
-          .signature-line {
-            width: 280px;
-            max-width: 100%;
-            height: 1px;
-            background: #9ca3af;
-            margin: 0 auto 8px auto;
-          }
-
-          .signature-text {
-            font-size: 13px;
-            color: #6b7280;
-          }
-
-          .footer {
-            margin-top: 28px;
-            padding: 20px 28px 28px 28px;
-            background: #f8fafc;
-            color: #6b7280;
-            font-size: 12px;
-            line-height: 1.7;
-            border-top: 1px solid #e5e7eb;
-          }
-
-          .empty-text {
-            font-size: 14px;
-            color: #6b7280;
-          }
-
-          @media print {
-            body {
-              background: #ffffff;
-              padding: 0;
-            }
-
-            .page {
-              box-shadow: none;
-              border-radius: 0;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="page">
-          <div class="header">
-            <div class="brand">KATUÁ</div>
-            <div class="subtitle">Sistema inteligente de gestão de resíduos recicláveis</div>
-            <div class="document-tag">${escapeHtml(documentTitle)}</div>
-          </div>
-
-          <div class="content">
-            <div class="hero">
-              <div class="hero-label">Total registrado</div>
-              <div class="hero-value">${escapeHtml(formatKg(receipt ? receipt.kg : safeTotalKg))}<span class="hero-unit">kg</span></div>
-            </div>
-
-            <div class="grid">
-              <div class="card">
-                <div class="card-title">Dados do catador</div>
-                <div class="info-row">
-                  <span class="info-label">Nome</span>
-                  <span class="info-value">${escapeHtml(safeName)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Código</span>
-                  <span class="info-value">${escapeHtml(safeCode)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Localidade</span>
-                  <span class="info-value">${escapeHtml(safeLocation)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">CPF</span>
-                  <span class="info-value">${escapeHtml(safeCpf)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Contato</span>
-                  <span class="info-value">${escapeHtml(safePhone)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">E-mail</span>
-                  <span class="info-value">${escapeHtml(safeEmail)}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Atuação desde</span>
-                  <span class="info-value">${escapeHtml(safeSince)}</span>
-                </div>
-              </div>
-
-              ${
-                receipt
-                  ? `
-                    <div class="card">
-                      <div class="card-title">Detalhes da coleta</div>
-                      <div class="info-row">
-                        <span class="info-label">Data</span>
-                        <span class="info-value">${escapeHtml(receipt.date)}</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Código da coleta</span>
-                        <span class="info-value">${escapeHtml(receipt.id)}</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Peso total</span>
-                        <span class="info-value">${escapeHtml(formatKg(receipt.kg))} kg</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Observações</span>
-                        <span class="info-value">${escapeHtml(receipt.local || "-")}</span>
-                      </div>
-                    </div>
-                  `
-                  : `
-                    <div class="card">
-                      <div class="card-title">Resumo consolidado</div>
-                      <div class="info-row">
-                        <span class="info-label">Data de emissão</span>
-                        <span class="info-value">${escapeHtml(currentDate)}</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Hora</span>
-                        <span class="info-value">${escapeHtml(currentTime)}</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Total geral</span>
-                        <span class="info-value">${escapeHtml(formatKg(safeTotalKg))} kg</span>
-                      </div>
-                      <div class="info-row">
-                        <span class="info-label">Materiais em destaque</span>
-                        <span class="info-value">${escapeHtml(String(safeTopMaterials.length))}</span>
-                      </div>
-                    </div>
-                  `
-              }
-
-              ${
-                receipt
-                  ? `
-                    <div class="card full">
-                      <div class="card-title">Materiais da coleta</div>
-                      ${renderMaterials(receipt.materials)}
-                    </div>
-                  `
-                  : `
-                    <div class="card full">
-                      <div class="card-title">Materiais com maior volume</div>
-                      ${renderTopMaterials(safeTopMaterials)}
-                    </div>
-                  `
-              }
-            </div>
-
-            <div class="declaration">
-              Declaramos, para os devidos fins, que <strong>${escapeHtml(
-                safeName
-              )}</strong> atua na coleta e destinação adequada de resíduos recicláveis por meio do sistema KATUÁ. ${
-                receipt
-                  ? `Este documento comprova a execução da coleta registrada em <strong>${escapeHtml(
-                      receipt.date
-                    )}</strong>, com volume total de <strong>${escapeHtml(
-                      formatKg(receipt.kg)
-                    )} kg</strong>.`
-                  : `Este documento resume o histórico consolidado de atuação até a data de emissão, totalizando <strong>${escapeHtml(
-                      formatKg(safeTotalKg)
-                    )} kg</strong> coletados.`
-              }
-            </div>
-
-            <div class="signature">
-              <div class="signature-line"></div>
-              <div class="signature-text">Assinatura do responsável / representante</div>
-            </div>
-          </div>
-
-          <div class="footer">
-            <div>Documento gerado pelo sistema KATUÁ em ${escapeHtml(currentDate)} às ${escapeHtml(currentTime)}.</div>
-            <div>Arquivo preparado para compartilhamento digital e comprovação operacional.</div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const fileName = receipt
-      ? `Comprovante_KATUA_Coleta_${receipt.id.slice(0, 8)}_${currentDate.replace(
-          /\//g,
-          "-"
-        )}.html`
-      : `Comprovante_KATUA_Consolidado_${(safeCode || "geral").replace(
-          /\s+/g,
-          "_"
-        )}_${currentDate.replace(/\//g, "-")}.html`;
-
-    const filePath = `${FileSystem.documentDirectory}${fileName}`;
-
-    await FileSystem.writeAsStringAsync(filePath, htmlContent, {
-      encoding: FileSystem.EncodingType.UTF8,
+    const { uri } = await Print.printToFileAsync({
+      html,
+      base64: false,
     });
 
-    const isAvailable = await Sharing.isAvailableAsync();
+    const canShare = await Sharing.isAvailableAsync();
 
-    if (isAvailable) {
-      await Sharing.shareAsync(filePath, {
-        mimeType: "text/html",
-        dialogTitle: "Comprovante KATUÁ",
-        UTI: "public.html",
+    if (canShare) {
+      await Sharing.shareAsync(uri, {
+        mimeType: "application/pdf",
+        dialogTitle: "Compartilhar comprovante KATUÁ",
+        UTI: ".pdf",
       });
-    } else {
-      Alert.alert(
-        "Comprovante gerado",
-        "O comprovante foi salvo, mas o compartilhamento não está disponível neste dispositivo."
-      );
     }
 
-    return { success: true, filePath };
+    return {
+      success: true,
+      filePath: uri,
+      mode: "share",
+    };
   } catch (error) {
-    console.error("Erro ao gerar comprovante:", error);
-    Alert.alert("Erro", "Não foi possível gerar o comprovante. Tente novamente.");
-    return { success: false };
+    console.error("Erro ao gerar comprovante PDF:", error);
+
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Não foi possível gerar o comprovante em PDF.",
+    };
   }
 };

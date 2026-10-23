@@ -20,9 +20,9 @@
       "package": "com.anonymous.katua",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/logo.png",
+        "backgroundImage": "./assets/images/logo.png",
+        "monochromeImage": "./assets/images/logo.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -66,7 +66,16 @@
           "locationAlwaysAndWhenInUsePermission": "Permitir que o KATU use sua localização para mostrar a cidade atual."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir acesso às fotos selecionadas para anexar evidências à ordem de coleta.",
+          "cameraPermission": "Permitir usar a câmera para registrar evidências da coleta.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
