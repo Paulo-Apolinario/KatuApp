@@ -12,10 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { useAuth } from "@/src/contexts/AuthContext";
-import {
-  scheduleService,
-  type Schedule,
-} from "@/src/services/scheduleService";
+import { scheduleService, type Schedule } from "@/src/services/scheduleService";
 
 type AuthUserLike = {
   id?: string;
@@ -84,7 +81,7 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       loadProfileData(true);
-    }, [loadProfileData])
+    }, [loadProfileData]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -97,7 +94,7 @@ export default function ProfileScreen() {
 
     const completed = schedules.filter((item) => item.status === "COMPLETED");
     const agendadas = schedules.filter(
-      (item) => item.status === "REQUESTED" || item.status === "SCHEDULED"
+      (item) => item.status === "REQUESTED" || item.status === "SCHEDULED",
     );
 
     const materialsMap: Record<string, number> = {};
@@ -132,7 +129,7 @@ export default function ProfileScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 12, color: "#6B7280" }}>
           Carregando perfil...
         </Text>
@@ -150,7 +147,7 @@ export default function ProfileScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
-        colors={["#16a34a", "#22c55e"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -201,13 +198,13 @@ export default function ProfileScreen() {
               marginBottom: 14,
             }}
           >
-            <Ionicons name="person" size={56} color="#028C56" />
+            <Ionicons name="person" size={56} color="#047857" />
           </View>
 
           <Text
             style={{
               fontSize: 22,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#FFFFFF",
               textAlign: "center",
             }}
@@ -260,7 +257,9 @@ export default function ProfileScreen() {
         <SectionCard>
           <Text style={sectionTitle}>Visão geral</Text>
 
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <View
+            style={{ flexDirection: "row", justifyContent: "space-between" }}
+          >
             <MetricCard
               title="Solicitações"
               value={String(metrics.totalSolicitacoes)}
@@ -296,8 +295,8 @@ export default function ProfileScreen() {
           <Text
             style={{
               fontSize: 20,
-              fontWeight: "800",
-              color: "#028C56",
+              fontWeight: "700",
+              color: "#047857",
             }}
           >
             {buildUserCode(currentUser?.id)}
@@ -416,7 +415,7 @@ function MetricCard({
         style={{
           marginTop: 4,
           fontSize: 21,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
         }}
       >
@@ -464,7 +463,7 @@ function MetricCardFull({
         style={{
           marginTop: 4,
           fontSize: 21,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
         }}
       >

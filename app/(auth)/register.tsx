@@ -459,10 +459,10 @@ export default function RegisterScreen() {
           alignItems: "center",
         }}
       >
-        <Ionicons name="arrow-back" size={24} color="#028C56" />
+        <Ionicons name="arrow-back" size={24} color="#047857" />
         <Text
           style={{
-            color: "#028C56",
+            color: "#047857",
             marginLeft: 4,
             fontWeight: "600",
             fontSize: 14,
@@ -493,7 +493,7 @@ export default function RegisterScreen() {
             <Text
               style={{
                 fontSize: 28,
-                fontWeight: "800",
+                fontWeight: "700",
                 color: "#111827",
                 marginBottom: 2,
               }}
@@ -514,7 +514,7 @@ export default function RegisterScreen() {
                 style={{
                   fontSize: 14,
                   fontWeight: "600",
-                  color: "#028C56",
+                  color: "#047857",
                   textAlign: "center",
                 }}
               >
@@ -584,7 +584,7 @@ export default function RegisterScreen() {
                 onPress={() => router.replace("/(public)/access-type")}
                 style={{
                   marginTop: 16,
-                  backgroundColor: "#028C56",
+                  backgroundColor: "#047857",
                   borderRadius: 14,
                   paddingVertical: 14,
                   alignItems: "center",
@@ -796,12 +796,12 @@ export default function RegisterScreen() {
                       marginBottom: 14,
                     }}
                   >
-                    <Ionicons name="map-outline" size={18} color="#028C56" />
+                    <Ionicons name="map-outline" size={18} color="#047857" />
                     <Text
                       style={{
                         marginLeft: 8,
-                        color: "#028C56",
-                        fontWeight: "800",
+                        color: "#047857",
+                        fontWeight: "700",
                         fontSize: 14,
                       }}
                     >
@@ -823,7 +823,7 @@ export default function RegisterScreen() {
                       <Text
                         style={{
                           color: "#065F46",
-                          fontWeight: "800",
+                          fontWeight: "700",
                           fontSize: 13,
                         }}
                       >
@@ -859,8 +859,8 @@ export default function RegisterScreen() {
                     height: 22,
                     borderRadius: 6,
                     borderWidth: 2,
-                    borderColor: rememberMe ? "#028C56" : "#D1D5DB",
-                    backgroundColor: rememberMe ? "#028C56" : "#FFFFFF",
+                    borderColor: rememberMe ? "#047857" : "#D1D5DB",
+                    backgroundColor: rememberMe ? "#047857" : "#FFFFFF",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
@@ -889,7 +889,7 @@ export default function RegisterScreen() {
                 style={{ borderRadius: 18, overflow: "hidden" }}
               >
                 <LinearGradient
-                  colors={["#059669", "#028C56"]}
+                  colors={["#123C35", "#17694F"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={{
@@ -905,7 +905,7 @@ export default function RegisterScreen() {
                       style={{
                         color: "#FFFFFF",
                         fontSize: 16,
-                        fontWeight: "800",
+                        fontWeight: "700",
                       }}
                     >
                       CADASTRAR
@@ -927,7 +927,7 @@ function SectionTitle({ title }: { title: string }) {
       <Text
         style={{
           fontSize: 15,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
         }}
       >
@@ -998,7 +998,7 @@ function FormInput({
             color: "#111827",
           }}
         />
-        {loading ? <ActivityIndicator size="small" color="#028C56" /> : null}
+        {loading ? <ActivityIndicator size="small" color="#047857" /> : null}
       </View>
     </View>
   );

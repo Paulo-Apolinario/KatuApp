@@ -110,7 +110,7 @@ export default function MotoristaRelatoriosScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -138,7 +138,7 @@ export default function MotoristaRelatoriosScreen() {
           </TouchableOpacity>
 
           <View style={{ flex: 1 }}>
-            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}>
+            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "700" }}>
               Relatórios
             </Text>
             <Text style={{ color: "#E8FFF1", fontSize: 13, marginTop: 2 }}>
@@ -155,7 +155,7 @@ export default function MotoristaRelatoriosScreen() {
               backgroundColor: "rgba(255,255,255,0.18)",
             }}
           >
-            <Text style={{ color: "#FFFFFF", fontWeight: "800", fontSize: 12 }}>
+            <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 12 }}>
               HISTÓRICO
             </Text>
           </TouchableOpacity>
@@ -168,8 +168,8 @@ export default function MotoristaRelatoriosScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void loadReports(true)}
-            colors={["#028C56"]}
-            tintColor="#028C56"
+            colors={["#047857"]}
+            tintColor="#047857"
           />
         }
       >
@@ -181,7 +181,7 @@ export default function MotoristaRelatoriosScreen() {
             marginBottom: 16,
           }}
         >
-          <Text style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}>
+          <Text style={{ color: "#111827", fontSize: 16, fontWeight: "700" }}>
             Tipo de ocorrência
           </Text>
 
@@ -198,7 +198,7 @@ export default function MotoristaRelatoriosScreen() {
                     paddingHorizontal: 14,
                     borderRadius: 14,
                     borderWidth: 1,
-                    borderColor: selected ? "#028C56" : "#D1D5DB",
+                    borderColor: selected ? "#047857" : "#D1D5DB",
                     backgroundColor: selected ? "#ECFDF5" : "#FFFFFF",
                     marginBottom: 10,
                   }}
@@ -225,7 +225,7 @@ export default function MotoristaRelatoriosScreen() {
             marginBottom: 16,
           }}
         >
-          <Text style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}>
+          <Text style={{ color: "#111827", fontSize: 16, fontWeight: "700" }}>
             Descrição
           </Text>
 
@@ -255,7 +255,7 @@ export default function MotoristaRelatoriosScreen() {
           disabled={loading}
         >
           <LinearGradient
-            colors={["#059669", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -273,7 +273,7 @@ export default function MotoristaRelatoriosScreen() {
                 style={{
                   color: "#FFFFFF",
                   fontSize: 16,
-                  fontWeight: "800",
+                  fontWeight: "700",
                 }}
               >
                 ENVIAR RELATÓRIO
@@ -290,7 +290,7 @@ export default function MotoristaRelatoriosScreen() {
             padding: 16,
           }}
         >
-          <Text style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}>
+          <Text style={{ color: "#111827", fontSize: 16, fontWeight: "700" }}>
             Últimos relatórios
           </Text>
 
@@ -304,7 +304,7 @@ export default function MotoristaRelatoriosScreen() {
 
           {listLoading ? (
             <View style={{ paddingVertical: 18 }}>
-              <ActivityIndicator color="#028C56" />
+              <ActivityIndicator color="#047857" />
             </View>
           ) : reports.length === 0 ? (
             <Text style={{ color: "#6B7280", marginTop: 12 }}>
@@ -322,7 +322,7 @@ export default function MotoristaRelatoriosScreen() {
                   padding: 12,
                 }}
               >
-                <Text style={{ color: "#028C56", fontWeight: "800" }}>
+                <Text style={{ color: "#047857", fontWeight: "700" }}>
                   {formatReportType(report.type)}
                 </Text>
                 <Text

@@ -86,7 +86,7 @@ export default function FleetScreen() {
   const getStatusColor = (status: VehicleStatusCard) => {
     switch (status) {
       case "ativo":
-        return "#028C56";
+        return "#047857";
       case "manutencao":
         return "#DC2626";
       case "inativo":
@@ -112,7 +112,7 @@ export default function FleetScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -143,7 +143,7 @@ export default function FleetScreen() {
       >
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 50 }}>
-            <ActivityIndicator size="large" color="#028C56" />
+            <ActivityIndicator size="large" color="#047857" />
             <Text style={{ marginTop: 12, color: "#6B7280" }}>
               Carregando frota...
             </Text>
@@ -173,7 +173,7 @@ export default function FleetScreen() {
                   Ativos
                 </Text>
                 <Text
-                  style={{ fontSize: 24, fontWeight: "800", color: "#028C56" }}
+                  style={{ fontSize: 24, fontWeight: "700", color: "#047857" }}
                 >
                   {summary.ativos}
                 </Text>
@@ -195,7 +195,7 @@ export default function FleetScreen() {
                   Manutenção
                 </Text>
                 <Text
-                  style={{ fontSize: 24, fontWeight: "800", color: "#DC2626" }}
+                  style={{ fontSize: 24, fontWeight: "700", color: "#DC2626" }}
                 >
                   {summary.manutencao}
                 </Text>
@@ -216,7 +216,7 @@ export default function FleetScreen() {
                   Inativos
                 </Text>
                 <Text
-                  style={{ fontSize: 24, fontWeight: "800", color: "#CA8A04" }}
+                  style={{ fontSize: 24, fontWeight: "700", color: "#CA8A04" }}
                 >
                   {summary.inativos}
                 </Text>
@@ -236,7 +236,7 @@ export default function FleetScreen() {
                 Total de Resíduos Coletados
               </Text>
               <Text
-                style={{ fontSize: 36, fontWeight: "800", color: "#028C56" }}
+                style={{ fontSize: 36, fontWeight: "700", color: "#047857" }}
               >
                 {summary.totalColetado} kg
               </Text>
@@ -352,7 +352,7 @@ export default function FleetScreen() {
                         style={{
                           fontSize: 20,
                           fontWeight: "700",
-                          color: "#028C56",
+                          color: "#047857",
                         }}
                       >
                         {vehicle.totalColetado || 0} kg
@@ -395,15 +395,15 @@ export default function FleetScreen() {
                 marginTop: 10,
                 marginBottom: 30,
                 borderWidth: 1,
-                borderColor: "#028C56",
+                borderColor: "#047857",
                 borderStyle: "dashed",
               }}
             >
-              <Ionicons name="add-circle-outline" size={24} color="#028C56" />
+              <Ionicons name="add-circle-outline" size={24} color="#047857" />
               <Text
                 style={{
                   fontSize: 16,
-                  color: "#028C56",
+                  color: "#047857",
                   fontWeight: "600",
                   marginLeft: 8,
                 }}

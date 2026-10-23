@@ -137,7 +137,7 @@ export default function RotasScreen() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 12, color: "#6B7280" }}>
           Carregando rotas...
         </Text>
@@ -148,7 +148,7 @@ export default function RotasScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -174,7 +174,7 @@ export default function RotasScreen() {
             style={{
               color: "#FFFFFF",
               fontSize: 18,
-              fontWeight: "800",
+              fontWeight: "700",
             }}
           >
             ROTAS
@@ -189,7 +189,7 @@ export default function RotasScreen() {
           style={{
             color: "#FFFFFF",
             fontSize: 24,
-            fontWeight: "800",
+            fontWeight: "700",
             marginTop: 16,
           }}
         >
@@ -229,7 +229,7 @@ export default function RotasScreen() {
           <Text
             style={{
               fontSize: 16,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#111827",
               marginBottom: 14,
             }}
@@ -290,7 +290,7 @@ export default function RotasScreen() {
             onPress={() => router.push("/(cooperativa)/rotas/novo")}
             style={{
               flex: 1,
-              backgroundColor: "#028C56",
+              backgroundColor: "#047857",
               borderRadius: 16,
               paddingVertical: 14,
               alignItems: "center",
@@ -302,7 +302,7 @@ export default function RotasScreen() {
             <Text
               style={{
                 color: "#FFFFFF",
-                fontWeight: "800",
+                fontWeight: "700",
                 marginLeft: 8,
               }}
             >
@@ -425,7 +425,7 @@ export default function RotasScreen() {
                   <Text
                     style={{
                       fontSize: 17,
-                      fontWeight: "800",
+                      fontWeight: "700",
                       color: "#111827",
                     }}
                   >
@@ -456,7 +456,7 @@ export default function RotasScreen() {
                     style={{
                       color: "#FFFFFF",
                       fontSize: 10,
-                      fontWeight: "800",
+                      fontWeight: "700",
                     }}
                   >
                     {getStatusLabel(item.status)}
@@ -618,7 +618,7 @@ function MetricCard({
         style={{
           marginTop: 6,
           fontSize: 20,
-          fontWeight: "800",
+          fontWeight: "700",
           color,
         }}
       >
@@ -658,7 +658,7 @@ function MiniStat({
         style={{
           marginTop: 4,
           fontSize: 16,
-          fontWeight: "800",
+          fontWeight: "700",
           color,
         }}
       >
@@ -716,12 +716,12 @@ function FilterChip({
     <TouchableOpacity
       onPress={onPress}
       style={{
-        backgroundColor: active ? "#028C56" : "#FFFFFF",
+        backgroundColor: active ? "#047857" : "#FFFFFF",
         borderRadius: 999,
         paddingHorizontal: 14,
         paddingVertical: 10,
         borderWidth: 1,
-        borderColor: active ? "#028C56" : "#E5E7EB",
+        borderColor: active ? "#047857" : "#E5E7EB",
       }}
     >
       <Text

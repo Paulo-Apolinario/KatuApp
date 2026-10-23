@@ -20,11 +20,11 @@ export default function GradientButton({ title, icon, onPress }: Props) {
       }}
     >
       <LinearGradient
-        colors={["#1EF07A", "#069C63"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          minHeight: 86,
+          minHeight: 64,
           paddingHorizontal: 18,
           flexDirection: "row",
           alignItems: "center",
@@ -35,7 +35,7 @@ export default function GradientButton({ title, icon, onPress }: Props) {
         <Text
           style={{
             color: "#FFFFFF",
-            fontSize: 18,
+            fontSize: 15,
             fontWeight: "700",
             flex: 1,
             paddingRight: 12,
@@ -44,7 +44,7 @@ export default function GradientButton({ title, icon, onPress }: Props) {
           {title}
         </Text>
 
-        <Ionicons name={icon} size={30} color="#FFFFFF" />
+        <Ionicons name={icon} size={24} color="#FFFFFF" />
       </LinearGradient>
     </TouchableOpacity>
   );

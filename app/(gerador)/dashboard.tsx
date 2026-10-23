@@ -236,14 +236,12 @@ function getCollectionBadgeColor(status: CollectionStatus) {
   return colors[status] || "#64748B";
 }
 
-function getRequestedMaterialName(
-  material: ScheduleRequestedMaterialRecord
-) {
+function getRequestedMaterialName(material: ScheduleRequestedMaterialRecord) {
   return material.nameSnapshot || "Material";
 }
 
 function formatRequestedMaterials(
-  materials?: ScheduleRequestedMaterialRecord[]
+  materials?: ScheduleRequestedMaterialRecord[],
 ) {
   if (!Array.isArray(materials) || materials.length === 0) {
     return "Nenhum material informado";
@@ -270,12 +268,10 @@ function formatCollectionMaterials(collection: Collection) {
     return collection.collectionMaterials
       .map((material) => {
         const name =
-          material.nameSnapshot ||
-          material.wasteType?.name ||
-          "Material";
+          material.nameSnapshot || material.wasteType?.name || "Material";
 
         return `${name}: ${formatNumber(material.quantity)} ${formatUnit(
-          material.unit
+          material.unit,
         )}`;
       })
       .join(", ");
@@ -362,7 +358,7 @@ export default function GeneratorDashboardScreen() {
 
         setSchedules(Array.isArray(scheduleResponse) ? scheduleResponse : []);
         setCollections(
-          Array.isArray(collectionResponse) ? collectionResponse : []
+          Array.isArray(collectionResponse) ? collectionResponse : [],
         );
       } catch (error) {
         console.error("Erro ao carregar dashboard do gerador:", error);
@@ -370,7 +366,7 @@ export default function GeneratorDashboardScreen() {
         notifyError(
           error instanceof Error
             ? error.message
-            : "Não foi possível carregar o dashboard."
+            : "Não foi possível carregar o dashboard.",
         );
       } finally {
         if (showLoader) {
@@ -380,40 +376,40 @@ export default function GeneratorDashboardScreen() {
         setRefreshing(false);
       }
     },
-    [notifyError]
+    [notifyError],
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadDashboard(true);
-    }, [loadDashboard])
+    }, [loadDashboard]),
   );
 
   const metrics = useMemo<DashboardMetrics>(() => {
     const openSchedules = schedules.filter((schedule) =>
-      ACTIVE_SCHEDULE_STATUSES.includes(schedule.status)
+      ACTIVE_SCHEDULE_STATUSES.includes(schedule.status),
     );
 
     const completedCollections = collections.filter(
-      (collection) => collection.status === "COMPLETED"
+      (collection) => collection.status === "COMPLETED",
     );
 
     const activeCollections = collections.filter((collection) =>
-      ACTIVE_COLLECTION_STATUSES.includes(collection.status)
+      ACTIVE_COLLECTION_STATUSES.includes(collection.status),
     );
 
     const totalKg = completedCollections.reduce(
       (total, collection) => total + Number(collection.totalWeightKg || 0),
-      0
+      0,
     );
 
     const nextSchedules = [...openSchedules]
       .sort((first, second) => {
         const firstTime = new Date(
-          getScheduleReferenceDate(first) || 0
+          getScheduleReferenceDate(first) || 0,
         ).getTime();
         const secondTime = new Date(
-          getScheduleReferenceDate(second) || 0
+          getScheduleReferenceDate(second) || 0,
         ).getTime();
 
         return firstTime - secondTime;
@@ -423,10 +419,10 @@ export default function GeneratorDashboardScreen() {
     const recentCollections = [...collections]
       .sort((first, second) => {
         const firstTime = new Date(
-          getCollectionReferenceDate(first) || 0
+          getCollectionReferenceDate(first) || 0,
         ).getTime();
         const secondTime = new Date(
-          getCollectionReferenceDate(second) || 0
+          getCollectionReferenceDate(second) || 0,
         ).getTime();
 
         return secondTime - firstTime;
@@ -436,14 +432,14 @@ export default function GeneratorDashboardScreen() {
     const latestActiveCollection = [...activeCollections].sort(
       (first, second) => {
         const firstTime = new Date(
-          getCollectionReferenceDate(first) || 0
+          getCollectionReferenceDate(first) || 0,
         ).getTime();
         const secondTime = new Date(
-          getCollectionReferenceDate(second) || 0
+          getCollectionReferenceDate(second) || 0,
         ).getTime();
 
         return secondTime - firstTime;
-      }
+      },
     )[0];
 
     return {
@@ -475,7 +471,7 @@ export default function GeneratorDashboardScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={styles.loadingText}>Carregando dashboard...</Text>
       </View>
     );
@@ -490,13 +486,13 @@ export default function GeneratorDashboardScreen() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor="#028C56"
-          colors={["#028C56"]}
+          tintColor="#047857"
+          colors={["#047857"]}
         />
       }
     >
       <LinearGradient
-        colors={["#16A34A", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -763,7 +759,9 @@ function SectionHeader({
     <View style={styles.sectionHeader}>
       <View style={styles.sectionHeaderTextContainer}>
         <Text style={styles.sectionTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+        {subtitle ? (
+          <Text style={styles.sectionSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
 
       {actionLabel && onAction ? (
@@ -823,7 +821,7 @@ function ScheduleCard({
 
       <View style={styles.detailsLinkRow}>
         <Text style={styles.detailsLinkText}>Ver detalhes</Text>
-        <Ionicons name="arrow-forward" size={16} color="#028C56" />
+        <Ionicons name="arrow-forward" size={16} color="#047857" />
       </View>
     </TouchableOpacity>
   );
@@ -889,7 +887,7 @@ function CollectionCard({
 
       <View style={styles.detailsLinkRow}>
         <Text style={styles.detailsLinkText}>Ver detalhes</Text>
-        <Ionicons name="arrow-forward" size={16} color="#028C56" />
+        <Ionicons name="arrow-forward" size={16} color="#047857" />
       </View>
     </TouchableOpacity>
   );
@@ -902,9 +900,7 @@ function CollectionTimeline({ collection }: { collection: Collection }) {
     <View>
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={() =>
-          navigate("/(gerador)/collection-details", collection.id)
-        }
+        onPress={() => navigate("/(gerador)/collection-details", collection.id)}
         style={styles.timelineSummary}
       >
         <View style={styles.timelineSummaryIcon}>
@@ -916,7 +912,8 @@ function CollectionTimeline({ collection }: { collection: Collection }) {
             Coleta #{collection.id.slice(0, 8).toUpperCase()}
           </Text>
           <Text style={styles.timelineSummarySubtitle}>
-            Atualizada em {formatDateTime(getCollectionReferenceDate(collection))}
+            Atualizada em{" "}
+            {formatDateTime(getCollectionReferenceDate(collection))}
           </Text>
         </View>
 
@@ -975,16 +972,14 @@ function CollectionTimeline({ collection }: { collection: Collection }) {
       })}
 
       <TouchableOpacity
-        onPress={() =>
-          navigate("/(gerador)/collection-details", collection.id)
-        }
+        onPress={() => navigate("/(gerador)/collection-details", collection.id)}
         activeOpacity={0.75}
         style={styles.timelineDetailsButton}
       >
         <Text style={styles.timelineDetailsButtonText}>
           Acompanhar coleta completa
         </Text>
-        <Ionicons name="arrow-forward" size={17} color="#028C56" />
+        <Ionicons name="arrow-forward" size={17} color="#047857" />
       </TouchableOpacity>
     </View>
   );
@@ -1113,7 +1108,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 29,
     lineHeight: 36,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   headerDescription: {
     marginTop: 9,
@@ -1133,7 +1128,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     color: "#FFFFFF",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   headerActionsRow: {
     flexDirection: "row",
@@ -1195,7 +1190,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: "#111827",
     fontSize: 22,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   metricDescription: {
     marginTop: 5,
@@ -1217,7 +1212,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: "#111827",
     fontSize: 18,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   sectionSubtitle: {
     marginTop: 3,
@@ -1225,9 +1220,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   sectionAction: {
-    color: "#028C56",
+    color: "#047857",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   sectionCard: {
     padding: 16,
@@ -1267,7 +1262,7 @@ const styles = StyleSheet.create({
     color: "#111827",
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   listCardIdentifier: {
     marginTop: 2,
@@ -1278,7 +1273,7 @@ const styles = StyleSheet.create({
     marginTop: 13,
     color: "#374151",
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   listCardText: {
     marginTop: 4,
@@ -1300,9 +1295,9 @@ const styles = StyleSheet.create({
   },
   detailsLinkText: {
     marginRight: 5,
-    color: "#028C56",
+    color: "#047857",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   collectionSummaryRow: {
     flexDirection: "row",
@@ -1327,7 +1322,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: "#111827",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   badge: {
     maxWidth: 108,
@@ -1341,7 +1336,7 @@ const styles = StyleSheet.create({
   badgeText: {
     color: "#FFFFFF",
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "700",
     textAlign: "center",
   },
   timelineSummary: {
@@ -1367,7 +1362,7 @@ const styles = StyleSheet.create({
   timelineSummaryTitle: {
     color: "#111827",
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   timelineSummarySubtitle: {
     marginTop: 3,
@@ -1393,8 +1388,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
   },
   timelineDotCompleted: {
-    borderColor: "#16A34A",
-    backgroundColor: "#16A34A",
+    borderColor: "#047857",
+    backgroundColor: "#047857",
   },
   timelineDotCurrent: {
     borderWidth: 3,
@@ -1407,7 +1402,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E2E8F0",
   },
   timelineLineCompleted: {
-    backgroundColor: "#22C55E",
+    backgroundColor: "#047857",
   },
   timelineContent: {
     flex: 1,
@@ -1446,9 +1441,9 @@ const styles = StyleSheet.create({
   },
   timelineDetailsButtonText: {
     marginRight: 7,
-    color: "#028C56",
+    color: "#047857",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   emptyState: {
     alignItems: "center",
@@ -1467,7 +1462,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: "#374151",
     fontSize: 16,
-    fontWeight: "800",
+    fontWeight: "700",
     textAlign: "center",
   },
   emptyStateSubtitle: {
@@ -1482,12 +1477,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: "#028C56",
+    backgroundColor: "#047857",
   },
   emptyStateButtonText: {
     color: "#FFFFFF",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   quickAction: {
     minHeight: 64,
@@ -1518,7 +1513,7 @@ const styles = StyleSheet.create({
   quickActionTitle: {
     color: "#111827",
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   quickActionSubtitle: {
     marginTop: 2,

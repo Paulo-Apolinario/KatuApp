@@ -237,7 +237,7 @@ function ExecutiveMetricCard({
           style={{
             marginTop: 4,
             fontSize: 26,
-            fontWeight: "900",
+            fontWeight: "700",
             color: "#0F172A",
           }}
         >
@@ -283,7 +283,7 @@ function SectionHeader({
         <Text
           style={{
             fontSize: 20,
-            fontWeight: "900",
+            fontWeight: "700",
             color: "#0F172A",
           }}
         >
@@ -306,8 +306,8 @@ function SectionHeader({
         <TouchableOpacity onPress={onPress}>
           <Text
             style={{
-              color: "#028C56",
-              fontWeight: "900",
+              color: "#047857",
+              fontWeight: "700",
               fontSize: 12,
             }}
           >
@@ -340,7 +340,7 @@ function EmptyState({
       <Text
         style={{
           fontSize: 16,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
           marginTop: 10,
           textAlign: "center",
@@ -376,7 +376,7 @@ function Badge({ label, color }: { label: string; color: string }) {
       <Text
         style={{
           color: "#FFFFFF",
-          fontWeight: "900",
+          fontWeight: "700",
           fontSize: 11,
         }}
       >
@@ -561,7 +561,7 @@ export default function CooperativeDashboardScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando dashboard...
         </Text>
@@ -579,7 +579,7 @@ export default function CooperativeDashboardScreen() {
       contentContainerStyle={{ paddingBottom: 30 }}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -605,7 +605,7 @@ export default function CooperativeDashboardScreen() {
               style={{
                 color: "#FFFFFF",
                 fontSize: 28,
-                fontWeight: "900",
+                fontWeight: "700",
                 marginTop: 4,
               }}
             >
@@ -725,7 +725,7 @@ export default function CooperativeDashboardScreen() {
             value={String(dashboardMetrics.driversAvailable)}
             subtitle="Equipe pronta para entrar em rota"
             icon="people-outline"
-            color="#028C56"
+            color="#047857"
             backgroundColor="#EAF8F3"
           />
           <ExecutiveMetricCard
@@ -802,7 +802,7 @@ export default function CooperativeDashboardScreen() {
                     <Text
                       style={{
                         fontSize: 16,
-                        fontWeight: "900",
+                        fontWeight: "700",
                         color: "#0F172A",
                       }}
                     >
@@ -896,7 +896,7 @@ export default function CooperativeDashboardScreen() {
                     <Text
                       style={{
                         fontSize: 16,
-                        fontWeight: "900",
+                        fontWeight: "700",
                         color: "#0F172A",
                       }}
                     >
@@ -1001,7 +1001,7 @@ export default function CooperativeDashboardScreen() {
                     <Text
                       style={{
                         fontSize: 16,
-                        fontWeight: "900",
+                        fontWeight: "700",
                         color: "#0F172A",
                       }}
                     >
@@ -1112,7 +1112,7 @@ export default function CooperativeDashboardScreen() {
             title="Home"
             subtitle="Painel operacional"
             icon="home-outline"
-            color="#028C56"
+            color="#047857"
             backgroundColor="#EAF8F3"
             borderColor="#BDE8D7"
             onPress={() => router.push("/(cooperativa)/home")}
@@ -1175,7 +1175,7 @@ function QuickActionCard({
           style={{
             color,
             fontSize: 14,
-            fontWeight: "900",
+            fontWeight: "700",
           }}
         >
           {title}

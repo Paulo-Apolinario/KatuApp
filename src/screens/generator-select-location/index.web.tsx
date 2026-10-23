@@ -141,7 +141,7 @@ export default function GeneratorSelectLocationWebScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -161,7 +161,7 @@ export default function GeneratorSelectLocationWebScreen() {
           </TouchableOpacity>
 
           <View style={{ flex: 1 }}>
-            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "900" }}>
+            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "700" }}>
               SELECIONAR LOCALIZAÇÃO
             </Text>
             <Text style={{ color: "#E8FFF1", marginTop: 4 }}>
@@ -285,7 +285,7 @@ export default function GeneratorSelectLocationWebScreen() {
             marginTop: 16,
             borderRadius: 14,
             borderWidth: 1,
-            borderColor: "#028C56",
+            borderColor: "#047857",
             paddingVertical: 14,
             alignItems: "center",
             backgroundColor: "#F0FDF4",
@@ -300,9 +300,9 @@ export default function GeneratorSelectLocationWebScreen() {
             </Text>
           )}
           {loadingLocation ? (
-            <ActivityIndicator color="#028C56" />
+            <ActivityIndicator color="#047857" />
           ) : (
-            <Text style={{ color: "#028C56", fontWeight: "800", fontSize: 15 }}>
+            <Text style={{ color: "#047857", fontWeight: "700", fontSize: 15 }}>
               USAR MINHA LOCALIZAÇÃO
             </Text>
           )}
@@ -317,7 +317,7 @@ export default function GeneratorSelectLocationWebScreen() {
           }}
         >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -325,7 +325,7 @@ export default function GeneratorSelectLocationWebScreen() {
               alignItems: "center",
             }}
           >
-            <Text style={{ color: "#FFFFFF", fontWeight: "900", fontSize: 15 }}>
+            <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>
               CONFIRMAR LOCALIZAÇÃO
             </Text>
           </LinearGradient>

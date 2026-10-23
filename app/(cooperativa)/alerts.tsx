@@ -135,7 +135,7 @@ export default function AlertsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -165,7 +165,7 @@ export default function AlertsScreen() {
               resizeMode="contain"
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
-            <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
+            <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>
               KATUÁ
             </Text>
           </View>
@@ -208,7 +208,7 @@ export default function AlertsScreen() {
               marginBottom: 15,
             }}
           >
-            <Ionicons name="person-circle-outline" size={40} color="#028C56" />
+            <Ionicons name="person-circle-outline" size={40} color="#047857" />
             <View style={{ marginLeft: 12 }}>
               <Text
                 style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}
@@ -232,7 +232,7 @@ export default function AlertsScreen() {
             <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
               TOTAL DE ALERTAS
             </Text>
-            <Text style={{ fontSize: 36, fontWeight: "800", color: "#028C56" }}>
+            <Text style={{ fontSize: 36, fontWeight: "700", color: "#047857" }}>
               {totalLixo}
             </Text>
           </View>
@@ -251,7 +251,7 @@ export default function AlertsScreen() {
 
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 40 }}>
-            <ActivityIndicator size="large" color="#028C56" />
+            <ActivityIndicator size="large" color="#047857" />
             <Text style={{ marginTop: 12, color: "#6B7280" }}>
               Carregando alertas...
             </Text>

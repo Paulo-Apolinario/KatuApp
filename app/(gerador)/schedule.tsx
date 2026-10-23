@@ -465,7 +465,7 @@ export default function GeneratorScheduleScreen() {
       }}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{
           x: 0,
           y: 0,
@@ -485,7 +485,7 @@ export default function GeneratorScheduleScreen() {
         <Text
           style={{
             fontSize: 24,
-            fontWeight: "800",
+            fontWeight: "700",
             color: "#FFFFFF",
           }}
         >
@@ -567,7 +567,7 @@ export default function GeneratorScheduleScreen() {
                 alignItems: "center",
               }}
             >
-              <ActivityIndicator color="#028C56" />
+              <ActivityIndicator color="#047857" />
               <Text
                 style={{
                   marginTop: 8,
@@ -730,7 +730,7 @@ export default function GeneratorScheduleScreen() {
                         selected ? "checkmark-circle" : "add-circle-outline"
                       }
                       size={24}
-                      color="#028C56"
+                      color="#047857"
                     />
                   </TouchableOpacity>
                 );
@@ -761,17 +761,17 @@ export default function GeneratorScheduleScreen() {
               paddingVertical: 12,
               borderRadius: 12,
               borderWidth: 1,
-              borderColor: "#028C56",
+              borderColor: "#047857",
               alignItems: "center",
               flexDirection: "row",
               justifyContent: "center",
             }}
           >
-            <Ionicons name="create-outline" size={18} color="#028C56" />
+            <Ionicons name="create-outline" size={18} color="#047857" />
             <Text
               style={{
                 marginLeft: 8,
-                color: "#028C56",
+                color: "#047857",
                 fontWeight: "700",
               }}
             >
@@ -901,7 +901,7 @@ export default function GeneratorScheduleScreen() {
                     flex: 1,
                     height: 44,
                     borderRadius: 10,
-                    backgroundColor: "#028C56",
+                    backgroundColor: "#047857",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
@@ -961,7 +961,7 @@ export default function GeneratorScheduleScreen() {
                     <Text
                       style={{
                         fontSize: 15,
-                        fontWeight: "800",
+                        fontWeight: "700",
                         color: "#111827",
                       }}
                     >
@@ -1043,7 +1043,7 @@ export default function GeneratorScheduleScreen() {
           onPress={handleSchedule}
         >
           <LinearGradient
-            colors={["#059669", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{
               x: 0,
               y: 0,
@@ -1069,7 +1069,7 @@ export default function GeneratorScheduleScreen() {
                     marginLeft: 8,
                     color: "#FFFFFF",
                     fontSize: 17,
-                    fontWeight: "800",
+                    fontWeight: "700",
                   }}
                 >
                   Enviando...
@@ -1081,7 +1081,7 @@ export default function GeneratorScheduleScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 17,
-                    fontWeight: "800",
+                    fontWeight: "700",
                   }}
                 >
                   Solicitar coleta
@@ -1154,7 +1154,7 @@ function SectionCard({
           style={{
             flex: 1,
             fontSize: 17,
-            fontWeight: "800",
+            fontWeight: "700",
             color: "#111827",
           }}
         >
@@ -1194,9 +1194,9 @@ function UnitSelector({
               paddingVertical: 9,
               borderRadius: 18,
               marginRight: 8,
-              backgroundColor: selected ? "#028C56" : "#FFFFFF",
+              backgroundColor: selected ? "#047857" : "#FFFFFF",
               borderWidth: 1,
-              borderColor: selected ? "#028C56" : "#D1D5DB",
+              borderColor: selected ? "#047857" : "#D1D5DB",
             }}
           >
             <Text

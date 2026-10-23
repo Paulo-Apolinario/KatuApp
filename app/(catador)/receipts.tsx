@@ -33,6 +33,8 @@ type AuthUser = {
   cpf?: string;
   city?: string;
   location?: string;
+  cooperative?: { name?: string };
+  collector?: { cooperative?: { name?: string } };
 };
 
 function formatDate(value?: string | null) {
@@ -137,6 +139,22 @@ export default function ReceiptsScreen() {
       phone: currentUser?.phone || "",
       email: currentUser?.email || "",
       code: currentUser?.id || currentUser?.uid || "",
+      collectionCount: receiptsOrdenados.length,
+      cooperativeName:
+        currentUser?.collector?.cooperative?.name ||
+        currentUser?.cooperative?.name,
+      periodStart: receiptsOrdenados.length
+        ? formatDate(
+            receiptsOrdenados.at(-1)?.collectedAt ||
+              receiptsOrdenados.at(-1)?.createdAt,
+          )
+        : undefined,
+      periodEnd: receiptsOrdenados.length
+        ? formatDate(
+            receiptsOrdenados[0]?.collectedAt ||
+              receiptsOrdenados[0]?.createdAt,
+          )
+        : undefined,
       totalKg: receiptsOrdenados.reduce(
         (acc, item) => acc + getCollectionTotalKg(item),
         0,
@@ -216,7 +234,7 @@ export default function ReceiptsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -261,7 +279,7 @@ export default function ReceiptsScreen() {
       >
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 40 }}>
-            <ActivityIndicator size="large" color="#028C56" />
+            <ActivityIndicator size="large" color="#047857" />
             <Text style={{ marginTop: 10, color: "#6B7280" }}>
               Carregando comprovantes...
             </Text>
@@ -279,7 +297,7 @@ export default function ReceiptsScreen() {
               }}
             >
               <Text
-                style={{ color: "#111827", fontWeight: "800", fontSize: 14 }}
+                style={{ color: "#111827", fontWeight: "700", fontSize: 14 }}
               >
                 {isWeb ? "Modo Web" : "Modo Aplicativo"}
               </Text>
@@ -301,7 +319,7 @@ export default function ReceiptsScreen() {
                 padding: 20,
                 marginBottom: 25,
                 borderWidth: 2,
-                borderColor: "#028C56",
+                borderColor: "#047857",
                 opacity: loadingReceipt === "full" ? 0.7 : 1,
               }}
             >
@@ -320,12 +338,12 @@ export default function ReceiptsScreen() {
                     flex: 1,
                   }}
                 >
-                  <Ionicons name="document-text" size={24} color="#028C56" />
+                  <Ionicons name="document-text" size={24} color="#047857" />
                   <Text
                     style={{
                       fontSize: 18,
                       fontWeight: "700",
-                      color: "#028C56",
+                      color: "#047857",
                       marginLeft: 10,
                       flexShrink: 1,
                     }}
@@ -335,12 +353,12 @@ export default function ReceiptsScreen() {
                 </View>
 
                 {loadingReceipt === "full" ? (
-                  <ActivityIndicator size="small" color="#028C56" />
+                  <ActivityIndicator size="small" color="#047857" />
                 ) : (
                   <Ionicons
                     name={isWeb ? "print-outline" : "share-social-outline"}
                     size={24}
-                    color="#028C56"
+                    color="#047857"
                   />
                 )}
               </View>
@@ -429,7 +447,7 @@ export default function ReceiptsScreen() {
                           style={{
                             fontSize: 16,
                             fontWeight: "700",
-                            color: "#028C56",
+                            color: "#047857",
                           }}
                         >
                           {getCollectionTotalKg(receipt).toFixed(1)} kg
@@ -512,7 +530,7 @@ export default function ReceiptsScreen() {
                         onPress={() => handleGenerateReceipt(receipt)}
                         disabled={loadingReceipt === receipt.id}
                         style={{
-                          backgroundColor: "#028C56",
+                          backgroundColor: "#047857",
                           borderRadius: 10,
                           padding: 12,
                           alignItems: "center",
@@ -594,7 +612,7 @@ export default function ReceiptsScreen() {
               onPress={handleGenerateFullReceipt}
               disabled={loadingReceipt === "full"}
               style={{
-                backgroundColor: "#028C56",
+                backgroundColor: "#047857",
                 borderRadius: 10,
                 padding: 16,
                 alignItems: "center",

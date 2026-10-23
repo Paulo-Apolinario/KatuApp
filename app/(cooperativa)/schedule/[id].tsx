@@ -73,7 +73,7 @@ function getStatusColor(status?: string) {
     case "IN_PROGRESS":
       return "#8B5CF6";
     case "COMPLETED":
-      return "#028C56";
+      return "#047857";
     case "CANCELLED":
       return "#DC2626";
     default:
@@ -332,7 +332,7 @@ export default function CooperativeScheduleDetailScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 12, color: "#6B7280" }}>
           Carregando agendamento...
         </Text>
@@ -367,7 +367,7 @@ export default function CooperativeScheduleDetailScreen() {
           onPress={() => router.back()}
           style={{
             marginTop: 16,
-            backgroundColor: "#028C56",
+            backgroundColor: "#047857",
             paddingHorizontal: 18,
             paddingVertical: 12,
             borderRadius: 12,
@@ -389,7 +389,7 @@ export default function CooperativeScheduleDetailScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         style={{
           paddingTop: 20,
           paddingBottom: 24,
@@ -419,7 +419,7 @@ export default function CooperativeScheduleDetailScreen() {
             style={{
               color: "#FFFFFF",
               fontSize: 26,
-              fontWeight: "800",
+              fontWeight: "700",
               marginTop: 4,
             }}
           >
@@ -483,7 +483,7 @@ export default function CooperativeScheduleDetailScreen() {
                   alignSelf: "flex-start",
                 }}
               >
-                <Text style={{ color: "#028C56", fontWeight: "700" }}>
+                <Text style={{ color: "#047857", fontWeight: "700" }}>
                   {material}
                 </Text>
               </View>
@@ -520,7 +520,7 @@ export default function CooperativeScheduleDetailScreen() {
                         borderRadius: 14,
                         padding: 14,
                         borderWidth: 1,
-                        borderColor: selected ? "#028C56" : "#D1D5DB",
+                        borderColor: selected ? "#047857" : "#D1D5DB",
                         marginBottom: 10,
                       }}
                     >
@@ -713,7 +713,7 @@ export default function CooperativeScheduleDetailScreen() {
                 availableRoutes.length > 0 && (
                   <ActionButton
                     label="Delegar operação completa"
-                    color="#028C56"
+                    color="#047857"
                     onPress={handleDelegate}
                     loading={delegating}
                   />
@@ -823,7 +823,7 @@ function ActionButton({
       {loading ? (
         <ActivityIndicator color="#FFFFFF" />
       ) : (
-        <Text style={{ color: "#FFFFFF", fontWeight: "800", fontSize: 15 }}>
+        <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>
           {label.toUpperCase()}
         </Text>
       )}

@@ -675,7 +675,7 @@ export default function CollectorDashboardScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
 
         <Text
           style={{
@@ -711,7 +711,7 @@ export default function CollectorDashboardScreen() {
         }}
       >
         <LinearGradient
-          colors={["#16A34A", "#22C55E"]}
+          colors={["#123C35", "#17694F"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={{
@@ -748,7 +748,7 @@ export default function CollectorDashboardScreen() {
                 style={{
                   color: "#FFFFFF",
                   fontSize: 29,
-                  fontWeight: "800",
+                  fontWeight: "700",
                   marginTop: 5,
                 }}
               >
@@ -773,7 +773,7 @@ export default function CollectorDashboardScreen() {
               <Text
                 style={{
                   color: "#FFFFFF",
-                  fontWeight: "800",
+                  fontWeight: "700",
                   marginLeft: 6,
                   fontSize: 13,
                 }}
@@ -1099,7 +1099,7 @@ function SectionHeader({
       <Text
         style={{
           fontSize: 18,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
         }}
       >
@@ -1171,7 +1171,7 @@ function StatusCard({
         <Text
           style={{
             fontSize: 25,
-            fontWeight: "900",
+            fontWeight: "700",
             color,
           }}
         >
@@ -1309,7 +1309,7 @@ function MetricCard({
         style={{
           marginTop: 4,
           fontSize: 22,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
         }}
       >
@@ -1399,7 +1399,7 @@ function MaterialRankingRow({
           <Text
             style={{
               color: "#15803D",
-              fontWeight: "900",
+              fontWeight: "700",
             }}
           >
             {position}
@@ -1435,7 +1435,7 @@ function MaterialRankingRow({
         <Text
           style={{
             color: "#15803D",
-            fontWeight: "900",
+            fontWeight: "700",
             fontSize: 15,
           }}
         >
@@ -1457,7 +1457,7 @@ function MaterialRankingRow({
             width: `${Math.min(item.percentage, 100)}%`,
             height: "100%",
             borderRadius: 999,
-            backgroundColor: "#22C55E",
+            backgroundColor: "#047857",
           }}
         />
       </View>
@@ -1529,7 +1529,7 @@ function TimelineRow({
           <Text
             style={{
               color: item.completed ? "#111827" : "#6B7280",
-              fontWeight: "800",
+              fontWeight: "700",
               fontSize: 15,
               flex: 1,
               paddingRight: 8,
@@ -1627,7 +1627,7 @@ function RecentCollectionCard({
           <Text
             style={{
               fontSize: 15,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#111827",
             }}
           >

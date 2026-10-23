@@ -119,7 +119,7 @@ export default function GrandeGeradorScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -147,7 +147,7 @@ export default function GrandeGeradorScreen() {
               resizeMode="contain"
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
-            <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
+            <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>
               KATUÁ
             </Text>
           </View>
@@ -190,7 +190,7 @@ export default function GrandeGeradorScreen() {
             <Text style={{ fontSize: 12, color: "#4B5563" }}>
               Total Coletado
             </Text>
-            <Text style={{ fontSize: 20, fontWeight: "700", color: "#028C56" }}>
+            <Text style={{ fontSize: 20, fontWeight: "700", color: "#047857" }}>
               {totalKg} kg
             </Text>
           </View>
@@ -242,7 +242,7 @@ export default function GrandeGeradorScreen() {
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {[
-              { label: "TODOS", value: "todos", color: "#028C56" },
+              { label: "TODOS", value: "todos", color: "#047857" },
               { label: "ATIVOS", value: "ativo", color: "#10B981" },
               { label: "PENDENTES", value: "pendente", color: "#F59E0B" },
               { label: "INATIVOS", value: "inativo", color: "#6B7280" },
@@ -283,7 +283,7 @@ export default function GrandeGeradorScreen() {
         >
           {loading ? (
             <View style={{ alignItems: "center", paddingVertical: 40 }}>
-              <ActivityIndicator size="large" color="#028C56" />
+              <ActivityIndicator size="large" color="#047857" />
               <Text style={{ marginTop: 10, color: "#6B7280" }}>
                 Carregando geradores...
               </Text>
@@ -417,11 +417,11 @@ export default function GrandeGeradorScreen() {
                   </View>
 
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Ionicons name="trash-outline" size={14} color="#028C56" />
+                    <Ionicons name="trash-outline" size={14} color="#047857" />
                     <Text
                       style={{
                         fontSize: 14,
-                        color: "#028C56",
+                        color: "#047857",
                         fontWeight: "700",
                         marginLeft: 4,
                       }}

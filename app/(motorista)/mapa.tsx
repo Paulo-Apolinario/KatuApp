@@ -83,7 +83,7 @@ function InfoCard({
           marginBottom: 10,
         }}
       >
-        <Text style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}>
+        <Text style={{ color: "#111827", fontSize: 16, fontWeight: "700" }}>
           {title}
         </Text>
         {rightAction}
@@ -390,16 +390,22 @@ export default function MotoristaMapaScreen() {
   const handleFocusSelectedRoute = useCallback(() => {
     if (selectedRoute?.collections?.length) {
       const firstCollection = selectedRoute.collections[0] ?? null;
+      setSelectedMapPoint(firstCollection?.id ?? null);
       setSelectedCollection(firstCollection);
     }
   }, [selectedRoute]);
 
+  const [focusRequest, setFocusRequest] = useState(0);
+  const [selectedMapPoint, setSelectedMapPoint] = useState<string | null>(null);
   const handleFocusAll = useCallback(() => {
+    setFocusRequest((n) => n + 1);
+    setSelectedMapPoint(null);
     setSelectedCollection(null);
   }, []);
 
   const handleSelectCollection = useCallback(
     async (collection: Collection | null) => {
+      setSelectedMapPoint(collection?.id ?? null);
       setSelectedCollection(collection);
 
       if (collection?.routeId) {
@@ -416,6 +422,7 @@ export default function MotoristaMapaScreen() {
     try {
       const detail = await routeService.getById(route.id);
       setSelectedRoute(detail);
+      setSelectedMapPoint(detail.collections?.[0]?.id ?? null);
       setSelectedCollection(detail.collections?.[0] ?? null);
     } catch {
       setSelectedRoute(route);
@@ -436,7 +443,7 @@ export default function MotoristaMapaScreen() {
           backgroundColor: "#F8FAFC",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
           Carregando dados do mapa...
         </Text>
@@ -453,6 +460,8 @@ export default function MotoristaMapaScreen() {
         rightAction={
           <TouchableOpacity
             onPress={() => void loadMapData(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Atualizar mapa"
             style={{
               width: 42,
               height: 42,
@@ -477,8 +486,8 @@ export default function MotoristaMapaScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void loadMapData(true)}
-            colors={["#028C56"]}
-            tintColor="#028C56"
+            colors={["#047857"]}
+            tintColor="#047857"
           />
         }
       >
@@ -523,6 +532,7 @@ export default function MotoristaMapaScreen() {
           }}
         >
           <OperationalMap
+            focusRequest={focusRequest}
             baseLabel={
               currentLocation
                 ? "Minha posição"
@@ -544,21 +554,29 @@ export default function MotoristaMapaScreen() {
               longitude: item.longitude,
               title: item.title,
               description: item.description,
+              kind: item.type,
               color:
                 item.type === "driver"
                   ? "#2563EB"
                   : item.type === "cooperative"
-                    ? "#028C56"
+                    ? "#047857"
                     : selectedCollection?.id === item.id
                       ? "#111827"
                       : "#F59E0B",
             }))}
             routeCoordinates={polylineCoordinates}
-            selectedPointId={selectedCollection?.id ?? null}
+            selectedPointId={selectedMapPoint ?? selectedCollection?.id ?? null}
             onSelectPoint={(pointId: string) => {
-              if (pointId === "__base__") return;
+              setSelectedMapPoint(pointId === "__base__" ? null : pointId);
+              if (pointId === "__base__") {
+                setSelectedCollection(null);
+                return;
+              }
 
-              if (pointId === driverMarker?.id) {
+              if (
+                pointId === driverMarker?.id ||
+                pointId === cooperativeMarker?.id
+              ) {
                 setSelectedCollection(null);
                 return;
               }
@@ -587,8 +605,8 @@ export default function MotoristaMapaScreen() {
               borderRadius: 12,
             }}
           >
-            <Text style={{ color: "#047857", fontWeight: "800" }}>
-              VER TODOS OS PONTOS
+            <Text style={{ color: "#047857", fontWeight: "700" }}>
+              Mostrar todos os pontos
             </Text>
           </TouchableOpacity>
 
@@ -601,8 +619,8 @@ export default function MotoristaMapaScreen() {
               borderRadius: 12,
             }}
           >
-            <Text style={{ color: "#065F46", fontWeight: "800" }}>
-              FOCAR ROTA
+            <Text style={{ color: "#065F46", fontWeight: "700" }}>
+              Primeira coleta da rota
             </Text>
           </TouchableOpacity>
         </View>
@@ -654,7 +672,7 @@ export default function MotoristaMapaScreen() {
                     backgroundColor: isSelected ? "#F0FDF4" : "#FFFFFF",
                   }}
                 >
-                  <Text style={{ color: "#111827", fontWeight: "800" }}>
+                  <Text style={{ color: "#111827", fontWeight: "700" }}>
                     {route.name}
                   </Text>
 
@@ -684,14 +702,14 @@ export default function MotoristaMapaScreen() {
                 }
               >
                 <Text
-                  style={{ color: "#028C56", fontWeight: "800", fontSize: 12 }}
+                  style={{ color: "#047857", fontWeight: "700", fontSize: 12 }}
                 >
                   VER TELA
                 </Text>
               </TouchableOpacity>
             }
           >
-            <Text style={{ color: "#111827", fontWeight: "800", fontSize: 15 }}>
+            <Text style={{ color: "#111827", fontWeight: "700", fontSize: 15 }}>
               {selectedRoute.name}
             </Text>
 
@@ -734,7 +752,7 @@ export default function MotoristaMapaScreen() {
                   borderRadius: 12,
                 }}
               >
-                <Text style={{ color: "#047857", fontWeight: "800" }}>
+                <Text style={{ color: "#047857", fontWeight: "700" }}>
                   FOCAR NO MAPA
                 </Text>
               </TouchableOpacity>
@@ -753,13 +771,13 @@ export default function MotoristaMapaScreen() {
                     })
                   }
                   style={{
-                    backgroundColor: "#028C56",
+                    backgroundColor: "#047857",
                     paddingHorizontal: 14,
                     paddingVertical: 10,
                     borderRadius: 12,
                   }}
                 >
-                  <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
+                  <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>
                     TRAÇAR ROTA
                   </Text>
                 </TouchableOpacity>
@@ -770,7 +788,7 @@ export default function MotoristaMapaScreen() {
 
         {selectedCollection && (
           <InfoCard title="Coleta selecionada">
-            <Text style={{ color: "#111827", fontWeight: "800", fontSize: 15 }}>
+            <Text style={{ color: "#111827", fontWeight: "700", fontSize: 15 }}>
               {selectedGenerator?.companyName ||
                 selectedGenerator?.name ||
                 "Ponto de coleta"}
@@ -807,13 +825,13 @@ export default function MotoristaMapaScreen() {
                 style={{
                   marginTop: 12,
                   alignSelf: "flex-start",
-                  backgroundColor: "#028C56",
+                  backgroundColor: "#047857",
                   paddingHorizontal: 14,
                   paddingVertical: 10,
                   borderRadius: 12,
                 }}
               >
-                <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
+                <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>
                   ABRIR NAVEGAÇÃO
                 </Text>
               </TouchableOpacity>

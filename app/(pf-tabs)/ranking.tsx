@@ -116,7 +116,7 @@ export default function RankingScreen() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando participação...
         </Text>
@@ -134,7 +134,7 @@ export default function RankingScreen() {
       showsVerticalScrollIndicator={false}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         style={{
           paddingTop: 20,
           paddingBottom: 24,
@@ -173,13 +173,13 @@ export default function RankingScreen() {
               marginBottom: 12,
             }}
           >
-            <Ionicons name="person" size={48} color="#028C56" />
+            <Ionicons name="person" size={48} color="#047857" />
           </View>
 
           <Text
             style={{
               fontSize: 22,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#FFFFFF",
               textAlign: "center",
             }}
@@ -256,7 +256,7 @@ export default function RankingScreen() {
                   {item.name}
                 </Text>
                 <Text
-                  style={{ fontSize: 15, color: "#028C56", fontWeight: "800" }}
+                  style={{ fontSize: 15, color: "#047857", fontWeight: "700" }}
                 >
                   {item.count}
                 </Text>
@@ -331,7 +331,7 @@ function MetricCard({
         style={{
           marginTop: 4,
           fontSize: 21,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
         }}
       >
@@ -379,7 +379,7 @@ function MetricCardFull({
         style={{
           marginTop: 4,
           fontSize: 21,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
         }}
       >

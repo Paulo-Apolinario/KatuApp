@@ -97,10 +97,10 @@ export default function ForgotScreen() {
           alignItems: "center",
         }}
       >
-        <Ionicons name="arrow-back" size={24} color="#028C56" />
+        <Ionicons name="arrow-back" size={24} color="#047857" />
         <Text
           style={{
-            color: "#028C56",
+            color: "#047857",
             marginLeft: 4,
             fontWeight: "600",
             fontSize: 14,
@@ -131,7 +131,7 @@ export default function ForgotScreen() {
             <Text
               style={{
                 fontSize: 28,
-                fontWeight: "800",
+                fontWeight: "700",
                 color: "#111827",
                 textAlign: "center",
               }}
@@ -143,7 +143,7 @@ export default function ForgotScreen() {
               style={{
                 fontSize: 18,
                 fontWeight: "700",
-                color: "#028C56",
+                color: "#047857",
                 marginTop: 8,
                 textAlign: "center",
               }}
@@ -174,7 +174,7 @@ export default function ForgotScreen() {
             >
               <Text
                 style={{
-                  color: "#028C56",
+                  color: "#047857",
                   fontSize: 13,
                   fontWeight: "700",
                 }}
@@ -187,7 +187,7 @@ export default function ForgotScreen() {
           <View style={{ marginBottom: 24 }}>
             <Text
               style={{
-                color: "#028C56",
+                color: "#047857",
                 marginBottom: 6,
                 fontWeight: "700",
                 fontSize: 14,
@@ -222,7 +222,7 @@ export default function ForgotScreen() {
             disabled={loading}
           >
             <LinearGradient
-              colors={["#059669", "#028C56"]}
+              colors={["#123C35", "#17694F"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{
@@ -240,7 +240,7 @@ export default function ForgotScreen() {
                     style={{
                       color: "#FFFFFF",
                       fontSize: 16,
-                      fontWeight: "800",
+                      fontWeight: "700",
                       marginLeft: 8,
                     }}
                   >
@@ -252,7 +252,7 @@ export default function ForgotScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 18,
-                    fontWeight: "800",
+                    fontWeight: "700",
                   }}
                 >
                   CONTINUAR

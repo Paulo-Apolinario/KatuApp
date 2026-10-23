@@ -93,7 +93,7 @@ export default function NovoVeiculoScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -121,7 +121,7 @@ export default function NovoVeiculoScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Modelo *
           </Text>
           <TextInput
@@ -141,7 +141,7 @@ export default function NovoVeiculoScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Placa *
           </Text>
           <TextInput
@@ -163,7 +163,7 @@ export default function NovoVeiculoScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Marca
           </Text>
           <TextInput
@@ -183,7 +183,7 @@ export default function NovoVeiculoScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Ano
           </Text>
           <TextInput
@@ -204,7 +204,7 @@ export default function NovoVeiculoScreen() {
         </View>
 
         <View style={{ marginBottom: 30 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Capacidade (kg)
           </Text>
           <TextInput
@@ -230,7 +230,7 @@ export default function NovoVeiculoScreen() {
           activeOpacity={0.9}
         >
           <LinearGradient
-            colors={["#059669", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -250,7 +250,7 @@ export default function NovoVeiculoScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 18,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     marginLeft: 10,
                   }}
                 >
@@ -259,7 +259,7 @@ export default function NovoVeiculoScreen() {
               </>
             ) : (
               <Text
-                style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}
+                style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "700" }}
               >
                 SALVAR VEÍCULO
               </Text>

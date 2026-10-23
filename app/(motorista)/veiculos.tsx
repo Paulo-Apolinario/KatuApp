@@ -42,7 +42,7 @@ function StatusBadge({ status }: { status: string }) {
         backgroundColor,
       }}
     >
-      <Text style={{ color, fontWeight: "800", fontSize: 12 }}>
+      <Text style={{ color, fontWeight: "700", fontSize: 12 }}>
         {labelMap[status] || status}
       </Text>
     </View>
@@ -98,7 +98,7 @@ export default function MotoristaVeiculosScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -126,7 +126,7 @@ export default function MotoristaVeiculosScreen() {
           </TouchableOpacity>
 
           <View>
-            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}>
+            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "700" }}>
               Veículos
             </Text>
             <Text style={{ color: "#E8FFF1", fontSize: 13, marginTop: 2 }}>
@@ -144,7 +144,7 @@ export default function MotoristaVeiculosScreen() {
             justifyContent: "center",
           }}
         >
-          <ActivityIndicator size="large" color="#028C56" />
+          <ActivityIndicator size="large" color="#047857" />
           <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
             Carregando veículo...
           </Text>
@@ -156,8 +156,8 @@ export default function MotoristaVeiculosScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void loadVehicle(true)}
-              colors={["#028C56"]}
-              tintColor="#028C56"
+              colors={["#047857"]}
+              tintColor="#047857"
             />
           }
         >
@@ -188,7 +188,7 @@ export default function MotoristaVeiculosScreen() {
               }}
             >
               <Text
-                style={{ color: "#111827", fontSize: 18, fontWeight: "800" }}
+                style={{ color: "#111827", fontSize: 18, fontWeight: "700" }}
               >
                 Nenhum veículo vinculado
               </Text>
@@ -206,7 +206,7 @@ export default function MotoristaVeiculosScreen() {
               }}
             >
               <Text
-                style={{ color: "#111827", fontSize: 18, fontWeight: "800" }}
+                style={{ color: "#111827", fontSize: 18, fontWeight: "700" }}
               >
                 {vehicle.model}
               </Text>

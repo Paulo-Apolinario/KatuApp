@@ -9,7 +9,9 @@ interface ProtectedRouteProps {
 }
 
 function normalizeRole(role?: string | null) {
-  return String(role || "").trim().toUpperCase();
+  return String(role || "")
+    .trim()
+    .toUpperCase();
 }
 
 function getRouteByRole(role?: string | null) {
@@ -34,7 +36,9 @@ function getRouteByRole(role?: string | null) {
 
 function mapAllowedTypesToRoles(types: string[]) {
   return types.map((type) => {
-    const normalized = String(type || "").trim().toLowerCase();
+    const normalized = String(type || "")
+      .trim()
+      .toLowerCase();
 
     switch (normalized) {
       case "pf":
@@ -66,7 +70,7 @@ export default function ProtectedRoute({
 
   const allowedRoles = useMemo(
     () => mapAllowedTypesToRoles(allowedUserTypes),
-    [allowedUserTypes]
+    [allowedUserTypes],
   );
 
   const userRole = normalizeRole(user?.role);
@@ -100,7 +104,7 @@ export default function ProtectedRoute({
           backgroundColor: "#FFFFFF",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
       </View>
     );
   }

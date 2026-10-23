@@ -392,7 +392,7 @@ export default function DataScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={styles.loadingText}>Carregando dados...</Text>
       </View>
     );
@@ -409,7 +409,7 @@ export default function DataScreen() {
         contentContainerStyle={{ paddingBottom: 30 }}
       >
         <LinearGradient
-          colors={["#16A34A", "#22C55E"]}
+          colors={["#123C35", "#17694F"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.header}
@@ -913,7 +913,7 @@ const styles = {
     justifyContent: "center",
     marginHorizontal: 6,
   } as const,
-  headerTitle: { fontSize: 23, fontWeight: "900", color: "#FFFFFF" } as const,
+  headerTitle: { fontSize: 23, fontWeight: "700", color: "#FFFFFF" } as const,
   headerSubtitle: {
     fontSize: 13,
     color: "#E8FFF1",
@@ -921,7 +921,7 @@ const styles = {
     lineHeight: 18,
   } as const,
   content: { paddingHorizontal: 16, paddingTop: 14 } as const,
-  sectionTitle: { fontSize: 18, fontWeight: "800", color: "#111827" } as const,
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: "#111827" } as const,
   sectionSubtitle: {
     fontSize: 13,
     color: "#6B7280",
@@ -943,7 +943,7 @@ const styles = {
   } as const,
   segmentButtonActive: { backgroundColor: "#FFFFFF" } as const,
   segmentText: { color: "#6B7280", fontWeight: "600", fontSize: 12 } as const,
-  segmentTextActive: { color: "#15803D", fontWeight: "800" } as const,
+  segmentTextActive: { color: "#15803D", fontWeight: "700" } as const,
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -972,7 +972,7 @@ const styles = {
   metricValue: {
     marginTop: 4,
     fontSize: 21,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#111827",
   } as const,
   card: {
@@ -997,7 +997,7 @@ const styles = {
   } as const,
   filterChipText: {
     color: "#475569",
-    fontWeight: "800",
+    fontWeight: "700",
     fontSize: 13,
   } as const,
   filterChipTextActive: { color: "#FFFFFF" } as const,
@@ -1008,7 +1008,7 @@ const styles = {
     marginBottom: 6,
   } as const,
   chartLabel: { color: "#475569", fontSize: 13, fontWeight: "700" } as const,
-  chartValue: { color: "#15803D", fontSize: 13, fontWeight: "900" } as const,
+  chartValue: { color: "#15803D", fontSize: 13, fontWeight: "700" } as const,
   progressTrack: {
     height: 8,
     borderRadius: 999,
@@ -1018,7 +1018,7 @@ const styles = {
   progressFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "#22C55E",
+    backgroundColor: "#047857",
   } as const,
   listRow: {
     flexDirection: "row",
@@ -1042,12 +1042,12 @@ const styles = {
     justifyContent: "center",
     marginRight: 10,
   } as const,
-  rankText: { color: "#15803D", fontWeight: "900" } as const,
+  rankText: { color: "#15803D", fontWeight: "700" } as const,
   materialName: { color: "#111827", fontWeight: "700", fontSize: 15 } as const,
   materialWeight: { color: "#6B7280", fontSize: 12, marginTop: 2 } as const,
   materialPercent: {
     color: "#15803D",
-    fontWeight: "900",
+    fontWeight: "700",
     fontSize: 15,
     marginLeft: 10,
   } as const,
@@ -1071,9 +1071,9 @@ const styles = {
     justifyContent: "center",
     marginRight: 12,
   } as const,
-  historyTitle: { fontSize: 16, fontWeight: "800", color: "#111827" } as const,
-  historyStatus: { fontSize: 13, fontWeight: "800", marginTop: 4 } as const,
-  historyWeight: { color: "#15803D", fontWeight: "900", fontSize: 15 } as const,
+  historyTitle: { fontSize: 16, fontWeight: "700", color: "#111827" } as const,
+  historyStatus: { fontSize: 13, fontWeight: "700", marginTop: 4 } as const,
+  historyWeight: { color: "#15803D", fontWeight: "700", fontSize: 15 } as const,
   historyText: {
     color: "#6B7280",
     fontSize: 13,
@@ -1094,7 +1094,7 @@ const styles = {
   } as const,
   historyActionGreenText: {
     color: "#15803D",
-    fontWeight: "800",
+    fontWeight: "700",
     fontSize: 13,
     marginLeft: 6,
   } as const,
@@ -1111,7 +1111,7 @@ const styles = {
   } as const,
   historyActionBlueText: {
     color: "#2563EB",
-    fontWeight: "800",
+    fontWeight: "700",
     fontSize: 13,
     marginLeft: 6,
   } as const,

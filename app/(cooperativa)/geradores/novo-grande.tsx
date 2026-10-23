@@ -314,7 +314,7 @@ export default function NovoGrandeGeradorScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{ paddingTop: 20, paddingBottom: 20, paddingHorizontal: 20 }}
@@ -368,7 +368,7 @@ export default function NovoGrandeGeradorScreen() {
         <Text
           style={{
             fontSize: 16,
-            fontWeight: "800",
+            fontWeight: "700",
             color: "#111827",
             marginTop: 10,
             marginBottom: 14,
@@ -510,12 +510,12 @@ export default function NovoGrandeGeradorScreen() {
             marginTop: 8,
           }}
         >
-          <Ionicons name="map-outline" size={18} color="#028C56" />
+          <Ionicons name="map-outline" size={18} color="#047857" />
           <Text
             style={{
               marginLeft: 8,
-              color: "#028C56",
-              fontWeight: "800",
+              color: "#047857",
+              fontWeight: "700",
               fontSize: 14,
             }}
           >
@@ -534,7 +534,7 @@ export default function NovoGrandeGeradorScreen() {
               marginBottom: 14,
             }}
           >
-            <Text style={{ color: "#065F46", fontWeight: "800", fontSize: 13 }}>
+            <Text style={{ color: "#065F46", fontWeight: "700", fontSize: 13 }}>
               Localização selecionada
             </Text>
             <Text style={{ color: "#065F46", marginTop: 6, fontSize: 13 }}>
@@ -557,7 +557,7 @@ export default function NovoGrandeGeradorScreen() {
           activeOpacity={0.9}
         >
           <LinearGradient
-            colors={["#059669", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -577,7 +577,7 @@ export default function NovoGrandeGeradorScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 16,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     marginLeft: 8,
                   }}
                 >
@@ -586,7 +586,7 @@ export default function NovoGrandeGeradorScreen() {
               </>
             ) : (
               <Text
-                style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "800" }}
+                style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}
               >
                 SALVAR GRANDE GERADOR
               </Text>
@@ -610,7 +610,7 @@ function Field(props: {
 }) {
   return (
     <View style={{ marginBottom: 18 }}>
-      <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 6 }}>
+      <Text style={{ fontSize: 14, color: "#047857", marginBottom: 6 }}>
         {props.label}
       </Text>
       <View
@@ -639,7 +639,7 @@ function Field(props: {
           }}
         />
         {props.loading ? (
-          <ActivityIndicator size="small" color="#028C56" />
+          <ActivityIndicator size="small" color="#047857" />
         ) : null}
       </View>
     </View>

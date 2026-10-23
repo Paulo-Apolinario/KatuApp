@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import "leaflet/dist/leaflet.css";
+import { MapPointList } from "./MapPointList";
 export type OperationalMapPoint = {
   id: string;
   latitude: number;
@@ -8,6 +9,7 @@ export type OperationalMapPoint = {
   title: string;
   description?: string;
   color?: string;
+  kind?: "collection" | "cooperative" | "driver";
 };
 type Props = {
   baseLabel?: string | null;
@@ -18,6 +20,7 @@ type Props = {
   selectedPointId?: string | null;
   onSelectPoint?: (id: string) => void;
   onPick?: (lat: number, lng: number) => void;
+  focusRequest?: number;
 };
 export default function OperationalMapWeb({
   baseLabel = "Base operacional",
@@ -28,6 +31,7 @@ export default function OperationalMapWeb({
   selectedPointId,
   onSelectPoint,
   onPick,
+  focusRequest,
 }: Props) {
   const container = useRef<HTMLDivElement>(null),
     mapRef = useRef<any>(null),
@@ -35,8 +39,26 @@ export default function OperationalMapWeb({
     layer = useRef<any>(null),
     fitKey = useRef(""),
     gpsCentered = useRef(false);
-  const latest = useRef({ onSelectPoint, onPick });
-  latest.current = { onSelectPoint, onPick };
+  const [localId, setLocalId] = useState<string | null>(null);
+  const activeId = localId ?? selectedPointId;
+  const [fitRequest, setFitRequest] = useState(0);
+  function selectPoint(id: string) {
+    setLocalId(id);
+    onSelectPoint?.(id);
+  }
+  function showAll() {
+    setLocalId(null);
+    onSelectPoint?.("__base__");
+    fitKey.current = "";
+    setFitRequest((n) => n + 1);
+  }
+  useEffect(() => {
+    setLocalId(null);
+    fitKey.current = "";
+    setFitRequest((n) => n + 1);
+  }, [focusRequest, selectedPointId]);
+  const latest = useRef({ onSelectPoint: selectPoint, onPick });
+  latest.current = { onSelectPoint: selectPoint, onPick };
   const [ready, setReady] = useState(false),
     [tileError, setTileError] = useState(false),
     [error, setError] = useState("");
@@ -104,21 +126,41 @@ export default function OperationalMapWeb({
         iconSize: [34, 42],
         iconAnchor: [17, 40],
       });
-    if (baseLabel)
+    if (
+      baseLabel &&
+      !valid.some(
+        (p) =>
+          Math.abs(p.latitude - baseLatitude) < 0.000001 &&
+          Math.abs(p.longitude - baseLongitude) < 0.000001,
+      )
+    )
       L.marker([baseLatitude, baseLongitude], {
         icon: pin(baseLabel === "Minha posição" ? "GPS" : "SE", "#065F46"),
       })
         .bindTooltip(document.createTextNode(baseLabel))
         .addTo(group);
-    valid.forEach((point, index) => {
+    let visit = 0;
+    valid.forEach((point) => {
+      const label =
+        point.kind === "driver"
+          ? "GPS"
+          : point.kind === "cooperative"
+            ? "SE"
+            : String(++visit);
       const content = document.createElement("div");
       content.textContent = [point.title, point.description]
         .filter(Boolean)
         .join(" · ");
       L.marker([point.latitude, point.longitude], {
         icon: pin(
-          String(index + 1),
-          selectedPointId === point.id ? "#0F172A" : "#028C56",
+          label,
+          activeId === point.id
+            ? "#173E32"
+            : point.kind === "driver"
+              ? "#2563EB"
+              : point.kind === "cooperative"
+                ? "#047857"
+                : "#345D4F",
         ),
       })
         .bindPopup(content)
@@ -128,7 +170,7 @@ export default function OperationalMapWeb({
     if (routeCoordinates.length > 1)
       L.polyline(
         routeCoordinates.map((p) => [p.latitude, p.longitude]),
-        { color: "#028C56", weight: 3, dashArray: "6 6" },
+        { color: "#047857", weight: 3, dashArray: "6 6" },
       ).addTo(group);
     if (
       baseLabel === "Minha posição" &&
@@ -138,7 +180,7 @@ export default function OperationalMapWeb({
       map.setView([baseLatitude, baseLongitude], 14);
       gpsCentered.current = true;
     }
-    const selected = valid.find((p) => p.id === selectedPointId);
+    const selected = valid.find((p) => p.id === activeId);
     if (selected) map.panTo([selected.latitude, selected.longitude]);
     else if (fitKey.current !== signature && valid.length) {
       map.fitBounds(
@@ -155,21 +197,23 @@ export default function OperationalMapWeb({
     baseLatitude,
     baseLongitude,
     baseLabel,
+    activeId,
     selectedPointId,
+    fitRequest,
     routeCoordinates,
     points,
   ]);
   return (
-    <View style={{ flexShrink: 0, minHeight: 320, backgroundColor: "#F8FAFC" }}>
+    <View style={{ flexShrink: 0, minHeight: 360, backgroundColor: "#F8FAFC" }}>
       <div
         ref={container}
         aria-label="Mapa operacional de coletas"
         role="region"
         style={{
           width: "100%",
-          height: 320,
+          height: 360,
           flexShrink: 0,
-          minHeight: 320,
+          minHeight: 360,
           zIndex: 0,
         }}
       />
@@ -199,29 +243,44 @@ export default function OperationalMapWeb({
         </Text>
       )}
       <View
-        style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 8 }}
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 14,
+          paddingHorizontal: 18,
+          paddingVertical: 10,
+          backgroundColor: "#F6F9F6",
+        }}
       >
-        {points.map((p, i) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Localizar ${p.title}`}
-            key={p.id}
-            onPress={() => onSelectPoint?.(p.id)}
-            style={{
-              padding: 8,
-              minHeight: 44,
-              backgroundColor: p.id === selectedPointId ? "#DCFCE7" : "white",
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: "#E2E8F0",
-            }}
+        {[
+          ["#2563EB", "GPS do aparelho"],
+          ["#047857", "Sede"],
+          ["#345D4F", "Coletas numeradas"],
+        ].map(([color, label]) => (
+          <View
+            key={label}
+            style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
           >
-            <Text>
-              {i + 1}. {p.title}
-            </Text>
-          </Pressable>
+            <View
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 4,
+                backgroundColor: color,
+              }}
+            />
+            <Text style={{ fontSize: 10, color: "#5F7366" }}>{label}</Text>
+          </View>
         ))}
       </View>
+      {!!points.length && (
+        <MapPointList
+          points={points}
+          selectedId={activeId}
+          onSelect={selectPoint}
+          onShowAll={showAll}
+        />
+      )}
     </View>
   );
 }

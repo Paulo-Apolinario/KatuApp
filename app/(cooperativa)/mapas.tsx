@@ -538,7 +538,7 @@ export default function CooperativeMapScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -566,7 +566,7 @@ export default function CooperativeMapScreen() {
 
             <View style={{ flex: 1 }}>
               <Text
-                style={{ fontSize: 22, fontWeight: "900", color: "#FFFFFF" }}
+                style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}
               >
                 MAPA OPERACIONAL
               </Text>
@@ -648,7 +648,7 @@ export default function CooperativeMapScreen() {
             <StatusCard
               title="Todos"
               value={summary.base.total}
-              color="#028C56"
+              color="#047857"
               active={selectedStatus === "ALL"}
               onPress={() => {
                 setSelectedStatus("ALL");
@@ -699,7 +699,7 @@ export default function CooperativeMapScreen() {
               <Text
                 style={{
                   color: "#111827",
-                  fontWeight: "800",
+                  fontWeight: "700",
                   fontSize: 15,
                 }}
               >
@@ -732,7 +732,7 @@ export default function CooperativeMapScreen() {
                 height: "100%",
               }}
             >
-              <ActivityIndicator size="large" color="#028C56" />
+              <ActivityIndicator size="large" color="#047857" />
               <Text style={{ marginTop: 10, color: "#64748B" }}>
                 Carregando mapa operacional...
               </Text>
@@ -792,7 +792,7 @@ export default function CooperativeMapScreen() {
                     width: 210,
                     marginRight: 10,
                     backgroundColor: active ? "#ECFDF5" : "#FFFFFF",
-                    borderColor: active ? "#028C56" : "#E5E7EB",
+                    borderColor: active ? "#047857" : "#E5E7EB",
                     borderWidth: 1,
                     borderRadius: 16,
                     padding: 12,
@@ -810,7 +810,7 @@ export default function CooperativeMapScreen() {
                         flex: 1,
                         color: "#111827",
                         fontSize: 14,
-                        fontWeight: "800",
+                        fontWeight: "700",
                         paddingRight: 6,
                       }}
                       numberOfLines={2}
@@ -833,7 +833,7 @@ export default function CooperativeMapScreen() {
                         style={{
                           color: "#FFFFFF",
                           fontSize: 9,
-                          fontWeight: "900",
+                          fontWeight: "700",
                         }}
                       >
                         {getStatusLabel(point.status)}
@@ -918,7 +918,7 @@ export default function CooperativeMapScreen() {
                     <Text
                       style={{
                         fontSize: 17,
-                        fontWeight: "900",
+                        fontWeight: "700",
                         color: "#0F172A",
                       }}
                     >
@@ -990,7 +990,7 @@ export default function CooperativeMapScreen() {
                       style={{
                         color: "#FFFFFF",
                         fontSize: 11,
-                        fontWeight: "900",
+                        fontWeight: "700",
                       }}
                     >
                       {getStatusLabel(selectedPoint.status)}
@@ -1008,7 +1008,7 @@ export default function CooperativeMapScreen() {
                     }
                     style={{
                       flex: 1,
-                      backgroundColor: "#028C56",
+                      backgroundColor: "#047857",
                       borderRadius: 12,
                       paddingVertical: 12,
                       alignItems: "center",
@@ -1017,7 +1017,7 @@ export default function CooperativeMapScreen() {
                     <Text
                       style={{
                         color: "#FFFFFF",
-                        fontWeight: "900",
+                        fontWeight: "700",
                         fontSize: 13,
                       }}
                     >
@@ -1047,7 +1047,7 @@ export default function CooperativeMapScreen() {
                       <Text
                         style={{
                           color: "#2E63E6",
-                          fontWeight: "900",
+                          fontWeight: "700",
                           fontSize: 13,
                         }}
                       >
@@ -1070,7 +1070,7 @@ export default function CooperativeMapScreen() {
                       <Text
                         style={{
                           color: "#2E63E6",
-                          fontWeight: "900",
+                          fontWeight: "700",
                           fontSize: 13,
                         }}
                       >
@@ -1086,7 +1086,7 @@ export default function CooperativeMapScreen() {
                 <Text
                   style={{
                     fontSize: 16,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     color: "#0F172A",
                     marginTop: 10,
                   }}
@@ -1151,7 +1151,7 @@ function StatusCard({
       <Text
         style={{
           fontSize: 22,
-          fontWeight: "900",
+          fontWeight: "700",
           marginTop: 6,
           color: active ? "#FFFFFF" : "#0F172A",
         }}
@@ -1175,12 +1175,12 @@ function ModeChip({
     <TouchableOpacity
       onPress={onPress}
       style={{
-        backgroundColor: active ? "#028C56" : "#FFFFFF",
+        backgroundColor: active ? "#047857" : "#FFFFFF",
         borderRadius: 999,
         paddingHorizontal: 14,
         paddingVertical: 10,
         borderWidth: 1,
-        borderColor: active ? "#028C56" : "#E5E7EB",
+        borderColor: active ? "#047857" : "#E5E7EB",
         marginRight: 10,
       }}
     >

@@ -391,7 +391,7 @@ export default function RotaDetalheScreen() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 12, color: "#6B7280" }}>
           Carregando detalhes da rota...
         </Text>
@@ -426,7 +426,7 @@ export default function RotaDetalheScreen() {
           onPress={() => router.replace("/(cooperativa)/rotas")}
           style={{
             marginTop: 18,
-            backgroundColor: "#028C56",
+            backgroundColor: "#047857",
             paddingHorizontal: 18,
             paddingVertical: 12,
             borderRadius: 14,
@@ -443,7 +443,7 @@ export default function RotaDetalheScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -469,7 +469,7 @@ export default function RotaDetalheScreen() {
             style={{
               color: "#FFFFFF",
               fontSize: 18,
-              fontWeight: "800",
+              fontWeight: "700",
             }}
           >
             DETALHE DA ROTA
@@ -498,7 +498,7 @@ export default function RotaDetalheScreen() {
           style={{
             color: "#FFFFFF",
             fontSize: 24,
-            fontWeight: "800",
+            fontWeight: "700",
             marginTop: 16,
           }}
         >
@@ -530,7 +530,7 @@ export default function RotaDetalheScreen() {
             style={{
               color: "#FFFFFF",
               fontSize: 11,
-              fontWeight: "800",
+              fontWeight: "700",
               letterSpacing: 0.3,
             }}
           >
@@ -560,7 +560,7 @@ export default function RotaDetalheScreen() {
           <Text
             style={{
               fontSize: 16,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#111827",
               marginBottom: 14,
             }}
@@ -590,7 +590,7 @@ export default function RotaDetalheScreen() {
             accessibilityLabel="Planejar equipe e coletas"
             style={{ marginVertical: 12 }}
           >
-            <Text style={{ color: "#028C56", fontWeight: "700" }}>
+            <Text style={{ color: "#047857", fontWeight: "700" }}>
               Planejar equipe e coletas
             </Text>
           </TouchableOpacity>
@@ -658,7 +658,7 @@ export default function RotaDetalheScreen() {
             <Text
               style={{
                 fontSize: 16,
-                fontWeight: "800",
+                fontWeight: "700",
                 color: "#111827",
                 marginBottom: 14,
               }}
@@ -750,7 +750,7 @@ export default function RotaDetalheScreen() {
                       <Text
                         style={{
                           fontSize: 12,
-                          fontWeight: "800",
+                          fontWeight: "700",
                           color: "#166534",
                         }}
                       >
@@ -860,7 +860,7 @@ export default function RotaDetalheScreen() {
                 disabled={savingEdit}
                 style={{
                   flex: 1,
-                  backgroundColor: "#028C56",
+                  backgroundColor: "#047857",
                   borderRadius: 14,
                   paddingVertical: 13,
                   alignItems: "center",
@@ -887,7 +887,7 @@ export default function RotaDetalheScreen() {
             <Text
               style={{
                 fontSize: 16,
-                fontWeight: "800",
+                fontWeight: "700",
                 color: "#111827",
                 marginBottom: 14,
               }}
@@ -954,7 +954,7 @@ export default function RotaDetalheScreen() {
                     <Text
                       style={{
                         fontSize: 12,
-                        fontWeight: "800",
+                        fontWeight: "700",
                         color: "#166534",
                       }}
                     >
@@ -984,7 +984,7 @@ export default function RotaDetalheScreen() {
           <Text
             style={{
               fontSize: 16,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#111827",
               marginBottom: 14,
             }}
@@ -1074,7 +1074,7 @@ export default function RotaDetalheScreen() {
                       <Text
                         style={{
                           fontSize: 15,
-                          fontWeight: "800",
+                          fontWeight: "700",
                           color: "#111827",
                         }}
                       >
@@ -1139,7 +1139,7 @@ export default function RotaDetalheScreen() {
                         style={{
                           color: "#FFFFFF",
                           fontSize: 10,
-                          fontWeight: "800",
+                          fontWeight: "700",
                         }}
                       >
                         {getCollectionStatusLabel(item.status)}
@@ -1218,7 +1218,7 @@ export default function RotaDetalheScreen() {
                   <Text
                     style={{
                       fontSize: 15,
-                      fontWeight: "800",
+                      fontWeight: "700",
                       color: "#111827",
                     }}
                   >
@@ -1321,7 +1321,7 @@ function MetricCard({
         {label}
       </Text>
 
-      <Text style={{ marginTop: 6, fontSize: 20, fontWeight: "800", color }}>
+      <Text style={{ marginTop: 6, fontSize: 20, fontWeight: "700", color }}>
         {value}
       </Text>
     </View>
@@ -1358,7 +1358,7 @@ function SectionTitle({
 }) {
   return (
     <View style={{ marginBottom: 10 }}>
-      <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>
+      <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
         {title}
       </Text>
 
@@ -1420,7 +1420,7 @@ function FieldLabel({ label }: { label: string }) {
     <Text
       style={{
         fontSize: 14,
-        color: "#028C56",
+        color: "#047857",
         marginBottom: 8,
         fontWeight: "700",
       }}
@@ -1473,13 +1473,13 @@ const textareaStyle = {
 
 function chipStyle(selected: boolean) {
   return {
-    backgroundColor: selected ? "#028C56" : "#F3F4F6",
+    backgroundColor: selected ? "#047857" : "#F3F4F6",
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: selected ? "#028C56" : "#E5E7EB",
+    borderColor: selected ? "#047857" : "#E5E7EB",
   } as const;
 }
 

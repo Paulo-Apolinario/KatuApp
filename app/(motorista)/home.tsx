@@ -56,7 +56,7 @@ function QuickCard({ title, subtitle, icon, onPress }: QuickCardProps) {
       }}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -75,7 +75,7 @@ function QuickCard({ title, subtitle, icon, onPress }: QuickCardProps) {
         style={{
           color: "#111827",
           fontSize: 16,
-          fontWeight: "800",
+          fontWeight: "700",
           marginBottom: 6,
         }}
       >
@@ -98,7 +98,7 @@ function QuickCard({ title, subtitle, icon, onPress }: QuickCardProps) {
 function StatItem({ value, label }: { value: string | number; label: string }) {
   return (
     <View style={{ alignItems: "center", width: "30%" }}>
-      <Text style={{ fontSize: 24, fontWeight: "800", color: "#028C56" }}>
+      <Text style={{ fontSize: 24, fontWeight: "700", color: "#047857" }}>
         {value}
       </Text>
       <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>
@@ -208,7 +208,7 @@ export default function MotoristaHomeScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
           Carregando painel do motorista...
         </Text>
@@ -219,11 +219,11 @@ export default function MotoristaHomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <LinearGradient
-        colors={["#028C56", "#059669"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          paddingTop: 58,
+          paddingTop: 24,
           paddingHorizontal: 20,
           paddingBottom: 28,
           borderBottomLeftRadius: 28,
@@ -253,7 +253,7 @@ export default function MotoristaHomeScreen() {
               style={{
                 color: "#FFFFFF",
                 fontSize: 26,
-                fontWeight: "800",
+                fontWeight: "700",
               }}
             >
               Olá, {user?.displayName?.split(" ")[0] || "Motorista"}
@@ -299,8 +299,8 @@ export default function MotoristaHomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void loadDashboard(true)}
-            colors={["#028C56"]}
-            tintColor="#028C56"
+            colors={["#047857"]}
+            tintColor="#047857"
           />
         }
         showsVerticalScrollIndicator={false}
@@ -337,7 +337,7 @@ export default function MotoristaHomeScreen() {
             style={{
               color: "#111827",
               fontSize: 16,
-              fontWeight: "800",
+              fontWeight: "700",
               marginBottom: 12,
             }}
           >
@@ -377,7 +377,7 @@ export default function MotoristaHomeScreen() {
             style={{
               color: "#111827",
               fontSize: 16,
-              fontWeight: "800",
+              fontWeight: "700",
               marginBottom: 10,
             }}
           >
@@ -388,9 +388,9 @@ export default function MotoristaHomeScreen() {
             <>
               <Text
                 style={{
-                  color: "#028C56",
+                  color: "#047857",
                   fontSize: 17,
-                  fontWeight: "800",
+                  fontWeight: "700",
                 }}
               >
                 {nextRoute.name}
@@ -444,7 +444,7 @@ export default function MotoristaHomeScreen() {
                   backgroundColor: "#ECFDF5",
                 }}
               >
-                <Text style={{ color: "#047857", fontWeight: "800" }}>
+                <Text style={{ color: "#047857", fontWeight: "700" }}>
                   VER DETALHES DA ROTA
                 </Text>
               </TouchableOpacity>
@@ -468,7 +468,7 @@ export default function MotoristaHomeScreen() {
             style={{
               color: "#111827",
               fontSize: 16,
-              fontWeight: "800",
+              fontWeight: "700",
               marginBottom: 10,
             }}
           >
@@ -478,7 +478,7 @@ export default function MotoristaHomeScreen() {
           {vehicle ? (
             <>
               <Text
-                style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}
+                style={{ color: "#111827", fontSize: 16, fontWeight: "700" }}
               >
                 {vehicle.plate}
               </Text>
@@ -500,7 +500,7 @@ export default function MotoristaHomeScreen() {
           style={{
             color: "#111827",
             fontSize: 18,
-            fontWeight: "800",
+            fontWeight: "700",
             marginBottom: 14,
           }}
         >
@@ -573,7 +573,7 @@ export default function MotoristaHomeScreen() {
           <Text
             style={{
               color: "#DC2626",
-              fontWeight: "800",
+              fontWeight: "700",
               fontSize: 15,
             }}
           >

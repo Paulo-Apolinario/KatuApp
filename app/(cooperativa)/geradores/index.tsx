@@ -91,7 +91,7 @@ export default function GeradoresScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando geradores...
         </Text>
@@ -102,7 +102,7 @@ export default function GeradoresScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -127,7 +127,7 @@ export default function GeradoresScreen() {
           <Text
             style={{
               fontSize: 22,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#FFFFFF",
               marginLeft: 14,
             }}
@@ -154,7 +154,7 @@ export default function GeradoresScreen() {
           style={{ marginBottom: 16 }}
         >
           <LinearGradient
-            colors={["#059669", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -169,7 +169,7 @@ export default function GeradoresScreen() {
             <Text
               style={{
                 color: "#FFFFFF",
-                fontWeight: "800",
+                fontWeight: "700",
                 fontSize: 16,
                 marginLeft: 8,
               }}
@@ -210,7 +210,7 @@ export default function GeradoresScreen() {
                   <Text
                     style={{
                       fontSize: 16,
-                      fontWeight: "800",
+                      fontWeight: "700",
                       color: "#111827",
                     }}
                   >
@@ -250,7 +250,7 @@ export default function GeradoresScreen() {
                   <Text
                     style={{
                       fontSize: 14,
-                      color: "#028C56",
+                      color: "#047857",
                       fontWeight: "700",
                       marginTop: 8,
                     }}

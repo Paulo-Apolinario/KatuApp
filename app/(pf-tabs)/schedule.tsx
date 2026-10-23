@@ -201,7 +201,7 @@ export default function Schedule() {
             style={{
               padding: 12,
               borderWidth: 1,
-              borderColor: coopId === c.id ? "#028C56" : "#E2E8F0",
+              borderColor: coopId === c.id ? "#047857" : "#E2E8F0",
               borderRadius: 10,
               marginTop: 6,
             }}

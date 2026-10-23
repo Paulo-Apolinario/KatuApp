@@ -80,11 +80,11 @@ export default function MotoristaEditProfileScreen() {
               marginRight: 12,
             }}
           >
-            <Ionicons name="arrow-back" size={22} color="#028C56" />
+            <Ionicons name="arrow-back" size={22} color="#047857" />
           </TouchableOpacity>
 
           <View>
-            <Text style={{ color: "#111827", fontSize: 22, fontWeight: "800" }}>
+            <Text style={{ color: "#111827", fontSize: 22, fontWeight: "700" }}>
               Editar perfil
             </Text>
             <Text style={{ color: "#6B7280", fontSize: 13, marginTop: 2 }}>
@@ -104,7 +104,7 @@ export default function MotoristaEditProfileScreen() {
           }}
         >
           <Text
-            style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}
+            style={{ color: "#047857", fontWeight: "700", marginBottom: 6 }}
           >
             Nome
           </Text>
@@ -123,7 +123,7 @@ export default function MotoristaEditProfileScreen() {
           />
 
           <Text
-            style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}
+            style={{ color: "#047857", fontWeight: "700", marginBottom: 6 }}
           >
             Telefone
           </Text>
@@ -142,7 +142,7 @@ export default function MotoristaEditProfileScreen() {
           />
 
           <Text
-            style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}
+            style={{ color: "#047857", fontWeight: "700", marginBottom: 6 }}
           >
             CNH
           </Text>
@@ -161,7 +161,7 @@ export default function MotoristaEditProfileScreen() {
           />
 
           <Text
-            style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}
+            style={{ color: "#047857", fontWeight: "700", marginBottom: 6 }}
           >
             Categoria CNH
           </Text>
@@ -181,7 +181,7 @@ export default function MotoristaEditProfileScreen() {
           />
 
           <Text
-            style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}
+            style={{ color: "#047857", fontWeight: "700", marginBottom: 6 }}
           >
             Observações
           </Text>
@@ -209,7 +209,7 @@ export default function MotoristaEditProfileScreen() {
           disabled={loading}
         >
           <LinearGradient
-            colors={["#059669", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -227,7 +227,7 @@ export default function MotoristaEditProfileScreen() {
                 style={{
                   color: "#FFFFFF",
                   fontSize: 16,
-                  fontWeight: "800",
+                  fontWeight: "700",
                 }}
               >
                 SALVAR ALTERAÇÕES

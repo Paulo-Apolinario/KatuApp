@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { router } from "expo-router";
 import {
   ScrollView,
@@ -91,6 +92,7 @@ export function Action({
   );
 }
 export function Field({ label, ...props }: TextInputProps & { label: string }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={{ marginVertical: 8 }}>
       <Text style={styles.label}>{label}</Text>
@@ -98,11 +100,31 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
         accessibilityLabel={label}
         placeholderTextColor={colors.muted}
         {...props}
-        style={[styles.input, props.style]}
+        onFocus={(e) => {
+          setFocused(true);
+          props.onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          props.onBlur?.(e);
+        }}
+        style={[
+          styles.input,
+          focused && {
+            borderColor: colors.primary,
+            backgroundColor: "#F9FCFA",
+          },
+          props.editable === false && {
+            backgroundColor: "#F1F5F2",
+            color: "#64748B",
+          },
+          props.style,
+        ]}
       />
     </View>
   );
 }
+
 export function Notice({
   text,
   error = false,
@@ -130,7 +152,7 @@ const styles = StyleSheet.create({
   },
   header: { paddingVertical: 16, gap: 8 },
   back: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },
-  title: { fontSize: 26, fontWeight: "800", color: colors.text },
+  title: { fontSize: 25, fontWeight: "700", color: colors.text },
   muted: { color: colors.muted, fontSize: 14, lineHeight: 21 },
   card: {
     backgroundColor: colors.surface,

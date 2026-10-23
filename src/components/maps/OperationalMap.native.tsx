@@ -9,6 +9,7 @@ export type OperationalMapPoint = {
   title: string;
   description?: string;
   color?: string;
+  kind?: "collection" | "cooperative" | "driver";
 };
 
 type Props = {
@@ -20,6 +21,7 @@ type Props = {
   selectedPointId?: string | null;
   onSelectPoint?: (pointId: string) => void;
   onPick?: (latitude: number, longitude: number) => void;
+  focusRequest?: number;
 };
 
 export default function OperationalMapNative({
@@ -31,6 +33,7 @@ export default function OperationalMapNative({
   selectedPointId,
   onSelectPoint,
   onPick,
+  focusRequest,
 }: Props) {
   const map = useRef<MapView>(null);
   const centeredGps = useRef(false);
@@ -60,6 +63,15 @@ export default function OperationalMapNative({
       );
     }
   }, [baseLabel, baseLatitude, baseLongitude, selectedPointId]);
+  const fitPoints = useRef(points);
+  fitPoints.current = points;
+  useEffect(() => {
+    if (focusRequest !== undefined && fitPoints.current.length)
+      map.current?.fitToCoordinates(fitPoints.current, {
+        edgePadding: { top: 40, right: 40, bottom: 40, left: 40 },
+        animated: true,
+      });
+  }, [focusRequest]);
   return (
     <MapView
       onPress={(event) =>
@@ -85,7 +97,7 @@ export default function OperationalMapNative({
         <Polyline
           coordinates={routeCoordinates}
           strokeWidth={5}
-          strokeColor="#028C56"
+          strokeColor="#047857"
         />
       ) : null}
 
@@ -97,7 +109,7 @@ export default function OperationalMapNative({
           }}
           title={baseLabel}
           description={baseLabel}
-          pinColor="#028C56"
+          pinColor="#047857"
         />
       )}
 
@@ -132,8 +144,12 @@ export default function OperationalMapNative({
                 justifyContent: "center",
               }}
             >
-              <Text style={{ color: "white", fontWeight: "800" }}>
-                {index + 1}
+              <Text style={{ color: "white", fontWeight: "700" }}>
+                {point.kind === "driver"
+                  ? "GPS"
+                  : point.kind === "cooperative"
+                    ? "SE"
+                    : index + 1}
               </Text>
             </View>
             <View

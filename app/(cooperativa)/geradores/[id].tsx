@@ -336,7 +336,7 @@ export default function GeradorDetailScreen() {
           backgroundColor: "#FFFFFF",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>Carregando...</Text>
       </View>
     );
@@ -368,7 +368,7 @@ export default function GeradorDetailScreen() {
           onPress={() => router.back()}
           style={{
             marginTop: 16,
-            backgroundColor: "#028C56",
+            backgroundColor: "#047857",
             paddingHorizontal: 18,
             paddingVertical: 12,
             borderRadius: 10,
@@ -383,7 +383,7 @@ export default function GeradorDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -476,7 +476,7 @@ export default function GeradorDetailScreen() {
           <Text
             style={{
               fontSize: 13,
-              color: "#028C56",
+              color: "#047857",
               fontWeight: "700",
               marginBottom: 14,
             }}
@@ -502,7 +502,7 @@ export default function GeradorDetailScreen() {
             <Text
               style={{
                 fontSize: 14,
-                color: "#028C56",
+                color: "#047857",
                 fontWeight: "600",
                 marginBottom: 10,
               }}
@@ -611,7 +611,7 @@ export default function GeradorDetailScreen() {
                 Peso
               </Text>
               <Text
-                style={{ fontSize: 16, fontWeight: "600", color: "#028C56" }}
+                style={{ fontSize: 16, fontWeight: "600", color: "#047857" }}
               >
                 {gerador.kgMes.toFixed(1)} kg
               </Text>
@@ -662,7 +662,7 @@ export default function GeradorDetailScreen() {
                       style={{
                         fontSize: 14,
                         fontWeight: "600",
-                        color: "#028C56",
+                        color: "#047857",
                       }}
                     >
                       {material.kg.toFixed(1)} kg
@@ -745,7 +745,7 @@ export default function GeradorDetailScreen() {
             disabled={agendando}
             style={{
               flex: 1,
-              backgroundColor: "#028C56",
+              backgroundColor: "#047857",
               borderRadius: 8,
               padding: 16,
               alignItems: "center",
@@ -825,7 +825,7 @@ function InfoRow({
 function ResumoItem({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ alignItems: "center" }}>
-      <Text style={{ fontSize: 20, fontWeight: "700", color: "#028C56" }}>
+      <Text style={{ fontSize: 20, fontWeight: "700", color: "#047857" }}>
         {value}
       </Text>
       <Text style={{ fontSize: 12, color: "#6B7280" }}>{label}</Text>

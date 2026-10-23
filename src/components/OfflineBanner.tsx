@@ -38,7 +38,7 @@ export function OfflineBanner({
           style={{
             color: "#9A3412",
             fontSize: 14,
-            fontWeight: "800",
+            fontWeight: "700",
             marginBottom: 2,
           }}
         >

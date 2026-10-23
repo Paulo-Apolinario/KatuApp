@@ -23,6 +23,10 @@ interface UserData {
   totalKg?: number;
   since?: string;
   topMaterials?: TopMaterial[];
+  cooperativeName?: string;
+  collectionCount?: number;
+  periodStart?: string;
+  periodEnd?: string;
 }
 
 interface ReceiptData {
@@ -49,7 +53,11 @@ const escapeHtml = (value: string | number | null | undefined): string => {
     .replace(/'/g, "&#39;");
 };
 
-const formatKg = (value?: number) => Number(value ?? 0).toFixed(1);
+const formatKg = (value?: number) =>
+  Number(value ?? 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 3,
+  });
 
 const sanitizeFileNamePart = (value: string) =>
   value
@@ -102,561 +110,42 @@ const renderTopMaterialsTable = (materials?: TopMaterial[]) => {
     .join("");
 };
 
-const buildReceiptHtml = (
+export const buildReceiptHtml = (
   userData: UserData,
   receipt?: ReceiptData,
 ): { html: string; fileName: string } => {
-  const now = new Date();
-  const currentDate = now.toLocaleDateString("pt-BR");
-  const currentTime = now.toLocaleTimeString("pt-BR");
-
-  const safeName = userData.name ?? "Catador";
-  const safeLocation = userData.location ?? "-";
-  const safeCpf = userData.cpf ?? "-";
-  const safePhone = userData.phone ?? "-";
-  const safeEmail = userData.email ?? "-";
-  const safeCode = userData.code ?? "-";
-  const safeSince = userData.since ?? "-";
-  const safeTotalKg = Number(userData.totalKg ?? 0);
-  const safeTopMaterials = userData.topMaterials ?? [];
-
+  const now = new Date(),
+    currentDate = now.toLocaleDateString("pt-BR", {
+      timeZone: "America/Fortaleza",
+    }),
+    currentTime = now.toLocaleTimeString("pt-BR", {
+      timeZone: "America/Fortaleza",
+    });
+  const text = (value?: string) => value?.trim() || "Não informado";
+  const name = text(userData.name),
+    code = text(userData.code || userData.id);
   const documentTitle = receipt
-    ? "Comprovante Operacional de Coleta"
-    : "Comprovante Consolidado de Serviço";
-
-  const documentNumber = receipt
-    ? `COL-${receipt.id.slice(0, 8).toUpperCase()}`
-    : `CON-${String(safeCode || "GERAL")
-        .slice(0, 8)
-        .toUpperCase()}`;
-
-  const fileName = receipt
-    ? `Comprovante_KATUA_Coleta_${sanitizeFileNamePart(
-        receipt.id.slice(0, 8),
-      )}_${currentDate.replace(/\//g, "-")}.pdf`
-    : `Comprovante_KATUA_Consolidado_${sanitizeFileNamePart(
-        String(safeCode || "geral"),
-      )}_${currentDate.replace(/\//g, "-")}.pdf`;
-
-  const html = `
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${escapeHtml(documentTitle)}</title>
-
-  <style>
-    @page {
-      size: A4;
-      margin: 14mm;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      color: #111827;
-      background: #ffffff;
-      margin: 0;
-      padding: 0;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    .document {
-      width: 100%;
-      max-width: 760px;
-      margin: 0 auto;
-    }
-
-    .header {
-      background: linear-gradient(135deg, #10f35d 0%, #028c56 100%);
-      color: #ffffff;
-      border-radius: 18px;
-      padding: 22px 24px;
-      margin-bottom: 16px;
-    }
-
-    .header-top {
-      display: table;
-      width: 100%;
-    }
-
-    .header-left,
-    .header-right {
-      display: table-cell;
-      vertical-align: top;
-    }
-
-    .header-right {
-      text-align: right;
-      width: 42%;
-    }
-
-    .brand {
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: 1px;
-      margin-bottom: 6px;
-    }
-
-    .brand-subtitle {
-      font-size: 12px;
-      line-height: 1.5;
-      opacity: 0.95;
-      margin: 0;
-    }
-
-    .doc-badge {
-      display: inline-block;
-      margin-top: 10px;
-      padding: 7px 12px;
-      border-radius: 999px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      border: 1px solid rgba(255,255,255,0.28);
-      background: rgba(255,255,255,0.14);
-    }
-
-    .doc-meta {
-      font-size: 11px;
-      line-height: 1.7;
-      margin-top: 6px;
-    }
-
-    .summary-hero {
-      border: 1px solid #bbf7d0;
-      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-      border-radius: 16px;
-      padding: 16px;
-      text-align: center;
-      margin-bottom: 14px;
-    }
-
-    .summary-label {
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #166534;
-      font-weight: 700;
-    }
-
-    .summary-value {
-      margin-top: 8px;
-      font-size: 32px;
-      font-weight: 900;
-      color: #047857;
-      line-height: 1.1;
-    }
-
-    .summary-unit {
-      font-size: 16px;
-      font-weight: 700;
-      margin-left: 4px;
-    }
-
-    .section-grid {
-      display: table;
-      width: 100%;
-      border-spacing: 0 12px;
-    }
-
-    .row {
-      display: table;
-      width: 100%;
-      table-layout: fixed;
-    }
-
-    .col {
-      display: table-cell;
-      width: 50%;
-      vertical-align: top;
-    }
-
-    .col.left {
-      padding-right: 7px;
-    }
-
-    .col.right {
-      padding-left: 7px;
-    }
-
-    .card,
-    .full-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 16px;
-      padding: 14px;
-      background: #ffffff;
-    }
-
-    .card {
-      height: 100%;
-    }
-
-    .full-card {
-      margin-top: 2px;
-    }
-
-    .card-title {
-      margin: 0 0 10px 0;
-      font-size: 12px;
-      font-weight: 800;
-      color: #028c56;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .info-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .info-table tr:not(:last-child) td {
-      border-bottom: 1px solid #eef2f7;
-    }
-
-    .info-label,
-    .info-value {
-      padding: 8px 0;
-      font-size: 12px;
-      vertical-align: top;
-    }
-
-    .info-label {
-      width: 42%;
-      color: #6b7280;
-    }
-
-    .info-value {
-      color: #111827;
-      font-weight: 700;
-      text-align: right;
-      word-break: break-word;
-    }
-
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-    }
-
-    .data-table thead th {
-      background: #f8fafc;
-      color: #374151;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 9px 10px;
-      border-bottom: 1px solid #e5e7eb;
-      text-align: left;
-    }
-
-    .data-table tbody td {
-      padding: 10px;
-      border-bottom: 1px solid #eef2f7;
-      font-size: 12px;
-      color: #111827;
-    }
-
-    .data-table tbody tr:last-child td {
-      border-bottom: none;
-    }
-
-    .text-right {
-      text-align: right;
-    }
-
-    .text-center {
-      text-align: center;
-    }
-
-    .empty-cell {
-      text-align: center;
-      color: #6b7280 !important;
-      font-style: italic;
-      padding: 14px !important;
-    }
-
-    .legal-box {
-      margin-top: 14px;
-      border: 1px solid #fde68a;
-      background: #fffbeb;
-      border-radius: 16px;
-      padding: 14px;
-    }
-
-    .legal-title {
-      margin: 0 0 8px 0;
-      font-size: 12px;
-      font-weight: 800;
-      color: #92400e;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .legal-text {
-      margin: 0;
-      color: #78350f;
-      font-size: 12px;
-      line-height: 1.6;
-      text-align: justify;
-    }
-
-    .signature-area {
-      margin-top: 24px;
-      text-align: center;
-    }
-
-    .signature-line {
-      width: 260px;
-      max-width: 100%;
-      margin: 0 auto 8px auto;
-      border-top: 1px solid #9ca3af;
-      height: 1px;
-    }
-
-    .signature-label {
-      font-size: 12px;
-      color: #6b7280;
-    }
-
-    .footer {
-      margin-top: 16px;
-      border-top: 1px solid #e5e7eb;
-      padding-top: 10px;
-      color: #6b7280;
-      font-size: 10px;
-      line-height: 1.6;
-    }
-
-    .footer-strong {
-      color: #374151;
-      font-weight: 700;
-    }
-
-    @media print {
-      body {
-        background: #ffffff;
-      }
-
-      .document {
-        max-width: none;
-      }
-    }
-  </style>
-</head>
-
-<body>
-  <div class="document">
-    <div class="header">
-      <div class="header-top">
-        <div class="header-left">
-          <div class="brand">KATUÁ</div>
-          <p class="brand-subtitle">
-            Plataforma inteligente para gestão de resíduos recicláveis
-          </p>
-          <div class="doc-badge">${escapeHtml(documentTitle)}</div>
-        </div>
-
-        <div class="header-right">
-          <div class="doc-meta">
-            <div><strong>Nº do documento:</strong> ${escapeHtml(documentNumber)}</div>
-            <div><strong>Emissão:</strong> ${escapeHtml(currentDate)} às ${escapeHtml(currentTime)}</div>
-            <div><strong>Canal:</strong> Sistema KATUÁ</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="summary-hero">
-      <div class="summary-label">Massa registrada comprovado</div>
-      <div class="summary-value">
-        ${escapeHtml(formatKg(receipt ? receipt.kg : safeTotalKg))}
-        <span class="summary-unit">kg</span>
-      </div>
-    </div>
-
-    <div class="section-grid">
-      <div class="row">
-        <div class="col left">
-          <div class="card">
-            <h2 class="card-title">Identificação do catador</h2>
-            <table class="info-table">
-              <tr>
-                <td class="info-label">Nome</td>
-                <td class="info-value">${escapeHtml(safeName)}</td>
-              </tr>
-              <tr>
-                <td class="info-label">Código</td>
-                <td class="info-value">${escapeHtml(safeCode)}</td>
-              </tr>
-              <tr>
-                <td class="info-label">CPF</td>
-                <td class="info-value">${escapeHtml(safeCpf)}</td>
-              </tr>
-              <tr>
-                <td class="info-label">Telefone</td>
-                <td class="info-value">${escapeHtml(safePhone)}</td>
-              </tr>
-              <tr>
-                <td class="info-label">E-mail</td>
-                <td class="info-value">${escapeHtml(safeEmail)}</td>
-              </tr>
-              <tr>
-                <td class="info-label">Localidade</td>
-                <td class="info-value">${escapeHtml(safeLocation)}</td>
-              </tr>
-              <tr>
-                <td class="info-label">Atuação desde</td>
-                <td class="info-value">${escapeHtml(safeSince)}</td>
-              </tr>
-            </table>
-          </div>
-        </div>
-
-        <div class="col right">
-          <div class="card">
-            <h2 class="card-title">
-              ${receipt ? "Dados da coleta" : "Resumo consolidado"}
-            </h2>
-
-            <table class="info-table">
-              ${
-                receipt
-                  ? `
-                    <tr>
-                      <td class="info-label">Data da coleta</td>
-                      <td class="info-value">${escapeHtml(receipt.date)}</td>
-                    </tr>
-                    <tr>
-                      <td class="info-label">Código da coleta</td>
-                      <td class="info-value">${escapeHtml(receipt.id)}</td>
-                    </tr>
-                    <tr>
-                      <td class="info-label">Massa registrada</td>
-                      <td class="info-value">${escapeHtml(formatKg(receipt.kg))} kg</td>
-                    </tr>
-                    <tr>
-                      <td class="info-label">Observações</td>
-                      <td class="info-value">${escapeHtml(receipt.local || "-")}</td>
-                    </tr>
-                    <tr>
-                      <td class="info-label">Tipo</td>
-                      <td class="info-value">Comprovante individual</td>
-                    </tr>
-                  `
-                  : `
-                    <tr>
-                      <td class="info-label">Data de emissão</td>
-                      <td class="info-value">${escapeHtml(currentDate)}</td>
-                    </tr>
-                    <tr>
-                      <td class="info-label">Hora da emissão</td>
-                      <td class="info-value">${escapeHtml(currentTime)}</td>
-                    </tr>
-                    <tr>
-                      <td class="info-label">Peso consolidado</td>
-                      <td class="info-value">${escapeHtml(formatKg(safeTotalKg))} kg</td>
-                    </tr>
-                    <tr>
-                      <td class="info-label">Materiais em destaque</td>
-                      <td class="info-value">${escapeHtml(String(safeTopMaterials.length))}</td>
-                    </tr>
-                    <tr>
-                      <td class="info-label">Tipo</td>
-                      <td class="info-value">Comprovante consolidado</td>
-                    </tr>
-                  `
-              }
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="full-card">
-      <h2 class="card-title">
-        ${receipt ? "Materiais da coleta" : "Materiais com maior volume"}
-      </h2>
-
-      <table class="data-table">
-        <thead>
-          ${
-            receipt
-              ? `
-                <tr>
-                  <th>Material</th>
-                  <th class="text-right">Quantidade</th>
-                </tr>
-              `
-              : `
-                <tr>
-                  <th class="text-center" style="width: 72px;">Posição</th>
-                  <th>Material</th>
-                  <th class="text-right">Quantidade</th>
-                </tr>
-              `
-          }
-        </thead>
-        <tbody>
-          ${
-            receipt
-              ? renderMaterialsTable(receipt.materials)
-              : renderTopMaterialsTable(safeTopMaterials)
-          }
-        </tbody>
-      </table>
-    </div>
-
-    <div class="legal-box">
-      <h3 class="legal-title">Declaração operacional</h3>
-      <p class="legal-text">
-        Declaramos, para os devidos fins, que
-        <strong> ${escapeHtml(safeName)}</strong>
-        está vinculado às operações registradas no sistema KATUÁ para coleta
-        e destinação adequada de resíduos recicláveis.
-        ${
-          receipt
-            ? ` Este documento comprova a execução da coleta identificada por
-              <strong>${escapeHtml(receipt.id)}</strong>, realizada em
-              <strong>${escapeHtml(receipt.date)}</strong>, com massa registrada de
-              <strong>${escapeHtml(formatKg(receipt.kg))} kg</strong>.`
-            : ` Este documento consolida o histórico operacional do usuário
-              até a data de emissão, totalizando
-              <strong>${escapeHtml(formatKg(safeTotalKg))} kg</strong>
-              registrados no sistema.`
-        }
-      </p>
-    </div>
-
-    <div class="signature-area">
-      <div class="signature-line"></div>
-      <div class="signature-label">
-        Assinatura do responsável / representante operacional
-      </div>
-    </div>
-
-    <div class="footer">
-      <div>
-        <span class="footer-strong">Documento gerado automaticamente</span>
-        pelo sistema KATUÁ em ${escapeHtml(currentDate)} às
-        ${escapeHtml(currentTime)}.
-      </div>
-      <div>
-        Este comprovante é destinado à comprovação operacional, registro digital
-        e apresentação institucional da atividade executada.
-      </div>
-    </div>
-  </div>
-</body>
-</html>
-`;
-
+    ? "Comprovante de coleta"
+    : "Comprovante consolidado de serviço";
+  const reference =
+    receipt?.id || userData.code || userData.id || "sem-identificador";
+  const documentNumber = `${receipt ? "COL" : "CON"}-${reference.toUpperCase()}-${now.getTime().toString(36).toUpperCase()}`;
+  const fileName = `KATUA_${receipt ? "Coleta" : "Consolidado"}_${sanitizeFileNamePart(reference)}_${currentDate.replace(/\//g, "-")}.pdf`;
+  const mass = receipt?.kg ?? userData.totalKg ?? 0;
+  const period = receipt
+    ? receipt.date
+    : [userData.periodStart || userData.since, userData.periodEnd]
+        .filter(Boolean)
+        .join(" a ") || "Histórico disponível até a emissão";
+  const row = (label: string, value: string) =>
+    `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(text(value))}</td></tr>`;
+  const html = `<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(documentTitle)}</title><style>
+ @page {size:A4;margin:15mm 14mm 16mm;} *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#172E2A;font-size:12px;line-height:1.5;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact} .document{max-width:760px;margin:auto} .header{display:table;width:100%;border-bottom:2px solid #17674F;padding-bottom:18px;margin-bottom:24px}.brand{display:table-cell;vertical-align:top}.brand-name{font-size:27px;font-weight:700;letter-spacing:1.6px;color:#14533F}.brand-subtitle{font-size:9px;color:#64766E;margin-top:4px}.metadata{display:table-cell;text-align:right;vertical-align:top;font-size:9px;color:#52675E}.eyebrow{color:#36755D;font-size:9px;font-weight:700;letter-spacing:1.6px;margin-bottom:7px}h1{font-size:25px;line-height:1.2;letter-spacing:-.6px;margin:0 0 9px;color:#153B30;font-weight:600}.lead{margin:0 0 22px;color:#66786E;font-size:10px}.summary{display:table;width:100%;background:#EEF6F1;border:1px solid #D6E5DC;border-radius:10px;margin:0 0 22px}.summary-cell{display:table-cell;width:33%;padding:15px 17px;vertical-align:top}.summary-label{display:block;font-size:8px;letter-spacing:.8px;text-transform:uppercase;color:#587163;margin-bottom:7px}.summary-value{font-size:23px;line-height:1.2;font-weight:600;color:#14533F}.summary-value small{font-size:11px;font-weight:400}.summary-description{font-size:10px;line-height:1.5;color:#234E3B}.section{margin:0 0 22px}h2{font-size:12px;font-weight:600;color:#234E3B;margin:0 0 10px;padding-bottom:7px;border-bottom:1px solid #DCE6DF}.columns{display:table;width:100%;table-layout:fixed}.column{display:table-cell;width:50%;vertical-align:top}.column:first-child{padding-right:18px}.column:last-child{padding-left:18px;border-left:1px solid #E3EBE5}.info{border-collapse:collapse;width:100%;font-size:11px}.info th{color:#6A7A71;font-weight:400;text-align:left;width:30%;vertical-align:top;padding:5px 8px 5px 0}.info td{padding:5px 0;vertical-align:top;color:#203B2F;overflow-wrap:anywhere;word-break:break-word}.reference{font-family:monospace;font-size:8px;word-break:break-all;color:#52675E}.data-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}.data-table thead{display:table-header-group}.data-table th{text-align:left;background:#F0F4F1;color:#4A6657;font-size:8px;text-transform:uppercase;letter-spacing:.7px;padding:10px;border-top:1px solid #DAE5DD;border-bottom:1px solid #DAE5DD}.data-table td{padding:10px;border-bottom:1px solid #E6ECE8;overflow-wrap:anywhere}.data-table th:first-child{width:12%}.data-table.individual th:first-child{width:75%}.data-table th:last-child{width:25%;text-align:right}.data-table tr{break-inside:avoid;page-break-inside:avoid}.text-right{text-align:right;font-variant-numeric:tabular-nums}.text-center{text-align:center;color:#64766E}.empty-cell{color:#758279;text-align:center}.note{font-size:10px;color:#6A7A71;margin-top:9px}.statement{padding:15px 17px;border-left:3px solid #72A88B;background:#F7F9F7;border-radius:0 8px 8px 0;break-inside:avoid;page-break-inside:avoid}.statement h2{border:0;padding:0;margin:0 0 6px;font-size:10px}.statement p{margin:0;color:#5A6C61;font-size:9px}.signature{margin:42px 0 24px;break-inside:avoid;text-align:center}.signature-line{width:260px;max-width:80%;border-top:1px solid #AEBFB4;margin:auto auto 7px}.signature span{font-size:9px;color:#64766E}.footer{border-top:1px solid #DCE6DF;padding-top:12px;color:#748177;font-size:9px;line-height:1.6;break-inside:avoid}.footer strong{color:#3F5C49;font-weight:600}.print-tools{padding:14px;background:#123C35;color:white;font:13px Arial;margin-bottom:24px}.print-tools button{background:white;color:#123C35;padding:8px 14px;border:0;border-radius:6px;margin-right:12px;cursor:pointer}@media print{.print-tools{display:none}h2{break-after:avoid;page-break-after:avoid}}@media screen{body{background:#EAF0EC;padding:24px}.document{background:white;padding:42px;box-shadow:0 4px 24px #123C3510}}
+ </style></head><body><div class="print-tools"><button id="print-document" type="button">Imprimir ou salvar PDF</button>Para salvar, escolha “Salvar como PDF” e desative os cabeçalhos e rodapés do navegador.</div><main class="document"><header class="header"><div class="brand"><div class="brand-name">KATUÁ</div><div class="brand-subtitle">Gestão da coleta seletiva</div></div><div class="metadata">REGISTRO OPERACIONAL<br>Emissão: ${escapeHtml(currentDate)} · ${escapeHtml(currentTime)}<br>Horário de Fortaleza (UTC−03)</div></header><div class="eyebrow">${receipt ? "REGISTRO INDIVIDUAL" : "HISTÓRICO CONSOLIDADO"}</div><h1>${escapeHtml(documentTitle)}</h1><p class="lead">${receipt ? "Materiais registrados na coleta identificada neste documento." : "Resumo das coletas concluídas presentes no histórico do catador."}</p>
+ <section class="summary"><div class="summary-cell"><span class="summary-label">Massa registrada</span><div class="summary-value">${escapeHtml(formatKg(mass))} <small>kg</small></div></div><div class="summary-cell"><span class="summary-label">${receipt ? "Data da coleta" : "Coletas concluídas"}</span><div class="summary-description">${escapeHtml(receipt ? receipt.date : String(userData.collectionCount ?? "Não informado"))}</div></div><div class="summary-cell"><span class="summary-label">Período do histórico</span><div class="summary-description">${escapeHtml(period)}</div></div></section>
+ <section class="section columns"><div class="column"><h2>Identificação do catador</h2><table class="info"><tbody>${row("Nome", name)}${row("CPF", userData.cpf || "")}${row("Telefone", userData.phone || "")}${row("E-mail", userData.email || "")}${row("Localidade", userData.location || "")}</tbody></table></div><div class="column"><h2>Identificação do registro</h2><table class="info"><tbody>${row("Cooperativa / OSC", userData.cooperativeName || "")}${row("Referência", receipt?.id || code)}${receipt ? row("Observações", receipt.local) : row("Abrangência", "Histórico disponível no sistema")}</tbody></table><p class="note">Documento <span class="reference">${escapeHtml(documentNumber)}</span></p></div></section>
+ <section class="section"><h2>${receipt ? "Materiais da coleta" : "Materiais consolidados"}</h2><table class="data-table ${receipt ? "individual" : ""}"><thead><tr>${receipt ? "" : "<th scope=col>Item</th>"}<th scope=col>Material</th><th scope=col class="text-right">Quantidade registrada</th></tr></thead><tbody>${receipt ? renderMaterialsTable(receipt.materials) : renderTopMaterialsTable(userData.topMaterials)}</tbody></table><p class="note">Quantidades preservadas na unidade de origem. A massa em kg considera apenas kg e toneladas; litros, unidades e m³ não são convertidos em peso.</p></section>
+ <section class="statement"><h2>Sobre este comprovante</h2><p>Este documento apresenta os registros operacionais de <strong>${escapeHtml(name)}</strong> disponíveis no sistema KATUÁ na data de emissão. As informações refletem o histórico consultado e não constituem certificação independente de pesagem ou destinação ambiental. Não substitui MTR, CDF ou documento fiscal.</p></section><section class="signature"><div class="signature-line"></div><span>Responsável pela conferência · nome e identificação</span></section><footer class="footer"><strong>KATUÁ · Registro operacional de coleta seletiva</strong><br>Gerado em ${escapeHtml(currentDate)} às ${escapeHtml(currentTime)} (Fortaleza). Para conferência, utilize a referência completa no histórico da cooperativa.</footer></main></body></html>`;
   return { html, fileName };
 };
 
@@ -679,9 +168,14 @@ const printHtmlOnWeb = async (html: string) => {
 
   printWindow.focus();
 
-  setTimeout(() => {
-    printWindow.print();
-  }, 500);
+  printWindow.document
+    .getElementById("print-document")
+    ?.addEventListener("click", () => printWindow.print());
+  void printWindow.document.fonts.ready.then(() => {
+    setTimeout(() => {
+      if (!printWindow.closed) printWindow.print();
+    }, 250);
+  });
 };
 
 export const generateReceiptPDF = async (

@@ -127,7 +127,7 @@ export default function CooperativaRankingScreen() {
               marginRight: 12,
             }}
           >
-            <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
+            <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>
               {index + 1}
             </Text>
           </View>
@@ -147,7 +147,7 @@ export default function CooperativaRankingScreen() {
         <Text
           style={{
             fontSize: 15,
-            fontWeight: "800",
+            fontWeight: "700",
             color,
             marginLeft: 12,
           }}
@@ -161,7 +161,7 @@ export default function CooperativaRankingScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -192,7 +192,7 @@ export default function CooperativaRankingScreen() {
       >
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 50 }}>
-            <ActivityIndicator size="large" color="#028C56" />
+            <ActivityIndicator size="large" color="#047857" />
             <Text style={{ marginTop: 12, color: "#6B7280" }}>
               Carregando ranking...
             </Text>
@@ -221,7 +221,7 @@ export default function CooperativaRankingScreen() {
                 <Text
                   style={{
                     fontSize: 16,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     color: "#2563EB",
                     marginTop: 6,
                   }}
@@ -248,7 +248,7 @@ export default function CooperativaRankingScreen() {
                 <Text
                   style={{
                     fontSize: 16,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     color: "#DB2777",
                     marginTop: 6,
                   }}

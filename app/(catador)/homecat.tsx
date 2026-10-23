@@ -479,7 +479,7 @@ export default function HomeCatScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
 
         <Text
           style={{
@@ -513,7 +513,7 @@ export default function HomeCatScreen() {
         }}
       >
         <LinearGradient
-          colors={["#16A34A", "#22C55E"]}
+          colors={["#123C35", "#17694F"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={{
@@ -566,7 +566,7 @@ export default function HomeCatScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 25,
-                    fontWeight: "900",
+                    fontWeight: "700",
                     marginTop: 3,
                   }}
                 >
@@ -626,7 +626,7 @@ export default function HomeCatScreen() {
               <Text
                 style={{
                   color: "#FFFFFF",
-                  fontWeight: "800",
+                  fontWeight: "700",
                   marginLeft: 6,
                   fontSize: 13,
                 }}
@@ -788,7 +788,7 @@ export default function HomeCatScreen() {
                           metrics.activeOperation.status === "IN_PROGRESS"
                             ? "#D97706"
                             : "#2563EB",
-                        fontWeight: "800",
+                        fontWeight: "700",
                         fontSize: 13,
                         marginTop: 4,
                       }}
@@ -1133,7 +1133,7 @@ function SectionHeader({
         <Text
           style={{
             fontSize: 18,
-            fontWeight: "800",
+            fontWeight: "700",
             color: "#111827",
             flex: 1,
             paddingRight: 10,
@@ -1146,7 +1146,7 @@ function SectionHeader({
           <TouchableOpacity onPress={onPress}>
             <Text
               style={{
-                color: "#028C56",
+                color: "#047857",
                 fontWeight: "700",
               }}
             >
@@ -1205,7 +1205,7 @@ function MetricCard({
           marginBottom: 12,
         }}
       >
-        <Ionicons name={icon} size={22} color="#028C56" />
+        <Ionicons name={icon} size={22} color="#047857" />
       </View>
 
       <Text
@@ -1221,7 +1221,7 @@ function MetricCard({
         style={{
           color: "#111827",
           fontSize: 20,
-          fontWeight: "800",
+          fontWeight: "700",
           marginTop: 4,
         }}
       >
@@ -1279,7 +1279,7 @@ function EnvironmentalCard({
         style={{
           color: "#111827",
           fontSize: 17,
-          fontWeight: "900",
+          fontWeight: "700",
           marginTop: 3,
         }}
       >
@@ -1356,7 +1356,7 @@ function QuickMiniButton({
         flexDirection: "row",
       }}
     >
-      <Ionicons name={icon} size={16} color="#028C56" />
+      <Ionicons name={icon} size={16} color="#047857" />
 
       <Text
         style={{
@@ -1410,7 +1410,7 @@ function RouteItem({
         <Text
           style={{
             color: collection.status === "IN_PROGRESS" ? "#D97706" : "#2563EB",
-            fontWeight: "900",
+            fontWeight: "700",
           }}
         >
           {position}
@@ -1481,7 +1481,7 @@ function PerformanceRow({
           marginRight: 12,
         }}
       >
-        <Ionicons name={icon} size={20} color="#028C56" />
+        <Ionicons name={icon} size={20} color="#047857" />
       </View>
 
       <Text
@@ -1499,7 +1499,7 @@ function PerformanceRow({
         style={{
           color: "#111827",
           fontSize: 15,
-          fontWeight: "900",
+          fontWeight: "700",
         }}
       >
         {value}
@@ -1583,7 +1583,7 @@ function QuickAction({
           marginRight: 12,
         }}
       >
-        <Ionicons name={icon} size={22} color="#028C56" />
+        <Ionicons name={icon} size={22} color="#047857" />
       </View>
 
       <View style={{ flex: 1 }}>
@@ -1591,7 +1591,7 @@ function QuickAction({
           style={{
             color: "#111827",
             fontSize: 15,
-            fontWeight: "800",
+            fontWeight: "700",
           }}
         >
           {title}
@@ -1636,7 +1636,7 @@ function EmptyState({
         style={{
           color: "#111827",
           fontSize: 16,
-          fontWeight: "800",
+          fontWeight: "700",
           marginTop: 12,
         }}
       >
@@ -1669,7 +1669,7 @@ const sectionCard = {
 const itemTitle = {
   color: "#111827",
   fontSize: 15,
-  fontWeight: "800",
+  fontWeight: "700",
 } as const;
 
 const itemText = {

@@ -160,10 +160,10 @@ export default function ResetPasswordScreen() {
           alignItems: "center",
         }}
       >
-        <Ionicons name="arrow-back" size={24} color="#028C56" />
+        <Ionicons name="arrow-back" size={24} color="#047857" />
         <Text
           style={{
-            color: "#028C56",
+            color: "#047857",
             marginLeft: 4,
             fontWeight: "600",
             fontSize: 14,
@@ -194,7 +194,7 @@ export default function ResetPasswordScreen() {
             <Text
               style={{
                 fontSize: 28,
-                fontWeight: "800",
+                fontWeight: "700",
                 color: "#111827",
                 textAlign: "center",
               }}
@@ -206,7 +206,7 @@ export default function ResetPasswordScreen() {
               style={{
                 fontSize: 18,
                 fontWeight: "700",
-                color: "#028C56",
+                color: "#047857",
                 marginTop: 8,
                 textAlign: "center",
               }}
@@ -238,7 +238,7 @@ export default function ResetPasswordScreen() {
             >
               <Text
                 style={{
-                  color: "#028C56",
+                  color: "#047857",
                   fontSize: 13,
                   fontWeight: "700",
                 }}
@@ -251,7 +251,7 @@ export default function ResetPasswordScreen() {
           <View style={{ marginBottom: 14 }}>
             <Text
               style={{
-                color: "#028C56",
+                color: "#047857",
                 marginBottom: 6,
                 fontWeight: "700",
                 fontSize: 14,
@@ -279,7 +279,7 @@ export default function ResetPasswordScreen() {
           <View style={{ marginBottom: 14 }}>
             <Text
               style={{
-                color: "#028C56",
+                color: "#047857",
                 marginBottom: 6,
                 fontWeight: "700",
                 fontSize: 14,
@@ -323,7 +323,7 @@ export default function ResetPasswordScreen() {
                     showTemporaryPassword ? "eye-outline" : "eye-off-outline"
                   }
                   size={20}
-                  color="#028C56"
+                  color="#047857"
                 />
               </TouchableOpacity>
             </View>
@@ -332,7 +332,7 @@ export default function ResetPasswordScreen() {
           <View style={{ marginBottom: 14 }}>
             <Text
               style={{
-                color: "#028C56",
+                color: "#047857",
                 marginBottom: 6,
                 fontWeight: "700",
                 fontSize: 14,
@@ -373,7 +373,7 @@ export default function ResetPasswordScreen() {
                 <Ionicons
                   name={showNewPassword ? "eye-outline" : "eye-off-outline"}
                   size={20}
-                  color="#028C56"
+                  color="#047857"
                 />
               </TouchableOpacity>
             </View>
@@ -382,7 +382,7 @@ export default function ResetPasswordScreen() {
           <View style={{ marginBottom: 24 }}>
             <Text
               style={{
-                color: "#028C56",
+                color: "#047857",
                 marginBottom: 6,
                 fontWeight: "700",
                 fontSize: 14,
@@ -423,7 +423,7 @@ export default function ResetPasswordScreen() {
                 <Ionicons
                   name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
                   size={20}
-                  color="#028C56"
+                  color="#047857"
                 />
               </TouchableOpacity>
             </View>
@@ -435,7 +435,7 @@ export default function ResetPasswordScreen() {
             disabled={loading}
           >
             <LinearGradient
-              colors={["#059669", "#028C56"]}
+              colors={["#123C35", "#17694F"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{
@@ -453,7 +453,7 @@ export default function ResetPasswordScreen() {
                     style={{
                       color: "#FFFFFF",
                       fontSize: 16,
-                      fontWeight: "800",
+                      fontWeight: "700",
                       marginLeft: 8,
                     }}
                   >
@@ -465,7 +465,7 @@ export default function ResetPasswordScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 18,
-                    fontWeight: "800",
+                    fontWeight: "700",
                   }}
                 >
                   REDEFINIR SENHA

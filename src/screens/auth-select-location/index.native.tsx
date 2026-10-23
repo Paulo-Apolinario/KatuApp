@@ -77,7 +77,7 @@ export default function SelectLocationScreen() {
       if (status !== "granted") {
         Alert.alert(
           "Permissão negada",
-          "Permita o acesso à localização para usar sua posição atual."
+          "Permita o acesso à localização para usar sua posição atual.",
         );
         return;
       }
@@ -123,7 +123,7 @@ export default function SelectLocationScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -135,12 +135,15 @@ export default function SelectLocationScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 12 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 12 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
           <View style={{ flex: 1 }}>
-            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "900" }}>
+            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "700" }}>
               SELECIONAR LOCALIZAÇÃO
             </Text>
             <Text style={{ color: "#E8FFF1", marginTop: 4 }}>
@@ -164,7 +167,7 @@ export default function SelectLocationScreen() {
             coordinate={selectedPoint}
             title="Localização selecionada"
             description="Ponto que será salvo no cadastro"
-            pinColor="#028C56"
+            pinColor="#047857"
           />
         </MapView>
       </View>
@@ -207,16 +210,16 @@ export default function SelectLocationScreen() {
             marginTop: 16,
             borderRadius: 14,
             borderWidth: 1,
-            borderColor: "#028C56",
+            borderColor: "#047857",
             paddingVertical: 14,
             alignItems: "center",
             backgroundColor: "#F0FDF4",
           }}
         >
           {loadingLocation ? (
-            <ActivityIndicator color="#028C56" />
+            <ActivityIndicator color="#047857" />
           ) : (
-            <Text style={{ color: "#028C56", fontWeight: "800", fontSize: 15 }}>
+            <Text style={{ color: "#047857", fontWeight: "700", fontSize: 15 }}>
               USAR MINHA LOCALIZAÇÃO
             </Text>
           )}
@@ -231,7 +234,7 @@ export default function SelectLocationScreen() {
           }}
         >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -239,7 +242,7 @@ export default function SelectLocationScreen() {
               alignItems: "center",
             }}
           >
-            <Text style={{ color: "#FFFFFF", fontWeight: "900", fontSize: 15 }}>
+            <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>
               CONFIRMAR LOCALIZAÇÃO
             </Text>
           </LinearGradient>

@@ -1,14 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  router,
-  useFocusEffect,
-} from "expo-router";
-import {
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -90,48 +83,29 @@ const IMPACT_TARGET_KG = 1000;
  * ============================================================
  */
 
-function normalizeNumber(
-  value: unknown
-) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
+function normalizeNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") {
     return 0;
   }
 
   const normalized =
-    typeof value === "string"
-      ? value.replace(",", ".")
-      : value;
+    typeof value === "string" ? value.replace(",", ".") : value;
 
   const numeric = Number(normalized);
 
-  return Number.isFinite(numeric)
-    ? numeric
-    : 0;
+  return Number.isFinite(numeric) ? numeric : 0;
 }
 
-function normalizeText(
-  value: unknown
-) {
-  if (
-    value === null ||
-    value === undefined
-  ) {
+function normalizeText(value: unknown) {
+  if (value === null || value === undefined) {
     return "";
   }
 
   return String(value).trim();
 }
 
-function normalizeWasteUnit(
-  value: unknown
-): WasteUnit {
-  const normalized = String(
-    value || ""
-  )
+function normalizeWasteUnit(value: unknown): WasteUnit {
+  const normalized = String(value || "")
     .trim()
     .toUpperCase();
 
@@ -143,17 +117,12 @@ function normalizeWasteUnit(
     "CUBIC_METER",
   ];
 
-  return acceptedUnits.includes(
-    normalized as WasteUnit
-  )
+  return acceptedUnits.includes(normalized as WasteUnit)
     ? (normalized as WasteUnit)
     : "KG";
 }
 
-function convertToKg(
-  quantity: number,
-  unit: WasteUnit
-) {
+function convertToKg(quantity: number, unit: WasteUnit) {
   if (unit === "KG") {
     return quantity;
   }
@@ -165,121 +134,69 @@ function convertToKg(
   return 0;
 }
 
-function formatKg(
-  value: number
-) {
-  return value.toLocaleString(
-    "pt-BR",
-    {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 2,
-    }
-  );
+function formatKg(value: number) {
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  });
 }
 
-function formatPercent(
-  value: number
-) {
-  return value.toLocaleString(
-    "pt-BR",
-    {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    }
-  );
+function formatPercent(value: number) {
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
 }
 
-function getRecordMaterialName(
-  material: CollectionMaterialRecord
-) {
+function getRecordMaterialName(material: CollectionMaterialRecord) {
   return (
-    normalizeText(
-      material.nameSnapshot
-    ) ||
-    normalizeText(
-      material.wasteType?.name
-    ) ||
-    normalizeText(
-      material.catalogSuggestion?.name
-    ) ||
+    normalizeText(material.nameSnapshot) ||
+    normalizeText(material.wasteType?.name) ||
+    normalizeText(material.catalogSuggestion?.name) ||
     "Não informado"
   );
 }
 
-function getRecordMaterialCategory(
-  material: CollectionMaterialRecord
-) {
+function getRecordMaterialCategory(material: CollectionMaterialRecord) {
   return (
-    normalizeText(
-      material.categorySnapshot
-    ) ||
-    normalizeText(
-      material.wasteType?.category
-    ) ||
-    normalizeText(
-      material.catalogSuggestion?.category
-    ) ||
+    normalizeText(material.categorySnapshot) ||
+    normalizeText(material.wasteType?.category) ||
+    normalizeText(material.catalogSuggestion?.category) ||
     null
   );
 }
 
-function getRecordMaterialSubcategory(
-  material: CollectionMaterialRecord
-) {
+function getRecordMaterialSubcategory(material: CollectionMaterialRecord) {
   return (
-    normalizeText(
-      material.subcategorySnapshot
-    ) ||
-    normalizeText(
-      material.wasteType?.subcategory
-    ) ||
-    normalizeText(
-      material.catalogSuggestion
-        ?.subcategory
-    ) ||
+    normalizeText(material.subcategorySnapshot) ||
+    normalizeText(material.wasteType?.subcategory) ||
+    normalizeText(material.catalogSuggestion?.subcategory) ||
     null
   );
 }
 
 function normalizeRecordMaterial(
   material: CollectionMaterialRecord,
-  index: number
+  index: number,
 ): NormalizedImpactMaterial {
-  const quantity =
-    normalizeNumber(
-      material.quantity
-    );
+  const quantity = normalizeNumber(material.quantity);
 
-  const unit = normalizeWasteUnit(
-    material.unit
-  );
+  const unit = normalizeWasteUnit(material.unit);
 
-  const name =
-    getRecordMaterialName(material);
+  const name = getRecordMaterialName(material);
 
   return {
-    key:
-      material.id ||
-      `${name}_${index}`,
+    key: material.id || `${name}_${index}`,
 
     name,
 
-    category:
-      getRecordMaterialCategory(
-        material
-      ),
+    category: getRecordMaterialCategory(material),
 
-    subcategory:
-      getRecordMaterialSubcategory(
-        material
-      ),
+    subcategory: getRecordMaterialSubcategory(material),
 
     quantity,
 
-    quantityKg: convertToKg(
-      quantity,
-      unit
-    ),
+    quantityKg: convertToKg(quantity, unit),
 
     unit,
   };
@@ -287,26 +204,18 @@ function normalizeRecordMaterial(
 
 function normalizeLegacyMaterial(
   material: CollectionMaterial,
-  index: number
+  index: number,
 ): NormalizedImpactMaterial {
   const name =
     normalizeText(material.name) ||
     normalizeText(material.type) ||
     "Não informado";
 
-  const unit = normalizeWasteUnit(
-    material.unit
-  );
+  const unit = normalizeWasteUnit(material.unit);
 
-  const explicitQuantity =
-    normalizeNumber(
-      material.quantity
-    );
+  const explicitQuantity = normalizeNumber(material.quantity);
 
-  const explicitQuantityKg =
-    normalizeNumber(
-      material.quantityKg
-    );
+  const explicitQuantityKg = normalizeNumber(material.quantityKg);
 
   const quantity =
     explicitQuantity > 0
@@ -316,27 +225,16 @@ function normalizeLegacyMaterial(
         : 0;
 
   const quantityKg =
-    explicitQuantityKg > 0
-      ? explicitQuantityKg
-      : convertToKg(
-          quantity,
-          unit
-        );
+    explicitQuantityKg > 0 ? explicitQuantityKg : convertToKg(quantity, unit);
 
   return {
     key: `${name}_${index}`,
 
     name,
 
-    category:
-      normalizeText(
-        material.category
-      ) || null,
+    category: normalizeText(material.category) || null,
 
-    subcategory:
-      normalizeText(
-        material.subcategory
-      ) || null,
+    subcategory: normalizeText(material.subcategory) || null,
 
     quantity,
 
@@ -347,63 +245,37 @@ function normalizeLegacyMaterial(
 }
 
 function getCollectionMaterials(
-  collection: Collection
+  collection: Collection,
 ): NormalizedImpactMaterial[] {
   if (
-    Array.isArray(
-      collection.collectionMaterials
-    ) &&
-    collection.collectionMaterials.length >
-      0
+    Array.isArray(collection.collectionMaterials) &&
+    collection.collectionMaterials.length > 0
   ) {
-    return collection.collectionMaterials.map(
-      normalizeRecordMaterial
-    );
+    return collection.collectionMaterials.map(normalizeRecordMaterial);
   }
 
-  if (
-    Array.isArray(
-      collection.materials
-    ) &&
-    collection.materials.length > 0
-  ) {
-    return collection.materials.map(
-      normalizeLegacyMaterial
-    );
+  if (Array.isArray(collection.materials) && collection.materials.length > 0) {
+    return collection.materials.map(normalizeLegacyMaterial);
   }
 
   return [];
 }
 
-function getCollectionTotalKg(
-  collection: Collection
-) {
-  const totalWeightKg =
-    normalizeNumber(
-      collection.totalWeightKg
-    );
+function getCollectionTotalKg(collection: Collection) {
+  const totalWeightKg = normalizeNumber(collection.totalWeightKg);
 
   if (totalWeightKg > 0) {
     return totalWeightKg;
   }
 
-  return getCollectionMaterials(
-    collection
-  ).reduce(
-    (total, material) =>
-      total + material.quantityKg,
-    0
+  return getCollectionMaterials(collection).reduce(
+    (total, material) => total + material.quantityKg,
+    0,
   );
 }
 
-function buildMaterialKey(
-  material: NormalizedImpactMaterial
-) {
-  return [
-    material.name,
-    material.category || "",
-    material.subcategory || "",
-  ]
+function buildMaterialKey(material: NormalizedImpactMaterial) {
+  return [material.name, material.category || "", material.subcategory || ""]
     .join("|")
     .toLocaleLowerCase("pt-BR");
 }
@@ -415,296 +287,181 @@ function buildMaterialKey(
  */
 
 export default function PercentualScreen() {
-  const {
-    notifyError,
-  } = useNotification();
+  const { notifyError } = useNotification();
 
-  const [
-    collections,
-    setCollections,
-  ] = useState<Collection[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [
-    refreshing,
-    setRefreshing,
-  ] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadCollections =
-    useCallback(
-      async (
-        showLoader = true
-      ) => {
-        try {
-          if (showLoader) {
-            setLoading(true);
-          }
-
-          const response =
-            await collectionService.list();
-
-          setCollections(
-            Array.isArray(response)
-              ? response
-              : []
-          );
-        } catch (error) {
-          console.error(
-            "Erro ao carregar impacto das coletas:",
-            error
-          );
-
-          setCollections([]);
-
-          notifyError(
-            error instanceof Error
-              ? error.message
-              : "Não foi possível carregar os dados de impacto."
-          );
-        } finally {
-          if (showLoader) {
-            setLoading(false);
-          }
-
-          setRefreshing(false);
+  const loadCollections = useCallback(
+    async (showLoader = true) => {
+      try {
+        if (showLoader) {
+          setLoading(true);
         }
-      },
-      [notifyError]
-    );
+
+        const response = await collectionService.list();
+
+        setCollections(Array.isArray(response) ? response : []);
+      } catch (error) {
+        console.error("Erro ao carregar impacto das coletas:", error);
+
+        setCollections([]);
+
+        notifyError(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível carregar os dados de impacto.",
+        );
+      } finally {
+        if (showLoader) {
+          setLoading(false);
+        }
+
+        setRefreshing(false);
+      }
+    },
+    [notifyError],
+  );
 
   useFocusEffect(
     useCallback(() => {
       void loadCollections(true);
-    }, [loadCollections])
+    }, [loadCollections]),
   );
 
-  const onRefresh =
-    useCallback(async () => {
-      setRefreshing(true);
-      await loadCollections(false);
-    }, [loadCollections]);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadCollections(false);
+  }, [loadCollections]);
 
   /*
    * Apenas coletas totalmente concluídas entram nos indicadores
    * ambientais consolidados.
    */
-  const completedCollections =
-    useMemo(() => {
-      return collections.filter(
-        (collection) =>
-          collection.status ===
-          "COMPLETED"
-      );
-    }, [collections]);
-
-  const materials =
-    useMemo<MaterialStats[]>(
-      () => {
-        const materialMap =
-          new Map<
-            string,
-            {
-              name: string;
-              category?: string | null;
-              subcategory?: string | null;
-              count: number;
-              totalKg: number;
-            }
-          >();
-
-        completedCollections.forEach(
-          (collection) => {
-            const collectionMaterials =
-              getCollectionMaterials(
-                collection
-              );
-
-            collectionMaterials.forEach(
-              (material) => {
-                const key =
-                  buildMaterialKey(
-                    material
-                  );
-
-                const current =
-                  materialMap.get(key);
-
-                if (current) {
-                  current.count += 1;
-                  current.totalKg +=
-                    material.quantityKg;
-
-                  return;
-                }
-
-                materialMap.set(key, {
-                  name: material.name,
-                  category:
-                    material.category,
-                  subcategory:
-                    material.subcategory,
-                  count: 1,
-                  totalKg:
-                    material.quantityKg,
-                });
-              }
-            );
-          }
-        );
-
-        const totalMaterialsKg =
-          Array.from(
-            materialMap.values()
-          ).reduce(
-            (total, material) =>
-              total +
-              material.totalKg,
-            0
-          );
-
-        return Array.from(
-          materialMap.entries()
-        )
-          .map(
-            (
-              [key, material],
-              index
-            ) => ({
-              key,
-
-              name: material.name,
-
-              category:
-                material.category,
-
-              subcategory:
-                material.subcategory,
-
-              count:
-                material.count,
-
-              totalKg:
-                material.totalKg,
-
-              percent:
-                totalMaterialsKg > 0
-                  ? (material.totalKg /
-                      totalMaterialsKg) *
-                    100
-                  : 0,
-
-              color:
-                MATERIAL_COLORS[
-                  index %
-                    MATERIAL_COLORS.length
-                ],
-            })
-          )
-          .sort(
-            (first, second) =>
-              second.totalKg -
-              first.totalKg
-          );
-      },
-      [completedCollections]
+  const completedCollections = useMemo(() => {
+    return collections.filter(
+      (collection) => collection.status === "COMPLETED",
     );
+  }, [collections]);
 
-  const metrics =
-    useMemo<ImpactMetrics>(
-      () => {
-        const collectionWeights =
-          completedCollections.map(
-            getCollectionTotalKg
-          );
-
-        const totalKg =
-          collectionWeights.reduce(
-            (total, weight) =>
-              total + weight,
-            0
-          );
-
-        const largestCollectionKg =
-          collectionWeights.length > 0
-            ? Math.max(
-                ...collectionWeights
-              )
-            : 0;
-
-        const collectionsWithMaterials =
-          completedCollections.filter(
-            (collection) =>
-              getCollectionMaterials(
-                collection
-              ).length > 0
-          ).length;
-
-        return {
-          totalCollections:
-            completedCollections.length,
-
-          totalKg,
-
-          totalMaterialTypes:
-            materials.length,
-
-          averageKgPerCollection:
-            completedCollections.length >
-            0
-              ? totalKg /
-                completedCollections.length
-              : 0,
-
-          largestCollectionKg,
-
-          collectionsWithMaterials,
-        };
-      },
-      [
-        completedCollections,
-        materials.length,
-      ]
-    );
-
-  const targetPercent =
-    useMemo(() => {
-      if (IMPACT_TARGET_KG <= 0) {
-        return 0;
+  const materials = useMemo<MaterialStats[]>(() => {
+    const materialMap = new Map<
+      string,
+      {
+        name: string;
+        category?: string | null;
+        subcategory?: string | null;
+        count: number;
+        totalKg: number;
       }
+    >();
 
-      return (
-        metrics.totalKg /
-        IMPACT_TARGET_KG
-      ) * 100;
-    }, [metrics.totalKg]);
+    completedCollections.forEach((collection) => {
+      const collectionMaterials = getCollectionMaterials(collection);
 
-  const targetProgress =
-    Math.min(
-      targetPercent,
-      100
+      collectionMaterials.forEach((material) => {
+        const key = buildMaterialKey(material);
+
+        const current = materialMap.get(key);
+
+        if (current) {
+          current.count += 1;
+          current.totalKg += material.quantityKg;
+
+          return;
+        }
+
+        materialMap.set(key, {
+          name: material.name,
+          category: material.category,
+          subcategory: material.subcategory,
+          count: 1,
+          totalKg: material.quantityKg,
+        });
+      });
+    });
+
+    const totalMaterialsKg = Array.from(materialMap.values()).reduce(
+      (total, material) => total + material.totalKg,
+      0,
     );
+
+    return Array.from(materialMap.entries())
+      .map(([key, material], index) => ({
+        key,
+
+        name: material.name,
+
+        category: material.category,
+
+        subcategory: material.subcategory,
+
+        count: material.count,
+
+        totalKg: material.totalKg,
+
+        percent:
+          totalMaterialsKg > 0
+            ? (material.totalKg / totalMaterialsKg) * 100
+            : 0,
+
+        color: MATERIAL_COLORS[index % MATERIAL_COLORS.length],
+      }))
+      .sort((first, second) => second.totalKg - first.totalKg);
+  }, [completedCollections]);
+
+  const metrics = useMemo<ImpactMetrics>(() => {
+    const collectionWeights = completedCollections.map(getCollectionTotalKg);
+
+    const totalKg = collectionWeights.reduce(
+      (total, weight) => total + weight,
+      0,
+    );
+
+    const largestCollectionKg =
+      collectionWeights.length > 0 ? Math.max(...collectionWeights) : 0;
+
+    const collectionsWithMaterials = completedCollections.filter(
+      (collection) => getCollectionMaterials(collection).length > 0,
+    ).length;
+
+    return {
+      totalCollections: completedCollections.length,
+
+      totalKg,
+
+      totalMaterialTypes: materials.length,
+
+      averageKgPerCollection:
+        completedCollections.length > 0
+          ? totalKg / completedCollections.length
+          : 0,
+
+      largestCollectionKg,
+
+      collectionsWithMaterials,
+    };
+  }, [completedCollections, materials.length]);
+
+  const targetPercent = useMemo(() => {
+    if (IMPACT_TARGET_KG <= 0) {
+      return 0;
+    }
+
+    return (metrics.totalKg / IMPACT_TARGET_KG) * 100;
+  }, [metrics.totalKg]);
+
+  const targetProgress = Math.min(targetPercent, 100);
 
   if (loading) {
     return (
-      <View
-        style={
-          styles.loadingContainer
-        }
-      >
-        <ActivityIndicator
-          size="large"
-          color="#028C56"
-        />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#047857" />
 
-        <Text
-          style={styles.loadingText}
-        >
-          Carregando impacto...
-        </Text>
+        <Text style={styles.loadingText}>Carregando impacto...</Text>
       </View>
     );
   }
@@ -712,10 +469,7 @@ export default function PercentualScreen() {
   return (
     <View style={styles.screen}>
       <LinearGradient
-        colors={[
-          "#10B981",
-          "#028C56",
-        ]}
+        colors={["#123C35", "#17694F"]}
         start={{
           x: 0,
           y: 0,
@@ -726,145 +480,58 @@ export default function PercentualScreen() {
         }}
         style={styles.header}
       >
-        <View
-          style={styles.headerTop}
-        >
+        <View style={styles.headerTop}>
           <TouchableOpacity
-            onPress={() =>
-              router.back()
-            }
-            style={
-              styles.headerButton
-            }
+            onPress={() => router.back()}
+            style={styles.headerButton}
           >
-            <Ionicons
-              name="arrow-back"
-              size={22}
-              color="#FFFFFF"
-            />
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <View
-            style={
-              styles.headerContent
-            }
-          >
-            <Text
-              style={styles.headerTitle}
-            >
-              Impacto da coleta
-            </Text>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Impacto da coleta</Text>
 
-            <Text
-              style={
-                styles.headerSubtitle
-              }
-            >
+            <Text style={styles.headerSubtitle}>
               Resultados consolidados das coletas concluídas.
             </Text>
           </View>
 
-          <View
-            style={
-              styles.headerButtonPlaceholder
-            }
-          />
+          <View style={styles.headerButtonPlaceholder} />
         </View>
       </LinearGradient>
 
       <ScrollView
-        showsVerticalScrollIndicator={
-          false
-        }
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        contentContainerStyle={
-          styles.scrollContent
-        }
+        contentContainerStyle={styles.scrollContent}
       >
-        <View
-          style={
-            styles.mainImpactCard
-          }
-        >
-          <View
-            style={
-              styles.mainImpactIcon
-            }
-          >
-            <Ionicons
-              name="leaf-outline"
-              size={30}
-              color="#15803D"
-            />
+        <View style={styles.mainImpactCard}>
+          <View style={styles.mainImpactIcon}>
+            <Ionicons name="leaf-outline" size={30} color="#15803D" />
           </View>
 
-          <Text
-            style={
-              styles.mainImpactLabel
-            }
-          >
-            Total reciclado
+          <Text style={styles.mainImpactLabel}>Total reciclado</Text>
+
+          <Text style={styles.mainImpactValue}>
+            {formatKg(metrics.totalKg)} kg
           </Text>
 
-          <Text
-            style={
-              styles.mainImpactValue
-            }
-          >
-            {formatKg(
-              metrics.totalKg
-            )}{" "}
-            kg
-          </Text>
-
-          <Text
-            style={
-              styles.mainImpactDescription
-            }
-          >
+          <Text style={styles.mainImpactDescription}>
             Soma do peso consolidado de todas as coletas concluídas.
           </Text>
 
-          <View
-            style={
-              styles.targetContainer
-            }
-          >
-            <View
-              style={
-                styles.targetHeader
-              }
-            >
-              <Text
-                style={
-                  styles.targetLabel
-                }
-              >
-                Meta de referência
-              </Text>
+          <View style={styles.targetContainer}>
+            <View style={styles.targetHeader}>
+              <Text style={styles.targetLabel}>Meta de referência</Text>
 
-              <Text
-                style={
-                  styles.targetPercent
-                }
-              >
-                {formatPercent(
-                  targetPercent
-                )}
-                %
+              <Text style={styles.targetPercent}>
+                {formatPercent(targetPercent)}%
               </Text>
             </View>
 
-            <View
-              style={
-                styles.targetTrack
-              }
-            >
+            <View style={styles.targetTrack}>
               <View
                 style={[
                   styles.targetFill,
@@ -875,198 +542,103 @@ export default function PercentualScreen() {
               />
             </View>
 
-            <Text
-              style={
-                styles.targetDescription
-              }
-            >
-              Referência atual:{" "}
-              {IMPACT_TARGET_KG.toLocaleString(
-                "pt-BR"
-              )}{" "}
-              kg
+            <Text style={styles.targetDescription}>
+              Referência atual: {IMPACT_TARGET_KG.toLocaleString("pt-BR")} kg
             </Text>
           </View>
         </View>
 
-        <View
-          style={
-            styles.metricsGrid
-          }
-        >
+        <View style={styles.metricsGrid}>
           <MetricCard
             title="Coletas concluídas"
-            value={String(
-              metrics.totalCollections
-            )}
+            value={String(metrics.totalCollections)}
             icon="checkmark-done-outline"
           />
 
           <MetricCard
             title="Tipos de materiais"
-            value={String(
-              metrics.totalMaterialTypes
-            )}
+            value={String(metrics.totalMaterialTypes)}
             icon="layers-outline"
           />
 
           <MetricCard
             title="Média por coleta"
-            value={`${formatKg(
-              metrics.averageKgPerCollection
-            )} kg`}
+            value={`${formatKg(metrics.averageKgPerCollection)} kg`}
             icon="analytics-outline"
           />
 
           <MetricCard
             title="Maior coleta"
-            value={`${formatKg(
-              metrics.largestCollectionKg
-            )} kg`}
+            value={`${formatKg(metrics.largestCollectionKg)} kg`}
             icon="trending-up-outline"
           />
         </View>
 
-        <View
-          style={styles.infoBanner}
-        >
+        <View style={styles.infoBanner}>
           <Ionicons
             name="information-circle-outline"
             size={22}
             color="#1D4ED8"
           />
 
-          <Text
-            style={styles.infoBannerText}
-          >
-            {metrics.collectionsWithMaterials} de{" "}
-            {metrics.totalCollections} coletas concluídas possuem materiais detalhados. O peso total continua sendo calculado pelo campo consolidado da coleta.
+          <Text style={styles.infoBannerText}>
+            {metrics.collectionsWithMaterials} de {metrics.totalCollections}{" "}
+            coletas concluídas possuem materiais detalhados. O peso total
+            continua sendo calculado pelo campo consolidado da coleta.
           </Text>
         </View>
 
-        <View
-          style={styles.sectionCard}
-        >
-          <View
-            style={
-              styles.sectionHeader
-            }
-          >
-            <View
-              style={
-                styles.sectionIcon
-              }
-            >
-              <Ionicons
-                name="pie-chart-outline"
-                size={21}
-                color="#15803D"
-              />
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIcon}>
+              <Ionicons name="pie-chart-outline" size={21} color="#15803D" />
             </View>
 
-            <View
-              style={
-                styles.sectionTitleBox
-              }
-            >
-              <Text
-                style={
-                  styles.sectionTitle
-                }
-              >
-                Distribuição por material
-              </Text>
+            <View style={styles.sectionTitleBox}>
+              <Text style={styles.sectionTitle}>Distribuição por material</Text>
 
-              <Text
-                style={
-                  styles.sectionSubtitle
-                }
-              >
+              <Text style={styles.sectionSubtitle}>
                 Participação no peso total detalhado
               </Text>
             </View>
           </View>
 
           {materials.length > 0 ? (
-            materials.map(
-              (material) => (
-                <MaterialProgress
-                  key={material.key}
-                  material={material}
-                />
-              )
-            )
+            materials.map((material) => (
+              <MaterialProgress key={material.key} material={material} />
+            ))
           ) : (
             <EmptyMaterials />
           )}
         </View>
 
-        <View
-          style={styles.sectionCard}
-        >
-          <View
-            style={
-              styles.sectionHeader
-            }
-          >
-            <View
-              style={
-                styles.sectionIcon
-              }
-            >
-              <Ionicons
-                name="list-outline"
-                size={21}
-                color="#15803D"
-              />
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIcon}>
+              <Ionicons name="list-outline" size={21} color="#15803D" />
             </View>
 
-            <View
-              style={
-                styles.sectionTitleBox
-              }
-            >
-              <Text
-                style={
-                  styles.sectionTitle
-                }
-              >
-                Resumo dos materiais
-              </Text>
+            <View style={styles.sectionTitleBox}>
+              <Text style={styles.sectionTitle}>Resumo dos materiais</Text>
 
-              <Text
-                style={
-                  styles.sectionSubtitle
-                }
-              >
+              <Text style={styles.sectionSubtitle}>
                 Quantidade de ocorrências e peso acumulado
               </Text>
             </View>
           </View>
 
           {materials.length > 0 ? (
-            materials.map(
-              (
-                material,
-                index
-              ) => (
-                <MaterialSummaryRow
-                  key={material.key}
-                  material={material}
-                  isLast={
-                    index ===
-                    materials.length - 1
-                  }
-                />
-              )
-            )
+            materials.map((material, index) => (
+              <MaterialSummaryRow
+                key={material.key}
+                material={material}
+                isLast={index === materials.length - 1}
+              />
+            ))
           ) : (
-            <Text
-              style={
-                styles.noLegendText
-              }
-            >
-              O resumo será exibido quando houver materiais registrados nas coletas concluídas.
+            <Text style={styles.noLegendText}>
+              O resumo será exibido quando houver materiais registrados nas
+              coletas concluídas.
             </Text>
           )}
         </View>
@@ -1091,92 +663,42 @@ function MetricCard({
   icon: keyof typeof Ionicons.glyphMap;
 }) {
   return (
-    <View
-      style={styles.metricCard}
-    >
-      <View
-        style={styles.metricIcon}
-      >
-        <Ionicons
-          name={icon}
-          size={20}
-          color="#15803D"
-        />
+    <View style={styles.metricCard}>
+      <View style={styles.metricIcon}>
+        <Ionicons name={icon} size={20} color="#15803D" />
       </View>
 
-      <Text
-        style={styles.metricValue}
-        numberOfLines={1}
-      >
+      <Text style={styles.metricValue} numberOfLines={1}>
         {value}
       </Text>
 
-      <Text
-        style={styles.metricTitle}
-      >
-        {title}
-      </Text>
+      <Text style={styles.metricTitle}>{title}</Text>
     </View>
   );
 }
 
-function MaterialProgress({
-  material,
-}: {
-  material: MaterialStats;
-}) {
+function MaterialProgress({ material }: { material: MaterialStats }) {
   return (
-    <View
-      style={
-        styles.materialProgress
-      }
-    >
-      <View
-        style={
-          styles.materialProgressHeader
-        }
-      >
-        <View
-          style={
-            styles.materialNameBox
-          }
-        >
+    <View style={styles.materialProgress}>
+      <View style={styles.materialProgressHeader}>
+        <View style={styles.materialNameBox}>
           <View
             style={[
               styles.materialDot,
               {
-                backgroundColor:
-                  material.color,
+                backgroundColor: material.color,
               },
             ]}
           />
 
-          <View
-            style={
-              styles.materialNameContent
-            }
-          >
-            <Text
-              style={
-                styles.materialName
-              }
-              numberOfLines={1}
-            >
+          <View style={styles.materialNameContent}>
+            <Text style={styles.materialName} numberOfLines={1}>
               {material.name}
             </Text>
 
-            {material.category ||
-            material.subcategory ? (
-              <Text
-                style={
-                  styles.materialCategory
-                }
-                numberOfLines={1}
-              >
-                {[
-                  material.category,
-                  material.subcategory,
-                ]
+            {material.category || material.subcategory ? (
+              <Text style={styles.materialCategory} numberOfLines={1}>
+                {[material.category, material.subcategory]
                   .filter(Boolean)
                   .join(" • ")}
               </Text>
@@ -1184,50 +706,22 @@ function MaterialProgress({
           </View>
         </View>
 
-        <View
-          style={
-            styles.materialNumbers
-          }
-        >
-          <Text
-            style={
-              styles.materialPercent
-            }
-          >
-            {formatPercent(
-              material.percent
-            )}
-            %
+        <View style={styles.materialNumbers}>
+          <Text style={styles.materialPercent}>
+            {formatPercent(material.percent)}%
           </Text>
 
-          <Text
-            style={
-              styles.materialKg
-            }
-          >
-            {formatKg(
-              material.totalKg
-            )}{" "}
-            kg
-          </Text>
+          <Text style={styles.materialKg}>{formatKg(material.totalKg)} kg</Text>
         </View>
       </View>
 
-      <View
-        style={
-          styles.progressTrack
-        }
-      >
+      <View style={styles.progressTrack}>
         <View
           style={[
             styles.progressFill,
             {
-              width: `${Math.min(
-                material.percent,
-                100
-              )}%`,
-              backgroundColor:
-                material.color,
+              width: `${Math.min(material.percent, 100)}%`,
+              backgroundColor: material.color,
             },
           ]}
         />
@@ -1247,56 +741,31 @@ function MaterialSummaryRow({
     <View
       style={[
         styles.materialSummaryRow,
-        isLast &&
-          styles.materialSummaryRowLast,
+        isLast && styles.materialSummaryRowLast,
       ]}
     >
       <View
         style={[
           styles.summaryColor,
           {
-            backgroundColor:
-              material.color,
+            backgroundColor: material.color,
           },
         ]}
       />
 
-      <View
-        style={
-          styles.summaryMaterialContent
-        }
-      >
-        <Text
-          style={
-            styles.summaryMaterialName
-          }
-          numberOfLines={1}
-        >
+      <View style={styles.summaryMaterialContent}>
+        <Text style={styles.summaryMaterialName} numberOfLines={1}>
           {material.name}
         </Text>
 
-        <Text
-          style={
-            styles.summaryMaterialCount
-          }
-        >
-          Presente em{" "}
-          {material.count}{" "}
-          {material.count === 1
-            ? "coleta"
-            : "coletas"}
+        <Text style={styles.summaryMaterialCount}>
+          Presente em {material.count}{" "}
+          {material.count === 1 ? "coleta" : "coletas"}
         </Text>
       </View>
 
-      <Text
-        style={
-          styles.summaryMaterialWeight
-        }
-      >
-        {formatKg(
-          material.totalKg
-        )}{" "}
-        kg
+      <Text style={styles.summaryMaterialWeight}>
+        {formatKg(material.totalKg)} kg
       </Text>
     </View>
   );
@@ -1304,29 +773,16 @@ function MaterialSummaryRow({
 
 function EmptyMaterials() {
   return (
-    <View
-      style={styles.emptyState}
-    >
-      <View
-        style={styles.emptyIcon}
-      >
-        <Ionicons
-          name="pie-chart-outline"
-          size={36}
-          color="#9CA3AF"
-        />
+    <View style={styles.emptyState}>
+      <View style={styles.emptyIcon}>
+        <Ionicons name="pie-chart-outline" size={36} color="#9CA3AF" />
       </View>
 
-      <Text
-        style={styles.emptyTitle}
-      >
-        Sem materiais detalhados
-      </Text>
+      <Text style={styles.emptyTitle}>Sem materiais detalhados</Text>
 
-      <Text
-        style={styles.emptyText}
-      >
-        Ainda não existem materiais registrados em coletas concluídas para gerar a distribuição.
+      <Text style={styles.emptyText}>
+        Ainda não existem materiais registrados em coletas concluídas para gerar
+        a distribuição.
       </Text>
     </View>
   );
@@ -1374,8 +830,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor:
-      "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1393,7 +848,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: "#FFFFFF",
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "700",
   },
 
   headerSubtitle: {
@@ -1435,9 +890,9 @@ const styles = StyleSheet.create({
 
   mainImpactValue: {
     marginTop: 5,
-    color: "#028C56",
+    color: "#047857",
     fontSize: 38,
-    fontWeight: "800",
+    fontWeight: "700",
     textAlign: "center",
   },
 
@@ -1470,9 +925,9 @@ const styles = StyleSheet.create({
   },
 
   targetPercent: {
-    color: "#028C56",
+    color: "#047857",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
   },
 
   targetTrack: {
@@ -1486,7 +941,7 @@ const styles = StyleSheet.create({
   targetFill: {
     height: 9,
     borderRadius: 5,
-    backgroundColor: "#16A34A",
+    backgroundColor: "#047857",
   },
 
   targetDescription: {
@@ -1525,7 +980,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: "#111827",
     fontSize: 20,
-    fontWeight: "800",
+    fontWeight: "700",
   },
 
   metricTitle: {
@@ -1586,7 +1041,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: "#111827",
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "700",
   },
 
   sectionSubtitle: {
@@ -1642,7 +1097,7 @@ const styles = StyleSheet.create({
   materialPercent: {
     color: "#111827",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
   },
 
   materialKg: {
@@ -1703,7 +1158,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     color: "#111827",
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "700",
   },
 
   noLegendText: {
@@ -1730,7 +1185,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: "#374151",
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "700",
   },
 
   emptyText: {

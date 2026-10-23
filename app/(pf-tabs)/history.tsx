@@ -51,7 +51,7 @@ function getStatusColor(status: string) {
     case "REQUESTED":
       return "#F59E0B";
     case "SCHEDULED":
-      return "#028C56";
+      return "#047857";
     case "IN_PROGRESS":
       return "#3B82F6";
     case "COMPLETED":
@@ -100,7 +100,7 @@ export default function HistoryScreen() {
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       {/* Header */}
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         style={{
           paddingTop: 20,
           paddingBottom: 20,
@@ -125,7 +125,7 @@ export default function HistoryScreen() {
         <View
           style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
         >
-          <ActivityIndicator color="#028C56" />
+          <ActivityIndicator color="#047857" />
           <Text style={{ marginTop: 10 }}>Carregando histórico...</Text>
         </View>
       ) : (
@@ -153,8 +153,8 @@ export default function HistoryScreen() {
             <Text
               style={{
                 fontSize: 36,
-                fontWeight: "800",
-                color: "#028C56",
+                fontWeight: "700",
+                color: "#047857",
               }}
             >
               {totalColetas}

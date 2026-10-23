@@ -1,14 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  router,
-  useFocusEffect,
-} from "expo-router";
-import {
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -31,11 +24,7 @@ import type {
 
 type FilterValue = "ALL" | ScheduleStatus;
 
-type SortValue =
-  | "NEWEST"
-  | "OLDEST"
-  | "PREFERRED_DATE"
-  | "STATUS";
+type SortValue = "NEWEST" | "OLDEST" | "PREFERRED_DATE" | "STATUS";
 
 const FILTERS: {
   value: FilterValue;
@@ -110,20 +99,15 @@ function getStatusColor(status: ScheduleStatus) {
     REQUESTED: "#64748B",
     SCHEDULED: "#2563EB",
     IN_PROGRESS: "#F59E0B",
-    COMPLETED: "#16A34A",
+    COMPLETED: "#047857",
     CANCELLED: "#DC2626",
   };
 
   return colors[status];
 }
 
-function getStatusIcon(
-  status: ScheduleStatus
-): keyof typeof Ionicons.glyphMap {
-  const icons: Record<
-    ScheduleStatus,
-    keyof typeof Ionicons.glyphMap
-  > = {
+function getStatusIcon(status: ScheduleStatus): keyof typeof Ionicons.glyphMap {
+  const icons: Record<ScheduleStatus, keyof typeof Ionicons.glyphMap> = {
     REQUESTED: "time-outline",
     SCHEDULED: "calendar-outline",
     IN_PROGRESS: "sync-outline",
@@ -134,9 +118,7 @@ function getStatusIcon(
   return icons[status];
 }
 
-function getMaterialName(
-  material: ScheduleRequestedMaterialRecord
-) {
+function getMaterialName(material: ScheduleRequestedMaterialRecord) {
   return (
     material.nameSnapshot ||
     material.wasteType?.name ||
@@ -145,25 +127,17 @@ function getMaterialName(
   );
 }
 
-function getMaterialQuantity(
-  material: ScheduleRequestedMaterialRecord
-) {
-  const quantity = Number(
-    material.estimatedQuantity || 0
-  );
+function getMaterialQuantity(material: ScheduleRequestedMaterialRecord) {
+  const quantity = Number(material.estimatedQuantity || 0);
 
   if (!Number.isFinite(quantity) || quantity <= 0) {
     return null;
   }
 
-  return `${quantity.toLocaleString("pt-BR")} ${
-    material.unit || "KG"
-  }`;
+  return `${quantity.toLocaleString("pt-BR")} ${material.unit || "KG"}`;
 }
 
-function getEstimatedWeight(
-  materials?: ScheduleRequestedMaterialRecord[]
-) {
+function getEstimatedWeight(materials?: ScheduleRequestedMaterialRecord[]) {
   if (!Array.isArray(materials)) {
     return 0;
   }
@@ -173,35 +147,20 @@ function getEstimatedWeight(
       return total;
     }
 
-    const quantity = Number(
-      material.estimatedQuantity || 0
-    );
+    const quantity = Number(material.estimatedQuantity || 0);
 
-    return Number.isFinite(quantity)
-      ? total + quantity
-      : total;
+    return Number.isFinite(quantity) ? total + quantity : total;
   }, 0);
 }
 
 function getSearchableText(schedule: Schedule) {
-  const materials = Array.isArray(
-    schedule.requestedMaterials
-  )
-    ? schedule.requestedMaterials
-        .map(getMaterialName)
-        .join(" ")
+  const materials = Array.isArray(schedule.requestedMaterials)
+    ? schedule.requestedMaterials.map(getMaterialName).join(" ")
     : "";
 
-  const cooperativeName =
-    schedule.cooperative?.name ??
-    "";
+  const cooperativeName = schedule.cooperative?.name ?? "";
 
-  return [
-    schedule.id,
-    schedule.notes,
-    cooperativeName,
-    materials,
-  ]
+  return [schedule.id, schedule.notes, cooperativeName, materials]
     .filter(Boolean)
     .join(" ")
     .toLocaleLowerCase("pt-BR");
@@ -215,34 +174,25 @@ function getTimestamp(value?: string | null) {
   const date = new Date(value);
   const timestamp = date.getTime();
 
-  return Number.isNaN(timestamp)
-    ? 0
-    : timestamp;
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
 export default function GeneratorSchedulesScreen() {
   const { notifyError } = useNotification();
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [refreshing, setRefreshing] =
-    useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [schedules, setSchedules] =
-    useState<Schedule[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
 
-  const [searchTerm, setSearchTerm] =
-    useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const [selectedFilter, setSelectedFilter] =
-    useState<FilterValue>("ALL");
+  const [selectedFilter, setSelectedFilter] = useState<FilterValue>("ALL");
 
-  const [selectedSort, setSelectedSort] =
-    useState<SortValue>("NEWEST");
+  const [selectedSort, setSelectedSort] = useState<SortValue>("NEWEST");
 
-  const [showSortOptions, setShowSortOptions] =
-    useState(false);
+  const [showSortOptions, setShowSortOptions] = useState(false);
 
   const loadSchedules = useCallback(
     async (showLoader = true) => {
@@ -251,24 +201,16 @@ export default function GeneratorSchedulesScreen() {
           setLoading(true);
         }
 
-        const response =
-          await scheduleService.list();
+        const response = await scheduleService.list();
 
-        setSchedules(
-          Array.isArray(response)
-            ? response
-            : []
-        );
+        setSchedules(Array.isArray(response) ? response : []);
       } catch (error) {
-        console.error(
-          "Erro ao carregar solicitações:",
-          error
-        );
+        console.error("Erro ao carregar solicitações:", error);
 
         notifyError(
           error instanceof Error
             ? error.message
-            : "Não foi possível carregar suas solicitações."
+            : "Não foi possível carregar suas solicitações.",
         );
       } finally {
         if (showLoader) {
@@ -278,13 +220,13 @@ export default function GeneratorSchedulesScreen() {
         setRefreshing(false);
       }
     },
-    [notifyError]
+    [notifyError],
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadSchedules(true);
-    }, [loadSchedules])
+    }, [loadSchedules]),
   );
 
   const metrics = useMemo(() => {
@@ -294,83 +236,51 @@ export default function GeneratorSchedulesScreen() {
         (schedule) =>
           schedule.status === "REQUESTED" ||
           schedule.status === "SCHEDULED" ||
-          schedule.status === "IN_PROGRESS"
+          schedule.status === "IN_PROGRESS",
       ).length,
-      scheduled: schedules.filter(
-        (schedule) =>
-          schedule.status === "SCHEDULED"
-      ).length,
-      completed: schedules.filter(
-        (schedule) =>
-          schedule.status === "COMPLETED"
-      ).length,
+      scheduled: schedules.filter((schedule) => schedule.status === "SCHEDULED")
+        .length,
+      completed: schedules.filter((schedule) => schedule.status === "COMPLETED")
+        .length,
     };
   }, [schedules]);
 
   const visibleSchedules = useMemo(() => {
-    const normalizedSearch = searchTerm
-      .trim()
-      .toLocaleLowerCase("pt-BR");
+    const normalizedSearch = searchTerm.trim().toLocaleLowerCase("pt-BR");
 
-    const filtered = schedules.filter(
-      (schedule) => {
-        const matchesFilter =
-          selectedFilter === "ALL" ||
-          schedule.status === selectedFilter;
+    const filtered = schedules.filter((schedule) => {
+      const matchesFilter =
+        selectedFilter === "ALL" || schedule.status === selectedFilter;
 
-        const matchesSearch =
-          !normalizedSearch ||
-          getSearchableText(schedule).includes(
-            normalizedSearch
-          );
+      const matchesSearch =
+        !normalizedSearch ||
+        getSearchableText(schedule).includes(normalizedSearch);
 
-        return matchesFilter && matchesSearch;
+      return matchesFilter && matchesSearch;
+    });
+
+    return [...filtered].sort((first, second) => {
+      if (selectedSort === "OLDEST") {
+        return getTimestamp(first.createdAt) - getTimestamp(second.createdAt);
       }
-    );
 
-    return [...filtered].sort(
-      (first, second) => {
-        if (selectedSort === "OLDEST") {
-          return (
-            getTimestamp(first.createdAt) -
-            getTimestamp(second.createdAt)
-          );
-        }
-
-        if (selectedSort === "PREFERRED_DATE") {
-          return (
-            getTimestamp(
-              first.preferredDate ||
-                first.scheduledDate
-            ) -
-            getTimestamp(
-              second.preferredDate ||
-                second.scheduledDate
-            )
-          );
-        }
-
-        if (selectedSort === "STATUS") {
-          return translateStatus(
-            first.status
-          ).localeCompare(
-            translateStatus(second.status),
-            "pt-BR"
-          );
-        }
-
+      if (selectedSort === "PREFERRED_DATE") {
         return (
-          getTimestamp(second.createdAt) -
-          getTimestamp(first.createdAt)
+          getTimestamp(first.preferredDate || first.scheduledDate) -
+          getTimestamp(second.preferredDate || second.scheduledDate)
         );
       }
-    );
-  }, [
-    schedules,
-    searchTerm,
-    selectedFilter,
-    selectedSort,
-  ]);
+
+      if (selectedSort === "STATUS") {
+        return translateStatus(first.status).localeCompare(
+          translateStatus(second.status),
+          "pt-BR",
+        );
+      }
+
+      return getTimestamp(second.createdAt) - getTimestamp(first.createdAt);
+    });
+  }, [schedules, searchTerm, selectedFilter, selectedSort]);
 
   function handleRefresh() {
     setRefreshing(true);
@@ -379,8 +289,7 @@ export default function GeneratorSchedulesScreen() {
 
   function openDetails(scheduleId: string) {
     router.push({
-      pathname:
-        "/(gerador)/schedule-details",
+      pathname: "/(gerador)/schedule-details",
       params: {
         id: scheduleId,
       },
@@ -390,14 +299,9 @@ export default function GeneratorSchedulesScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator
-          size="large"
-          color="#028C56"
-        />
+        <ActivityIndicator size="large" color="#047857" />
 
-        <Text style={styles.loadingText}>
-          Carregando solicitações...
-        </Text>
+        <Text style={styles.loadingText}>Carregando solicitações...</Text>
       </View>
     );
   }
@@ -405,10 +309,7 @@ export default function GeneratorSchedulesScreen() {
   return (
     <View style={styles.screen}>
       <LinearGradient
-        colors={[
-          "#10B981",
-          "#028C56",
-        ]}
+        colors={["#123C35", "#17694F"]}
         start={{
           x: 0,
           y: 0,
@@ -424,17 +325,11 @@ export default function GeneratorSchedulesScreen() {
             onPress={() => router.back()}
             style={styles.headerIconButton}
           >
-            <Ionicons
-              name="arrow-back"
-              size={22}
-              color="#FFFFFF"
-            />
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>
-              Minhas solicitações
-            </Text>
+            <Text style={styles.headerTitle}>Minhas solicitações</Text>
 
             <Text style={styles.headerSubtitle}>
               Consulte e acompanhe seus pedidos de coleta.
@@ -442,18 +337,10 @@ export default function GeneratorSchedulesScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={() =>
-              router.push(
-                "/(gerador)/schedule"
-              )
-            }
+            onPress={() => router.push("/(gerador)/schedule")}
             style={styles.headerIconButton}
           >
-            <Ionicons
-              name="add"
-              size={24}
-              color="#FFFFFF"
-            />
+            <Ionicons name="add" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -461,14 +348,9 @@ export default function GeneratorSchedulesScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
-        contentContainerStyle={
-          styles.scrollContent
-        }
+        contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.metricsGrid}>
           <MetricCard
@@ -498,11 +380,7 @@ export default function GeneratorSchedulesScreen() {
 
         <View style={styles.searchCard}>
           <View style={styles.searchInputContainer}>
-            <Ionicons
-              name="search-outline"
-              size={20}
-              color="#6B7280"
-            />
+            <Ionicons name="search-outline" size={20} color="#6B7280" />
 
             <TextInput
               value={searchTerm}
@@ -513,16 +391,8 @@ export default function GeneratorSchedulesScreen() {
             />
 
             {searchTerm ? (
-              <TouchableOpacity
-                onPress={() =>
-                  setSearchTerm("")
-                }
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={20}
-                  color="#9CA3AF"
-                />
+              <TouchableOpacity onPress={() => setSearchTerm("")}>
+                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -530,34 +400,24 @@ export default function GeneratorSchedulesScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={
-              styles.filterContent
-            }
+            contentContainerStyle={styles.filterContent}
           >
             {FILTERS.map((filter) => {
-              const selected =
-                selectedFilter ===
-                filter.value;
+              const selected = selectedFilter === filter.value;
 
               return (
                 <TouchableOpacity
                   key={filter.value}
-                  onPress={() =>
-                    setSelectedFilter(
-                      filter.value
-                    )
-                  }
+                  onPress={() => setSelectedFilter(filter.value)}
                   style={[
                     styles.filterChip,
-                    selected &&
-                      styles.filterChipSelected,
+                    selected && styles.filterChipSelected,
                   ]}
                 >
                   <Text
                     style={[
                       styles.filterChipText,
-                      selected &&
-                        styles.filterChipTextSelected,
+                      selected && styles.filterChipTextSelected,
                     ]}
                   >
                     {filter.label}
@@ -568,128 +428,83 @@ export default function GeneratorSchedulesScreen() {
           </ScrollView>
 
           <TouchableOpacity
-            onPress={() =>
-              setShowSortOptions(
-                (current) => !current
-              )
-            }
+            onPress={() => setShowSortOptions((current) => !current)}
             style={styles.sortButton}
           >
-            <Ionicons
-              name="swap-vertical-outline"
-              size={18}
-              color="#028C56"
-            />
+            <Ionicons name="swap-vertical-outline" size={18} color="#047857" />
 
             <Text style={styles.sortButtonText}>
               {
-                SORT_OPTIONS.find(
-                  (option) =>
-                    option.value ===
-                    selectedSort
-                )?.label
+                SORT_OPTIONS.find((option) => option.value === selectedSort)
+                  ?.label
               }
             </Text>
 
             <Ionicons
-              name={
-                showSortOptions
-                  ? "chevron-up"
-                  : "chevron-down"
-              }
+              name={showSortOptions ? "chevron-up" : "chevron-down"}
               size={18}
-              color="#028C56"
+              color="#047857"
             />
           </TouchableOpacity>
 
           {showSortOptions ? (
             <View style={styles.sortOptions}>
-              {SORT_OPTIONS.map(
-                (option, index) => {
-                  const selected =
-                    option.value ===
-                    selectedSort;
+              {SORT_OPTIONS.map((option, index) => {
+                const selected = option.value === selectedSort;
 
-                  return (
-                    <TouchableOpacity
-                      key={option.value}
-                      onPress={() => {
-                        setSelectedSort(
-                          option.value
-                        );
-                        setShowSortOptions(
-                          false
-                        );
-                      }}
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    onPress={() => {
+                      setSelectedSort(option.value);
+                      setShowSortOptions(false);
+                    }}
+                    style={[
+                      styles.sortOption,
+                      index === SORT_OPTIONS.length - 1 &&
+                        styles.sortOptionLast,
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.sortOption,
-                        index ===
-                          SORT_OPTIONS.length -
-                            1 &&
-                          styles.sortOptionLast,
+                        styles.sortOptionText,
+                        selected && styles.sortOptionTextSelected,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.sortOptionText,
-                          selected &&
-                            styles.sortOptionTextSelected,
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
+                      {option.label}
+                    </Text>
 
-                      {selected ? (
-                        <Ionicons
-                          name="checkmark"
-                          size={18}
-                          color="#028C56"
-                        />
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                }
-              )}
+                    {selected ? (
+                      <Ionicons name="checkmark" size={18} color="#047857" />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           ) : null}
         </View>
 
         <View style={styles.listHeader}>
-          <Text style={styles.listTitle}>
-            Solicitações
-          </Text>
+          <Text style={styles.listTitle}>Solicitações</Text>
 
           <Text style={styles.listCount}>
             {visibleSchedules.length}{" "}
-            {visibleSchedules.length === 1
-              ? "registro"
-              : "registros"}
+            {visibleSchedules.length === 1 ? "registro" : "registros"}
           </Text>
         </View>
 
         {visibleSchedules.length > 0 ? (
-          visibleSchedules.map(
-            (schedule) => (
-              <ScheduleCard
-                key={schedule.id}
-                schedule={schedule}
-                onPress={() =>
-                  openDetails(schedule.id)
-                }
-              />
-            )
-          )
+          visibleSchedules.map((schedule) => (
+            <ScheduleCard
+              key={schedule.id}
+              schedule={schedule}
+              onPress={() => openDetails(schedule.id)}
+            />
+          ))
         ) : (
           <EmptyState
-            hasSearch={
-              Boolean(searchTerm) ||
-              selectedFilter !== "ALL"
-            }
-            onCreate={() =>
-              router.push(
-                "/(gerador)/schedule"
-              )
-            }
+            hasSearch={Boolean(searchTerm) || selectedFilter !== "ALL"}
+            onCreate={() => router.push("/(gerador)/schedule")}
             onClear={() => {
               setSearchTerm("");
               setSelectedFilter("ALL");
@@ -713,20 +528,12 @@ function MetricCard({
   return (
     <View style={styles.metricCard}>
       <View style={styles.metricIcon}>
-        <Ionicons
-          name={icon}
-          size={20}
-          color="#15803D"
-        />
+        <Ionicons name={icon} size={20} color="#15803D" />
       </View>
 
-      <Text style={styles.metricValue}>
-        {value}
-      </Text>
+      <Text style={styles.metricValue}>{value}</Text>
 
-      <Text style={styles.metricTitle}>
-        {title}
-      </Text>
+      <Text style={styles.metricTitle}>{title}</Text>
     </View>
   );
 }
@@ -738,18 +545,13 @@ function ScheduleCard({
   schedule: Schedule;
   onPress: () => void;
 }) {
-  const materials = Array.isArray(
-    schedule.requestedMaterials
-  )
+  const materials = Array.isArray(schedule.requestedMaterials)
     ? schedule.requestedMaterials
     : [];
 
-  const estimatedWeight =
-    getEstimatedWeight(materials);
+  const estimatedWeight = getEstimatedWeight(materials);
 
-  const cooperativeName =
-    schedule.cooperative?.name ??
-    ""
+  const cooperativeName = schedule.cooperative?.name ?? "";
   return (
     <TouchableOpacity
       activeOpacity={0.86}
@@ -762,33 +564,22 @@ function ScheduleCard({
             style={[
               styles.statusIcon,
               {
-                backgroundColor: `${getStatusColor(
-                  schedule.status
-                )}18`,
+                backgroundColor: `${getStatusColor(schedule.status)}18`,
               },
             ]}
           >
             <Ionicons
-              name={getStatusIcon(
-                schedule.status
-              )}
+              name={getStatusIcon(schedule.status)}
               size={20}
-              color={getStatusColor(
-                schedule.status
-              )}
+              color={getStatusColor(schedule.status)}
             />
           </View>
 
           <View style={styles.protocolTextContainer}>
-            <Text style={styles.protocolLabel}>
-              Solicitação
-            </Text>
+            <Text style={styles.protocolLabel}>Solicitação</Text>
 
             <Text style={styles.protocolValue}>
-              #
-              {schedule.id
-                .slice(-8)
-                .toUpperCase()}
+              #{schedule.id.slice(-8).toUpperCase()}
             </Text>
           </View>
         </View>
@@ -797,17 +588,12 @@ function ScheduleCard({
           style={[
             styles.statusBadge,
             {
-              backgroundColor:
-                getStatusColor(
-                  schedule.status
-                ),
+              backgroundColor: getStatusColor(schedule.status),
             },
           ]}
         >
           <Text style={styles.statusBadgeText}>
-            {translateStatus(
-              schedule.status
-            )}
+            {translateStatus(schedule.status)}
           </Text>
         </View>
       </View>
@@ -816,17 +602,13 @@ function ScheduleCard({
         <InfoItem
           icon="calendar-outline"
           label="Data preferencial"
-          value={formatDateTime(
-            schedule.preferredDate
-          )}
+          value={formatDateTime(schedule.preferredDate)}
         />
 
         <InfoItem
           icon="checkmark-circle-outline"
           label="Data agendada"
-          value={formatDateTime(
-            schedule.scheduledDate
-          )}
+          value={formatDateTime(schedule.scheduledDate)}
         />
 
         <InfoItem
@@ -843,85 +625,46 @@ function ScheduleCard({
       </View>
 
       <View style={styles.materialsSection}>
-        <Text style={styles.sectionLabel}>
-          Materiais solicitados
-        </Text>
+        <Text style={styles.sectionLabel}>Materiais solicitados</Text>
 
         {materials.length > 0 ? (
           <View style={styles.materialChips}>
-            {materials
-              .slice(0, 4)
-              .map((material) => {
-                const quantity =
-                  getMaterialQuantity(
-                    material
-                  );
+            {materials.slice(0, 4).map((material) => {
+              const quantity = getMaterialQuantity(material);
 
-                return (
-                  <View
-                    key={material.id}
-                    style={
-                      styles.materialChip
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.materialChipName
-                      }
-                      numberOfLines={1}
-                    >
-                      {getMaterialName(
-                        material
-                      )}
-                    </Text>
+              return (
+                <View key={material.id} style={styles.materialChip}>
+                  <Text style={styles.materialChipName} numberOfLines={1}>
+                    {getMaterialName(material)}
+                  </Text>
 
-                    {quantity ? (
-                      <Text
-                        style={
-                          styles.materialChipQuantity
-                        }
-                      >
-                        {quantity}
-                      </Text>
-                    ) : null}
-                  </View>
-                );
-              })}
+                  {quantity ? (
+                    <Text style={styles.materialChipQuantity}>{quantity}</Text>
+                  ) : null}
+                </View>
+              );
+            })}
 
             {materials.length > 4 ? (
-              <View
-                style={
-                  styles.moreMaterialsChip
-                }
-              >
-                <Text
-                  style={
-                    styles.moreMaterialsText
-                  }
-                >
+              <View style={styles.moreMaterialsChip}>
+                <Text style={styles.moreMaterialsText}>
                   +{materials.length - 4}
                 </Text>
               </View>
             ) : null}
           </View>
         ) : (
-          <Text style={styles.noMaterialsText}>
-            Nenhum material informado.
-          </Text>
+          <Text style={styles.noMaterialsText}>Nenhum material informado.</Text>
         )}
       </View>
 
       <View style={styles.summaryRow}>
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>
-            Peso estimado
-          </Text>
+          <Text style={styles.summaryLabel}>Peso estimado</Text>
 
           <Text style={styles.summaryValue}>
             {estimatedWeight > 0
-              ? `${estimatedWeight.toLocaleString(
-                  "pt-BR"
-                )} kg`
+              ? `${estimatedWeight.toLocaleString("pt-BR")} kg`
               : "-"}
           </Text>
         </View>
@@ -929,45 +672,28 @@ function ScheduleCard({
         <View style={styles.summaryDivider} />
 
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>
-            Solicitada em
-          </Text>
+          <Text style={styles.summaryLabel}>Solicitada em</Text>
 
           <Text style={styles.summaryValue}>
-            {formatDate(
-              schedule.createdAt
-            )}
+            {formatDate(schedule.createdAt)}
           </Text>
         </View>
       </View>
 
       {schedule.notes ? (
         <View style={styles.notesContainer}>
-          <Ionicons
-            name="document-text-outline"
-            size={17}
-            color="#6B7280"
-          />
+          <Ionicons name="document-text-outline" size={17} color="#6B7280" />
 
-          <Text
-            style={styles.notesText}
-            numberOfLines={2}
-          >
+          <Text style={styles.notesText} numberOfLines={2}>
             {schedule.notes}
           </Text>
         </View>
       ) : null}
 
       <View style={styles.cardFooter}>
-        <Text style={styles.detailsText}>
-          Ver detalhes
-        </Text>
+        <Text style={styles.detailsText}>Ver detalhes</Text>
 
-        <Ionicons
-          name="arrow-forward"
-          size={18}
-          color="#028C56"
-        />
+        <Ionicons name="arrow-forward" size={18} color="#047857" />
       </View>
     </TouchableOpacity>
   );
@@ -984,21 +710,12 @@ function InfoItem({
 }) {
   return (
     <View style={styles.infoItem}>
-      <Ionicons
-        name={icon}
-        size={17}
-        color="#15803D"
-      />
+      <Ionicons name={icon} size={17} color="#15803D" />
 
       <View style={styles.infoTextContainer}>
-        <Text style={styles.infoLabel}>
-          {label}
-        </Text>
+        <Text style={styles.infoLabel}>{label}</Text>
 
-        <Text
-          style={styles.infoValue}
-          numberOfLines={2}
-        >
+        <Text style={styles.infoValue} numberOfLines={2}>
           {value}
         </Text>
       </View>
@@ -1019,11 +736,7 @@ function EmptyState({
     <View style={styles.emptyState}>
       <View style={styles.emptyIcon}>
         <Ionicons
-          name={
-            hasSearch
-              ? "search-outline"
-              : "calendar-clear-outline"
-          }
+          name={hasSearch ? "search-outline" : "calendar-clear-outline"}
           size={38}
           color="#15803D"
         />
@@ -1042,27 +755,17 @@ function EmptyState({
       </Text>
 
       <TouchableOpacity
-        onPress={
-          hasSearch
-            ? onClear
-            : onCreate
-        }
+        onPress={hasSearch ? onClear : onCreate}
         style={styles.emptyButton}
       >
         <Ionicons
-          name={
-            hasSearch
-              ? "refresh-outline"
-              : "add-circle-outline"
-          }
+          name={hasSearch ? "refresh-outline" : "add-circle-outline"}
           size={19}
           color="#FFFFFF"
         />
 
         <Text style={styles.emptyButtonText}>
-          {hasSearch
-            ? "Limpar filtros"
-            : "Nova solicitação"}
+          {hasSearch ? "Limpar filtros" : "Nova solicitação"}
         </Text>
       </TouchableOpacity>
     </View>
@@ -1100,8 +803,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor:
-      "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1112,7 +814,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: "#FFFFFF",
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   headerSubtitle: {
     marginTop: 4,
@@ -1150,7 +852,7 @@ const styles = StyleSheet.create({
   metricValue: {
     marginTop: 10,
     fontSize: 23,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#111827",
   },
   metricTitle: {
@@ -1196,8 +898,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   filterChipSelected: {
-    borderColor: "#028C56",
-    backgroundColor: "#028C56",
+    borderColor: "#047857",
+    backgroundColor: "#047857",
   },
   filterChipText: {
     color: "#4B5563",
@@ -1249,8 +951,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   sortOptionTextSelected: {
-    color: "#028C56",
-    fontWeight: "800",
+    color: "#047857",
+    fontWeight: "700",
   },
   listHeader: {
     marginTop: 19,
@@ -1261,7 +963,7 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     fontSize: 18,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#111827",
   },
   listCount: {
@@ -1303,7 +1005,7 @@ const styles = StyleSheet.create({
   protocolValue: {
     marginTop: 2,
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#111827",
   },
   statusBadge: {
@@ -1315,7 +1017,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     color: "#FFFFFF",
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "700",
     textAlign: "center",
   },
   infoGrid: {
@@ -1392,7 +1094,7 @@ const styles = StyleSheet.create({
   moreMaterialsText: {
     color: "#4B5563",
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   noMaterialsText: {
     color: "#9CA3AF",
@@ -1422,7 +1124,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     marginTop: 3,
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#374151",
   },
   notesContainer: {
@@ -1451,9 +1153,9 @@ const styles = StyleSheet.create({
   },
   detailsText: {
     marginRight: 7,
-    color: "#028C56",
+    color: "#047857",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   emptyState: {
     marginTop: 2,
@@ -1476,7 +1178,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     marginTop: 15,
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#111827",
     textAlign: "center",
   },
@@ -1492,7 +1194,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: "#028C56",
+    backgroundColor: "#047857",
     flexDirection: "row",
     alignItems: "center",
   },
@@ -1500,6 +1202,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "700",
   },
 });

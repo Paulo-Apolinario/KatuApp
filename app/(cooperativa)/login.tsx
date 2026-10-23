@@ -103,7 +103,7 @@ export default function CooperativaLoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -135,7 +135,7 @@ export default function CooperativaLoginScreen() {
             <Text
               style={{
                 fontSize: 28,
-                fontWeight: "800",
+                fontWeight: "700",
                 color: "#FFFFFF",
               }}
             >
@@ -190,7 +190,7 @@ export default function CooperativaLoginScreen() {
             <Text
               style={{
                 fontSize: 28,
-                fontWeight: "800",
+                fontWeight: "700",
                 color: "#111827",
                 textAlign: "center",
               }}
@@ -217,7 +217,7 @@ export default function CooperativaLoginScreen() {
               padding: 16,
               marginBottom: 25,
               borderWidth: 1,
-              borderColor: "#028C56",
+              borderColor: "#047857",
             }}
           >
             <View
@@ -227,13 +227,13 @@ export default function CooperativaLoginScreen() {
                 marginBottom: 10,
               }}
             >
-              <Ionicons name="business" size={24} color="#028C56" />
+              <Ionicons name="business" size={24} color="#047857" />
 
               <Text
                 style={{
                   fontSize: 16,
                   fontWeight: "600",
-                  color: "#028C56",
+                  color: "#047857",
                   marginLeft: 10,
                 }}
               >
@@ -288,11 +288,11 @@ export default function CooperativaLoginScreen() {
                 marginBottom: 8,
               }}
             >
-              <Ionicons name="mail-outline" size={20} color="#028C56" />
+              <Ionicons name="mail-outline" size={20} color="#047857" />
 
               <Text
                 style={{
-                  color: "#028C56",
+                  color: "#047857",
                   marginLeft: 8,
                   fontWeight: "500",
                 }}
@@ -333,12 +333,12 @@ export default function CooperativaLoginScreen() {
                 <Ionicons
                   name="lock-closed-outline"
                   size={20}
-                  color="#028C56"
+                  color="#047857"
                 />
 
                 <Text
                   style={{
-                    color: "#028C56",
+                    color: "#047857",
                     marginLeft: 8,
                     fontWeight: "500",
                   }}
@@ -351,7 +351,7 @@ export default function CooperativaLoginScreen() {
                 <Ionicons
                   name={showPassword ? "eye-outline" : "eye-off-outline"}
                   size={20}
-                  color="#028C56"
+                  color="#047857"
                 />
               </TouchableOpacity>
             </View>
@@ -381,7 +381,7 @@ export default function CooperativaLoginScreen() {
             <Text
               style={{
                 fontSize: 14,
-                color: "#028C56",
+                color: "#047857",
                 fontWeight: "500",
               }}
             >
@@ -396,7 +396,7 @@ export default function CooperativaLoginScreen() {
             style={{ marginBottom: 20 }}
           >
             <LinearGradient
-              colors={["#059669", "#028C56"]}
+              colors={["#123C35", "#17694F"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{
@@ -416,7 +416,7 @@ export default function CooperativaLoginScreen() {
                     style={{
                       color: "#FFFFFF",
                       fontSize: 18,
-                      fontWeight: "800",
+                      fontWeight: "700",
                       marginLeft: 8,
                     }}
                   >
@@ -428,7 +428,7 @@ export default function CooperativaLoginScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 18,
-                    fontWeight: "800",
+                    fontWeight: "700",
                   }}
                 >
                   ENTRAR
@@ -449,7 +449,7 @@ export default function CooperativaLoginScreen() {
             <TouchableOpacity onPress={handleSolicitarAcesso}>
               <Text
                 style={{
-                  color: "#028C56",
+                  color: "#047857",
                   fontWeight: "700",
                   textDecorationLine: "underline",
                 }}

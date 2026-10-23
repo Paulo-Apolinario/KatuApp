@@ -261,7 +261,7 @@ export default function GeneratorProfileScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando perfil...
         </Text>
@@ -279,7 +279,7 @@ export default function GeneratorProfileScreen() {
       contentContainerStyle={{ paddingBottom: 30 }}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -308,7 +308,7 @@ export default function GeneratorProfileScreen() {
           <Text
             style={{
               fontSize: 24,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#FFFFFF",
               textAlign: "center",
             }}
@@ -564,7 +564,7 @@ function MetricCard({
       <Text
         style={{
           fontSize: 21,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
           marginTop: 4,
         }}

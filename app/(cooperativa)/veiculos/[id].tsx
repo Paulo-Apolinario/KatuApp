@@ -110,7 +110,7 @@ export default function VeiculoDetalheScreen() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando veículo...
         </Text>
@@ -147,7 +147,7 @@ export default function VeiculoDetalheScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{ paddingTop: 20, paddingBottom: 20, paddingHorizontal: 20 }}
@@ -190,7 +190,7 @@ export default function VeiculoDetalheScreen() {
           >
             <View style={{ flex: 1, paddingRight: 10 }}>
               <Text
-                style={{ fontSize: 20, fontWeight: "800", color: "#111827" }}
+                style={{ fontSize: 20, fontWeight: "700", color: "#111827" }}
               >
                 {veiculo.model}
               </Text>
@@ -216,7 +216,7 @@ export default function VeiculoDetalheScreen() {
           </View>
 
           <View style={{ marginBottom: 10 }}>
-            <Text style={{ fontSize: 13, color: "#028C56", marginBottom: 4 }}>
+            <Text style={{ fontSize: 13, color: "#047857", marginBottom: 4 }}>
               Marca
             </Text>
             <Text style={{ fontSize: 16, color: "#111827" }}>
@@ -225,7 +225,7 @@ export default function VeiculoDetalheScreen() {
           </View>
 
           <View style={{ marginBottom: 10 }}>
-            <Text style={{ fontSize: 13, color: "#028C56", marginBottom: 4 }}>
+            <Text style={{ fontSize: 13, color: "#047857", marginBottom: 4 }}>
               Ano
             </Text>
             <Text style={{ fontSize: 16, color: "#111827" }}>
@@ -234,7 +234,7 @@ export default function VeiculoDetalheScreen() {
           </View>
 
           <View>
-            <Text style={{ fontSize: 13, color: "#028C56", marginBottom: 4 }}>
+            <Text style={{ fontSize: 13, color: "#047857", marginBottom: 4 }}>
               Capacidade
             </Text>
             <Text style={{ fontSize: 16, color: "#111827" }}>
@@ -245,7 +245,7 @@ export default function VeiculoDetalheScreen() {
         </View>
 
         <View style={{ marginBottom: 30 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 10 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 10 }}>
             Alterar status
           </Text>
 
@@ -265,7 +265,7 @@ export default function VeiculoDetalheScreen() {
                   }
                   disabled={savingStatus}
                   style={{
-                    backgroundColor: selected ? "#028C56" : "#F3F4F6",
+                    backgroundColor: selected ? "#047857" : "#F3F4F6",
                     paddingHorizontal: 14,
                     paddingVertical: 8,
                     borderRadius: 20,
@@ -295,7 +295,7 @@ export default function VeiculoDetalheScreen() {
                 alignItems: "center",
               }}
             >
-              <ActivityIndicator size="small" color="#028C56" />
+              <ActivityIndicator size="small" color="#047857" />
               <Text style={{ marginLeft: 8, color: "#6B7280" }}>
                 Atualizando status...
               </Text>

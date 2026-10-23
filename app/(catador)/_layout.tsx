@@ -10,7 +10,7 @@ export default function CatadorLayout() {
         screenOptions={{
           headerShown: false,
 
-          tabBarActiveTintColor: "#028C56",
+          tabBarActiveTintColor: "#047857",
           tabBarInactiveTintColor: "#94A3B8",
 
           tabBarHideOnKeyboard: true,

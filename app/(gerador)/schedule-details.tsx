@@ -1,15 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  router,
-  useFocusEffect,
-  useLocalSearchParams,
-} from "expo-router";
-import {
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -29,10 +21,7 @@ import type {
   ScheduleStatus,
 } from "@/src/types/schedule";
 
-import type {
-  Collection,
-  CollectionStatus,
-} from "@/src/types/collection";
+import type { Collection, CollectionStatus } from "@/src/types/collection";
 
 type ScheduleDetails = Schedule & {
   collection?: Collection | null;
@@ -104,13 +93,8 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString("pt-BR");
 }
 
-function translateScheduleStatus(
-  status: ScheduleStatus
-) {
-  const labels: Record<
-    ScheduleStatus,
-    string
-  > = {
+function translateScheduleStatus(status: ScheduleStatus) {
+  const labels: Record<ScheduleStatus, string> = {
     REQUESTED: "Solicitada",
     SCHEDULED: "Agendada",
     IN_PROGRESS: "Em andamento",
@@ -121,13 +105,8 @@ function translateScheduleStatus(
   return labels[status];
 }
 
-function translateCollectionStatus(
-  status: CollectionStatus
-) {
-  const labels: Record<
-    CollectionStatus,
-    string
-  > = {
+function translateCollectionStatus(status: CollectionStatus) {
+  const labels: Record<CollectionStatus, string> = {
     PENDING: "Pendente",
     IN_PROGRESS: "Em coleta",
     COLLECTED: "Coletada",
@@ -140,45 +119,33 @@ function translateCollectionStatus(
   return labels[status];
 }
 
-function getScheduleStatusColor(
-  status: ScheduleStatus
-) {
-  const colors: Record<
-    ScheduleStatus,
-    string
-  > = {
+function getScheduleStatusColor(status: ScheduleStatus) {
+  const colors: Record<ScheduleStatus, string> = {
     REQUESTED: "#64748B",
     SCHEDULED: "#2563EB",
     IN_PROGRESS: "#F59E0B",
-    COMPLETED: "#16A34A",
+    COMPLETED: "#047857",
     CANCELLED: "#DC2626",
   };
 
   return colors[status];
 }
 
-function getCollectionStatusColor(
-  status: CollectionStatus
-) {
-  const colors: Record<
-    CollectionStatus,
-    string
-  > = {
+function getCollectionStatusColor(status: CollectionStatus) {
+  const colors: Record<CollectionStatus, string> = {
     PENDING: "#64748B",
     IN_PROGRESS: "#F59E0B",
     COLLECTED: "#7C3AED",
     RECEIVED: "#2563EB",
     SORTING: "#0891B2",
-    COMPLETED: "#16A34A",
+    COMPLETED: "#047857",
     CANCELLED: "#DC2626",
   };
 
   return colors[status];
 }
 
-function getMaterialName(
-  material: ScheduleRequestedMaterialRecord
-) {
+function getMaterialName(material: ScheduleRequestedMaterialRecord) {
   return (
     material.nameSnapshot ||
     material.wasteType?.name ||
@@ -187,9 +154,7 @@ function getMaterialName(
   );
 }
 
-function getMaterialCategory(
-  material: ScheduleRequestedMaterialRecord
-) {
+function getMaterialCategory(material: ScheduleRequestedMaterialRecord) {
   return (
     material.wasteType?.category ||
     material.catalogSuggestion?.category ||
@@ -198,9 +163,7 @@ function getMaterialCategory(
   );
 }
 
-function getMaterialSubcategory(
-  material: ScheduleRequestedMaterialRecord
-) {
+function getMaterialSubcategory(material: ScheduleRequestedMaterialRecord) {
   return (
     material.wasteType?.subcategory ||
     material.catalogSuggestion?.subcategory ||
@@ -209,47 +172,30 @@ function getMaterialSubcategory(
   );
 }
 
-function getQuantityLabel(
-  material: ScheduleRequestedMaterialRecord
-) {
-  const quantity = Number(
-    material.estimatedQuantity || 0
-  );
+function getQuantityLabel(material: ScheduleRequestedMaterialRecord) {
+  const quantity = Number(material.estimatedQuantity || 0);
 
   if (!Number.isFinite(quantity) || quantity <= 0) {
     return "Quantidade não informada";
   }
 
-  return `${quantity.toLocaleString("pt-BR")} ${
-    material.unit || "KG"
-  }`;
+  return `${quantity.toLocaleString("pt-BR")} ${material.unit || "KG"}`;
 }
 
-function getEstimatedWeight(
-  materials: ScheduleRequestedMaterialRecord[]
-) {
+function getEstimatedWeight(materials: ScheduleRequestedMaterialRecord[]) {
   return materials.reduce((total, material) => {
     if (material.unit !== "KG") {
       return total;
     }
 
-    const quantity = Number(
-      material.estimatedQuantity || 0
-    );
+    const quantity = Number(material.estimatedQuantity || 0);
 
-    return Number.isFinite(quantity)
-      ? total + quantity
-      : total;
+    return Number.isFinite(quantity) ? total + quantity : total;
   }, 0);
 }
 
-function getCollections(
-  schedule: ScheduleDetails
-) {
-  if (
-    Array.isArray(schedule.collections) &&
-    schedule.collections.length > 0
-  ) {
+function getCollections(schedule: ScheduleDetails) {
+  if (Array.isArray(schedule.collections) && schedule.collections.length > 0) {
     return schedule.collections;
   }
 
@@ -260,9 +206,7 @@ function getCollections(
   return [];
 }
 
-function buildGeneratorAddress(
-  generator?: ScheduleDetails["generator"]
-) {
+function buildGeneratorAddress(generator?: ScheduleDetails["generator"]) {
   if (!generator) {
     return "-";
   }
@@ -271,47 +215,36 @@ function buildGeneratorAddress(
     return generator.address;
   }
 
-  const streetLine = [
-    generator.street,
-    generator.number,
-  ]
+  const streetLine = [generator.street, generator.number]
     .filter(Boolean)
     .join(", ");
 
-  const districtLine = [
-    generator.neighborhood,
-    generator.city,
-    generator.state,
-  ]
+  const districtLine = [generator.neighborhood, generator.city, generator.state]
     .filter(Boolean)
     .join(" - ");
 
   return (
-    [streetLine, districtLine, generator.zipCode]
-      .filter(Boolean)
-      .join(" • ") || "-"
+    [streetLine, districtLine, generator.zipCode].filter(Boolean).join(" • ") ||
+    "-"
   );
 }
 
 function buildTimeline(
   schedule: ScheduleDetails,
-  linkedCollection?: Collection
+  linkedCollection?: Collection,
 ): TimelineStep[] {
   const scheduleStatus = schedule.status;
-  const collectionStatus =
-    linkedCollection?.status;
+  const collectionStatus = linkedCollection?.status;
 
   const cancelled =
-    scheduleStatus === "CANCELLED" ||
-    collectionStatus === "CANCELLED";
+    scheduleStatus === "CANCELLED" || collectionStatus === "CANCELLED";
 
   if (cancelled) {
     return [
       {
         key: "requested",
         title: "Solicitação criada",
-        description:
-          "A solicitação foi registrada pelo gerador.",
+        description: "A solicitação foi registrada pelo gerador.",
         completed: true,
         current: false,
         date: schedule.createdAt,
@@ -320,13 +253,10 @@ function buildTimeline(
       {
         key: "cancelled",
         title: "Fluxo cancelado",
-        description:
-          "A solicitação ou a coleta vinculada foi cancelada.",
+        description: "A solicitação ou a coleta vinculada foi cancelada.",
         completed: true,
         current: true,
-        date:
-          linkedCollection?.updatedAt ||
-          schedule.updatedAt,
+        date: linkedCollection?.updatedAt || schedule.updatedAt,
         icon: "close-circle-outline",
       },
     ];
@@ -338,8 +268,7 @@ function buildTimeline(
     scheduleStatus === "COMPLETED" ||
     Boolean(schedule.scheduledDate);
 
-  const hasCollection =
-    Boolean(linkedCollection);
+  const hasCollection = Boolean(linkedCollection);
 
   const collectionStarted =
     collectionStatus === "IN_PROGRESS" ||
@@ -360,12 +289,10 @@ function buildTimeline(
     collectionStatus === "COMPLETED";
 
   const sorting =
-    collectionStatus === "SORTING" ||
-    collectionStatus === "COMPLETED";
+    collectionStatus === "SORTING" || collectionStatus === "COMPLETED";
 
   const completed =
-    scheduleStatus === "COMPLETED" ||
-    collectionStatus === "COMPLETED";
+    scheduleStatus === "COMPLETED" || collectionStatus === "COMPLETED";
 
   const currentKey = completed
     ? "completed"
@@ -387,8 +314,7 @@ function buildTimeline(
     {
       key: "requested",
       title: "Solicitação criada",
-      description:
-        "A solicitação foi registrada e enviada para a cooperativa.",
+      description: "A solicitação foi registrada e enviada para a cooperativa.",
       completed: true,
       current: currentKey === "requested",
       date: schedule.createdAt,
@@ -397,8 +323,7 @@ function buildTimeline(
     {
       key: "scheduled",
       title: "Coleta agendada",
-      description:
-        "A cooperativa confirmou a data da coleta.",
+      description: "A cooperativa confirmou a data da coleta.",
       completed: hasSchedule,
       current: currentKey === "scheduled",
       date: schedule.scheduledDate,
@@ -407,8 +332,7 @@ function buildTimeline(
     {
       key: "delegated",
       title: "Coleta delegada",
-      description:
-        "A solicitação foi transformada em coleta operacional.",
+      description: "A solicitação foi transformada em coleta operacional.",
       completed: hasCollection,
       current: currentKey === "delegated",
       date: linkedCollection?.createdAt,
@@ -417,61 +341,46 @@ function buildTimeline(
     {
       key: "in_progress",
       title: "Coleta em andamento",
-      description:
-        "A equipe responsável iniciou o atendimento.",
+      description: "A equipe responsável iniciou o atendimento.",
       completed: collectionStarted,
       current: currentKey === "in_progress",
-      date:
-        linkedCollection?.startedAt ||
-        linkedCollection?.updatedAt,
+      date: linkedCollection?.startedAt || linkedCollection?.updatedAt,
       icon: "car-outline",
     },
     {
       key: "collected",
       title: "Materiais coletados",
-      description:
-        "O catador registrou os materiais retirados no local.",
+      description: "O catador registrou os materiais retirados no local.",
       completed: collected,
       current: currentKey === "collected",
-      date:
-        linkedCollection?.collectedAt ||
-        linkedCollection?.updatedAt,
+      date: linkedCollection?.collectedAt || linkedCollection?.updatedAt,
       icon: "cube-outline",
     },
     {
       key: "received",
       title: "Recebido pela cooperativa",
-      description:
-        "Os resíduos chegaram à cooperativa para conferência.",
+      description: "Os resíduos chegaram à cooperativa para conferência.",
       completed: received,
       current: currentKey === "received",
-      date:
-        linkedCollection?.receivedAt ||
-        linkedCollection?.updatedAt,
+      date: linkedCollection?.receivedAt || linkedCollection?.updatedAt,
       icon: "business-outline",
     },
     {
       key: "sorting",
       title: "Em triagem",
-      description:
-        "Os materiais estão sendo classificados e destinados.",
+      description: "Os materiais estão sendo classificados e destinados.",
       completed: sorting,
       current: currentKey === "sorting",
-      date:
-        linkedCollection?.sortingStartedAt ||
-        linkedCollection?.updatedAt,
+      date: linkedCollection?.sortingStartedAt || linkedCollection?.updatedAt,
       icon: "git-branch-outline",
     },
     {
       key: "completed",
       title: "Processo concluído",
-      description:
-        "A coleta e o processamento dos resíduos foram finalizados.",
+      description: "A coleta e o processamento dos resíduos foram finalizados.",
       completed,
       current: currentKey === "completed",
-      date:
-        linkedCollection?.completedAt ||
-        schedule.updatedAt,
+      date: linkedCollection?.completedAt || schedule.updatedAt,
       icon: "checkmark-done-outline",
     },
   ];
@@ -482,28 +391,21 @@ export default function GeneratorScheduleDetailsScreen() {
     id?: string | string[];
   }>();
 
-  const scheduleId = Array.isArray(params.id)
-    ? params.id[0]
-    : params.id;
+  const scheduleId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const { notifyError } = useNotification();
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [refreshing, setRefreshing] =
-    useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [schedule, setSchedule] =
-    useState<ScheduleDetails | null>(null);
+  const [schedule, setSchedule] = useState<ScheduleDetails | null>(null);
 
   const loadSchedule = useCallback(
     async (showLoader = true) => {
       if (!scheduleId) {
         setLoading(false);
-        notifyError(
-          "ID da solicitação não informado."
-        );
+        notifyError("ID da solicitação não informado.");
         return;
       }
 
@@ -512,24 +414,16 @@ export default function GeneratorScheduleDetailsScreen() {
           setLoading(true);
         }
 
-        const response =
-          await scheduleService.getById(
-            scheduleId
-          );
+        const response = await scheduleService.getById(scheduleId);
 
-        setSchedule(
-          response as ScheduleDetails
-        );
+        setSchedule(response as ScheduleDetails);
       } catch (error) {
-        console.error(
-          "Erro ao carregar detalhes da solicitação:",
-          error
-        );
+        console.error("Erro ao carregar detalhes da solicitação:", error);
 
         notifyError(
           error instanceof Error
             ? error.message
-            : "Não foi possível carregar os detalhes da solicitação."
+            : "Não foi possível carregar os detalhes da solicitação.",
         );
       } finally {
         if (showLoader) {
@@ -539,67 +433,45 @@ export default function GeneratorScheduleDetailsScreen() {
         setRefreshing(false);
       }
     },
-    [
-      notifyError,
-      scheduleId,
-    ]
+    [notifyError, scheduleId],
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadSchedule(true);
-    }, [loadSchedule])
+    }, [loadSchedule]),
   );
 
   const materials = useMemo(
     () =>
-      Array.isArray(
-        schedule?.requestedMaterials
-      )
+      Array.isArray(schedule?.requestedMaterials)
         ? schedule.requestedMaterials
         : [],
-    [schedule]
+    [schedule],
   );
 
   const collections = useMemo(
-    () =>
-      schedule
-        ? getCollections(schedule)
-        : [],
-    [schedule]
+    () => (schedule ? getCollections(schedule) : []),
+    [schedule],
   );
 
-  const linkedCollection =
-    collections[0];
+  const linkedCollection = collections[0];
 
   const timeline = useMemo(
-    () =>
-      schedule
-        ? buildTimeline(
-            schedule,
-            linkedCollection
-          )
-        : [],
-    [
-      schedule,
-      linkedCollection,
-    ]
+    () => (schedule ? buildTimeline(schedule, linkedCollection) : []),
+    [schedule, linkedCollection],
   );
 
-  const estimatedWeight =
-    getEstimatedWeight(materials);
+  const estimatedWeight = getEstimatedWeight(materials);
 
   function handleRefresh() {
     setRefreshing(true);
     void loadSchedule(false);
   }
 
-  function openCollection(
-    collectionId: string
-  ) {
+  function openCollection(collectionId: string) {
     router.push({
-      pathname:
-        "/(gerador)/collection-details",
+      pathname: "/(gerador)/collection-details",
       params: {
         id: collectionId,
       },
@@ -609,14 +481,9 @@ export default function GeneratorScheduleDetailsScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator
-          size="large"
-          color="#028C56"
-        />
+        <ActivityIndicator size="large" color="#047857" />
 
-        <Text style={styles.loadingText}>
-          Carregando solicitação...
-        </Text>
+        <Text style={styles.loadingText}>Carregando solicitação...</Text>
       </View>
     );
   }
@@ -625,16 +492,10 @@ export default function GeneratorScheduleDetailsScreen() {
     return (
       <View style={styles.notFoundContainer}>
         <View style={styles.notFoundIcon}>
-          <Ionicons
-            name="alert-circle-outline"
-            size={42}
-            color="#B45309"
-          />
+          <Ionicons name="alert-circle-outline" size={42} color="#B45309" />
         </View>
 
-        <Text style={styles.notFoundTitle}>
-          Solicitação não encontrada
-        </Text>
+        <Text style={styles.notFoundTitle}>Solicitação não encontrada</Text>
 
         <Text style={styles.notFoundText}>
           Não foi possível localizar os dados desta solicitação.
@@ -644,9 +505,7 @@ export default function GeneratorScheduleDetailsScreen() {
           onPress={() => router.back()}
           style={styles.notFoundButton}
         >
-          <Text style={styles.notFoundButtonText}>
-            Voltar
-          </Text>
+          <Text style={styles.notFoundButtonText}>Voltar</Text>
         </TouchableOpacity>
       </View>
     );
@@ -658,17 +517,12 @@ export default function GeneratorScheduleDetailsScreen() {
     "Cooperativa responsável";
 
   const generatorName =
-    schedule.generator?.name ||
-    schedule.generator?.companyName ||
-    "Gerador";
+    schedule.generator?.name || schedule.generator?.companyName || "Gerador";
 
   return (
     <View style={styles.screen}>
       <LinearGradient
-        colors={[
-          "#10B981",
-          "#028C56",
-        ]}
+        colors={["#123C35", "#17694F"]}
         start={{
           x: 0,
           y: 0,
@@ -684,35 +538,19 @@ export default function GeneratorScheduleDetailsScreen() {
             onPress={() => router.back()}
             style={styles.headerButton}
           >
-            <Ionicons
-              name="arrow-back"
-              size={22}
-              color="#FFFFFF"
-            />
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerEyebrow}>
-              Detalhes da solicitação
-            </Text>
+            <Text style={styles.headerEyebrow}>Detalhes da solicitação</Text>
 
             <Text style={styles.headerTitle}>
-              #
-              {schedule.id
-                .slice(-8)
-                .toUpperCase()}
+              #{schedule.id.slice(-8).toUpperCase()}
             </Text>
           </View>
 
-          <TouchableOpacity
-            onPress={handleRefresh}
-            style={styles.headerButton}
-          >
-            <Ionicons
-              name="refresh-outline"
-              size={21}
-              color="#FFFFFF"
-            />
+          <TouchableOpacity onPress={handleRefresh} style={styles.headerButton}>
+            <Ionicons name="refresh-outline" size={21} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -721,29 +559,17 @@ export default function GeneratorScheduleDetailsScreen() {
             style={[
               styles.headerStatusBadge,
               {
-                backgroundColor:
-                  getScheduleStatusColor(
-                    schedule.status
-                  ),
+                backgroundColor: getScheduleStatusColor(schedule.status),
               },
             ]}
           >
-            <Text
-              style={
-                styles.headerStatusText
-              }
-            >
-              {translateScheduleStatus(
-                schedule.status
-              )}
+            <Text style={styles.headerStatusText}>
+              {translateScheduleStatus(schedule.status)}
             </Text>
           </View>
 
           <Text style={styles.headerDate}>
-            Criada em{" "}
-            {formatDateTime(
-              schedule.createdAt
-            )}
+            Criada em {formatDateTime(schedule.createdAt)}
           </Text>
         </View>
       </LinearGradient>
@@ -751,14 +577,9 @@ export default function GeneratorScheduleDetailsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
-        contentContainerStyle={
-          styles.scrollContent
-        }
+        contentContainerStyle={styles.scrollContent}
       >
         <SectionCard
           title="Resumo da solicitação"
@@ -767,25 +588,19 @@ export default function GeneratorScheduleDetailsScreen() {
           <View style={styles.summaryGrid}>
             <SummaryItem
               label="Data preferencial"
-              value={formatDateTime(
-                schedule.preferredDate
-              )}
+              value={formatDateTime(schedule.preferredDate)}
               icon="calendar-outline"
             />
 
             <SummaryItem
               label="Data agendada"
-              value={formatDateTime(
-                schedule.scheduledDate
-              )}
+              value={formatDateTime(schedule.scheduledDate)}
               icon="checkmark-circle-outline"
             />
 
             <SummaryItem
               label="Materiais"
-              value={String(
-                materials.length
-              )}
+              value={String(materials.length)}
               icon="cube-outline"
             />
 
@@ -793,9 +608,7 @@ export default function GeneratorScheduleDetailsScreen() {
               label="Peso estimado"
               value={
                 estimatedWeight > 0
-                  ? `${estimatedWeight.toLocaleString(
-                      "pt-BR"
-                    )} kg`
+                  ? `${estimatedWeight.toLocaleString("pt-BR")} kg`
                   : "-"
               }
               icon="scale-outline"
@@ -803,23 +616,15 @@ export default function GeneratorScheduleDetailsScreen() {
           </View>
         </SectionCard>
 
-        <SectionCard
-          title="Acompanhamento"
-          icon="git-branch-outline"
-        >
+        <SectionCard title="Acompanhamento" icon="git-branch-outline">
           <View style={styles.timeline}>
-            {timeline.map(
-              (step, index) => (
-                <TimelineItem
-                  key={step.key}
-                  step={step}
-                  isLast={
-                    index ===
-                    timeline.length - 1
-                  }
-                />
-              )
-            )}
+            {timeline.map((step, index) => (
+              <TimelineItem
+                key={step.key}
+                step={step}
+                isLast={index === timeline.length - 1}
+              />
+            ))}
           </View>
         </SectionCard>
 
@@ -828,23 +633,13 @@ export default function GeneratorScheduleDetailsScreen() {
           icon="list-outline"
         >
           {materials.length > 0 ? (
-            materials.map(
-              (material, index) => (
-                <MaterialCard
-                  key={
-                    material.id ||
-                    `${getMaterialName(
-                      material
-                    )}_${index}`
-                  }
-                  material={material}
-                  isLast={
-                    index ===
-                    materials.length - 1
-                  }
-                />
-              )
-            )
+            materials.map((material, index) => (
+              <MaterialCard
+                key={material.id || `${getMaterialName(material)}_${index}`}
+                material={material}
+                isLast={index === materials.length - 1}
+              />
+            ))
           ) : (
             <InlineEmptyState
               icon="cube-outline"
@@ -853,67 +648,39 @@ export default function GeneratorScheduleDetailsScreen() {
           )}
         </SectionCard>
 
-        <SectionCard
-          title="Cooperativa responsável"
-          icon="business-outline"
-        >
-          <DetailRow
-            label="Nome"
-            value={cooperativeName}
-          />
+        <SectionCard title="Cooperativa responsável" icon="business-outline">
+          <DetailRow label="Nome" value={cooperativeName} />
 
           <DetailRow
             label="E-mail"
-            value={
-              schedule.cooperative?.email ||
-              "-"
-            }
+            value={schedule.cooperative?.email || "-"}
           />
 
           <DetailRow
             label="Telefone"
-            value={
-              schedule.cooperative?.phone ||
-              "-"
-            }
+            value={schedule.cooperative?.phone || "-"}
             isLast
           />
         </SectionCard>
 
-        <SectionCard
-          title="Local da coleta"
-          icon="location-outline"
-        >
-          <DetailRow
-            label="Gerador"
-            value={generatorName}
-          />
+        <SectionCard title="Local da coleta" icon="location-outline">
+          <DetailRow label="Gerador" value={generatorName} />
 
           <DetailRow
             label="Endereço"
-            value={buildGeneratorAddress(
-              schedule.generator
-            )}
+            value={buildGeneratorAddress(schedule.generator)}
           />
 
           <DetailRow
             label="Telefone"
-            value={
-              schedule.generator?.phone ||
-              "-"
-            }
+            value={schedule.generator?.phone || "-"}
             isLast
           />
         </SectionCard>
 
-        <SectionCard
-          title="Observações"
-          icon="document-text-outline"
-        >
+        <SectionCard title="Observações" icon="document-text-outline">
           {schedule.notes ? (
-            <Text style={styles.notesText}>
-              {schedule.notes}
-            </Text>
+            <Text style={styles.notesText}>{schedule.notes}</Text>
           ) : (
             <InlineEmptyState
               icon="chatbox-ellipses-outline"
@@ -927,23 +694,14 @@ export default function GeneratorScheduleDetailsScreen() {
           icon="car-outline"
         >
           {collections.length > 0 ? (
-            collections.map(
-              (collection, index) => (
-                <CollectionCard
-                  key={collection.id}
-                  collection={collection}
-                  onPress={() =>
-                    openCollection(
-                      collection.id
-                    )
-                  }
-                  isLast={
-                    index ===
-                    collections.length - 1
-                  }
-                />
-              )
-            )
+            collections.map((collection, index) => (
+              <CollectionCard
+                key={collection.id}
+                collection={collection}
+                onPress={() => openCollection(collection.id)}
+                isLast={index === collections.length - 1}
+              />
+            ))
           ) : (
             <InlineEmptyState
               icon="hourglass-outline"
@@ -952,27 +710,17 @@ export default function GeneratorScheduleDetailsScreen() {
           )}
         </SectionCard>
 
-        <SectionCard
-          title="Informações do registro"
-          icon="code-slash-outline"
-        >
-          <DetailRow
-            label="Identificador"
-            value={schedule.id}
-          />
+        <SectionCard title="Informações do registro" icon="code-slash-outline">
+          <DetailRow label="Identificador" value={schedule.id} />
 
           <DetailRow
             label="Criada em"
-            value={formatDateTime(
-              schedule.createdAt
-            )}
+            value={formatDateTime(schedule.createdAt)}
           />
 
           <DetailRow
             label="Última atualização"
-            value={formatDateTime(
-              schedule.updatedAt
-            )}
+            value={formatDateTime(schedule.updatedAt)}
             isLast
           />
         </SectionCard>
@@ -994,16 +742,10 @@ function SectionCard({
     <View style={styles.sectionCard}>
       <View style={styles.sectionHeader}>
         <View style={styles.sectionIcon}>
-          <Ionicons
-            name={icon}
-            size={19}
-            color="#15803D"
-          />
+          <Ionicons name={icon} size={19} color="#15803D" />
         </View>
 
-        <Text style={styles.sectionTitle}>
-          {title}
-        </Text>
+        <Text style={styles.sectionTitle}>{title}</Text>
       </View>
 
       {children}
@@ -1022,21 +764,12 @@ function SummaryItem({
 }) {
   return (
     <View style={styles.summaryItem}>
-      <Ionicons
-        name={icon}
-        size={18}
-        color="#15803D"
-      />
+      <Ionicons name={icon} size={18} color="#15803D" />
 
       <View style={styles.summaryText}>
-        <Text style={styles.summaryLabel}>
-          {label}
-        </Text>
+        <Text style={styles.summaryLabel}>{label}</Text>
 
-        <Text
-          style={styles.summaryValue}
-          numberOfLines={2}
-        >
+        <Text style={styles.summaryValue} numberOfLines={2}>
           {value}
         </Text>
       </View>
@@ -1052,9 +785,9 @@ function TimelineItem({
   isLast: boolean;
 }) {
   const color = step.current
-    ? "#028C56"
+    ? "#047857"
     : step.completed
-      ? "#16A34A"
+      ? "#047857"
       : "#D1D5DB";
 
   return (
@@ -1064,9 +797,7 @@ function TimelineItem({
           style={[
             styles.timelineCircle,
             {
-              backgroundColor: step.completed
-                ? color
-                : "#FFFFFF",
+              backgroundColor: step.completed ? color : "#FFFFFF",
               borderColor: color,
             },
           ]}
@@ -1074,11 +805,7 @@ function TimelineItem({
           <Ionicons
             name={step.icon}
             size={16}
-            color={
-              step.completed
-                ? "#FFFFFF"
-                : color
-            }
+            color={step.completed ? "#FFFFFF" : color}
           />
         </View>
 
@@ -1087,10 +814,7 @@ function TimelineItem({
             style={[
               styles.timelineLine,
               {
-                backgroundColor:
-                  step.completed
-                    ? "#86EFAC"
-                    : "#E5E7EB",
+                backgroundColor: step.completed ? "#86EFAC" : "#E5E7EB",
               },
             ]}
           />
@@ -1098,50 +822,30 @@ function TimelineItem({
       </View>
 
       <View
-        style={[
-          styles.timelineContent,
-          isLast &&
-            styles.timelineContentLast,
-        ]}
+        style={[styles.timelineContent, isLast && styles.timelineContentLast]}
       >
         <View style={styles.timelineTitleRow}>
           <Text
             style={[
               styles.timelineTitle,
-              step.current &&
-                styles.timelineTitleCurrent,
-              !step.completed &&
-                styles.timelineTitlePending,
+              step.current && styles.timelineTitleCurrent,
+              !step.completed && styles.timelineTitlePending,
             ]}
           >
             {step.title}
           </Text>
 
           {step.current ? (
-            <View
-              style={
-                styles.currentStepBadge
-              }
-            >
-              <Text
-                style={
-                  styles.currentStepText
-                }
-              >
-                Etapa atual
-              </Text>
+            <View style={styles.currentStepBadge}>
+              <Text style={styles.currentStepText}>Etapa atual</Text>
             </View>
           ) : null}
         </View>
 
-        <Text style={styles.timelineDescription}>
-          {step.description}
-        </Text>
+        <Text style={styles.timelineDescription}>{step.description}</Text>
 
         {step.date ? (
-          <Text style={styles.timelineDate}>
-            {formatDateTime(step.date)}
-          </Text>
+          <Text style={styles.timelineDate}>{formatDateTime(step.date)}</Text>
         ) : null}
       </View>
     </View>
@@ -1155,65 +859,39 @@ function MaterialCard({
   material: ScheduleRequestedMaterialRecord;
   isLast: boolean;
 }) {
-  const category =
-    getMaterialCategory(material);
+  const category = getMaterialCategory(material);
 
-  const subcategory =
-    getMaterialSubcategory(material);
+  const subcategory = getMaterialSubcategory(material);
 
   const sourceLabel = material.wasteTypeId
     ? "Catálogo oficial"
     : "Material proposto";
 
   return (
-    <View
-      style={[
-        styles.materialCard,
-        isLast &&
-          styles.materialCardLast,
-      ]}
-    >
+    <View style={[styles.materialCard, isLast && styles.materialCardLast]}>
       <View style={styles.materialIcon}>
         <Ionicons
-          name={
-            material.wasteTypeId
-              ? "leaf-outline"
-              : "create-outline"
-          }
+          name={material.wasteTypeId ? "leaf-outline" : "create-outline"}
           size={20}
           color="#15803D"
         />
       </View>
 
       <View style={styles.materialContent}>
-        <Text style={styles.materialName}>
-          {getMaterialName(material)}
-        </Text>
+        <Text style={styles.materialName}>{getMaterialName(material)}</Text>
 
-        <Text style={styles.materialSource}>
-          {sourceLabel}
-        </Text>
+        <Text style={styles.materialSource}>{sourceLabel}</Text>
 
         {category || subcategory ? (
           <Text style={styles.materialCategory}>
-            {[category, subcategory]
-              .filter(Boolean)
-              .join(" • ")}
+            {[category, subcategory].filter(Boolean).join(" • ")}
           </Text>
         ) : null}
 
         <View style={styles.materialQuantityBadge}>
-          <Ionicons
-            name="scale-outline"
-            size={14}
-            color="#166534"
-          />
+          <Ionicons name="scale-outline" size={14} color="#166534" />
 
-          <Text
-            style={
-              styles.materialQuantityText
-            }
-          >
+          <Text style={styles.materialQuantityText}>
             {getQuantityLabel(material)}
           </Text>
         </View>
@@ -1232,20 +910,10 @@ function DetailRow({
   isLast?: boolean;
 }) {
   return (
-    <View
-      style={[
-        styles.detailRow,
-        isLast && styles.detailRowLast,
-      ]}
-    >
-      <Text style={styles.detailLabel}>
-        {label}
-      </Text>
+    <View style={[styles.detailRow, isLast && styles.detailRowLast]}>
+      <Text style={styles.detailLabel}>{label}</Text>
 
-      <Text
-        style={styles.detailValue}
-        selectable
-      >
+      <Text style={styles.detailValue} selectable>
         {value}
       </Text>
     </View>
@@ -1265,31 +933,14 @@ function CollectionCard({
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
-      style={[
-        styles.collectionCard,
-        isLast &&
-          styles.collectionCardLast,
-      ]}
+      style={[styles.collectionCard, isLast && styles.collectionCardLast]}
     >
       <View style={styles.collectionHeader}>
         <View style={styles.collectionTitleBox}>
-          <Text
-            style={
-              styles.collectionEyebrow
-            }
-          >
-            Coleta
-          </Text>
+          <Text style={styles.collectionEyebrow}>Coleta</Text>
 
-          <Text
-            style={
-              styles.collectionProtocol
-            }
-          >
-            #
-            {collection.id
-              .slice(-8)
-              .toUpperCase()}
+          <Text style={styles.collectionProtocol}>
+            #{collection.id.slice(-8).toUpperCase()}
           </Text>
         </View>
 
@@ -1297,79 +948,38 @@ function CollectionCard({
           style={[
             styles.collectionStatusBadge,
             {
-              backgroundColor:
-                getCollectionStatusColor(
-                  collection.status
-                ),
+              backgroundColor: getCollectionStatusColor(collection.status),
             },
           ]}
         >
-          <Text
-            style={
-              styles.collectionStatusText
-            }
-          >
-            {translateCollectionStatus(
-              collection.status
-            )}
+          <Text style={styles.collectionStatusText}>
+            {translateCollectionStatus(collection.status)}
           </Text>
         </View>
       </View>
 
       <View style={styles.collectionSummary}>
         <View style={styles.collectionSummaryItem}>
-          <Text
-            style={
-              styles.collectionSummaryLabel
-            }
-          >
-            Peso registrado
-          </Text>
+          <Text style={styles.collectionSummaryLabel}>Peso registrado</Text>
 
-          <Text
-            style={
-              styles.collectionSummaryValue
-            }
-          >
-            {Number(
-              collection.totalWeightKg || 0
-            ).toLocaleString("pt-BR")}{" "}
-            kg
+          <Text style={styles.collectionSummaryValue}>
+            {Number(collection.totalWeightKg || 0).toLocaleString("pt-BR")} kg
           </Text>
         </View>
 
         <View style={styles.collectionSummaryItem}>
-          <Text
-            style={
-              styles.collectionSummaryLabel
-            }
-          >
-            Data
-          </Text>
+          <Text style={styles.collectionSummaryLabel}>Data</Text>
 
-          <Text
-            style={
-              styles.collectionSummaryValue
-            }
-          >
-            {formatDate(
-              collection.collectedAt ||
-                collection.createdAt
-            )}
+          <Text style={styles.collectionSummaryValue}>
+            {formatDate(collection.collectedAt || collection.createdAt)}
           </Text>
         </View>
       </View>
 
       <View style={styles.collectionFooter}>
-        <Text style={styles.collectionLink}>
-          Acompanhar coleta
-        </Text>
+        <Text style={styles.collectionLink}>Acompanhar coleta</Text>
 
-        <Ionicons
-          name="arrow-forward"
-          size={18}
-          color="#028C56"
-        />
+        <Ionicons name="arrow-forward" size={18} color="#047857" />
       </View>
     </TouchableOpacity>
   );
@@ -1384,15 +994,9 @@ function InlineEmptyState({
 }) {
   return (
     <View style={styles.inlineEmpty}>
-      <Ionicons
-        name={icon}
-        size={28}
-        color="#9CA3AF"
-      />
+      <Ionicons name={icon} size={28} color="#9CA3AF" />
 
-      <Text style={styles.inlineEmptyText}>
-        {text}
-      </Text>
+      <Text style={styles.inlineEmptyText}>{text}</Text>
     </View>
   );
 }
@@ -1431,7 +1035,7 @@ const styles = StyleSheet.create({
   notFoundTitle: {
     marginTop: 18,
     fontSize: 20,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#111827",
   },
   notFoundText: {
@@ -1446,11 +1050,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: "#028C56",
+    backgroundColor: "#047857",
   },
   notFoundButtonText: {
     color: "#FFFFFF",
-    fontWeight: "800",
+    fontWeight: "700",
   },
   header: {
     paddingTop: 22,
@@ -1467,8 +1071,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor:
-      "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1484,7 +1087,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: "#FFFFFF",
     fontSize: 23,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   headerStatusRow: {
     marginTop: 18,
@@ -1499,7 +1102,7 @@ const styles = StyleSheet.create({
   headerStatusText: {
     color: "#FFFFFF",
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   headerDate: {
     flex: 1,
@@ -1538,7 +1141,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     color: "#111827",
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   summaryGrid: {
     flexDirection: "row",
@@ -1605,10 +1208,10 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#374151",
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   timelineTitleCurrent: {
-    color: "#028C56",
+    color: "#047857",
   },
   timelineTitlePending: {
     color: "#9CA3AF",
@@ -1634,7 +1237,7 @@ const styles = StyleSheet.create({
   currentStepText: {
     color: "#166534",
     fontSize: 9,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   materialCard: {
     paddingVertical: 13,
@@ -1661,11 +1264,11 @@ const styles = StyleSheet.create({
   materialName: {
     color: "#111827",
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   materialSource: {
     marginTop: 2,
-    color: "#028C56",
+    color: "#047857",
     fontSize: 11,
     fontWeight: "700",
   },
@@ -1740,7 +1343,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: "#111827",
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   collectionStatusBadge: {
     maxWidth: 112,
@@ -1751,7 +1354,7 @@ const styles = StyleSheet.create({
   collectionStatusText: {
     color: "#FFFFFF",
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "700",
     textAlign: "center",
   },
   collectionSummary: {
@@ -1772,7 +1375,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: "#374151",
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   collectionFooter: {
     marginTop: 11,
@@ -1782,9 +1385,9 @@ const styles = StyleSheet.create({
   },
   collectionLink: {
     marginRight: 7,
-    color: "#028C56",
+    color: "#047857",
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   inlineEmpty: {
     paddingVertical: 18,

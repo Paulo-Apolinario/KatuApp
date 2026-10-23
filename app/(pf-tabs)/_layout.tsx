@@ -9,7 +9,7 @@ export default function PFLayout() {
     <ProtectedRoute allowedUserTypes={["PF"]}>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: "#028C56",
+          tabBarActiveTintColor: "#047857",
           tabBarInactiveTintColor: "#9CA3AF",
           tabBarStyle: {
             backgroundColor: "#FFFFFF",
@@ -25,7 +25,7 @@ export default function PFLayout() {
           },
           headerShown: true,
           headerStyle: {
-            backgroundColor: "#028C56",
+            backgroundColor: "#047857",
           },
           headerTintColor: "#FFFFFF",
           headerTitleStyle: {

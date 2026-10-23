@@ -75,7 +75,7 @@ export default function NovoCatadorScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -103,7 +103,7 @@ export default function NovoCatadorScreen() {
         style={{ flex: 1, padding: 20 }}
       >
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Nome Completo *
           </Text>
           <TextInput
@@ -123,7 +123,7 @@ export default function NovoCatadorScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Telefone *
           </Text>
           <TextInput
@@ -144,7 +144,7 @@ export default function NovoCatadorScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Email *
           </Text>
           <TextInput
@@ -166,7 +166,7 @@ export default function NovoCatadorScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             CPF
           </Text>
           <TextInput
@@ -187,7 +187,7 @@ export default function NovoCatadorScreen() {
         </View>
 
         <View style={{ marginBottom: 30 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Endereço
           </Text>
           <TextInput
@@ -213,7 +213,7 @@ export default function NovoCatadorScreen() {
           style={{ marginBottom: 30 }}
         >
           <LinearGradient
-            colors={["#059669", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -232,7 +232,7 @@ export default function NovoCatadorScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 18,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     marginLeft: 8,
                   }}
                 >
@@ -241,7 +241,7 @@ export default function NovoCatadorScreen() {
               </>
             ) : (
               <Text
-                style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}
+                style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "700" }}
               >
                 SALVAR CATADOR
               </Text>

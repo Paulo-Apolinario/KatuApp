@@ -119,7 +119,7 @@ export default function PFHomeScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
-        colors={["#16a34a", "#22c55e"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -145,7 +145,7 @@ export default function PFHomeScreen() {
               style={{
                 color: "#FFFFFF",
                 fontSize: 30,
-                fontWeight: "800",
+                fontWeight: "700",
                 marginTop: 6,
               }}
             >
@@ -331,7 +331,7 @@ function ActionButton({
 function SectionHeader({ title }: { title: string }) {
   return (
     <View style={{ marginTop: 18, marginBottom: 10 }}>
-      <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>
+      <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
         {title}
       </Text>
     </View>

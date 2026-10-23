@@ -107,7 +107,7 @@ export default function RootLayout() {
           backgroundColor: "#F8FAFC",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text
           style={{
             marginTop: 12,

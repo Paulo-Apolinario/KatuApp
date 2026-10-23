@@ -86,7 +86,7 @@ export default function CatadoresScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -116,7 +116,7 @@ export default function CatadoresScreen() {
               resizeMode="contain"
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
-            <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
+            <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>
               KATUÁ
             </Text>
           </View>
@@ -187,7 +187,7 @@ export default function CatadoresScreen() {
         >
           {loading ? (
             <View style={{ alignItems: "center", paddingVertical: 40 }}>
-              <ActivityIndicator size="large" color="#028C56" />
+              <ActivityIndicator size="large" color="#047857" />
               <Text style={{ marginTop: 10, color: "#6B7280" }}>
                 Carregando catadores...
               </Text>
@@ -306,7 +306,7 @@ export default function CatadoresScreen() {
                           style={{
                             fontSize: 16,
                             fontWeight: "700",
-                            color: "#028C56",
+                            color: "#047857",
                           }}
                         >
                           {Number(catador.kgMonth || 0)} kg
@@ -323,7 +323,7 @@ export default function CatadoresScreen() {
                           style={{
                             fontSize: 16,
                             fontWeight: "700",
-                            color: "#028C56",
+                            color: "#047857",
                           }}
                         >
                           {Number(catador.collectionsToday || 0)}

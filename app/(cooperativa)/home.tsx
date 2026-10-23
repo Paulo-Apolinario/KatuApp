@@ -210,7 +210,7 @@ function MetricCard({
           style={{
             marginTop: 4,
             fontSize: 24,
-            fontWeight: "900",
+            fontWeight: "700",
             color: "#0F172A",
           }}
         >
@@ -286,7 +286,7 @@ function MenuCard({
           style={{
             color,
             fontSize: 14,
-            fontWeight: "900",
+            fontWeight: "700",
           }}
         >
           {title}
@@ -320,7 +320,7 @@ function Badge({ label, color }: { label: string; color: string }) {
       <Text
         style={{
           color: "#FFFFFF",
-          fontWeight: "900",
+          fontWeight: "700",
           fontSize: 11,
         }}
       >
@@ -354,7 +354,7 @@ function SectionHeader({
         <Text
           style={{
             fontSize: 20,
-            fontWeight: "900",
+            fontWeight: "700",
             color: "#0F172A",
           }}
         >
@@ -377,8 +377,8 @@ function SectionHeader({
         <TouchableOpacity onPress={onPress}>
           <Text
             style={{
-              color: "#028C56",
-              fontWeight: "900",
+              color: "#047857",
+              fontWeight: "700",
               fontSize: 12,
             }}
           >
@@ -411,7 +411,7 @@ function EmptyState({
       <Text
         style={{
           fontSize: 16,
-          fontWeight: "800",
+          fontWeight: "700",
           color: "#111827",
           marginTop: 10,
           textAlign: "center",
@@ -637,7 +637,7 @@ export default function CooperativeHomeScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -661,7 +661,7 @@ export default function CooperativeHomeScreen() {
               resizeMode="contain"
               style={{ width: 44, height: 44, marginRight: 10 }}
             />
-            <Text style={{ fontSize: 28, fontWeight: "900", color: "#FFFFFF" }}>
+            <Text style={{ fontSize: 28, fontWeight: "700", color: "#FFFFFF" }}>
               KATUÁ
             </Text>
           </View>
@@ -677,7 +677,7 @@ export default function CooperativeHomeScreen() {
           <Text
             style={{
               fontSize: 30,
-              fontWeight: "900",
+              fontWeight: "700",
               color: "#FFFFFF",
             }}
           >
@@ -717,7 +717,7 @@ export default function CooperativeHomeScreen() {
             <Text
               style={{
                 fontSize: 14,
-                fontWeight: "800",
+                fontWeight: "700",
                 color: "#FFFFFF",
                 marginLeft: 8,
               }}
@@ -796,7 +796,7 @@ export default function CooperativeHomeScreen() {
         >
           {loading ? (
             <View style={{ alignItems: "center", paddingVertical: 24 }}>
-              <ActivityIndicator size="large" color="#028C56" />
+              <ActivityIndicator size="large" color="#047857" />
               <Text style={{ marginTop: 12, color: "#6B7280" }}>
                 Carregando dados operacionais...
               </Text>
@@ -835,7 +835,7 @@ export default function CooperativeHomeScreen() {
                       <Text
                         style={{
                           fontSize: 16,
-                          fontWeight: "900",
+                          fontWeight: "700",
                           color: "#0F172A",
                         }}
                       >
@@ -845,7 +845,7 @@ export default function CooperativeHomeScreen() {
                       <Text
                         style={{
                           fontSize: 13,
-                          fontWeight: "800",
+                          fontWeight: "700",
                           color: "#0B8F4D",
                           marginTop: 8,
                         }}
@@ -914,7 +914,7 @@ export default function CooperativeHomeScreen() {
                       }
                       style={{
                         flex: 1,
-                        backgroundColor: "#028C56",
+                        backgroundColor: "#047857",
                         borderRadius: 12,
                         paddingVertical: 11,
                         alignItems: "center",
@@ -923,7 +923,7 @@ export default function CooperativeHomeScreen() {
                       <Text
                         style={{
                           color: "#FFFFFF",
-                          fontWeight: "900",
+                          fontWeight: "700",
                           fontSize: 13,
                         }}
                       >
@@ -946,7 +946,7 @@ export default function CooperativeHomeScreen() {
                       <Text
                         style={{
                           color: "#2E63E6",
-                          fontWeight: "900",
+                          fontWeight: "700",
                           fontSize: 13,
                         }}
                       >
@@ -985,7 +985,7 @@ export default function CooperativeHomeScreen() {
         >
           {loading ? (
             <View style={{ alignItems: "center", paddingVertical: 24 }}>
-              <ActivityIndicator size="large" color="#028C56" />
+              <ActivityIndicator size="large" color="#047857" />
             </View>
           ) : metrics.highlightedRoutes.length > 0 ? (
             metrics.highlightedRoutes.map((item) => (
@@ -1015,7 +1015,7 @@ export default function CooperativeHomeScreen() {
                     <Text
                       style={{
                         fontSize: 16,
-                        fontWeight: "900",
+                        fontWeight: "700",
                         color: "#0F172A",
                       }}
                     >
@@ -1102,7 +1102,7 @@ export default function CooperativeHomeScreen() {
           <Text
             style={{
               color: "#475569",
-              fontWeight: "800",
+              fontWeight: "700",
               fontSize: 12,
             }}
           >

@@ -120,7 +120,7 @@ export default function FeedbackScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -211,12 +211,12 @@ export default function FeedbackScreen() {
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: npsScore === score ? "#028C56" : "#F3F4F6",
+                  backgroundColor: npsScore === score ? "#047857" : "#F3F4F6",
                   margin: 4,
                   alignItems: "center",
                   justifyContent: "center",
                   borderWidth: 1,
-                  borderColor: npsScore === score ? "#028C56" : "#D1D5DB",
+                  borderColor: npsScore === score ? "#047857" : "#D1D5DB",
                 }}
               >
                 <Text
@@ -295,14 +295,14 @@ export default function FeedbackScreen() {
                   key={category}
                   onPress={() => toggleCategory(category)}
                   style={{
-                    backgroundColor: selected ? "#028C56" : "#FFFFFF",
+                    backgroundColor: selected ? "#047857" : "#FFFFFF",
                     paddingHorizontal: 16,
                     paddingVertical: 10,
                     borderRadius: 22,
                     marginRight: 8,
                     marginBottom: 8,
                     borderWidth: 1,
-                    borderColor: selected ? "#028C56" : "#D1D5DB",
+                    borderColor: selected ? "#047857" : "#D1D5DB",
                   }}
                 >
                   <Text
@@ -362,7 +362,7 @@ export default function FeedbackScreen() {
             colors={
               sending || !canSubmit
                 ? ["#9CA3AF", "#6B7280"]
-                : ["#059669", "#028C56"]
+                : ["#059669", "#047857"]
             }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -383,7 +383,7 @@ export default function FeedbackScreen() {
               style={{
                 color: "#FFFFFF",
                 fontSize: 17,
-                fontWeight: "800",
+                fontWeight: "700",
                 marginLeft: 8,
               }}
             >

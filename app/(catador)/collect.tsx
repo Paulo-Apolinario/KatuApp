@@ -718,7 +718,7 @@ export default function CollectScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando coletas delegadas...
         </Text>
@@ -736,7 +736,7 @@ export default function CollectScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
-        colors={["#16a34a", "#22c55e"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -762,7 +762,7 @@ export default function CollectScreen() {
             style={{
               color: "#FFFFFF",
               fontSize: 24,
-              fontWeight: "800",
+              fontWeight: "700",
             }}
           >
             Coletas delegadas
@@ -846,7 +846,7 @@ export default function CollectScreen() {
                   style={[
                     listItemCard,
                     {
-                      borderColor: selected ? "#028C56" : "#E5E7EB",
+                      borderColor: selected ? "#047857" : "#E5E7EB",
                       backgroundColor: selected ? "#F0FDF4" : "#F9FAFB",
                     },
                   ]}
@@ -1028,19 +1028,19 @@ export default function CollectScreen() {
                     }}
                   >
                     {catalogLoading ? (
-                      <ActivityIndicator size="small" color="#028C56" />
+                      <ActivityIndicator size="small" color="#047857" />
                     ) : (
                       <>
                         <Ionicons
                           name="add-circle-outline"
                           size={20}
-                          color="#028C56"
+                          color="#047857"
                         />
                         <Text
                           style={{
                             marginLeft: 8,
-                            color: "#028C56",
-                            fontWeight: "800",
+                            color: "#047857",
+                            fontWeight: "700",
                           }}
                         >
                           Adicionar resíduo do catálogo
@@ -1068,7 +1068,7 @@ export default function CollectScreen() {
                       style={{
                         marginLeft: 8,
                         color: "#2563EB",
-                        fontWeight: "800",
+                        fontWeight: "700",
                       }}
                     >
                       Informar material não catalogado
@@ -1108,7 +1108,7 @@ export default function CollectScreen() {
                                 <Text
                                   style={{
                                     fontSize: 15,
-                                    fontWeight: "800",
+                                    fontWeight: "700",
                                     color: "#111827",
                                   }}
                                 >
@@ -1211,7 +1211,7 @@ export default function CollectScreen() {
                                     borderRadius: 999,
                                     marginRight: 8,
                                     borderWidth: 1,
-                                    borderColor: active ? "#028C56" : "#D1D5DB",
+                                    borderColor: active ? "#047857" : "#D1D5DB",
                                     backgroundColor: active
                                       ? "#DCFCE7"
                                       : "#FFFFFF",
@@ -1308,8 +1308,8 @@ export default function CollectScreen() {
                     <Text
                       style={{
                         fontSize: 15,
-                        fontWeight: "800",
-                        color: "#028C56",
+                        fontWeight: "700",
+                        color: "#047857",
                       }}
                     >
                       Peso total calculado: {totalDraftWeight.toFixed(2)} kg
@@ -1440,7 +1440,7 @@ export default function CollectScreen() {
                 <Text
                   style={{
                     fontSize: 20,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     color: "#111827",
                   }}
                 >
@@ -1530,7 +1530,7 @@ export default function CollectScreen() {
                         <View style={{ flex: 1, paddingRight: 10 }}>
                           <Text
                             style={{
-                              fontWeight: "800",
+                              fontWeight: "700",
                               color: "#111827",
                               fontSize: 15,
                             }}
@@ -1558,7 +1558,7 @@ export default function CollectScreen() {
                               : "add-circle-outline"
                           }
                           size={23}
-                          color={alreadyAdded ? "#16A34A" : "#028C56"}
+                          color={alreadyAdded ? "#047857" : "#047857"}
                         />
                       </View>
                     </TouchableOpacity>
@@ -1610,7 +1610,7 @@ function MetricCard({
           marginBottom: 12,
         }}
       >
-        <Ionicons name={icon} size={22} color="#028C56" />
+        <Ionicons name={icon} size={22} color="#047857" />
       </View>
 
       <Text style={{ color: "#6B7280", fontSize: 13 }}>{title}</Text>
@@ -1618,7 +1618,7 @@ function MetricCard({
         style={{
           color: "#111827",
           fontSize: 20,
-          fontWeight: "800",
+          fontWeight: "700",
           marginTop: 4,
         }}
       >
@@ -1668,7 +1668,7 @@ function MetricCardFull({
             style={{
               color: "#111827",
               fontSize: 24,
-              fontWeight: "800",
+              fontWeight: "700",
               marginTop: 2,
             }}
           >
@@ -1688,7 +1688,7 @@ function SectionHeader({ title }: { title: string }) {
         marginBottom: 12,
       }}
     >
-      <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>
+      <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
         {title}
       </Text>
     </View>
@@ -1705,7 +1705,7 @@ function StatusBadge({ label, color }: { label: string; color: string }) {
         paddingVertical: 6,
       }}
     >
-      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "800" }}>
+      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}>
         {label}
       </Text>
     </View>
@@ -1781,14 +1781,14 @@ function QuickAction({
         }}
       >
         {loading ? (
-          <ActivityIndicator size="small" color="#028C56" />
+          <ActivityIndicator size="small" color="#047857" />
         ) : (
-          <Ionicons name={icon} size={22} color="#028C56" />
+          <Ionicons name={icon} size={22} color="#047857" />
         )}
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text style={{ color: "#111827", fontSize: 15, fontWeight: "800" }}>
+        <Text style={{ color: "#111827", fontSize: 15, fontWeight: "700" }}>
           {title}
         </Text>
         <Text style={{ color: "#6B7280", fontSize: 13, marginTop: 2 }}>
@@ -1815,7 +1815,7 @@ function EmptyState({
         style={{
           color: "#111827",
           fontSize: 16,
-          fontWeight: "800",
+          fontWeight: "700",
           marginTop: 12,
         }}
       >
@@ -1854,7 +1854,7 @@ const listItemCard = {
 const itemTitle = {
   color: "#111827",
   fontSize: 15,
-  fontWeight: "800",
+  fontWeight: "700",
 } as const;
 
 const itemText = {

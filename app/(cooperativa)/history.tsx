@@ -166,7 +166,7 @@ export default function CooperativaHistoryScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando histórico...
         </Text>
@@ -177,7 +177,7 @@ export default function CooperativaHistoryScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -203,7 +203,7 @@ export default function CooperativaHistoryScreen() {
             style={{
               color: "#FFFFFF",
               fontSize: 22,
-              fontWeight: "800",
+              fontWeight: "700",
             }}
           >
             HISTÓRICO
@@ -242,7 +242,7 @@ export default function CooperativaHistoryScreen() {
               style={{
                 color: "#111827",
                 fontSize: 24,
-                fontWeight: "800",
+                fontWeight: "700",
                 marginTop: 6,
               }}
             >
@@ -265,7 +265,7 @@ export default function CooperativaHistoryScreen() {
               style={{
                 color: "#111827",
                 fontSize: 24,
-                fontWeight: "800",
+                fontWeight: "700",
                 marginTop: 6,
               }}
             >
@@ -277,7 +277,7 @@ export default function CooperativaHistoryScreen() {
         <Text
           style={{
             fontSize: 18,
-            fontWeight: "800",
+            fontWeight: "700",
             color: "#111827",
             marginTop: 20,
             marginBottom: 12,
@@ -323,7 +323,7 @@ export default function CooperativaHistoryScreen() {
                       style={{
                         color: "#111827",
                         fontSize: 16,
-                        fontWeight: "800",
+                        fontWeight: "700",
                         marginBottom: 6,
                       }}
                     >
@@ -367,7 +367,7 @@ export default function CooperativaHistoryScreen() {
                       style={{
                         color: statusColors.text,
                         fontSize: 11,
-                        fontWeight: "800",
+                        fontWeight: "700",
                       }}
                     >
                       {getStatusLabel(item.status)}

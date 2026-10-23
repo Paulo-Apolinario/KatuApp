@@ -276,7 +276,7 @@ export default function CatadorDetailScreen() {
           backgroundColor: "#FFFFFF",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>Carregando...</Text>
       </View>
     );
@@ -299,7 +299,7 @@ export default function CatadorDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -439,7 +439,7 @@ export default function CatadorDetailScreen() {
           >
             <View style={{ alignItems: "center" }}>
               <Text
-                style={{ fontSize: 24, fontWeight: "700", color: "#028C56" }}
+                style={{ fontSize: 24, fontWeight: "700", color: "#047857" }}
               >
                 {stats.totalKg.toFixed(1)} kg
               </Text>
@@ -448,7 +448,7 @@ export default function CatadorDetailScreen() {
 
             <View style={{ alignItems: "center" }}>
               <Text
-                style={{ fontSize: 24, fontWeight: "700", color: "#028C56" }}
+                style={{ fontSize: 24, fontWeight: "700", color: "#047857" }}
               >
                 {stats.kgMonth.toFixed(1)} kg
               </Text>
@@ -457,7 +457,7 @@ export default function CatadorDetailScreen() {
 
             <View style={{ alignItems: "center" }}>
               <Text
-                style={{ fontSize: 24, fontWeight: "700", color: "#028C56" }}
+                style={{ fontSize: 24, fontWeight: "700", color: "#047857" }}
               >
                 {stats.kgToday.toFixed(1)} kg
               </Text>
@@ -499,7 +499,7 @@ export default function CatadorDetailScreen() {
                   disabled={savingStatus}
                   onPress={() => handleChangeStatus(item.value)}
                   style={{
-                    backgroundColor: selected ? "#028C56" : "#F3F4F6",
+                    backgroundColor: selected ? "#047857" : "#F3F4F6",
                     paddingHorizontal: 14,
                     paddingVertical: 8,
                     borderRadius: 20,
@@ -529,7 +529,7 @@ export default function CatadorDetailScreen() {
                 alignItems: "center",
               }}
             >
-              <ActivityIndicator size="small" color="#028C56" />
+              <ActivityIndicator size="small" color="#047857" />
               <Text style={{ marginLeft: 8, color: "#6B7280" }}>
                 Atualizando status...
               </Text>

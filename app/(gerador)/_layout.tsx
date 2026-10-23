@@ -5,18 +5,13 @@ import ProtectedRoute from "@/src/components/ProtectedRoute";
 
 export default function GeradorLayout() {
   return (
-    <ProtectedRoute
-      allowedUserTypes={[
-        "GENERATOR_SMALL",
-        "GENERATOR_LARGE",
-      ]}
-    >
+    <ProtectedRoute allowedUserTypes={["GENERATOR_SMALL", "GENERATOR_LARGE"]}>
       <Tabs
         initialRouteName="dashboard"
         screenOptions={{
           headerShown: false,
 
-          tabBarActiveTintColor: "#028C56",
+          tabBarActiveTintColor: "#047857",
           tabBarInactiveTintColor: "#9CA3AF",
 
           tabBarHideOnKeyboard: true,
@@ -64,16 +59,9 @@ export default function GeradorLayout() {
           options={{
             title: "Início",
 
-            tabBarIcon: ({
-              color,
-              focused,
-            }) => (
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
-                name={
-                  focused
-                    ? "home"
-                    : "home-outline"
-                }
+                name={focused ? "home" : "home-outline"}
                 size={24}
                 color={color}
               />
@@ -86,16 +74,9 @@ export default function GeradorLayout() {
           options={{
             title: "Solicitações",
 
-            tabBarIcon: ({
-              color,
-              focused,
-            }) => (
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
-                name={
-                  focused
-                    ? "calendar"
-                    : "calendar-outline"
-                }
+                name={focused ? "calendar" : "calendar-outline"}
                 size={24}
                 color={color}
               />
@@ -108,16 +89,9 @@ export default function GeradorLayout() {
           options={{
             title: "Coletas",
 
-            tabBarIcon: ({
-              color,
-              focused,
-            }) => (
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
-                name={
-                  focused
-                    ? "car"
-                    : "car-outline"
-                }
+                name={focused ? "car" : "car-outline"}
                 size={24}
                 color={color}
               />
@@ -130,16 +104,9 @@ export default function GeradorLayout() {
           options={{
             title: "Impacto",
 
-            tabBarIcon: ({
-              color,
-              focused,
-            }) => (
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
-                name={
-                  focused
-                    ? "pie-chart"
-                    : "pie-chart-outline"
-                }
+                name={focused ? "pie-chart" : "pie-chart-outline"}
                 size={24}
                 color={color}
               />
@@ -152,16 +119,9 @@ export default function GeradorLayout() {
           options={{
             title: "Perfil",
 
-            tabBarIcon: ({
-              color,
-              focused,
-            }) => (
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
-                name={
-                  focused
-                    ? "person"
-                    : "person-outline"
-                }
+                name={focused ? "person" : "person-outline"}
                 size={24}
                 color={color}
               />

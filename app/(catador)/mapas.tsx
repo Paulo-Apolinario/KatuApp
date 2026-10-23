@@ -243,7 +243,7 @@ function getStatusColor(status: CollectionStatus) {
     case "SORTING":
       return "#8B5CF6";
     case "COMPLETED":
-      return "#16A34A";
+      return "#047857";
     case "CANCELLED":
       return "#DC2626";
     default:
@@ -764,7 +764,7 @@ export default function CatadorMapScreen() {
       }}
     >
       <LinearGradient
-        colors={["#16A34A", "#22C55E"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -809,7 +809,7 @@ export default function CatadorMapScreen() {
               <Text
                 style={{
                   fontSize: 22,
-                  fontWeight: "900",
+                  fontWeight: "700",
                   color: "#FFFFFF",
                 }}
               >
@@ -916,7 +916,7 @@ export default function CatadorMapScreen() {
                 minHeight: 360,
               }}
             >
-              <ActivityIndicator size="large" color="#028C56" />
+              <ActivityIndicator size="large" color="#047857" />
 
               <Text
                 style={{
@@ -942,7 +942,7 @@ export default function CatadorMapScreen() {
                 style={{
                   marginTop: 12,
                   fontSize: 17,
-                  fontWeight: "800",
+                  fontWeight: "700",
                   color: "#0F172A",
                   textAlign: "center",
                 }}
@@ -1033,7 +1033,7 @@ export default function CatadorMapScreen() {
           <Text
             style={{
               fontSize: 18,
-              fontWeight: "900",
+              fontWeight: "700",
               color: "#111827",
               marginBottom: 10,
             }}
@@ -1172,7 +1172,7 @@ function FilterBar({
             <Text
               style={{
                 color: selected ? "#FFFFFF" : "#475569",
-                fontWeight: "800",
+                fontWeight: "700",
                 fontSize: 13,
               }}
             >
@@ -1193,7 +1193,7 @@ function FilterBar({
               <Text
                 style={{
                   color: selected ? "#FFFFFF" : "#475569",
-                  fontWeight: "900",
+                  fontWeight: "700",
                   fontSize: 12,
                 }}
               >
@@ -1231,7 +1231,7 @@ function RouteSummaryCard({
       <Text
         style={{
           fontSize: 17,
-          fontWeight: "900",
+          fontWeight: "700",
           color: "#111827",
         }}
       >
@@ -1327,7 +1327,7 @@ function SummaryMetric({
       <Text
         style={{
           fontSize: 16,
-          fontWeight: "900",
+          fontWeight: "700",
           color: "#111827",
           marginTop: 3,
         }}
@@ -1368,7 +1368,7 @@ function SelectedCollectionCard({
         <Text
           style={{
             fontSize: 16,
-            fontWeight: "800",
+            fontWeight: "700",
             color: "#0F172A",
             marginTop: 10,
           }}
@@ -1432,7 +1432,7 @@ function SelectedCollectionCard({
           <Text
             style={{
               fontSize: 18,
-              fontWeight: "900",
+              fontWeight: "700",
               color: "#0F172A",
             }}
           >
@@ -1442,7 +1442,7 @@ function SelectedCollectionCard({
           <Text
             style={{
               fontSize: 13,
-              fontWeight: "800",
+              fontWeight: "700",
               color: statusColor,
               marginTop: 4,
             }}
@@ -1591,7 +1591,7 @@ function ActionButton({
       <Text
         style={{
           color: primary ? "#FFFFFF" : "#15803D",
-          fontWeight: "900",
+          fontWeight: "700",
           fontSize: 13,
           marginLeft: 7,
         }}
@@ -1646,7 +1646,7 @@ function RouteOrderItem({
         <Text
           style={{
             color,
-            fontWeight: "900",
+            fontWeight: "700",
           }}
         >
           {index}
@@ -1657,7 +1657,7 @@ function RouteOrderItem({
         <Text
           style={{
             color: "#111827",
-            fontWeight: "800",
+            fontWeight: "700",
             fontSize: 15,
           }}
         >

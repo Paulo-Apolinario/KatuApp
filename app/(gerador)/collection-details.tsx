@@ -1,15 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  router,
-  useFocusEffect,
-  useLocalSearchParams,
-} from "expo-router";
-import {
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -102,9 +94,7 @@ type TimelineStep = {
   icon: keyof typeof Ionicons.glyphMap;
 };
 
-function formatDateTime(
-  value?: string | null
-) {
+function formatDateTime(value?: string | null) {
   if (!value) {
     return "-";
   }
@@ -124,13 +114,8 @@ function formatDateTime(
   });
 }
 
-function translateCollectionStatus(
-  status: CollectionStatus
-) {
-  const labels: Record<
-    CollectionStatus,
-    string
-  > = {
+function translateCollectionStatus(status: CollectionStatus) {
+  const labels: Record<CollectionStatus, string> = {
     PENDING: "Pendente",
     IN_PROGRESS: "Em coleta",
     COLLECTED: "Coletada",
@@ -143,19 +128,14 @@ function translateCollectionStatus(
   return labels[status];
 }
 
-function getCollectionStatusColor(
-  status: CollectionStatus
-) {
-  const colors: Record<
-    CollectionStatus,
-    string
-  > = {
+function getCollectionStatusColor(status: CollectionStatus) {
+  const colors: Record<CollectionStatus, string> = {
     PENDING: "#64748B",
     IN_PROGRESS: "#F59E0B",
     COLLECTED: "#7C3AED",
     RECEIVED: "#2563EB",
     SORTING: "#0891B2",
-    COMPLETED: "#16A34A",
+    COMPLETED: "#047857",
     CANCELLED: "#DC2626",
   };
 
@@ -163,12 +143,9 @@ function getCollectionStatusColor(
 }
 
 function getCollectionStatusIcon(
-  status: CollectionStatus
+  status: CollectionStatus,
 ): keyof typeof Ionicons.glyphMap {
-  const icons: Record<
-    CollectionStatus,
-    keyof typeof Ionicons.glyphMap
-  > = {
+  const icons: Record<CollectionStatus, keyof typeof Ionicons.glyphMap> = {
     PENDING: "time-outline",
     IN_PROGRESS: "car-outline",
     COLLECTED: "cube-outline",
@@ -182,25 +159,22 @@ function getCollectionStatusIcon(
 }
 
 function getMaterialName(
-  material:
-    | CollectionMaterial
-    | CollectionMaterialRecord
+  material: CollectionMaterial | CollectionMaterialRecord,
 ) {
-  const item = material as
-    CollectionMaterial &
-      CollectionMaterialRecord & {
-        nameSnapshot?: string | null;
-        wasteType?: {
-          name?: string | null;
-          category?: string | null;
-          subcategory?: string | null;
-        } | null;
-        catalogSuggestion?: {
-          name?: string | null;
-          category?: string | null;
-          subcategory?: string | null;
-        } | null;
-      };
+  const item = material as CollectionMaterial &
+    CollectionMaterialRecord & {
+      nameSnapshot?: string | null;
+      wasteType?: {
+        name?: string | null;
+        category?: string | null;
+        subcategory?: string | null;
+      } | null;
+      catalogSuggestion?: {
+        name?: string | null;
+        category?: string | null;
+        subcategory?: string | null;
+      } | null;
+    };
 
   return (
     item.nameSnapshot ||
@@ -213,24 +187,21 @@ function getMaterialName(
 }
 
 function getMaterialCategory(
-  material:
-    | CollectionMaterial
-    | CollectionMaterialRecord
+  material: CollectionMaterial | CollectionMaterialRecord,
 ) {
-  const item = material as
-    CollectionMaterial &
-      CollectionMaterialRecord & {
-        categorySnapshot?: string | null;
-        subcategorySnapshot?: string | null;
-        wasteType?: {
-          category?: string | null;
-          subcategory?: string | null;
-        } | null;
-        catalogSuggestion?: {
-          category?: string | null;
-          subcategory?: string | null;
-        } | null;
-      };
+  const item = material as CollectionMaterial &
+    CollectionMaterialRecord & {
+      categorySnapshot?: string | null;
+      subcategorySnapshot?: string | null;
+      wasteType?: {
+        category?: string | null;
+        subcategory?: string | null;
+      } | null;
+      catalogSuggestion?: {
+        category?: string | null;
+        subcategory?: string | null;
+      } | null;
+    };
 
   const category =
     item.categorySnapshot ||
@@ -244,77 +215,49 @@ function getMaterialCategory(
     item.catalogSuggestion?.subcategory ||
     null;
 
-  return [category, subcategory]
-    .filter(Boolean)
-    .join(" • ");
+  return [category, subcategory].filter(Boolean).join(" • ");
 }
 
 function getMaterialQuantity(
-  material:
-    | CollectionMaterial
-    | CollectionMaterialRecord
+  material: CollectionMaterial | CollectionMaterialRecord,
 ) {
-  const item = material as
-    CollectionMaterial &
-      CollectionMaterialRecord;
+  const item = material as CollectionMaterial & CollectionMaterialRecord;
 
-  const quantity = Number(
-    item.quantity ??
-      item.quantityKg ??
-      0
-  );
+  const quantity = Number(item.quantity ?? item.quantityKg ?? 0);
 
   const unit = item.unit || "KG";
 
-  if (
-    !Number.isFinite(quantity) ||
-    quantity <= 0
-  ) {
+  if (!Number.isFinite(quantity) || quantity <= 0) {
     return "Quantidade não informada";
   }
 
-  return `${quantity.toLocaleString(
-    "pt-BR",
-    {
-      maximumFractionDigits: 2,
-    }
-  )} ${unit}`;
+  return `${quantity.toLocaleString("pt-BR", {
+    maximumFractionDigits: 2,
+  })} ${unit}`;
 }
 
-function getCollectionMaterials(
-  collection: CollectionDetails
-) {
+function getCollectionMaterials(collection: CollectionDetails) {
   if (
-    Array.isArray(
-      collection.collectionMaterials
-    ) &&
+    Array.isArray(collection.collectionMaterials) &&
     collection.collectionMaterials.length > 0
   ) {
     return collection.collectionMaterials;
   }
 
-  if (
-    Array.isArray(collection.materials)
-  ) {
+  if (Array.isArray(collection.materials)) {
     return collection.materials;
   }
 
   return [];
 }
 
-function getWasteEntries(
-  collection: CollectionDetails
-) {
-  return Array.isArray(
-    collection.collectionWasteEntries
-  )
+function getWasteEntries(collection: CollectionDetails) {
+  return Array.isArray(collection.collectionWasteEntries)
     ? collection.collectionWasteEntries
     : [];
 }
 
-function getGeneratorName(
-  collection: CollectionDetails
-) {
+function getGeneratorName(collection: CollectionDetails) {
   return (
     collection.generator?.name ||
     collection.generator?.companyName ||
@@ -322,9 +265,7 @@ function getGeneratorName(
   );
 }
 
-function getCooperativeName(
-  collection: CollectionDetails
-) {
+function getCooperativeName(collection: CollectionDetails) {
   return (
     collection.cooperative?.name ||
     collection.cooperative?.companyName ||
@@ -332,11 +273,8 @@ function getCooperativeName(
   );
 }
 
-function getAddress(
-  collection: CollectionDetails
-) {
-  const generator =
-    collection.generator;
+function getAddress(collection: CollectionDetails) {
+  const generator = collection.generator;
 
   if (!generator) {
     return "-";
@@ -346,35 +284,20 @@ function getAddress(
     return generator.address;
   }
 
-  const street = [
-    generator.street,
-    generator.number,
-  ]
+  const street = [generator.street, generator.number]
     .filter(Boolean)
     .join(", ");
 
-  const location = [
-    generator.neighborhood,
-    generator.city,
-    generator.state,
-  ]
+  const location = [generator.neighborhood, generator.city, generator.state]
     .filter(Boolean)
     .join(" - ");
 
   return (
-    [
-      street,
-      location,
-      generator.zipCode,
-    ]
-      .filter(Boolean)
-      .join(" • ") || "-"
+    [street, location, generator.zipCode].filter(Boolean).join(" • ") || "-"
   );
 }
 
-function buildTimeline(
-  collection: CollectionDetails
-): TimelineStep[] {
+function buildTimeline(collection: CollectionDetails): TimelineStep[] {
   const status = collection.status;
 
   if (status === "CANCELLED") {
@@ -382,8 +305,7 @@ function buildTimeline(
       {
         key: "created",
         title: "Coleta criada",
-        description:
-          "A cooperativa criou a coleta e vinculou os responsáveis.",
+        description: "A cooperativa criou a coleta e vinculou os responsáveis.",
         date: collection.createdAt,
         completed: true,
         current: false,
@@ -392,12 +314,8 @@ function buildTimeline(
       {
         key: "cancelled",
         title: "Coleta cancelada",
-        description:
-          collection.cancellationReason ||
-          "A coleta foi cancelada.",
-        date:
-          collection.cancelledAt ||
-          collection.updatedAt,
+        description: collection.cancellationReason || "A coleta foi cancelada.",
+        date: collection.cancelledAt || collection.updatedAt,
         completed: true,
         current: true,
         icon: "close-circle-outline",
@@ -419,16 +337,11 @@ function buildTimeline(
     status === "COMPLETED";
 
   const received =
-    status === "RECEIVED" ||
-    status === "SORTING" ||
-    status === "COMPLETED";
+    status === "RECEIVED" || status === "SORTING" || status === "COMPLETED";
 
-  const sorting =
-    status === "SORTING" ||
-    status === "COMPLETED";
+  const sorting = status === "SORTING" || status === "COMPLETED";
 
-  const completed =
-    status === "COMPLETED";
+  const completed = status === "COMPLETED";
 
   const currentKey =
     status === "PENDING"
@@ -447,8 +360,7 @@ function buildTimeline(
     {
       key: "created",
       title: "Coleta criada",
-      description:
-        "A solicitação foi transformada em coleta operacional.",
+      description: "A solicitação foi transformada em coleta operacional.",
       date: collection.createdAt,
       completed: true,
       current: currentKey === "created",
@@ -457,8 +369,7 @@ function buildTimeline(
     {
       key: "started",
       title: "Coleta iniciada",
-      description:
-        "A equipe responsável iniciou o atendimento no local.",
+      description: "A equipe responsável iniciou o atendimento no local.",
       date: collection.startedAt,
       completed: started,
       current: currentKey === "started",
@@ -467,8 +378,7 @@ function buildTimeline(
     {
       key: "collected",
       title: "Materiais coletados",
-      description:
-        "Os materiais efetivamente retirados foram registrados.",
+      description: "Os materiais efetivamente retirados foram registrados.",
       date: collection.collectedAt,
       completed: collected,
       current: currentKey === "collected",
@@ -477,8 +387,7 @@ function buildTimeline(
     {
       key: "received",
       title: "Recebida pela cooperativa",
-      description:
-        "Os resíduos chegaram à cooperativa para conferência.",
+      description: "Os resíduos chegaram à cooperativa para conferência.",
       date: collection.receivedAt,
       completed: received,
       current: currentKey === "received",
@@ -487,8 +396,7 @@ function buildTimeline(
     {
       key: "sorting",
       title: "Triagem iniciada",
-      description:
-        "Os materiais estão sendo separados e classificados.",
+      description: "Os materiais estão sendo separados e classificados.",
       date: collection.sortingStartedAt,
       completed: sorting,
       current: currentKey === "sorting",
@@ -497,8 +405,7 @@ function buildTimeline(
     {
       key: "completed",
       title: "Processo concluído",
-      description:
-        "A coleta e o processamento foram finalizados.",
+      description: "A coleta e o processamento foram finalizados.",
       date: collection.completedAt,
       completed,
       current: currentKey === "completed",
@@ -512,111 +419,72 @@ export default function GeneratorCollectionDetailsScreen() {
     id?: string | string[];
   }>();
 
-  const collectionId = Array.isArray(params.id)
-    ? params.id[0]
-    : params.id;
+  const collectionId = Array.isArray(params.id) ? params.id[0] : params.id;
 
-  const { notifyError } =
-    useNotification();
+  const { notifyError } = useNotification();
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [
-    refreshing,
-    setRefreshing,
-  ] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [
-    collection,
-    setCollection,
-  ] = useState<CollectionDetails | null>(
-    null
-  );
+  const [collection, setCollection] = useState<CollectionDetails | null>(null);
 
-  const loadCollection =
-    useCallback(
-      async (
-        showLoader = true
-      ) => {
-        if (!collectionId) {
+  const loadCollection = useCallback(
+    async (showLoader = true) => {
+      if (!collectionId) {
+        setLoading(false);
+
+        notifyError("ID da coleta não informado.");
+
+        return;
+      }
+
+      try {
+        if (showLoader) {
+          setLoading(true);
+        }
+
+        const response = await collectionService.getById(collectionId);
+
+        setCollection(response as CollectionDetails);
+      } catch (error) {
+        console.error("Erro ao carregar detalhes da coleta:", error);
+
+        notifyError(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível carregar os detalhes da coleta.",
+        );
+      } finally {
+        if (showLoader) {
           setLoading(false);
-
-          notifyError(
-            "ID da coleta não informado."
-          );
-
-          return;
         }
 
-        try {
-          if (showLoader) {
-            setLoading(true);
-          }
-
-          const response =
-            await collectionService.getById(
-              collectionId
-            );
-
-          setCollection(
-            response as CollectionDetails
-          );
-        } catch (error) {
-          console.error(
-            "Erro ao carregar detalhes da coleta:",
-            error
-          );
-
-          notifyError(
-            error instanceof Error
-              ? error.message
-              : "Não foi possível carregar os detalhes da coleta."
-          );
-        } finally {
-          if (showLoader) {
-            setLoading(false);
-          }
-
-          setRefreshing(false);
-        }
-      },
-      [
-        collectionId,
-        notifyError,
-      ]
-    );
+        setRefreshing(false);
+      }
+    },
+    [collectionId, notifyError],
+  );
 
   useFocusEffect(
     useCallback(() => {
       void loadCollection(true);
-    }, [loadCollection])
+    }, [loadCollection]),
   );
 
   const materials = useMemo(
-    () =>
-      collection
-        ? getCollectionMaterials(
-            collection
-          )
-        : [],
-    [collection]
+    () => (collection ? getCollectionMaterials(collection) : []),
+    [collection],
   );
 
   const wasteEntries = useMemo(
-    () =>
-      collection
-        ? getWasteEntries(collection)
-        : [],
-    [collection]
+    () => (collection ? getWasteEntries(collection) : []),
+    [collection],
   );
 
   const timeline = useMemo(
-    () =>
-      collection
-        ? buildTimeline(collection)
-        : [],
-    [collection]
+    () => (collection ? buildTimeline(collection) : []),
+    [collection],
   );
 
   function handleRefresh() {
@@ -625,20 +493,15 @@ export default function GeneratorCollectionDetailsScreen() {
   }
 
   function openSchedule() {
-    const scheduleId =
-      collection?.scheduleId ||
-      collection?.schedule?.id;
+    const scheduleId = collection?.scheduleId || collection?.schedule?.id;
 
     if (!scheduleId) {
-      notifyError(
-        "Esta coleta não possui solicitação vinculada."
-      );
+      notifyError("Esta coleta não possui solicitação vinculada.");
       return;
     }
 
     router.push({
-      pathname:
-        "/(gerador)/schedule-details",
+      pathname: "/(gerador)/schedule-details",
       params: {
         id: scheduleId,
       },
@@ -647,94 +510,47 @@ export default function GeneratorCollectionDetailsScreen() {
 
   if (loading) {
     return (
-      <View
-        style={
-          styles.loadingContainer
-        }
-      >
-        <ActivityIndicator
-          size="large"
-          color="#028C56"
-        />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#047857" />
 
-        <Text
-          style={styles.loadingText}
-        >
-          Carregando coleta...
-        </Text>
+        <Text style={styles.loadingText}>Carregando coleta...</Text>
       </View>
     );
   }
 
   if (!collection) {
     return (
-      <View
-        style={
-          styles.notFoundContainer
-        }
-      >
-        <View
-          style={styles.notFoundIcon}
-        >
-          <Ionicons
-            name="alert-circle-outline"
-            size={42}
-            color="#B45309"
-          />
+      <View style={styles.notFoundContainer}>
+        <View style={styles.notFoundIcon}>
+          <Ionicons name="alert-circle-outline" size={42} color="#B45309" />
         </View>
 
-        <Text
-          style={styles.notFoundTitle}
-        >
-          Coleta não encontrada
-        </Text>
+        <Text style={styles.notFoundTitle}>Coleta não encontrada</Text>
 
-        <Text
-          style={styles.notFoundText}
-        >
+        <Text style={styles.notFoundText}>
           Não foi possível localizar os dados desta coleta.
         </Text>
 
         <TouchableOpacity
-          onPress={() =>
-            router.back()
-          }
-          style={
-            styles.notFoundButton
-          }
+          onPress={() => router.back()}
+          style={styles.notFoundButton}
         >
-          <Text
-            style={
-              styles.notFoundButtonText
-            }
-          >
-            Voltar
-          </Text>
+          <Text style={styles.notFoundButtonText}>Voltar</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const statusColor =
-    getCollectionStatusColor(
-      collection.status
-    );
+  const statusColor = getCollectionStatusColor(collection.status);
 
-  const totalWeight = Number(
-    collection.totalWeightKg || 0
-  );
+  const totalWeight = Number(collection.totalWeightKg || 0);
 
-  const scheduleId =
-    collection.scheduleId ||
-    collection.schedule?.id;
+  const scheduleId = collection.scheduleId || collection.schedule?.id;
 
   return (
     <View style={styles.screen}>
       <LinearGradient
-        colors={[
-          "#10B981",
-          "#028C56",
-        ]}
+        colors={["#123C35", "#17694F"]}
         start={{
           x: 0,
           y: 0,
@@ -745,192 +561,99 @@ export default function GeneratorCollectionDetailsScreen() {
         }}
         style={styles.header}
       >
-        <View
-          style={styles.headerTop}
-        >
+        <View style={styles.headerTop}>
           <TouchableOpacity
-            onPress={() =>
-              router.back()
-            }
-            style={
-              styles.headerButton
-            }
+            onPress={() => router.back()}
+            style={styles.headerButton}
           >
-            <Ionicons
-              name="arrow-back"
-              size={22}
-              color="#FFFFFF"
-            />
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <View
-            style={
-              styles.headerCenter
-            }
-          >
-            <Text
-              style={
-                styles.headerEyebrow
-              }
-            >
-              Detalhes da coleta
-            </Text>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerEyebrow}>Detalhes da coleta</Text>
 
-            <Text
-              style={
-                styles.headerTitle
-              }
-            >
-              #
-              {collection.id
-                .slice(-8)
-                .toUpperCase()}
+            <Text style={styles.headerTitle}>
+              #{collection.id.slice(-8).toUpperCase()}
             </Text>
           </View>
 
-          <TouchableOpacity
-            onPress={handleRefresh}
-            style={
-              styles.headerButton
-            }
-          >
-            <Ionicons
-              name="refresh-outline"
-              size={21}
-              color="#FFFFFF"
-            />
+          <TouchableOpacity onPress={handleRefresh} style={styles.headerButton}>
+            <Ionicons name="refresh-outline" size={21} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        <View
-          style={
-            styles.headerStatusRow
-          }
-        >
+        <View style={styles.headerStatusRow}>
           <View
             style={[
               styles.headerStatusBadge,
               {
-                backgroundColor:
-                  statusColor,
+                backgroundColor: statusColor,
               },
             ]}
           >
             <Ionicons
-              name={getCollectionStatusIcon(
-                collection.status
-              )}
+              name={getCollectionStatusIcon(collection.status)}
               size={15}
               color="#FFFFFF"
             />
 
-            <Text
-              style={
-                styles.headerStatusText
-              }
-            >
-              {translateCollectionStatus(
-                collection.status
-              )}
+            <Text style={styles.headerStatusText}>
+              {translateCollectionStatus(collection.status)}
             </Text>
           </View>
 
-          <Text
-            style={styles.headerDate}
-          >
-            Atualizada em{" "}
-            {formatDateTime(
-              collection.updatedAt
-            )}
+          <Text style={styles.headerDate}>
+            Atualizada em {formatDateTime(collection.updatedAt)}
           </Text>
         </View>
       </LinearGradient>
 
       <ScrollView
-        showsVerticalScrollIndicator={
-          false
-        }
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={
-              refreshing
-            }
-            onRefresh={
-              handleRefresh
-            }
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
-        contentContainerStyle={
-          styles.scrollContent
-        }
+        contentContainerStyle={styles.scrollContent}
       >
-        <SectionCard
-          title="Resumo da coleta"
-          icon="information-circle-outline"
-        >
-          <View
-            style={
-              styles.summaryGrid
-            }
-          >
+        <SectionCard title="Resumo da coleta" icon="information-circle-outline">
+          <View style={styles.summaryGrid}>
             <SummaryItem
               label="Status"
-              value={translateCollectionStatus(
-                collection.status
-              )}
-              icon={getCollectionStatusIcon(
-                collection.status
-              )}
+              value={translateCollectionStatus(collection.status)}
+              icon={getCollectionStatusIcon(collection.status)}
             />
 
             <SummaryItem
               label="Peso total"
-              value={`${totalWeight.toLocaleString(
-                "pt-BR",
-                {
-                  maximumFractionDigits: 2,
-                }
-              )} kg`}
+              value={`${totalWeight.toLocaleString("pt-BR", {
+                maximumFractionDigits: 2,
+              })} kg`}
               icon="scale-outline"
             />
 
             <SummaryItem
               label="Materiais"
-              value={String(
-                materials.length
-              )}
+              value={String(materials.length)}
               icon="cube-outline"
             />
 
             <SummaryItem
               label="Coletada em"
-              value={formatDateTime(
-                collection.collectedAt
-              )}
+              value={formatDateTime(collection.collectedAt)}
               icon="calendar-outline"
             />
           </View>
         </SectionCard>
 
-        <SectionCard
-          title="Acompanhamento"
-          icon="git-branch-outline"
-        >
-          <View
-            style={styles.timeline}
-          >
-            {timeline.map(
-              (step, index) => (
-                <TimelineItem
-                  key={step.key}
-                  step={step}
-                  isLast={
-                    index ===
-                    timeline.length - 1
-                  }
-                />
-              )
-            )}
+        <SectionCard title="Acompanhamento" icon="git-branch-outline">
+          <View style={styles.timeline}>
+            {timeline.map((step, index) => (
+              <TimelineItem
+                key={step.key}
+                step={step}
+                isLast={index === timeline.length - 1}
+              />
+            ))}
           </View>
         </SectionCard>
 
@@ -939,25 +662,13 @@ export default function GeneratorCollectionDetailsScreen() {
           icon="cube-outline"
         >
           {materials.length > 0 ? (
-            materials.map(
-              (
-                material,
-                index
-              ) => (
-                <MaterialCard
-                  key={`${collection.id}_${index}_${getMaterialName(
-                    material
-                  )}`}
-                  material={
-                    material
-                  }
-                  isLast={
-                    index ===
-                    materials.length - 1
-                  }
-                />
-              )
-            )
+            materials.map((material, index) => (
+              <MaterialCard
+                key={`${collection.id}_${index}_${getMaterialName(material)}`}
+                material={material}
+                isLast={index === materials.length - 1}
+              />
+            ))
           ) : (
             <InlineEmptyState
               icon="cube-outline"
@@ -970,26 +681,14 @@ export default function GeneratorCollectionDetailsScreen() {
           title={`Entradas para destinação (${wasteEntries.length})`}
           icon="swap-horizontal-outline"
         >
-          {wasteEntries.length >
-          0 ? (
-            wasteEntries.map(
-              (
-                entry,
-                index
-              ) => (
-                <WasteEntryCard
-                  key={
-                    entry.id ||
-                    `${collection.id}_entry_${index}`
-                  }
-                  entry={entry}
-                  isLast={
-                    index ===
-                    wasteEntries.length - 1
-                  }
-                />
-              )
-            )
+          {wasteEntries.length > 0 ? (
+            wasteEntries.map((entry, index) => (
+              <WasteEntryCard
+                key={entry.id || `${collection.id}_entry_${index}`}
+                entry={entry}
+                isLast={index === wasteEntries.length - 1}
+              />
+            ))
           ) : (
             <InlineEmptyState
               icon="hourglass-outline"
@@ -998,72 +697,38 @@ export default function GeneratorCollectionDetailsScreen() {
           )}
         </SectionCard>
 
-        <SectionCard
-          title="Gerador e local"
-          icon="location-outline"
-        >
-          <DetailRow
-            label="Gerador"
-            value={getGeneratorName(
-              collection
-            )}
-          />
+        <SectionCard title="Gerador e local" icon="location-outline">
+          <DetailRow label="Gerador" value={getGeneratorName(collection)} />
 
-          <DetailRow
-            label="Endereço"
-            value={getAddress(
-              collection
-            )}
-          />
+          <DetailRow label="Endereço" value={getAddress(collection)} />
 
           <DetailRow
             label="Telefone"
-            value={
-              collection.generator
-                ?.phone || "-"
-            }
+            value={collection.generator?.phone || "-"}
           />
 
           <DetailRow
             label="E-mail"
-            value={
-              collection.generator
-                ?.email || "-"
-            }
+            value={collection.generator?.email || "-"}
             isLast
           />
         </SectionCard>
 
-        <SectionCard
-          title="Equipe responsável"
-          icon="people-outline"
-        >
+        <SectionCard title="Equipe responsável" icon="people-outline">
           <DetailRow
             label="Catador"
-            value={
-              collection.collector
-                ?.name || "-"
-            }
+            value={collection.collector?.name || "-"}
           />
 
-          <DetailRow
-            label="Motorista"
-            value={
-              collection.driver
-                ?.name || "-"
-            }
-          />
+          <DetailRow label="Motorista" value={collection.driver?.name || "-"} />
 
           <DetailRow
             label="Veículo"
             value={
               [
-                collection.vehicle
-                  ?.brand,
-                collection.vehicle
-                  ?.model,
-                collection.vehicle
-                  ?.plate,
+                collection.vehicle?.brand,
+                collection.vehicle?.model,
+                collection.vehicle?.plate,
               ]
                 .filter(Boolean)
                 .join(" • ") || "-"
@@ -1072,61 +737,34 @@ export default function GeneratorCollectionDetailsScreen() {
 
           <DetailRow
             label="Rota"
-            value={
-              collection.route?.name ||
-              collection.route?.code ||
-              "-"
-            }
+            value={collection.route?.name || collection.route?.code || "-"}
             isLast
           />
         </SectionCard>
 
-        <SectionCard
-          title="Cooperativa"
-          icon="business-outline"
-        >
-          <DetailRow
-            label="Nome"
-            value={getCooperativeName(
-              collection
-            )}
-          />
+        <SectionCard title="Cooperativa" icon="business-outline">
+          <DetailRow label="Nome" value={getCooperativeName(collection)} />
 
           <DetailRow
             label="Telefone"
-            value={
-              collection.cooperative
-                ?.phone || "-"
-            }
+            value={collection.cooperative?.phone || "-"}
           />
 
           <DetailRow
             label="E-mail"
-            value={
-              collection.cooperative
-                ?.email || "-"
-            }
+            value={collection.cooperative?.email || "-"}
             isLast
           />
         </SectionCard>
 
         {scheduleId ? (
-          <SectionCard
-            title="Solicitação vinculada"
-            icon="calendar-outline"
-          >
+          <SectionCard title="Solicitação vinculada" icon="calendar-outline">
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={openSchedule}
-              style={
-                styles.linkedScheduleCard
-              }
+              style={styles.linkedScheduleCard}
             >
-              <View
-                style={
-                  styles.linkedScheduleIcon
-                }
-              >
+              <View style={styles.linkedScheduleIcon}>
                 <Ionicons
                   name="document-text-outline"
                   size={21}
@@ -1134,62 +772,27 @@ export default function GeneratorCollectionDetailsScreen() {
                 />
               </View>
 
-              <View
-                style={
-                  styles.linkedScheduleContent
-                }
-              >
-                <Text
-                  style={
-                    styles.linkedScheduleLabel
-                  }
-                >
-                  Solicitação
+              <View style={styles.linkedScheduleContent}>
+                <Text style={styles.linkedScheduleLabel}>Solicitação</Text>
+
+                <Text style={styles.linkedScheduleProtocol}>
+                  #{scheduleId.slice(-8).toUpperCase()}
                 </Text>
 
-                <Text
-                  style={
-                    styles.linkedScheduleProtocol
-                  }
-                >
-                  #
-                  {scheduleId
-                    .slice(-8)
-                    .toUpperCase()}
-                </Text>
-
-                <Text
-                  style={
-                    styles.linkedScheduleDate
-                  }
-                >
+                <Text style={styles.linkedScheduleDate}>
                   Preferencial:{" "}
-                  {formatDateTime(
-                    collection.schedule
-                      ?.preferredDate
-                  )}
+                  {formatDateTime(collection.schedule?.preferredDate)}
                 </Text>
               </View>
 
-              <Ionicons
-                name="arrow-forward"
-                size={20}
-                color="#028C56"
-              />
+              <Ionicons name="arrow-forward" size={20} color="#047857" />
             </TouchableOpacity>
           </SectionCard>
         ) : null}
 
-        <SectionCard
-          title="Observações"
-          icon="document-text-outline"
-        >
+        <SectionCard title="Observações" icon="document-text-outline">
           {collection.notes ? (
-            <Text
-              style={styles.notesText}
-            >
-              {collection.notes}
-            </Text>
+            <Text style={styles.notesText}>{collection.notes}</Text>
           ) : (
             <InlineEmptyState
               icon="chatbox-ellipses-outline"
@@ -1198,80 +801,37 @@ export default function GeneratorCollectionDetailsScreen() {
           )}
         </SectionCard>
 
-        {collection.status ===
-          "CANCELLED" ? (
-          <SectionCard
-            title="Cancelamento"
-            icon="close-circle-outline"
-          >
-            <View
-              style={
-                styles.cancellationBox
-              }
-            >
-              <Ionicons
-                name="alert-circle-outline"
-                size={22}
-                color="#B91C1C"
-              />
+        {collection.status === "CANCELLED" ? (
+          <SectionCard title="Cancelamento" icon="close-circle-outline">
+            <View style={styles.cancellationBox}>
+              <Ionicons name="alert-circle-outline" size={22} color="#B91C1C" />
 
-              <View
-                style={
-                  styles.cancellationContent
-                }
-              >
-                <Text
-                  style={
-                    styles.cancellationTitle
-                  }
-                >
-                  Coleta cancelada
+              <View style={styles.cancellationContent}>
+                <Text style={styles.cancellationTitle}>Coleta cancelada</Text>
+
+                <Text style={styles.cancellationText}>
+                  {collection.cancellationReason || "Motivo não informado."}
                 </Text>
 
-                <Text
-                  style={
-                    styles.cancellationText
-                  }
-                >
-                  {collection.cancellationReason ||
-                    "Motivo não informado."}
-                </Text>
-
-                <Text
-                  style={
-                    styles.cancellationDate
-                  }
-                >
-                  {formatDateTime(
-                    collection.cancelledAt
-                  )}
+                <Text style={styles.cancellationDate}>
+                  {formatDateTime(collection.cancelledAt)}
                 </Text>
               </View>
             </View>
           </SectionCard>
         ) : null}
 
-        <SectionCard
-          title="Informações do registro"
-          icon="code-slash-outline"
-        >
-          <DetailRow
-            label="Identificador"
-            value={collection.id}
-          />
+        <SectionCard title="Informações do registro" icon="code-slash-outline">
+          <DetailRow label="Identificador" value={collection.id} />
 
           <DetailRow
             label="Criada em"
-            value={formatDateTime(
-              collection.createdAt
-            )}
+            value={formatDateTime(collection.createdAt)}
           />
 
           <DetailRow
             label="Última atualização"
-            value={formatDateTime(
-              collection.updatedAt
-            )}
+            value={formatDateTime(collection.updatedAt)}
             isLast
           />
         </SectionCard>
@@ -1290,29 +850,13 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <View
-      style={styles.sectionCard}
-    >
-      <View
-        style={
-          styles.sectionHeader
-        }
-      >
-        <View
-          style={styles.sectionIcon}
-        >
-          <Ionicons
-            name={icon}
-            size={19}
-            color="#15803D"
-          />
+    <View style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionIcon}>
+          <Ionicons name={icon} size={19} color="#15803D" />
         </View>
 
-        <Text
-          style={styles.sectionTitle}
-        >
-          {title}
-        </Text>
+        <Text style={styles.sectionTitle}>{title}</Text>
       </View>
 
       {children}
@@ -1330,30 +874,13 @@ function SummaryItem({
   icon: keyof typeof Ionicons.glyphMap;
 }) {
   return (
-    <View
-      style={styles.summaryItem}
-    >
-      <Ionicons
-        name={icon}
-        size={18}
-        color="#15803D"
-      />
+    <View style={styles.summaryItem}>
+      <Ionicons name={icon} size={18} color="#15803D" />
 
-      <View
-        style={
-          styles.summaryText
-        }
-      >
-        <Text
-          style={styles.summaryLabel}
-        >
-          {label}
-        </Text>
+      <View style={styles.summaryText}>
+        <Text style={styles.summaryLabel}>{label}</Text>
 
-        <Text
-          style={styles.summaryValue}
-          numberOfLines={2}
-        >
+        <Text style={styles.summaryValue} numberOfLines={2}>
           {value}
         </Text>
       </View>
@@ -1369,26 +896,19 @@ function TimelineItem({
   isLast: boolean;
 }) {
   const color = step.current
-    ? "#028C56"
+    ? "#047857"
     : step.completed
-      ? "#16A34A"
+      ? "#047857"
       : "#D1D5DB";
 
   return (
-    <View
-      style={styles.timelineItem}
-    >
-      <View
-        style={styles.timelineRail}
-      >
+    <View style={styles.timelineItem}>
+      <View style={styles.timelineRail}>
         <View
           style={[
             styles.timelineCircle,
             {
-              backgroundColor:
-                step.completed
-                  ? color
-                  : "#FFFFFF",
+              backgroundColor: step.completed ? color : "#FFFFFF",
               borderColor: color,
             },
           ]}
@@ -1396,11 +916,7 @@ function TimelineItem({
           <Ionicons
             name={step.icon}
             size={16}
-            color={
-              step.completed
-                ? "#FFFFFF"
-                : color
-            }
+            color={step.completed ? "#FFFFFF" : color}
           />
         </View>
 
@@ -1409,10 +925,7 @@ function TimelineItem({
             style={[
               styles.timelineLine,
               {
-                backgroundColor:
-                  step.completed
-                    ? "#86EFAC"
-                    : "#E5E7EB",
+                backgroundColor: step.completed ? "#86EFAC" : "#E5E7EB",
               },
             ]}
           />
@@ -1420,64 +933,30 @@ function TimelineItem({
       </View>
 
       <View
-        style={[
-          styles.timelineContent,
-          isLast &&
-            styles.timelineContentLast,
-        ]}
+        style={[styles.timelineContent, isLast && styles.timelineContentLast]}
       >
-        <View
-          style={
-            styles.timelineTitleRow
-          }
-        >
+        <View style={styles.timelineTitleRow}>
           <Text
             style={[
               styles.timelineTitle,
-              step.current &&
-                styles.timelineTitleCurrent,
-              !step.completed &&
-                styles.timelineTitlePending,
+              step.current && styles.timelineTitleCurrent,
+              !step.completed && styles.timelineTitlePending,
             ]}
           >
             {step.title}
           </Text>
 
           {step.current ? (
-            <View
-              style={
-                styles.currentBadge
-              }
-            >
-              <Text
-                style={
-                  styles.currentBadgeText
-                }
-              >
-                Etapa atual
-              </Text>
+            <View style={styles.currentBadge}>
+              <Text style={styles.currentBadgeText}>Etapa atual</Text>
             </View>
           ) : null}
         </View>
 
-        <Text
-          style={
-            styles.timelineDescription
-          }
-        >
-          {step.description}
-        </Text>
+        <Text style={styles.timelineDescription}>{step.description}</Text>
 
         {step.date ? (
-          <Text
-            style={
-              styles.timelineDate
-            }
-          >
-            {formatDateTime(
-              step.date
-            )}
-          </Text>
+          <Text style={styles.timelineDate}>{formatDateTime(step.date)}</Text>
         ) : null}
       </View>
     </View>
@@ -1488,86 +967,34 @@ function MaterialCard({
   material,
   isLast,
 }: {
-  material:
-    | CollectionMaterial
-    | CollectionMaterialRecord;
+  material: CollectionMaterial | CollectionMaterialRecord;
   isLast: boolean;
 }) {
-  const category =
-    getMaterialCategory(material);
+  const category = getMaterialCategory(material);
 
   return (
-    <View
-      style={[
-        styles.materialCard,
-        isLast &&
-          styles.materialCardLast,
-      ]}
-    >
-      <View
-        style={styles.materialIcon}
-      >
-        <Ionicons
-          name="leaf-outline"
-          size={20}
-          color="#15803D"
-        />
+    <View style={[styles.materialCard, isLast && styles.materialCardLast]}>
+      <View style={styles.materialIcon}>
+        <Ionicons name="leaf-outline" size={20} color="#15803D" />
       </View>
 
-      <View
-        style={
-          styles.materialContent
-        }
-      >
-        <Text
-          style={styles.materialName}
-        >
-          {getMaterialName(
-            material
-          )}
-        </Text>
+      <View style={styles.materialContent}>
+        <Text style={styles.materialName}>{getMaterialName(material)}</Text>
 
         {category ? (
-          <Text
-            style={
-              styles.materialCategory
-            }
-          >
-            {category}
-          </Text>
+          <Text style={styles.materialCategory}>{category}</Text>
         ) : null}
 
-        <View
-          style={
-            styles.materialQuantityBadge
-          }
-        >
-          <Ionicons
-            name="scale-outline"
-            size={14}
-            color="#166534"
-          />
+        <View style={styles.materialQuantityBadge}>
+          <Ionicons name="scale-outline" size={14} color="#166534" />
 
-          <Text
-            style={
-              styles.materialQuantityText
-            }
-          >
-            {getMaterialQuantity(
-              material
-            )}
+          <Text style={styles.materialQuantityText}>
+            {getMaterialQuantity(material)}
           </Text>
         </View>
 
-        {"notes" in material &&
-        material.notes ? (
-          <Text
-            style={
-              styles.materialNotes
-            }
-          >
-            {material.notes}
-          </Text>
+        {"notes" in material && material.notes ? (
+          <Text style={styles.materialNotes}>{material.notes}</Text>
         ) : null}
       </View>
     </View>
@@ -1581,22 +1008,21 @@ function WasteEntryCard({
   entry: CollectionWasteEntrySummary;
   isLast: boolean;
 }) {
-  const item =
-    entry as CollectionWasteEntrySummary & {
-      nameSnapshot?: string | null;
-      originalQuantity?: number | null;
-      availableQuantity?: number | null;
-      quantity?: number | null;
-      unit?: string | null;
-      wasteType?: {
-        name?: string | null;
-      } | null;
-      catalogSuggestion?: {
-        name?: string | null;
-      } | null;
-      destinationsCount?: number | null;
-      status?: string | null;
-    };
+  const item = entry as CollectionWasteEntrySummary & {
+    nameSnapshot?: string | null;
+    originalQuantity?: number | null;
+    availableQuantity?: number | null;
+    quantity?: number | null;
+    unit?: string | null;
+    wasteType?: {
+      name?: string | null;
+    } | null;
+    catalogSuggestion?: {
+      name?: string | null;
+    } | null;
+    destinationsCount?: number | null;
+    status?: string | null;
+  };
 
   const name =
     item.nameSnapshot ||
@@ -1604,123 +1030,45 @@ function WasteEntryCard({
     item.catalogSuggestion?.name ||
     "Material";
 
-  const originalQuantity = Number(
-    item.originalQuantity ??
-      item.quantity ??
-      0
-  );
+  const originalQuantity = Number(item.originalQuantity ?? item.quantity ?? 0);
 
-  const availableQuantity = Number(
-    item.availableQuantity ??
-      originalQuantity
-  );
+  const availableQuantity = Number(item.availableQuantity ?? originalQuantity);
 
   return (
-    <View
-      style={[
-        styles.wasteEntryCard,
-        isLast &&
-          styles.wasteEntryCardLast,
-      ]}
-    >
-      <View
-        style={
-          styles.wasteEntryHeader
-        }
-      >
-        <View
-          style={
-            styles.wasteEntryIcon
-          }
-        >
-          <Ionicons
-            name="swap-horizontal-outline"
-            size={19}
-            color="#0E7490"
-          />
+    <View style={[styles.wasteEntryCard, isLast && styles.wasteEntryCardLast]}>
+      <View style={styles.wasteEntryHeader}>
+        <View style={styles.wasteEntryIcon}>
+          <Ionicons name="swap-horizontal-outline" size={19} color="#0E7490" />
         </View>
 
-        <View
-          style={
-            styles.wasteEntryTitleBox
-          }
-        >
-          <Text
-            style={
-              styles.wasteEntryName
-            }
-          >
-            {name}
-          </Text>
+        <View style={styles.wasteEntryTitleBox}>
+          <Text style={styles.wasteEntryName}>{name}</Text>
 
-          <Text
-            style={
-              styles.wasteEntryStatus
-            }
-          >
-            {item.status ||
-              "Aguardando destinação"}
+          <Text style={styles.wasteEntryStatus}>
+            {item.status || "Aguardando destinação"}
           </Text>
         </View>
       </View>
 
-      <View
-        style={
-          styles.wasteEntrySummary
-        }
-      >
-        <View
-          style={
-            styles.wasteEntrySummaryItem
-          }
-        >
-          <Text
-            style={
-              styles.wasteEntrySummaryLabel
-            }
-          >
-            Quantidade original
-          </Text>
+      <View style={styles.wasteEntrySummary}>
+        <View style={styles.wasteEntrySummaryItem}>
+          <Text style={styles.wasteEntrySummaryLabel}>Quantidade original</Text>
 
-          <Text
-            style={
-              styles.wasteEntrySummaryValue
-            }
-          >
-            {originalQuantity.toLocaleString(
-              "pt-BR",
-              {
-                maximumFractionDigits: 2,
-              }
-            )}{" "}
+          <Text style={styles.wasteEntrySummaryValue}>
+            {originalQuantity.toLocaleString("pt-BR", {
+              maximumFractionDigits: 2,
+            })}{" "}
             {item.unit || "KG"}
           </Text>
         </View>
 
-        <View
-          style={
-            styles.wasteEntrySummaryItem
-          }
-        >
-          <Text
-            style={
-              styles.wasteEntrySummaryLabel
-            }
-          >
-            Saldo disponível
-          </Text>
+        <View style={styles.wasteEntrySummaryItem}>
+          <Text style={styles.wasteEntrySummaryLabel}>Saldo disponível</Text>
 
-          <Text
-            style={
-              styles.wasteEntrySummaryValue
-            }
-          >
-            {availableQuantity.toLocaleString(
-              "pt-BR",
-              {
-                maximumFractionDigits: 2,
-              }
-            )}{" "}
+          <Text style={styles.wasteEntrySummaryValue}>
+            {availableQuantity.toLocaleString("pt-BR", {
+              maximumFractionDigits: 2,
+            })}{" "}
             {item.unit || "KG"}
           </Text>
         </View>
@@ -1739,23 +1087,10 @@ function DetailRow({
   isLast?: boolean;
 }) {
   return (
-    <View
-      style={[
-        styles.detailRow,
-        isLast &&
-          styles.detailRowLast,
-      ]}
-    >
-      <Text
-        style={styles.detailLabel}
-      >
-        {label}
-      </Text>
+    <View style={[styles.detailRow, isLast && styles.detailRowLast]}>
+      <Text style={styles.detailLabel}>{label}</Text>
 
-      <Text
-        style={styles.detailValue}
-        selectable
-      >
+      <Text style={styles.detailValue} selectable>
         {value}
       </Text>
     </View>
@@ -1770,22 +1105,10 @@ function InlineEmptyState({
   text: string;
 }) {
   return (
-    <View
-      style={styles.inlineEmpty}
-    >
-      <Ionicons
-        name={icon}
-        size={28}
-        color="#9CA3AF"
-      />
+    <View style={styles.inlineEmpty}>
+      <Ionicons name={icon} size={28} color="#9CA3AF" />
 
-      <Text
-        style={
-          styles.inlineEmptyText
-        }
-      >
-        {text}
-      </Text>
+      <Text style={styles.inlineEmptyText}>{text}</Text>
     </View>
   );
 }
@@ -1824,7 +1147,7 @@ const styles = StyleSheet.create({
   notFoundTitle: {
     marginTop: 18,
     fontSize: 20,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#111827",
   },
   notFoundText: {
@@ -1839,11 +1162,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: "#028C56",
+    backgroundColor: "#047857",
   },
   notFoundButtonText: {
     color: "#FFFFFF",
-    fontWeight: "800",
+    fontWeight: "700",
   },
   header: {
     paddingTop: 22,
@@ -1860,8 +1183,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor:
-      "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1877,7 +1199,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: "#FFFFFF",
     fontSize: 23,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   headerStatusRow: {
     marginTop: 18,
@@ -1895,7 +1217,7 @@ const styles = StyleSheet.create({
     marginLeft: 5,
     color: "#FFFFFF",
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   headerDate: {
     flex: 1,
@@ -1934,7 +1256,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     color: "#111827",
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   summaryGrid: {
     flexDirection: "row",
@@ -2001,10 +1323,10 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#374151",
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   timelineTitleCurrent: {
-    color: "#028C56",
+    color: "#047857",
   },
   timelineTitlePending: {
     color: "#9CA3AF",
@@ -2030,7 +1352,7 @@ const styles = StyleSheet.create({
   currentBadgeText: {
     color: "#166534",
     fontSize: 9,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   materialCard: {
     paddingVertical: 13,
@@ -2057,7 +1379,7 @@ const styles = StyleSheet.create({
   materialName: {
     color: "#111827",
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   materialCategory: {
     marginTop: 3,
@@ -2114,7 +1436,7 @@ const styles = StyleSheet.create({
   wasteEntryName: {
     color: "#111827",
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   wasteEntryStatus: {
     marginTop: 2,
@@ -2140,7 +1462,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: "#374151",
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   detailRow: {
     paddingVertical: 12,
@@ -2189,7 +1511,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: "#166534",
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   linkedScheduleDate: {
     marginTop: 3,
@@ -2217,7 +1539,7 @@ const styles = StyleSheet.create({
   cancellationTitle: {
     color: "#B91C1C",
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   cancellationText: {
     marginTop: 4,

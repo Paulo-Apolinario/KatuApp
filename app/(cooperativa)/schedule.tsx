@@ -55,7 +55,7 @@ function mapStatusColor(status?: string) {
     case "IN_PROGRESS":
       return "#8B5CF6";
     case "COMPLETED":
-      return "#028C56";
+      return "#047857";
     case "CANCELLED":
       return "#DC2626";
     default:
@@ -189,7 +189,7 @@ export default function ScheduleScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -217,7 +217,7 @@ export default function ScheduleScreen() {
         <View
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
         >
-          <ActivityIndicator size="large" color="#028C56" />
+          <ActivityIndicator size="large" color="#047857" />
           <Text style={{ marginTop: 12, color: "#6B7280" }}>
             Carregando agendamentos...
           </Text>
@@ -240,7 +240,7 @@ export default function ScheduleScreen() {
             <SummaryCard
               label="Total"
               value={summary.total}
-              color="#028C56"
+              color="#047857"
               bg="#F0FDF4"
             />
             <SummaryCard
@@ -270,7 +270,7 @@ export default function ScheduleScreen() {
                 Concluídos
               </Text>
               <Text
-                style={{ fontSize: 28, fontWeight: "800", color: "#028C56" }}
+                style={{ fontSize: 28, fontWeight: "700", color: "#047857" }}
               >
                 {summary.concluidos}
               </Text>
@@ -381,7 +381,7 @@ export default function ScheduleScreen() {
                   <Text
                     style={{
                       fontSize: 13,
-                      color: "#028C56",
+                      color: "#047857",
                       fontWeight: "700",
                     }}
                   >
@@ -448,7 +448,7 @@ export default function ScheduleScreen() {
                           })
                         }
                       >
-                        <Text style={{ color: "#028C56" }}>
+                        <Text style={{ color: "#047857" }}>
                           Acompanhar execução e equipe
                         </Text>
                       </TouchableOpacity>
@@ -500,7 +500,7 @@ function SummaryCard({
       <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
         {label}
       </Text>
-      <Text style={{ fontSize: 24, fontWeight: "800", color }}>{value}</Text>
+      <Text style={{ fontSize: 24, fontWeight: "700", color }}>{value}</Text>
     </View>
   );
 }

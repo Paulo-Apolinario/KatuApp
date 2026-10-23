@@ -96,7 +96,7 @@ export default function MotoristasScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -126,7 +126,7 @@ export default function MotoristasScreen() {
               resizeMode="contain"
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
-            <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
+            <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>
               KATUÁ
             </Text>
           </View>
@@ -197,7 +197,7 @@ export default function MotoristasScreen() {
         >
           {loading ? (
             <View style={{ alignItems: "center", paddingVertical: 40 }}>
-              <ActivityIndicator size="large" color="#028C56" />
+              <ActivityIndicator size="large" color="#047857" />
               <Text style={{ marginTop: 10, color: "#6B7280" }}>
                 Carregando motoristas...
               </Text>
@@ -236,7 +236,7 @@ export default function MotoristasScreen() {
                         marginBottom: 4,
                       }}
                     >
-                      <Ionicons name="person" size={20} color="#028C56" />
+                      <Ionicons name="person" size={20} color="#047857" />
                       <Text
                         style={{
                           fontSize: 16,

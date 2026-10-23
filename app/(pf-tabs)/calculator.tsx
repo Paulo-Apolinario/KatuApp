@@ -52,7 +52,7 @@ export default function CalculatorScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#059669", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         style={{
           paddingTop: 20,
           paddingBottom: 20,
@@ -96,7 +96,7 @@ export default function CalculatorScreen() {
               <Text
                 style={{
                   fontSize: 14,
-                  color: "#028C56",
+                  color: "#047857",
                   marginBottom: 6,
                   fontWeight: "600",
                 }}
@@ -129,7 +129,7 @@ export default function CalculatorScreen() {
             <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
               Total estimado
             </Text>
-            <Text style={{ fontSize: 36, fontWeight: "800", color: "#028C56" }}>
+            <Text style={{ fontSize: 36, fontWeight: "700", color: "#047857" }}>
               {total.toFixed(2)} kg
             </Text>
             <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 8 }}>
@@ -162,7 +162,7 @@ export default function CalculatorScreen() {
                   {item.name}
                 </Text>
                 <Text
-                  style={{ fontSize: 15, color: "#028C56", fontWeight: "800" }}
+                  style={{ fontSize: 15, color: "#047857", fontWeight: "700" }}
                 >
                   {item.numeric.toFixed(2)} kg
                 </Text>
