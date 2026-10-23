@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Platform, Pressable, Text, View } from "react-native";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import * as Location from "../../services/deviceLocation";
 import {
   Workspace,
   Card,
@@ -10,7 +9,10 @@ import {
   Action,
   Notice,
 } from "../../components/ui/Workspace";
-import OperationalMap from "../../components/maps/OperationalMap";
+import ExtraOrderAddress, {
+  emptyAddressDraft,
+  type AddressDraft,
+} from "./ExtraOrderAddress";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   extraOrderService,
@@ -71,7 +73,11 @@ export default function ExtraOrderForm({
       reason: contextRouteId ? "UNPLANNED_STOP" : "EXTRA_REQUEST",
     },
   );
+  const [addressPending, setAddressPending] = useState(false);
   const original = (initialOrder as any)?.draftForm;
+  const [addressDraft, setAddressDraft] = useState<AddressDraft>(
+    original?.addressDraft || emptyAddressDraft,
+  );
   const dt = p.occurredAt ? new Date(p.occurredAt) : new Date();
   const [date, setDate] = useState(
       original?.date ||
@@ -104,8 +110,7 @@ export default function ExtraOrderForm({
     [customUnit, setCustomUnit] = useState<ExtraUnit>("KG"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [draftError, setDraftError] = useState(""),
-    [mapOpen, setMapOpen] = useState(false);
+    [draftError, setDraftError] = useState("");
   const set = <K extends keyof ExtraOrderPayload>(
     key: K,
     value: ExtraOrderPayload[K],
@@ -152,7 +157,7 @@ export default function ExtraOrderForm({
             custody: p.custody,
             custodyNotes: p.custodyNotes,
             createdAt: initialOrder?.createdAt || new Date().toISOString(),
-            draftForm: { date, time, lines },
+            draftForm: { date, time, lines, addressDraft },
           } as ExtraOrder,
           owner,
         )
@@ -162,6 +167,7 @@ export default function ExtraOrderForm({
     return () => clearTimeout(timer);
   }, [
     snapshot,
+    addressDraft,
     id,
     owner,
     context,
@@ -224,31 +230,15 @@ export default function ExtraOrderForm({
       setError(e.message);
     }
   }
-  async function gps() {
-    setError("");
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (!permission.granted)
-        throw Error(
-          "Localização não autorizada. Confirme o endereço manualmente ou escolha um ponto no mapa.",
-        );
-      const r = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-      setP((old) => ({
-        ...old,
-        latitude: r.coords.latitude,
-        longitude: r.coords.longitude,
-        accuracyMeters: r.coords.accuracy ?? undefined,
-      }));
-      setMapOpen(true);
-    } catch (e: any) {
-      setError(e.message);
-    }
-  }
   async function save() {
     if (guard.current) return;
     setError("");
+    if (addressPending) {
+      setError(
+        "Confirme o endereço e o ponto no mapa ou cancele a seleção antes de enviar. Aguarde também a consulta de CEP/localização, se estiver em andamento.",
+      );
+      return;
+    }
     if (!context?.cooperative.id) {
       setError(
         "Entre online uma vez para carregar o vínculo com sua cooperativa antes do envio. O rascunho pode ser preservado.",
@@ -473,17 +463,19 @@ export default function ExtraOrderForm({
                   key={g.id}
                   secondary={p.generatorId !== g.id}
                   label={g.name}
-                  onPress={() =>
+                  onPress={() => {
+                    setAddressDraft(emptyAddressDraft);
                     setP((old) => ({
                       ...old,
                       generatorId: g.id,
                       originName: g.name,
-                      pickupAddress: g.address || old.pickupAddress,
+                      pickupAddress: g.address || "",
                       latitude: g.latitude ?? undefined,
                       longitude: g.longitude ?? undefined,
+                      accuracyMeters: undefined,
                       sourceScheduleId: undefined,
-                    }))
-                  }
+                    }));
+                  }}
                 />
               ))}
           </>
@@ -503,68 +495,13 @@ export default function ExtraOrderForm({
           maxLength={40}
           editable={!busy}
         />
-        <Field
-          label="Endereço da retirada"
-          value={p.pickupAddress}
-          onChangeText={(v) =>
-            setP((old) => ({
-              ...old,
-              pickupAddress: v,
-              latitude: undefined,
-              longitude: undefined,
-              accuracyMeters: undefined,
-            }))
-          }
-          maxLength={500}
-          editable={!busy}
-        />
-        <Action
-          secondary
-          label="Usar localização atual do aparelho"
-          onPress={() => void gps()}
+        <ExtraOrderAddress
+          value={p}
+          draft={addressDraft}
+          onDraft={setAddressDraft}
+          onPending={setAddressPending}
+          onChange={setP}
           disabled={busy}
-        />
-        <Action
-          secondary
-          label={
-            mapOpen ? "Ocultar seleção no mapa" : "Confirmar ponto no mapa"
-          }
-          onPress={() => setMapOpen((v) => !v)}
-          disabled={busy}
-        />
-        {mapOpen && (
-          <OperationalMap
-            baseLabel={null}
-            baseLatitude={p.latitude ?? -3.7319}
-            baseLongitude={p.longitude ?? -38.5267}
-            points={
-              p.latitude != null && p.longitude != null
-                ? [
-                    {
-                      id: "origin",
-                      latitude: p.latitude,
-                      longitude: p.longitude,
-                      title: p.originName || "Ponto da O.C.",
-                    },
-                  ]
-                : []
-            }
-            onPick={(latitude, longitude) =>
-              setP((old) => ({
-                ...old,
-                latitude,
-                longitude,
-                accuracyMeters: undefined,
-              }))
-            }
-          />
-        )}
-        <Notice
-          text={
-            p.latitude != null
-              ? `Ponto registrado: ${p.latitude.toFixed(5)}, ${p.longitude?.toFixed(5)}. Confira se corresponde ao endereço.`
-              : "Sem coordenadas confirmadas. O endereço será enviado para conferência."
-          }
         />
         {!!context?.schedules.length && (
           <>
