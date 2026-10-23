@@ -10,7 +10,7 @@ type SessionRecord = {
 };
 
 export async function saveSession(params: {
-  token: string;
+  token: string | null;
   userId?: string | null;
   payload?: unknown;
 }) {
@@ -33,7 +33,7 @@ export async function saveSession(params: {
       params.userId ?? null,
       params.payload ? JSON.stringify(params.payload) : null,
       now,
-    ]
+    ],
   );
 }
 
@@ -44,7 +44,7 @@ export async function getSession() {
     FROM ${TABLES.SESSION}
     ORDER BY id DESC
     LIMIT 1
-    `
+    `,
   )) as SessionRecord | null;
 
   if (!row) {

@@ -1,3 +1,4 @@
+import { loadSections } from "@/src/utils/loadSections";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -12,26 +13,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNotification } from "@/src/contexts/NotificationContext";
 import { LinearGradient } from "expo-linear-gradient";
 
-import {
-  scheduleService,
-  type Schedule,
-} from "@/src/services/scheduleService";
+import { scheduleService, type Schedule } from "@/src/services/scheduleService";
 import {
   collectionService,
   type Collection,
 } from "@/src/services/collectionService";
-import {
-  routeService,
-  type RouteItem,
-} from "@/src/services/routeService";
-import {
-  driverService,
-  type Driver,
-} from "@/src/services/driverService";
-import {
-  vehicleService,
-  type Vehicle,
-} from "@/src/services/vehicleService";
+import { routeService, type RouteItem } from "@/src/services/routeService";
+import { driverService, type Driver } from "@/src/services/driverService";
+import { vehicleService, type Vehicle } from "@/src/services/vehicleService";
 
 function formatDate(value?: string | null) {
   if (!value) return "Sem data";
@@ -374,13 +363,7 @@ function EmptyState({
   );
 }
 
-function Badge({
-  label,
-  color,
-}: {
-  label: string;
-  color: string;
-}) {
+function Badge({ label, color }: { label: string; color: string }) {
   return (
     <View
       style={{
@@ -414,47 +397,59 @@ export default function CooperativeDashboardScreen() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
-  const loadDashboard = useCallback(async (showLoader = true) => {
-    try {
-      if (showLoader) setLoading(true);
+  const loadDashboard = useCallback(
+    async (showLoader = true) => {
+      try {
+        if (showLoader) setLoading(true);
 
-      const [
-        schedulesResponse,
-        collectionsResponse,
-        routesResponse,
-        driversResponse,
-        vehiclesResponse,
-      ] = await Promise.all([
-        scheduleService.list(),
-        collectionService.list(),
-        routeService.list(),
-        driverService.list(),
-        vehicleService.list(),
-      ]);
-
-      setSchedules(Array.isArray(schedulesResponse) ? schedulesResponse : []);
-      setCollections(Array.isArray(collectionsResponse) ? collectionsResponse : []);
-      setRoutes(Array.isArray(routesResponse) ? routesResponse : []);
-      setDrivers(Array.isArray(driversResponse) ? driversResponse : []);
-      setVehicles(Array.isArray(vehiclesResponse) ? vehiclesResponse : []);
-    } catch (error) {
-      console.error("Erro ao carregar dashboard:", error);
-      notifyError("Não foi possível carregar o dashboard da cooperativa.");
-      setSchedules([]);
-      setCollections([]);
-      setRoutes([]);
-      setDrivers([]);
-      setVehicles([]);
-    } finally {
-      if (showLoader) setLoading(false);
-      setRefreshing(false);
-    }
-  }, [notifyError]);
+        const failed = await loadSections([
+          {
+            label: "Solicitações",
+            load: () => scheduleService.list(),
+            apply: (rows) => setSchedules(Array.isArray(rows) ? rows : []),
+          },
+          {
+            label: "Coletas",
+            load: () => collectionService.list(),
+            apply: (rows) => setCollections(Array.isArray(rows) ? rows : []),
+          },
+          {
+            label: "Rotas",
+            load: () => routeService.list(),
+            apply: (rows) => setRoutes(Array.isArray(rows) ? rows : []),
+          },
+          {
+            label: "Motoristas",
+            load: () => driverService.list(),
+            apply: (rows) => setDrivers(Array.isArray(rows) ? rows : []),
+          },
+          {
+            label: "Veículos",
+            load: () => vehicleService.list(),
+            apply: (rows) => setVehicles(Array.isArray(rows) ? rows : []),
+          },
+        ]);
+        if (failed.length)
+          notifyError(
+            `Não foi possível atualizar: ${failed.join(", ")}. Dados anteriores preservados.`,
+          );
+      } catch (error) {
+        console.error("Erro ao carregar dashboard:", error);
+        notifyError(
+          "Não foi possível atualizar todas as seções. Os últimos dados carregados foram preservados.",
+        );
+      } finally {
+        if (showLoader) setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [notifyError],
+  );
 
   useFocusEffect(
     useCallback(() => {
       loadDashboard(true);
-    }, [loadDashboard])
+    }, [loadDashboard]),
   );
 
   const onRefresh = useCallback(() => {
@@ -464,21 +459,21 @@ export default function CooperativeDashboardScreen() {
 
   const dashboardMetrics = useMemo(() => {
     const requestedSchedules = schedules.filter(
-      (item) => item.status === "REQUESTED"
+      (item) => item.status === "REQUESTED",
     );
     const scheduledSchedules = schedules.filter(
-      (item) => item.status === "SCHEDULED"
+      (item) => item.status === "SCHEDULED",
     );
     const inProgressSchedules = schedules.filter(
-      (item) => item.status === "IN_PROGRESS"
+      (item) => item.status === "IN_PROGRESS",
     );
 
     const activeRoutes = routes.filter(
-      (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS"
+      (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS",
     );
 
     const inProgressCollections = collections.filter(
-      (item) => item.status === "IN_PROGRESS"
+      (item) => item.status === "IN_PROGRESS",
     );
 
     const completedToday = collections.filter((item) => {
@@ -502,23 +497,23 @@ export default function CooperativeDashboardScreen() {
       .reduce((sum, item) => sum + Number(item.totalWeightKg ?? 0), 0);
 
     const driversAvailable = drivers.filter(
-      (item) => item.status === "AVAILABLE"
+      (item) => item.status === "AVAILABLE",
     ).length;
 
     const vehiclesActive = vehicles.filter(
-      (item) => item.status === "ACTIVE"
+      (item) => item.status === "ACTIVE",
     ).length;
 
     const nextSchedules = [...schedules]
       .filter(
-        (item) => item.status === "REQUESTED" || item.status === "SCHEDULED"
+        (item) => item.status === "REQUESTED" || item.status === "SCHEDULED",
       )
       .sort((a, b) => {
         const aTime = new Date(
-          a.scheduledDate || a.preferredDate || a.createdAt || 0
+          a.scheduledDate || a.preferredDate || a.createdAt || 0,
         ).getTime();
         const bTime = new Date(
-          b.scheduledDate || b.preferredDate || b.createdAt || 0
+          b.scheduledDate || b.preferredDate || b.createdAt || 0,
         ).getTime();
         return aTime - bTime;
       })
@@ -584,11 +579,11 @@ export default function CooperativeDashboardScreen() {
       contentContainerStyle={{ paddingBottom: 30 }}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 28,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -641,8 +636,8 @@ export default function CooperativeDashboardScreen() {
             marginTop: 10,
           }}
         >
-          Acompanhe os principais indicadores da cooperativa, a operação em campo
-          e o ritmo das rotas.
+          Acompanhe os principais indicadores da cooperativa, a operação em
+          campo e o ritmo das rotas.
         </Text>
       </LinearGradient>
 
@@ -823,7 +818,9 @@ export default function CooperativeDashboardScreen() {
                     >
                       Data:{" "}
                       {formatDateTime(
-                        item.scheduledDate || item.preferredDate || item.createdAt
+                        item.scheduledDate ||
+                          item.preferredDate ||
+                          item.createdAt,
                       )}
                     </Text>
 
@@ -1048,7 +1045,10 @@ export default function CooperativeDashboardScreen() {
                         marginTop: 6,
                       }}
                     >
-                      Catador: {item.collector?.name || item.collector?.displayName || "Não informado"}
+                      Catador:{" "}
+                      {item.collector?.name ||
+                        item.collector?.displayName ||
+                        "Não informado"}
                     </Text>
                   </View>
 

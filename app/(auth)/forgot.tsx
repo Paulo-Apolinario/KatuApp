@@ -62,10 +62,17 @@ export default function ForgotScreen() {
         return;
       }
 
-      notifySuccess(result.message || "Se o e-mail estiver habilitado, enviaremos as instruções.", "Solicitação enviada");
+      notifySuccess({
+        message:
+          result.message ||
+          "Se o e-mail estiver habilitado, enviaremos as instruções.",
+        title: "Solicitação enviada",
+      });
     } catch (error: any) {
       console.error("Erro ao solicitar recuperação:", error);
-      notifyError(error?.message || "Não foi possível iniciar a recuperação de senha.");
+      notifyError(
+        error?.message || "Não foi possível iniciar a recuperação de senha.",
+      );
     } finally {
       setLoading(false);
     }
@@ -215,7 +222,7 @@ export default function ForgotScreen() {
             disabled={loading}
           >
             <LinearGradient
-              colors={["#10F35D", "#028C56"]}
+              colors={["#059669", "#028C56"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{

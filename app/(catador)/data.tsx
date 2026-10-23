@@ -51,7 +51,9 @@ function safeNumber(value: unknown) {
 }
 
 function normalizeUnit(value: unknown): WasteUnit {
-  const normalized = String(value || "KG").trim().toUpperCase();
+  const normalized = String(value || "KG")
+    .trim()
+    .toUpperCase();
   const valid: WasteUnit[] = ["KG", "TON", "LITER", "UNIT", "CUBIC_METER"];
   return valid.includes(normalized as WasteUnit)
     ? (normalized as WasteUnit)
@@ -96,7 +98,7 @@ function normalizeMaterials(value: unknown): CollectionMaterial[] {
           material.type ??
           material.nameSnapshot ??
           material.materialNameSnapshot ??
-          "Material"
+          "Material",
       ).trim();
       const unit = normalizeUnit(material.unit);
       const quantity =
@@ -112,12 +114,17 @@ function normalizeMaterials(value: unknown): CollectionMaterial[] {
 
       return {
         wasteTypeId:
-          typeof material.wasteTypeId === "string" ? material.wasteTypeId : null,
+          typeof material.wasteTypeId === "string"
+            ? material.wasteTypeId
+            : null,
         type: name,
         name,
-        category: typeof material.category === "string" ? material.category : null,
+        category:
+          typeof material.category === "string" ? material.category : null,
         subcategory:
-          typeof material.subcategory === "string" ? material.subcategory : null,
+          typeof material.subcategory === "string"
+            ? material.subcategory
+            : null,
         quantity,
         quantityKg,
         unit,
@@ -153,7 +160,8 @@ function getCollectionTotalKg(collection: Collection) {
 }
 
 function getSourceName(collection: Collection) {
-  const generator = collection.generator ?? collection.schedule?.generator ?? null;
+  const generator =
+    collection.generator ?? collection.schedule?.generator ?? null;
   return (
     generator?.companyName ||
     generator?.businessName ||
@@ -202,7 +210,9 @@ function getStatusColor(status: CollectionStatus) {
   return colors[status] || "#64748B";
 }
 
-function getStatusIcon(status: CollectionStatus): keyof typeof Ionicons.glyphMap {
+function getStatusIcon(
+  status: CollectionStatus,
+): keyof typeof Ionicons.glyphMap {
   const icons: Record<CollectionStatus, keyof typeof Ionicons.glyphMap> = {
     PENDING: "time-outline",
     IN_PROGRESS: "navigate-outline",
@@ -267,20 +277,23 @@ export default function DataScreen() {
         setLastSyncAt(new Date().toISOString());
       } catch (error) {
         console.error("Erro ao carregar dados do catador:", error);
-        notifyError("Erro", "Não foi possível carregar os dados do catador.");
+        notifyError({
+          message: "Não foi possível carregar os dados do catador.",
+          title: "Erro",
+        });
         setCollections([]);
       } finally {
         if (showLoader) setLoading(false);
         setRefreshing(false);
       }
     },
-    [notifyError]
+    [notifyError],
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadCollections(true);
-    }, [loadCollections])
+    }, [loadCollections]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -290,11 +303,11 @@ export default function DataScreen() {
 
   const metrics = useMemo(() => {
     const periodCollections = collections.filter((item) =>
-      isInsidePeriod(item, periodFilter)
+      isInsidePeriod(item, periodFilter),
     );
 
     const realizedCollections = periodCollections.filter((item) =>
-      REALIZED_STATUSES.includes(item.status)
+      REALIZED_STATUSES.includes(item.status),
     );
 
     const filteredCollections = periodCollections
@@ -302,13 +315,15 @@ export default function DataScreen() {
       .sort((a, b) => {
         const aDate = getReferenceDate(a);
         const bDate = getReferenceDate(b);
-        return (bDate ? new Date(bDate).getTime() : 0) -
-          (aDate ? new Date(aDate).getTime() : 0);
+        return (
+          (bDate ? new Date(bDate).getTime() : 0) -
+          (aDate ? new Date(aDate).getTime() : 0)
+        );
       });
 
     const totalKg = realizedCollections.reduce(
       (sum, item) => sum + getCollectionTotalKg(item),
-      0
+      0,
     );
 
     const averageKg =
@@ -317,7 +332,8 @@ export default function DataScreen() {
     const materialMap: Record<string, number> = {};
     realizedCollections.forEach((collection) => {
       getCollectionMaterials(collection).forEach((material) => {
-        const name = material.name?.trim() || material.type?.trim() || "Não informado";
+        const name =
+          material.name?.trim() || material.type?.trim() || "Não informado";
         const quantityKg =
           safeNumber(material.quantityKg) ||
           quantityToKg(safeNumber(material.quantity), material.unit || "KG");
@@ -327,14 +343,15 @@ export default function DataScreen() {
 
     const totalMaterialKg = Object.values(materialMap).reduce(
       (sum, value) => sum + value,
-      0
+      0,
     );
 
     const materials: MaterialSummary[] = Object.entries(materialMap)
       .map(([name, quantityKg]) => ({
         name,
         quantityKg,
-        percentage: totalMaterialKg > 0 ? (quantityKg / totalMaterialKg) * 100 : 0,
+        percentage:
+          totalMaterialKg > 0 ? (quantityKg / totalMaterialKg) * 100 : 0,
       }))
       .sort((a, b) => b.quantityKg - a.quantityKg);
 
@@ -560,7 +577,13 @@ export default function DataScreen() {
   );
 }
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+function SectionHeader({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle?: string;
+}) {
   return (
     <View style={{ marginTop: 20, marginBottom: 10 }}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -592,9 +615,14 @@ function PeriodSelector({
             key={option.value}
             activeOpacity={0.85}
             onPress={() => onChange(option.value)}
-            style={[styles.segmentButton, selected && styles.segmentButtonActive]}
+            style={[
+              styles.segmentButton,
+              selected && styles.segmentButtonActive,
+            ]}
           >
-            <Text style={[styles.segmentText, selected && styles.segmentTextActive]}>
+            <Text
+              style={[styles.segmentText, selected && styles.segmentTextActive]}
+            >
               {option.label}
             </Text>
           </TouchableOpacity>
@@ -633,7 +661,12 @@ function StatusSelector({
             onPress={() => onChange(option.value)}
             style={[styles.filterChip, selected && styles.filterChipActive]}
           >
-            <Text style={[styles.filterChipText, selected && styles.filterChipTextActive]}>
+            <Text
+              style={[
+                styles.filterChipText,
+                selected && styles.filterChipTextActive,
+              ]}
+            >
               {option.label}
             </Text>
           </TouchableOpacity>
@@ -670,13 +703,23 @@ function EvolutionChart({ items }: { items: EvolutionItem[] }) {
       {items.map((item, index) => {
         const percentage = (item.quantityKg / maxValue) * 100;
         return (
-          <View key={item.key} style={{ marginBottom: index === items.length - 1 ? 0 : 14 }}>
+          <View
+            key={item.key}
+            style={{ marginBottom: index === items.length - 1 ? 0 : 14 }}
+          >
             <View style={styles.chartLabelRow}>
               <Text style={styles.chartLabel}>{item.label}</Text>
-              <Text style={styles.chartValue}>{item.quantityKg.toFixed(1)} kg</Text>
+              <Text style={styles.chartValue}>
+                {item.quantityKg.toFixed(1)} kg
+              </Text>
             </View>
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${Math.max(percentage, 3)}%` }]} />
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${Math.max(percentage, 3)}%` },
+                ]}
+              />
             </View>
           </View>
         );
@@ -701,7 +744,9 @@ function MaterialRow({
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.materialName}>{item.name}</Text>
-        <Text style={styles.materialWeight}>{item.quantityKg.toFixed(1)} kg</Text>
+        <Text style={styles.materialWeight}>
+          {item.quantityKg.toFixed(1)} kg
+        </Text>
         <View style={[styles.progressTrack, { marginTop: 8 }]}>
           <View
             style={[
@@ -730,7 +775,11 @@ function HistoryCard({
     <View style={[styles.historyCard, isLast && styles.historyCardLast]}>
       <View style={styles.historyHeader}>
         <View style={[styles.statusIcon, { backgroundColor: `${color}18` }]}>
-          <Ionicons name={getStatusIcon(collection.status)} size={21} color={color} />
+          <Ionicons
+            name={getStatusIcon(collection.status)}
+            size={21}
+            color={color}
+          />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.historyTitle}>{getSourceName(collection)}</Text>
@@ -751,7 +800,8 @@ function HistoryCard({
       ) : null}
       {materials.length > 0 ? (
         <Text style={styles.historyText}>
-          Materiais: {materials.map((item) => item.name || item.type).join(", ")}
+          Materiais:{" "}
+          {materials.map((item) => item.name || item.type).join(", ")}
         </Text>
       ) : null}
 
@@ -847,7 +897,7 @@ const styles = {
   } as const,
   loadingText: { marginTop: 10, color: "#6B7280" } as const,
   header: {
-    paddingTop: 48,
+    paddingTop: 20,
     paddingBottom: 24,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
@@ -919,7 +969,12 @@ const styles = {
     marginBottom: 10,
   } as const,
   metricTitle: { fontSize: 13, color: "#6B7280" } as const,
-  metricValue: { marginTop: 4, fontSize: 21, fontWeight: "800", color: "#111827" } as const,
+  metricValue: {
+    marginTop: 4,
+    fontSize: 21,
+    fontWeight: "800",
+    color: "#111827",
+  } as const,
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 18,
@@ -936,8 +991,15 @@ const styles = {
     borderWidth: 1,
     borderColor: "#E5E7EB",
   } as const,
-  filterChipActive: { backgroundColor: "#15803D", borderColor: "#15803D" } as const,
-  filterChipText: { color: "#475569", fontWeight: "800", fontSize: 13 } as const,
+  filterChipActive: {
+    backgroundColor: "#15803D",
+    borderColor: "#15803D",
+  } as const,
+  filterChipText: {
+    color: "#475569",
+    fontWeight: "800",
+    fontSize: 13,
+  } as const,
   filterChipTextActive: { color: "#FFFFFF" } as const,
   chartLabelRow: {
     flexDirection: "row",
@@ -953,7 +1015,11 @@ const styles = {
     backgroundColor: "#E5E7EB",
     overflow: "hidden",
   } as const,
-  progressFill: { height: "100%", borderRadius: 999, backgroundColor: "#22C55E" } as const,
+  progressFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#22C55E",
+  } as const,
   listRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -962,7 +1028,11 @@ const styles = {
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   } as const,
-  listRowLast: { paddingBottom: 0, marginBottom: 0, borderBottomWidth: 0 } as const,
+  listRowLast: {
+    paddingBottom: 0,
+    marginBottom: 0,
+    borderBottomWidth: 0,
+  } as const,
   rankCircle: {
     width: 34,
     height: 34,
@@ -975,14 +1045,23 @@ const styles = {
   rankText: { color: "#15803D", fontWeight: "900" } as const,
   materialName: { color: "#111827", fontWeight: "700", fontSize: 15 } as const,
   materialWeight: { color: "#6B7280", fontSize: 12, marginTop: 2 } as const,
-  materialPercent: { color: "#15803D", fontWeight: "900", fontSize: 15, marginLeft: 10 } as const,
+  materialPercent: {
+    color: "#15803D",
+    fontWeight: "900",
+    fontSize: 15,
+    marginLeft: 10,
+  } as const,
   historyCard: {
     paddingBottom: 16,
     marginBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   } as const,
-  historyCardLast: { paddingBottom: 0, marginBottom: 0, borderBottomWidth: 0 } as const,
+  historyCardLast: {
+    paddingBottom: 0,
+    marginBottom: 0,
+    borderBottomWidth: 0,
+  } as const,
   historyHeader: { flexDirection: "row", alignItems: "flex-start" } as const,
   statusIcon: {
     width: 44,
@@ -995,7 +1074,12 @@ const styles = {
   historyTitle: { fontSize: 16, fontWeight: "800", color: "#111827" } as const,
   historyStatus: { fontSize: 13, fontWeight: "800", marginTop: 4 } as const,
   historyWeight: { color: "#15803D", fontWeight: "900", fontSize: 15 } as const,
-  historyText: { color: "#6B7280", fontSize: 13, marginTop: 8, lineHeight: 19 } as const,
+  historyText: {
+    color: "#6B7280",
+    fontSize: 13,
+    marginTop: 8,
+    lineHeight: 19,
+  } as const,
   historyActions: { flexDirection: "row", marginTop: 12, gap: 10 } as const,
   historyActionGreen: {
     flex: 1,
@@ -1008,7 +1092,12 @@ const styles = {
     justifyContent: "center",
     flexDirection: "row",
   } as const,
-  historyActionGreenText: { color: "#15803D", fontWeight: "800", fontSize: 13, marginLeft: 6 } as const,
+  historyActionGreenText: {
+    color: "#15803D",
+    fontWeight: "800",
+    fontSize: 13,
+    marginLeft: 6,
+  } as const,
   historyActionBlue: {
     flex: 1,
     backgroundColor: "#EFF6FF",
@@ -1020,7 +1109,12 @@ const styles = {
     justifyContent: "center",
     flexDirection: "row",
   } as const,
-  historyActionBlueText: { color: "#2563EB", fontWeight: "800", fontSize: 13, marginLeft: 6 } as const,
+  historyActionBlueText: {
+    color: "#2563EB",
+    fontWeight: "800",
+    fontSize: 13,
+    marginLeft: 6,
+  } as const,
   quickAction: {
     flexDirection: "row",
     alignItems: "center",
@@ -1029,7 +1123,11 @@ const styles = {
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   } as const,
-  quickActionLast: { paddingBottom: 0, marginBottom: 0, borderBottomWidth: 0 } as const,
+  quickActionLast: {
+    paddingBottom: 0,
+    marginBottom: 0,
+    borderBottomWidth: 0,
+  } as const,
   quickActionIcon: {
     width: 44,
     height: 44,
@@ -1039,9 +1137,29 @@ const styles = {
     justifyContent: "center",
     marginRight: 12,
   } as const,
-  quickActionTitle: { fontSize: 15, fontWeight: "700", color: "#111827" } as const,
-  quickActionSubtitle: { fontSize: 13, color: "#6B7280", marginTop: 2, lineHeight: 18 } as const,
+  quickActionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+  } as const,
+  quickActionSubtitle: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginTop: 2,
+    lineHeight: 18,
+  } as const,
   emptyState: { alignItems: "center", paddingVertical: 28 } as const,
-  emptyTitle: { fontSize: 16, fontWeight: "700", color: "#374151", marginTop: 10 } as const,
-  emptySubtitle: { fontSize: 14, color: "#6B7280", textAlign: "center", marginTop: 6, lineHeight: 20 } as const,
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#374151",
+    marginTop: 10,
+  } as const,
+  emptySubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 20,
+  } as const,
 };

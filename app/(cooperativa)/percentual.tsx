@@ -1,248 +1,114 @@
-import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Text, View, TouchableOpacity, ScrollView, ActivityIndicator, } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { collectionService } from "@/src/services/collectionService";
-import { useNotification } from "@/src/contexts/NotificationContext";
-
-type MaterialCard = {
-  name: string;
-  percent: number;
-  color: string;
-  value: number;
-};
-
-export default function PercentualScreen() {
-  const [loading, setLoading] = useState(true);
-  const [materials, setMaterials] = useState<MaterialCard[]>([]);
-  const { notifyError } = useNotification();
-
-  const loadPercentual = useCallback(async () => {
+import { useFocusEffect } from "expo-router";
+import { Text } from "react-native";
+import {
+  collectionService,
+  type Collection,
+} from "@/src/services/collectionService";
+import {
+  Workspace,
+  Card,
+  Notice,
+  Action,
+  Field,
+} from "@/src/components/ui/Workspace";
+import { groupMaterials, materialQuantity } from "@/src/utils/materials";
+const stages = {
+  PENDING: "Delegadas",
+  IN_PROGRESS: "Em execução",
+  COLLECTED: "Aguardando recebimento",
+  RECEIVED: "Recebidas",
+  SORTING: "Em triagem",
+  COMPLETED: "Encerradas",
+  CANCELLED: "Canceladas",
+} as const;
+export default function Percentual() {
+  const [items, setItems] = useState<Collection[]>([]),
+    [error, setError] = useState(""),
+    [loading, setLoading] = useState(false),
+    [month, setMonth] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      setLoading(true);
-
-      const collections = await collectionService.list();
-
-      const statusGroups = [
-        {
-          name: "CONCLUÍDAS",
-          color: "#10B981",
-          items: collections.filter((item) => item.status === "COMPLETED"),
-        },
-        {
-          name: "EM ANDAMENTO",
-          color: "#3B82F6",
-          items: collections.filter((item) => item.status === "IN_PROGRESS"),
-        },
-        {
-          name: "PENDENTES",
-          color: "#F59E0B",
-          items: collections.filter((item) => item.status === "PENDING"),
-        },
-        {
-          name: "CANCELADAS",
-          color: "#EF4444",
-          items: collections.filter((item) => item.status === "CANCELLED"),
-        },
-      ];
-
-      const weighted = statusGroups.map((group) => ({
-        name: group.name,
-        color: group.color,
-        value: group.items.reduce((acc, item) => {
-          const kg = Number(item.totalWeightKg ?? 0);
-          return acc + (Number.isFinite(kg) ? kg : 0);
-        }, 0),
-      }));
-
-      const total = weighted.reduce((sum, item) => sum + item.value, 0);
-
-      const finalData: MaterialCard[] = weighted
-        .filter((item) => item.value > 0)
-        .map((item) => ({
-          ...item,
-          percent: total > 0 ? Math.round((item.value / total) * 100) : 0,
-        }));
-
-      setMaterials(finalData);
-    } catch (error: any) {
-      notifyError(error.message || "Não foi possível carregar os percentuais.");
+      setItems(await collectionService.list());
+    } catch (e: any) {
+      setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [notifyError]);
-
+  }, []);
   useFocusEffect(
     useCallback(() => {
-      loadPercentual();
-    }, [loadPercentual])
+      void load();
+    }, [load]),
   );
-
-  const total = useMemo(() => {
-    return materials.reduce((sum, item) => sum + item.value, 0);
-  }, [materials]);
-
-  const metaPercent = total > 0 ? Math.min((total / 1000) * 100, 100) : 0;
-
+  const filtered = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          !month ||
+          (item.collectedAt || item.createdAt || "").slice(0, 7) === month,
+      ),
+    [items, month],
+  );
+  const units = groupMaterials(
+    filtered
+      .filter((item) =>
+        ["COLLECTED", "RECEIVED", "SORTING", "COMPLETED"].includes(item.status),
+      )
+      .flatMap((item) => item.materials),
+  );
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-      <LinearGradient
-        colors={["#10F35D", "#028C56"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={{
-          paddingTop: 50,
-          paddingBottom: 20,
-          paddingHorizontal: 20,
-          borderBottomLeftRadius: 30,
-          borderBottomRightRadius: 30,
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>
-            PERCENTUAL DE COLETA
+    <Workspace
+      title="Indicadores de coletas"
+      subtitle="Execução em campo, recebimento e encerramento são etapas diferentes."
+    >
+      <Field
+        label="Mês (AAAA-MM, opcional)"
+        value={month}
+        onChangeText={setMonth}
+        placeholder="2026-10"
+        maxLength={7}
+      />
+      {!!month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) && (
+        <Notice error text="Informe um mês válido, por exemplo 2026-10." />
+      )}
+      {!!error && (
+        <Notice
+          error
+          text={`${error} Os últimos dados carregados foram preservados.`}
+        />
+      )}
+      <Action
+        secondary
+        label="Atualizar indicadores"
+        busy={loading}
+        onPress={() => void load()}
+      />
+      <Card>
+        <Text style={{ fontWeight: "700" }}>Etapas operacionais</Text>
+        {Object.entries(stages).map(([key, label]) => (
+          <Text key={key} style={{ paddingVertical: 6 }}>
+            {label}: {filtered.filter((item) => item.status === key).length}
           </Text>
-        </View>
-      </LinearGradient>
-
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
-        {loading ? (
-          <View style={{ alignItems: "center", paddingVertical: 50 }}>
-            <ActivityIndicator size="large" color="#028C56" />
-            <Text style={{ marginTop: 12, color: "#6B7280" }}>
-              Carregando percentuais...
+        ))}
+      </Card>
+      <Card>
+        <Text style={{ fontWeight: "700" }}>
+          Materiais registrados em campo
+        </Text>
+        {units.length ? (
+          units.map((item) => (
+            <Text key={`${item.type}:${item.unit}`}>
+              {item.type}: {materialQuantity(item)}
             </Text>
-          </View>
+          ))
         ) : (
-          <>
-            <View
-              style={{
-                backgroundColor: "#F0FDF4",
-                borderRadius: 20,
-                padding: 25,
-                alignItems: "center",
-                marginBottom: 25,
-              }}
-            >
-              <Text style={{ fontSize: 16, color: "#4B5563", marginBottom: 10 }}>
-                Total Coletado
-              </Text>
-              <Text style={{ fontSize: 48, fontWeight: "800", color: "#028C56" }}>
-                {total} kg
-              </Text>
-              <View
-                style={{
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: 20,
-                  paddingHorizontal: 15,
-                  paddingVertical: 5,
-                  marginTop: 10,
-                }}
-              >
-                <Text style={{ fontSize: 14, color: "#028C56", fontWeight: "600" }}>
-                  {metaPercent.toFixed(1)}% da meta de 1000 kg
-                </Text>
-              </View>
-            </View>
-
-            <View
-              style={{
-                backgroundColor: "#F9FAFB",
-                borderRadius: 20,
-                padding: 20,
-                marginBottom: 25,
-              }}
-            >
-              <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827", marginBottom: 20 }}>
-                Distribuição Operacional
-              </Text>
-
-              {materials.length === 0 ? (
-                <Text style={{ color: "#6B7280" }}>
-                  Ainda não há dados suficientes para exibir a distribuição.
-                </Text>
-              ) : (
-                materials.map((item, index) => (
-                  <View key={index} style={{ marginBottom: 15 }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center" }}>
-                        <View
-                          style={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: 6,
-                            backgroundColor: item.color,
-                            marginRight: 8,
-                          }}
-                        />
-                        <Text style={{ fontSize: 15, fontWeight: "500", color: "#374151" }}>
-                          {item.name}
-                        </Text>
-                      </View>
-                      <Text style={{ fontSize: 15, fontWeight: "600", color: "#111827" }}>
-                        {item.percent}% ({item.value}kg)
-                      </Text>
-                    </View>
-                    <View style={{ height: 10, backgroundColor: "#E5E7EB", borderRadius: 5 }}>
-                      <View
-                        style={{
-                          width: `${item.percent}%`,
-                          height: 10,
-                          backgroundColor: item.color,
-                          borderRadius: 5,
-                        }}
-                      />
-                    </View>
-                  </View>
-                ))
-              )}
-            </View>
-
-            <View
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderRadius: 16,
-                padding: 20,
-                borderWidth: 1,
-                borderColor: "#E5E7EB",
-                marginBottom: 30,
-              }}
-            >
-              <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 15 }}>
-                Legenda
-              </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                {materials.map((item, index) => (
-                  <View
-                    key={index}
-                    style={{
-                      width: "50%",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginBottom: 10,
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: 8,
-                        backgroundColor: item.color,
-                        marginRight: 8,
-                      }}
-                    />
-                    <Text style={{ fontSize: 14, color: "#4B5563" }}>{item.name}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </>
+          <Notice text="Nenhum material registrado no período." />
         )}
-      </ScrollView>
-    </View>
+        <Notice text="Essas quantidades são de coleta, não saldo disponível de estoque. Litros e unidades não são convertidos em quilogramas." />
+      </Card>
+    </Workspace>
   );
 }

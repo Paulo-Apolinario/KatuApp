@@ -56,7 +56,7 @@ function QuickCard({ title, subtitle, icon, onPress }: QuickCardProps) {
       }}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -124,11 +124,11 @@ export default function MotoristaHomeScreen() {
 
   const summary = useMemo(() => {
     const activeRoutes = routes.filter(
-      (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS"
+      (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS",
     );
 
     const activeCollections = collections.filter(
-      (item) => item.status === "PENDING" || item.status === "IN_PROGRESS"
+      (item) => item.status === "PENDING" || item.status === "IN_PROGRESS",
     );
 
     return {
@@ -182,20 +182,20 @@ export default function MotoristaHomeScreen() {
         setCollections(driverCollections);
       } catch (err: any) {
         setError(
-          err?.message || "Não foi possível carregar o painel do motorista."
+          err?.message || "Não foi possível carregar o painel do motorista.",
         );
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [driverId]
+    [driverId],
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadDashboard();
-    }, [loadDashboard])
+    }, [loadDashboard]),
   );
 
   if (loading) {
@@ -219,7 +219,7 @@ export default function MotoristaHomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <LinearGradient
-        colors={["#028C56", "#10F35D"]}
+        colors={["#028C56", "#059669"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -477,7 +477,9 @@ export default function MotoristaHomeScreen() {
 
           {vehicle ? (
             <>
-              <Text style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}
+              >
                 {vehicle.plate}
               </Text>
               <Text style={{ color: "#6B7280", marginTop: 6 }}>

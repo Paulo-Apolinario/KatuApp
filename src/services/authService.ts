@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, isApiHttpError } from "./api";
 import { UserDoc } from "../types/user";
 import { sessionService } from "./sessionService";
 
@@ -158,7 +158,10 @@ class AuthService {
         email: normalizeEmail(data.email),
       };
 
-      const response = await api.post<LoginResponse>("/auth/register/pf", payload);
+      const response = await api.post<LoginResponse>(
+        "/auth/register/pf",
+        payload,
+      );
 
       if (!response.user) {
         return {
@@ -197,7 +200,7 @@ class AuthService {
   }
 
   async registerCooperative(
-    data: RegisterCooperativePayload
+    data: RegisterCooperativePayload,
   ): Promise<AuthResult> {
     try {
       const payload = {
@@ -207,7 +210,7 @@ class AuthService {
 
       const response = await api.post<LoginResponse>(
         "/auth/register/cooperative",
-        payload
+        payload,
       );
 
       if (!response.user) {
@@ -246,18 +249,35 @@ class AuthService {
     }
   }
 
-  async requestLoginLink(email: string, profile?: string): Promise<{ message: string }> {
-    return api.post("/auth/login-link", { email: normalizeEmail(email), audience: "APP", profile });
+  async requestLoginLink(
+    email: string,
+    profile?: string,
+  ): Promise<{ message: string }> {
+    return api.post("/auth/login-link", {
+      email: normalizeEmail(email),
+      audience: "APP",
+      profile,
+    });
   }
 
   async loginWithLink(token: string): Promise<AuthResult> {
     try {
-      const response = await api.post<LoginResponse>("/auth/login-link/consume", { token, audience: "APP" });
-      if (!response.token || !response.user) return { success: false, error: "Resposta de login inválida." };
+      const response = await api.post<LoginResponse>(
+        "/auth/login-link/consume",
+        { token, audience: "APP" },
+      );
+      if (!response.token || !response.user)
+        return { success: false, error: "Resposta de login inválida." };
       await this.saveSession(response.token, response.user);
       return { success: true, token: response.token, user: response.user };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : "Não foi possível utilizar o link." };
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível utilizar o link.",
+      };
     }
   }
 
@@ -303,7 +323,7 @@ class AuthService {
 
   async activateGeneratorAccess(
     email: string,
-    password: string
+    password: string,
   ): Promise<AuthResult> {
     try {
       const response = await api.post<ActivateAccessResponse>(
@@ -311,7 +331,7 @@ class AuthService {
         {
           email: normalizeEmail(email),
           password,
-        }
+        },
       );
 
       if (!response.user) {
@@ -351,7 +371,7 @@ class AuthService {
         "/auth/forgot-password",
         {
           email: normalizeEmail(email),
-        }
+        },
       );
 
       return {
@@ -387,7 +407,7 @@ class AuthService {
 
           confirmPassword: data.confirmPassword,
           password_confirmation: data.confirmPassword,
-        }
+        },
       );
 
       return {
@@ -398,16 +418,14 @@ class AuthService {
       return {
         success: false,
         error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao redefinir a senha.",
+          error instanceof Error ? error.message : "Erro ao redefinir a senha.",
       };
     }
   }
 
   async getCurrentUserData(): Promise<UserDoc | null> {
+    const token = await this.getToken();
     try {
-      const token = await this.getToken();
       if (!token) return null;
 
       const response = await api.get<MeResponse>("/auth/me", true);
@@ -418,11 +436,18 @@ class AuthService {
         return storedUser;
       }
 
+      if (token !== (await this.getToken())) return this.getStoredUser();
       await this.saveUser(user);
       return user;
     } catch (error) {
       console.error("Erro ao buscar usuário atual:", error);
 
+      if (isApiHttpError(error) && error.status === 401) {
+        const currentToken = await this.getToken();
+        if (currentToken && currentToken !== token) return this.getStoredUser();
+        await this.clearSession();
+        return null;
+      }
       const storedUser = await this.getStoredUser();
       if (storedUser) return storedUser;
 

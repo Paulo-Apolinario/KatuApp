@@ -62,7 +62,7 @@ export default function FleetScreen() {
   useFocusEffect(
     useCallback(() => {
       loadFleet();
-    }, [loadFleet])
+    }, [loadFleet]),
   );
 
   const summary = useMemo(() => {
@@ -72,7 +72,7 @@ export default function FleetScreen() {
 
     const totalColetado = vehicles.reduce(
       (acc, item) => acc + Number(item.totalColetado || 0),
-      0
+      0,
     );
 
     return {
@@ -112,11 +112,11 @@ export default function FleetScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -137,7 +137,10 @@ export default function FleetScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+      >
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 50 }}>
             <ActivityIndicator size="large" color="#028C56" />
@@ -164,10 +167,14 @@ export default function FleetScreen() {
                   alignItems: "center",
                 }}
               >
-                <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
+                <Text
+                  style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}
+                >
                   Ativos
                 </Text>
-                <Text style={{ fontSize: 24, fontWeight: "800", color: "#028C56" }}>
+                <Text
+                  style={{ fontSize: 24, fontWeight: "800", color: "#028C56" }}
+                >
                   {summary.ativos}
                 </Text>
               </View>
@@ -182,10 +189,14 @@ export default function FleetScreen() {
                   alignItems: "center",
                 }}
               >
-                <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
+                <Text
+                  style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}
+                >
                   Manutenção
                 </Text>
-                <Text style={{ fontSize: 24, fontWeight: "800", color: "#DC2626" }}>
+                <Text
+                  style={{ fontSize: 24, fontWeight: "800", color: "#DC2626" }}
+                >
                   {summary.manutencao}
                 </Text>
               </View>
@@ -199,10 +210,14 @@ export default function FleetScreen() {
                   alignItems: "center",
                 }}
               >
-                <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
+                <Text
+                  style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}
+                >
                   Inativos
                 </Text>
-                <Text style={{ fontSize: 24, fontWeight: "800", color: "#CA8A04" }}>
+                <Text
+                  style={{ fontSize: 24, fontWeight: "800", color: "#CA8A04" }}
+                >
                   {summary.inativos}
                 </Text>
               </View>
@@ -220,7 +235,9 @@ export default function FleetScreen() {
               <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
                 Total de Resíduos Coletados
               </Text>
-              <Text style={{ fontSize: 36, fontWeight: "800", color: "#028C56" }}>
+              <Text
+                style={{ fontSize: 36, fontWeight: "800", color: "#028C56" }}
+              >
                 {summary.totalColetado} kg
               </Text>
             </View>
@@ -278,7 +295,13 @@ export default function FleetScreen() {
                       marginBottom: 10,
                     }}
                   >
-                    <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827" }}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "700",
+                        color: "#111827",
+                      }}
+                    >
                       {vehicle.modelo}
                     </Text>
 
@@ -290,17 +313,27 @@ export default function FleetScreen() {
                         borderRadius: 20,
                       }}
                     >
-                      <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "600" }}>
+                      <Text
+                        style={{
+                          color: "#FFFFFF",
+                          fontSize: 12,
+                          fontWeight: "600",
+                        }}
+                      >
                         {getStatusLabel(vehicle.status)}
                       </Text>
                     </View>
                   </View>
 
-                  <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 6 }}>
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginBottom: 6 }}
+                  >
                     Placa: {vehicle.placa}
                   </Text>
 
-                  <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 10 }}>
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginBottom: 10 }}
+                  >
                     Capacidade: {Number(vehicle.capacidade || 0)} kg
                   </Text>
 
@@ -312,7 +345,9 @@ export default function FleetScreen() {
                     }}
                   >
                     <View>
-                      <Text style={{ fontSize: 12, color: "#6B7280" }}>Coletado</Text>
+                      <Text style={{ fontSize: 12, color: "#6B7280" }}>
+                        Coletado
+                      </Text>
                       <Text
                         style={{
                           fontSize: 20,
@@ -326,7 +361,9 @@ export default function FleetScreen() {
 
                     <TouchableOpacity
                       onPress={() =>
-                        router.push(`/(cooperativa)/veiculos/${vehicle.id}` as any)
+                        router.push(
+                          `/(cooperativa)/veiculos/${vehicle.id}` as any,
+                        )
                       }
                       style={{
                         backgroundColor: "#FFFFFF",

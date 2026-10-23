@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+import { readToken, writeToken, removeToken } from "./tokenStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   clearSession as clearSessionRepository,
@@ -19,7 +21,7 @@ type SaveSessionInput = {
 async function saveSession(input: SaveSessionInput) {
   const serializedUser = input.user ? JSON.stringify(input.user) : null;
 
-  await AsyncStorage.setItem(SESSION_STORAGE_KEYS.token, input.token);
+  await writeToken(input.token);
 
   if (serializedUser) {
     await AsyncStorage.setItem(SESSION_STORAGE_KEYS.user, serializedUser);
@@ -28,7 +30,7 @@ async function saveSession(input: SaveSessionInput) {
   }
 
   await saveSessionRepository({
-    token: input.token,
+    token: Platform.OS === "web" ? input.token : null,
     userId: input.userId ?? null,
     payload: input.user ?? null,
   });
@@ -36,19 +38,31 @@ async function saveSession(input: SaveSessionInput) {
 
 async function getSession() {
   const [token, rawUser, localSession] = await Promise.all([
-    AsyncStorage.getItem(SESSION_STORAGE_KEYS.token),
+    readToken(),
     AsyncStorage.getItem(SESSION_STORAGE_KEYS.user),
     getSessionRepository(),
   ]);
 
+  let activeToken = token;
+  if (Platform.OS !== "web" && localSession?.token) {
+    if (!activeToken) {
+      await writeToken(localSession.token);
+      activeToken = localSession.token;
+    }
+    await saveSessionRepository({
+      token: null,
+      userId: localSession.userId,
+      payload: localSession.payload,
+    });
+  }
   const parsedUser = rawUser ? JSON.parse(rawUser) : null;
 
-  if (!token && !localSession) {
+  if (!activeToken && !localSession) {
     return null;
   }
 
   return {
-    token: token ?? localSession?.token ?? null,
+    token: activeToken ?? localSession?.token ?? null,
     user: parsedUser ?? localSession?.payload ?? null,
     userId: localSession?.userId ?? null,
     updatedAt: localSession?.updatedAt ?? null,
@@ -67,7 +81,7 @@ async function getUser() {
 
 async function clearSession() {
   await Promise.all([
-    AsyncStorage.removeItem(SESSION_STORAGE_KEYS.token),
+    removeToken(),
     AsyncStorage.removeItem(SESSION_STORAGE_KEYS.user),
     clearSessionRepository(),
   ]);

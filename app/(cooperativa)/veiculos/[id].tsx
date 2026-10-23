@@ -38,7 +38,10 @@ export default function VeiculoDetalheScreen() {
       setVeiculo(data);
     } catch (error) {
       console.error("Erro ao carregar veículo:", error);
-      notifyError("Erro", "Não foi possível carregar o veículo.");
+      notifyError({
+        message: "Não foi possível carregar o veículo.",
+        title: "Erro",
+      });
       router.replace("/(cooperativa)/veiculos");
     } finally {
       setLoading(false);
@@ -56,10 +59,16 @@ export default function VeiculoDetalheScreen() {
       setSavingStatus(true);
       const updated = await vehicleService.updateStatus(routeId, status);
       setVeiculo(updated);
-      notifySuccess("Sucesso", "Status do veículo atualizado com sucesso.");
+      notifySuccess({
+        message: "Status do veículo atualizado com sucesso.",
+        title: "Sucesso",
+      });
     } catch (error) {
       console.error("Erro ao atualizar status do veículo:", error);
-      notifyError("Erro", "Não foi possível atualizar o status do veículo.");
+      notifyError({
+        message: "Não foi possível atualizar o status do veículo.",
+        title: "Erro",
+      });
     } finally {
       setSavingStatus(false);
     }
@@ -138,10 +147,10 @@ export default function VeiculoDetalheScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={{ paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20 }}
+        style={{ paddingTop: 20, paddingBottom: 20, paddingHorizontal: 20 }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <TouchableOpacity
@@ -157,7 +166,10 @@ export default function VeiculoDetalheScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1, padding: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View
           style={{
             backgroundColor: "#F9FAFB",
@@ -177,7 +189,9 @@ export default function VeiculoDetalheScreen() {
             }}
           >
             <View style={{ flex: 1, paddingRight: 10 }}>
-              <Text style={{ fontSize: 20, fontWeight: "800", color: "#111827" }}>
+              <Text
+                style={{ fontSize: 20, fontWeight: "800", color: "#111827" }}
+              >
                 {veiculo.model}
               </Text>
               <Text style={{ fontSize: 15, color: "#6B7280", marginTop: 4 }}>
@@ -193,7 +207,9 @@ export default function VeiculoDetalheScreen() {
                 borderRadius: 14,
               }}
             >
-              <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}>
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}
+              >
                 {getStatusText(veiculo.status)}
               </Text>
             </View>
@@ -244,7 +260,9 @@ export default function VeiculoDetalheScreen() {
               return (
                 <TouchableOpacity
                   key={item.value}
-                  onPress={() => handleChangeStatus(item.value as VehicleStatus)}
+                  onPress={() =>
+                    handleChangeStatus(item.value as VehicleStatus)
+                  }
                   disabled={savingStatus}
                   style={{
                     backgroundColor: selected ? "#028C56" : "#F3F4F6",
@@ -270,7 +288,13 @@ export default function VeiculoDetalheScreen() {
           </View>
 
           {savingStatus && (
-            <View style={{ marginTop: 8, flexDirection: "row", alignItems: "center" }}>
+            <View
+              style={{
+                marginTop: 8,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
               <ActivityIndicator size="small" color="#028C56" />
               <Text style={{ marginLeft: 8, color: "#6B7280" }}>
                 Atualizando status...

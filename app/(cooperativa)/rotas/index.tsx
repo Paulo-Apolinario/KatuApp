@@ -15,11 +15,7 @@ import { routeService, type RouteItem } from "@/src/services/routeService";
 import { useNotification } from "@/src/contexts/NotificationContext";
 
 type RouteFilter =
-  | "ALL"
-  | "SCHEDULED"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "CANCELLED";
+  "ALL" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
 export default function RotasScreen() {
   const [routes, setRoutes] = useState<RouteItem[]>([]);
@@ -46,7 +42,7 @@ export default function RotasScreen() {
     useCallback(() => {
       setLoading(true);
       loadRoutes();
-    }, [loadRoutes])
+    }, [loadRoutes]),
   );
 
   const onRefresh = useCallback(() => {
@@ -61,16 +57,22 @@ export default function RotasScreen() {
   }, [routes, activeFilter]);
 
   const overview = useMemo(() => {
-    const scheduled = routes.filter((item) => item.status === "SCHEDULED").length;
-    const inProgress = routes.filter(
-      (item) => item.status === "IN_PROGRESS"
+    const scheduled = routes.filter(
+      (item) => item.status === "SCHEDULED",
     ).length;
-    const completed = routes.filter((item) => item.status === "COMPLETED").length;
-    const cancelled = routes.filter((item) => item.status === "CANCELLED").length;
+    const inProgress = routes.filter(
+      (item) => item.status === "IN_PROGRESS",
+    ).length;
+    const completed = routes.filter(
+      (item) => item.status === "COMPLETED",
+    ).length;
+    const cancelled = routes.filter(
+      (item) => item.status === "CANCELLED",
+    ).length;
 
     const totalCollections = routes.reduce(
       (acc, item) => acc + Number(item.stats?.totalCollections ?? 0),
-      0
+      0,
     );
 
     return {
@@ -146,11 +148,11 @@ export default function RotasScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 52,
+          paddingTop: 20,
           paddingBottom: 24,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 28,

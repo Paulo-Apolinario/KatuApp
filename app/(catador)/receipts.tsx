@@ -1,3 +1,8 @@
+import {
+  groupMaterials,
+  materialQuantity,
+  normalizeMaterials as normalizeCollectionMaterials,
+} from "@/src/utils/materials";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -39,31 +44,12 @@ function formatDate(value?: string | null) {
   return parsed.toLocaleDateString("pt-BR");
 }
 
-function normalizeMaterials(materials: unknown): CollectionMaterial[] {
-  if (!Array.isArray(materials)) return [];
-
-  return materials
-    .map((item) => {
-      if (typeof item === "string") {
-        return { type: item, quantityKg: 0 };
-      }
-
-      if (item && typeof item === "object" && "type" in item) {
-        return {
-          type: String((item as { type?: unknown }).type ?? "Não informado"),
-          quantityKg: Number((item as { quantityKg?: unknown }).quantityKg ?? 0),
-        };
-      }
-
-      return null;
-    })
-    .filter(Boolean) as CollectionMaterial[];
-}
+const normalizeMaterials = normalizeCollectionMaterials;
 
 function getCollectionTotalKg(collection: Collection) {
   const materialsKg = (collection.materials ?? []).reduce(
     (sum, item) => sum + Number(item.quantityKg ?? 0),
-    0
+    0,
   );
 
   if (materialsKg > 0) return materialsKg;
@@ -75,7 +61,7 @@ function getMaterialsSummary(materials?: CollectionMaterial[]) {
   if (!materials || materials.length === 0) return "-";
 
   return materials
-    .map((item) => `${item.type} (${Number(item.quantityKg ?? 0).toFixed(1)} kg)`)
+    .map((item) => `${item.type} (${materialQuantity(item)})`)
     .join(", ");
 }
 
@@ -105,7 +91,9 @@ export default function ReceiptsScreen() {
           }))
         : [];
 
-      const completed = normalized.filter((item) => item.status === "COMPLETED");
+      const completed = normalized.filter(
+        (item) => item.status === "COMPLETED",
+      );
 
       setReceipts(completed);
     } catch (error) {
@@ -139,25 +127,9 @@ export default function ReceiptsScreen() {
   }, [receipts]);
 
   const userData = useMemo(() => {
-    const topMaterialsMap: Record<string, number> = {};
-
-    receiptsOrdenados.forEach((item) => {
-      (item.materials ?? []).forEach((material) => {
-        const type = material.type?.trim() || "Não informado";
-        const quantity = Number(material.quantityKg ?? 0);
-
-        topMaterialsMap[type] = (topMaterialsMap[type] || 0) + quantity;
-      });
-    });
-
-    const topMaterials = Object.entries(topMaterialsMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([type, quantityKg]) => ({
-        type,
-        quantityKg,
-      }));
-
+    const topMaterials = groupMaterials(
+      receiptsOrdenados.flatMap((item) => item.materials || []),
+    );
     return {
       name: currentUser?.displayName || currentUser?.name || "Catador",
       location: currentUser?.location || currentUser?.city || "Não informado",
@@ -167,13 +139,13 @@ export default function ReceiptsScreen() {
       code: currentUser?.id || currentUser?.uid || "",
       totalKg: receiptsOrdenados.reduce(
         (acc, item) => acc + getCollectionTotalKg(item),
-        0
+        0,
       ),
       since:
         receiptsOrdenados.length > 0
           ? formatDate(
               receiptsOrdenados[receiptsOrdenados.length - 1]?.collectedAt ||
-                receiptsOrdenados[receiptsOrdenados.length - 1]?.createdAt
+                receiptsOrdenados[receiptsOrdenados.length - 1]?.createdAt,
             )
           : "-",
       topMaterials,
@@ -195,7 +167,9 @@ export default function ReceiptsScreen() {
       const result = await generateReceiptPDF(userData);
 
       if (result.success) {
-        notifySuccess(getSuccessMessage(result.mode, "Comprovante consolidado"));
+        notifySuccess(
+          getSuccessMessage(result.mode, "Comprovante consolidado"),
+        );
       } else {
         notifyError("Não foi possível gerar o comprovante.");
       }
@@ -224,9 +198,9 @@ export default function ReceiptsScreen() {
           getSuccessMessage(
             result.mode,
             `Comprovante da coleta de ${formatDate(
-              receipt.collectedAt || receipt.createdAt
-            )}`
-          )
+              receipt.collectedAt || receipt.createdAt,
+            )}`,
+          ),
         );
       } else {
         notifyError("Não foi possível gerar o comprovante.");
@@ -242,11 +216,11 @@ export default function ReceiptsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -266,7 +240,9 @@ export default function ReceiptsScreen() {
           </Text>
         </View>
 
-        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 15 }}>
+        <View
+          style={{ flexDirection: "row", alignItems: "center", marginTop: 15 }}
+        >
           <Image
             source={require("../../assets/images/logo.png")}
             resizeMode="contain"
@@ -302,7 +278,9 @@ export default function ReceiptsScreen() {
                 borderColor: "#E5E7EB",
               }}
             >
-              <Text style={{ color: "#111827", fontWeight: "800", fontSize: 14 }}>
+              <Text
+                style={{ color: "#111827", fontWeight: "800", fontSize: 14 }}
+              >
                 {isWeb ? "Modo Web" : "Modo Aplicativo"}
               </Text>
 
@@ -335,7 +313,13 @@ export default function ReceiptsScreen() {
                   marginBottom: 15,
                 }}
               >
-                <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    flex: 1,
+                  }}
+                >
                   <Ionicons name="document-text" size={24} color="#028C56" />
                   <Text
                     style={{
@@ -397,7 +381,7 @@ export default function ReceiptsScreen() {
                   <TouchableOpacity
                     onPress={() =>
                       setSelectedReceipt(
-                        selectedReceipt === receipt.id ? null : receipt.id
+                        selectedReceipt === receipt.id ? null : receipt.id,
                       )
                     }
                   >
@@ -474,23 +458,53 @@ export default function ReceiptsScreen() {
                         borderTopColor: "#E5E7EB",
                       }}
                     >
-                      <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 10 }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: "#4B5563",
+                          marginBottom: 10,
+                        }}
+                      >
                         Detalhes da coleta:
                       </Text>
 
-                      <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: "#111827",
+                          marginBottom: 5,
+                        }}
+                      >
                         • Peso: {getCollectionTotalKg(receipt).toFixed(1)} kg
                       </Text>
 
-                      <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: "#111827",
+                          marginBottom: 5,
+                        }}
+                      >
                         • Materiais: {getMaterialsSummary(receipt.materials)}
                       </Text>
 
-                      <Text style={{ fontSize: 14, color: "#111827", marginBottom: 5 }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: "#111827",
+                          marginBottom: 5,
+                        }}
+                      >
                         • Observações: {receipt.notes || "-"}
                       </Text>
 
-                      <Text style={{ fontSize: 14, color: "#111827", marginBottom: 15 }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: "#111827",
+                          marginBottom: 15,
+                        }}
+                      >
                         • Catador: {userData?.name || "-"}
                       </Text>
 
@@ -524,7 +538,9 @@ export default function ReceiptsScreen() {
                         ) : (
                           <>
                             <Ionicons
-                              name={isWeb ? "print-outline" : "share-social-outline"}
+                              name={
+                                isWeb ? "print-outline" : "share-social-outline"
+                              }
                               size={18}
                               color="#FFFFFF"
                             />

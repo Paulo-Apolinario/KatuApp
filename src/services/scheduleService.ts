@@ -70,54 +70,31 @@ type UpdateScheduleStatusApiResponse = {
  * ============================================================
  */
 
-function normalizeOptionalText(
-  value: unknown
-): string | null {
-  if (
-    value === null ||
-    value === undefined
-  ) {
+function normalizeOptionalText(value: unknown): string | null {
+  if (value === null || value === undefined) {
     return null;
   }
 
-  const normalized =
-    String(value).trim();
+  const normalized = String(value).trim();
 
   return normalized || null;
 }
 
-function normalizeNumber(
-  value: unknown
-): number {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
+function normalizeNumber(value: unknown): number {
+  if (value === null || value === undefined || value === "") {
     return 0;
   }
 
   const normalized =
-    typeof value === "string"
-      ? value.replace(",", ".")
-      : value;
+    typeof value === "string" ? value.replace(",", ".") : value;
 
-  const numericValue =
-    Number(normalized);
+  const numericValue = Number(normalized);
 
-  return Number.isFinite(
-    numericValue
-  )
-    ? numericValue
-    : 0;
+  return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
-function normalizeWasteUnit(
-  value: unknown
-): WasteUnit {
-  const normalized = String(
-    value || ""
-  )
+function normalizeWasteUnit(value: unknown): WasteUnit {
+  const normalized = String(value || "")
     .trim()
     .toUpperCase();
 
@@ -129,45 +106,27 @@ function normalizeWasteUnit(
     "CUBIC_METER",
   ];
 
-  return acceptedUnits.includes(
-    normalized as WasteUnit
-  )
+  return acceptedUnits.includes(normalized as WasteUnit)
     ? (normalized as WasteUnit)
     : "KG";
 }
 
 function normalizeRequestedMaterial(
-  material: unknown
+  material: unknown,
 ): ScheduleRequestedMaterialRecord | null {
-  if (
-    !material ||
-    typeof material !== "object"
-  ) {
+  if (!material || typeof material !== "object") {
     return null;
   }
 
-  const item = material as Record<
-    string,
-    unknown
-  >;
+  const item = material as Record<string, unknown>;
 
   const nameSnapshot =
+    normalizeOptionalText(item.nameSnapshot) ||
     normalizeOptionalText(
-      item.nameSnapshot
+      (item.wasteType as Record<string, unknown> | undefined)?.name,
     ) ||
     normalizeOptionalText(
-      (
-        item.wasteType as
-          | Record<string, unknown>
-          | undefined
-      )?.name
-    ) ||
-    normalizeOptionalText(
-      (
-        item.catalogSuggestion as
-          | Record<string, unknown>
-          | undefined
-      )?.name
+      (item.catalogSuggestion as Record<string, unknown> | undefined)?.name,
     ) ||
     "";
 
@@ -176,129 +135,69 @@ function normalizeRequestedMaterial(
   }
 
   return {
-    id:
-      String(item.id || "").trim(),
+    id: String(item.id || "").trim(),
 
-    scheduleId:
-      normalizeOptionalText(
-        item.scheduleId
-      ) ||
-      undefined,
+    scheduleId: normalizeOptionalText(item.scheduleId) || undefined,
 
-    wasteTypeId:
-      normalizeOptionalText(
-        item.wasteTypeId
-      ),
+    wasteTypeId: normalizeOptionalText(item.wasteTypeId),
 
-    catalogSuggestionId:
-      normalizeOptionalText(
-        item.catalogSuggestionId
-      ),
+    catalogSuggestionId: normalizeOptionalText(item.catalogSuggestionId),
 
     nameSnapshot,
 
-    categorySnapshot:
-      normalizeOptionalText(
-        item.categorySnapshot
-      ),
+    categorySnapshot: normalizeOptionalText(item.categorySnapshot),
 
-    subcategorySnapshot:
-      normalizeOptionalText(
-        item.subcategorySnapshot
-      ),
+    subcategorySnapshot: normalizeOptionalText(item.subcategorySnapshot),
 
     estimatedQuantity:
-      item.estimatedQuantity ===
-        null ||
-      item.estimatedQuantity ===
-        undefined
+      item.estimatedQuantity === null || item.estimatedQuantity === undefined
         ? null
-        : normalizeNumber(
-            item.estimatedQuantity
-          ),
+        : normalizeNumber(item.estimatedQuantity),
 
-    unit:
-      normalizeWasteUnit(
-        item.unit
-      ),
+    unit: normalizeWasteUnit(item.unit),
 
     wasteType:
-      item.wasteType &&
-      typeof item.wasteType ===
-        "object"
+      item.wasteType && typeof item.wasteType === "object"
         ? (item.wasteType as ScheduleRequestedMaterialRecord["wasteType"])
         : null,
 
     catalogSuggestion:
-      item.catalogSuggestion &&
-      typeof item.catalogSuggestion ===
-        "object"
+      item.catalogSuggestion && typeof item.catalogSuggestion === "object"
         ? (item.catalogSuggestion as ScheduleRequestedMaterialRecord["catalogSuggestion"])
         : null,
 
-    createdAt:
-      normalizeOptionalText(
-        item.createdAt
-      ) ||
-      undefined,
+    createdAt: normalizeOptionalText(item.createdAt) || undefined,
 
-    updatedAt:
-      normalizeOptionalText(
-        item.updatedAt
-      ) ||
-      undefined,
+    updatedAt: normalizeOptionalText(item.updatedAt) || undefined,
   };
 }
 
-function normalizeCollectionMaterial(
-  item: unknown
-): CollectionMaterial | null {
-  if (
-    !item ||
-    typeof item !== "object"
-  ) {
+function normalizeCollectionMaterial(item: unknown): CollectionMaterial | null {
+  if (!item || typeof item !== "object") {
     return null;
   }
 
-  const material = item as Record<
-    string,
-    unknown
-  >;
+  const material = item as Record<string, unknown>;
 
   const type =
-    normalizeOptionalText(
-      material.type
-    ) ||
-    normalizeOptionalText(
-      material.name
-    ) ||
+    normalizeOptionalText(material.type) ||
+    normalizeOptionalText(material.name) ||
     "";
 
   if (!type) {
     return null;
   }
 
-  const unit =
-    normalizeWasteUnit(
-      material.unit
-    );
+  const unit = normalizeWasteUnit(material.unit);
 
   const quantity =
-    material.quantity !==
-      undefined
-      ? normalizeNumber(
-          material.quantity
-        )
-      : normalizeNumber(
-          material.quantityKg
-        );
+    material.quantity !== undefined
+      ? normalizeNumber(material.quantity)
+      : normalizeNumber(material.quantityKg);
 
   const quantityKg =
-    material.quantityKg !==
-      undefined
-      ? normalizeNumber(
-          material.quantityKg
-        )
+    material.quantityKg !== undefined
+      ? normalizeNumber(material.quantityKg)
       : unit === "KG"
         ? quantity
         : unit === "TON"
@@ -306,28 +205,15 @@ function normalizeCollectionMaterial(
           : 0;
 
   return {
-    wasteTypeId:
-      normalizeOptionalText(
-        material.wasteTypeId
-      ),
+    wasteTypeId: normalizeOptionalText(material.wasteTypeId),
 
     type,
 
-    name:
-      normalizeOptionalText(
-        material.name
-      ) ||
-      type,
+    name: normalizeOptionalText(material.name) || type,
 
-    category:
-      normalizeOptionalText(
-        material.category
-      ),
+    category: normalizeOptionalText(material.category),
 
-    subcategory:
-      normalizeOptionalText(
-        material.subcategory
-      ),
+    subcategory: normalizeOptionalText(material.subcategory),
 
     quantity,
 
@@ -335,192 +221,107 @@ function normalizeCollectionMaterial(
 
     unit,
 
-    notes:
-      normalizeOptionalText(
-        material.notes
-      ),
+    notes: normalizeOptionalText(material.notes),
   };
 }
 
-function normalizeCollection(
-  collection: Collection
-): Collection {
+function normalizeCollection(collection: Collection): Collection {
   return {
     ...collection,
 
-    totalWeightKg:
-      normalizeNumber(
-        collection.totalWeightKg
-      ),
+    totalWeightKg: normalizeNumber(collection.totalWeightKg),
 
-    materials:
-      Array.isArray(
-        collection.materials
-      )
-        ? collection.materials
-            .map(
-              normalizeCollectionMaterial
-            )
-            .filter(
-              (
-                item
-              ): item is CollectionMaterial =>
-                item !== null
-            )
-        : [],
+    materials: Array.isArray(collection.materials)
+      ? collection.materials
+          .map(normalizeCollectionMaterial)
+          .filter((item): item is CollectionMaterial => item !== null)
+      : [],
 
-    collectionMaterials:
-      Array.isArray(
-        collection.collectionMaterials
-      )
-        ? collection.collectionMaterials.map(
-            (material) => ({
-              ...material,
+    collectionMaterials: Array.isArray(collection.collectionMaterials)
+      ? collection.collectionMaterials.map((material) => ({
+          ...material,
 
-              quantity:
-                material.quantity ===
-                  undefined
-                  ? undefined
-                  : normalizeNumber(
-                      material.quantity
-                    ),
-            })
-          )
-        : [],
+          quantity:
+            material.quantity === undefined
+              ? undefined
+              : normalizeNumber(material.quantity),
+        }))
+      : [],
 
-    collectionWasteEntries:
-      Array.isArray(
-        collection.collectionWasteEntries
-      )
-        ? collection.collectionWasteEntries.map(
-            (entry) => ({
-              ...entry,
+    collectionWasteEntries: Array.isArray(collection.collectionWasteEntries)
+      ? collection.collectionWasteEntries.map((entry) => ({
+          ...entry,
 
-              collectedQuantity:
-                entry.collectedQuantity ===
-                  undefined
-                  ? undefined
-                  : normalizeNumber(
-                      entry.collectedQuantity
-                    ),
+          collectedQuantity:
+            entry.collectedQuantity === undefined
+              ? undefined
+              : normalizeNumber(entry.collectedQuantity),
 
-              destinedQuantity:
-                entry.destinedQuantity ===
-                  undefined
-                  ? undefined
-                  : normalizeNumber(
-                      entry.destinedQuantity
-                    ),
+          destinedQuantity:
+            entry.destinedQuantity === undefined
+              ? undefined
+              : normalizeNumber(entry.destinedQuantity),
 
-              remainingQuantity:
-                entry.remainingQuantity ===
-                  undefined
-                  ? undefined
-                  : normalizeNumber(
-                      entry.remainingQuantity
-                    ),
-            })
-          )
-        : [],
+          remainingQuantity:
+            entry.remainingQuantity === undefined
+              ? undefined
+              : normalizeNumber(entry.remainingQuantity),
+        }))
+      : [],
   };
 }
 
-function normalizeSchedule(
-  schedule: Schedule
-): Schedule {
+function normalizeSchedule(schedule: Schedule): Schedule {
   return {
     ...schedule,
 
-    generator:
-      schedule.generator
-        ? {
-            ...schedule.generator,
+    generator: schedule.generator
+      ? {
+          ...schedule.generator,
 
-            latitude:
-              schedule.generator
-                .latitude ===
-                null ||
-              schedule.generator
-                .latitude ===
-                undefined
-                ? null
-                : normalizeNumber(
-                    schedule.generator
-                      .latitude
-                  ),
+          latitude:
+            schedule.generator.latitude === null ||
+            schedule.generator.latitude === undefined
+              ? null
+              : normalizeNumber(schedule.generator.latitude),
 
-            longitude:
-              schedule.generator
-                .longitude ===
-                null ||
-              schedule.generator
-                .longitude ===
-                undefined
-                ? null
-                : normalizeNumber(
-                    schedule.generator
-                      .longitude
-                  ),
-          }
-        : null,
+          longitude:
+            schedule.generator.longitude === null ||
+            schedule.generator.longitude === undefined
+              ? null
+              : normalizeNumber(schedule.generator.longitude),
+        }
+      : null,
 
-    cooperative:
-      schedule.cooperative
-        ? {
-            ...schedule.cooperative,
+    cooperative: schedule.cooperative
+      ? {
+          ...schedule.cooperative,
 
-            latitude:
-              schedule.cooperative
-                .latitude ===
-                null ||
-              schedule.cooperative
-                .latitude ===
-                undefined
-                ? null
-                : normalizeNumber(
-                    schedule.cooperative
-                      .latitude
-                  ),
+          latitude:
+            schedule.cooperative.latitude === null ||
+            schedule.cooperative.latitude === undefined
+              ? null
+              : normalizeNumber(schedule.cooperative.latitude),
 
-            longitude:
-              schedule.cooperative
-                .longitude ===
-                null ||
-              schedule.cooperative
-                .longitude ===
-                undefined
-                ? null
-                : normalizeNumber(
-                    schedule.cooperative
-                      .longitude
-                  ),
-          }
-        : null,
+          longitude:
+            schedule.cooperative.longitude === null ||
+            schedule.cooperative.longitude === undefined
+              ? null
+              : normalizeNumber(schedule.cooperative.longitude),
+        }
+      : null,
 
-    requestedMaterials:
-      Array.isArray(
-        schedule.requestedMaterials
-      )
-        ? schedule.requestedMaterials
-            .map(
-              normalizeRequestedMaterial
-            )
-            .filter(
-              (
-                item
-              ): item is ScheduleRequestedMaterialRecord =>
-                item !== null
-            )
-        : [],
-
-    collections:
-      Array.isArray(
-        schedule.collections
-      )
-        ? schedule.collections.map(
-            normalizeCollection
+    requestedMaterials: Array.isArray(schedule.requestedMaterials)
+      ? schedule.requestedMaterials
+          .map(normalizeRequestedMaterial)
+          .filter(
+            (item): item is ScheduleRequestedMaterialRecord => item !== null,
           )
-        : [],
+      : [],
+
+    collections: Array.isArray(schedule.collections)
+      ? schedule.collections.map(normalizeCollection)
+      : [],
   };
 }
 
@@ -531,115 +332,64 @@ function normalizeSchedule(
  */
 
 function serializeRequestedMaterials(
-  materials: RequestedScheduleMaterialInput[]
+  materials: RequestedScheduleMaterialInput[],
 ): RequestedScheduleMaterialInput[] {
-  return materials.map(
-    (
-      material,
-      index
-    ) => {
-      const wasteTypeId =
-        normalizeOptionalText(
-          material.wasteTypeId
-        );
+  return materials.map((material, index) => {
+    const wasteTypeId = normalizeOptionalText(material.wasteTypeId);
 
-      const proposedMaterial =
-        material.proposedMaterial
-          ? {
-              name:
-                String(
-                  material
-                    .proposedMaterial
-                    .name ||
-                    ""
-                ).trim(),
+    const proposedMaterial = material.proposedMaterial
+      ? {
+          name: String(material.proposedMaterial.name || "").trim(),
 
-              category:
-                normalizeOptionalText(
-                  material
-                    .proposedMaterial
-                    .category
-                ) ||
-                undefined,
+          category:
+            normalizeOptionalText(material.proposedMaterial.category) ||
+            undefined,
 
-              subcategory:
-                normalizeOptionalText(
-                  material
-                    .proposedMaterial
-                    .subcategory
-                ) ||
-                undefined,
+          subcategory:
+            normalizeOptionalText(material.proposedMaterial.subcategory) ||
+            undefined,
 
-              unit:
-                normalizeWasteUnit(
-                  material
-                    .proposedMaterial
-                    .unit
-                ),
-            }
-          : undefined;
+          unit: normalizeWasteUnit(material.proposedMaterial.unit),
+        }
+      : undefined;
 
-      if (
-        !wasteTypeId &&
-        !proposedMaterial?.name
-      ) {
-        throw new Error(
-          `Material inválido na posição ${
-            index + 1
-          }.`
-        );
-      }
-
-      if (
-        wasteTypeId &&
-        proposedMaterial
-      ) {
-        throw new Error(
-          `Informe apenas um material do catálogo ou um material proposto na posição ${
-            index + 1
-          }.`
-        );
-      }
-
-      const estimatedQuantity =
-        material.estimatedQuantity ===
-          undefined
-          ? undefined
-          : normalizeNumber(
-              material.estimatedQuantity
-            );
-
-      if (
-        estimatedQuantity !==
-          undefined &&
-        estimatedQuantity <= 0
-      ) {
-        throw new Error(
-          `A quantidade estimada do material na posição ${
-            index + 1
-          } deve ser maior que zero.`
-        );
-      }
-
-      const unit =
-        normalizeWasteUnit(
-          material.unit ||
-            proposedMaterial?.unit
-        );
-
-      return {
-        wasteTypeId:
-          wasteTypeId ||
-          undefined,
-
-        proposedMaterial,
-
-        estimatedQuantity,
-
-        unit,
-      };
+    if (!wasteTypeId && !proposedMaterial?.name) {
+      throw new Error(`Material inválido na posição ${index + 1}.`);
     }
-  );
+
+    if (wasteTypeId && proposedMaterial) {
+      throw new Error(
+        `Informe apenas um material do catálogo ou um material proposto na posição ${
+          index + 1
+        }.`,
+      );
+    }
+
+    const estimatedQuantity =
+      material.estimatedQuantity === undefined
+        ? undefined
+        : normalizeNumber(material.estimatedQuantity);
+
+    if (estimatedQuantity !== undefined && estimatedQuantity <= 0) {
+      throw new Error(
+        `A quantidade estimada do material na posição ${
+          index + 1
+        } deve ser maior que zero.`,
+      );
+    }
+
+    const unit = normalizeWasteUnit(material.unit || proposedMaterial?.unit);
+
+    return {
+      wasteTypeId: wasteTypeId || undefined,
+
+      proposedMaterial,
+
+      estimatedQuantity,
+
+      unit,
+    };
+  });
 }
 
 /*
@@ -648,73 +398,39 @@ function serializeRequestedMaterials(
  * ============================================================
  */
 
-async function saveSchedulesToCache(
-  schedules: Schedule[]
-) {
+async function saveSchedulesToCache(schedules: Schedule[]) {
   await upsertSchedules(
-    schedules.map(
-      (schedule) => ({
-        id:
-          schedule.id,
+    schedules.map((schedule) => ({
+      id: schedule.id,
 
-        status:
-          schedule.status,
+      status: schedule.status,
 
-        generatorId:
-          schedule.generatorId ??
-          schedule.generator?.id ??
-          null,
+      generatorId: schedule.generatorId ?? schedule.generator?.id ?? null,
 
-        payload:
-          schedule,
+      payload: schedule,
 
-        updatedAt:
-          schedule.updatedAt ??
-          null,
-      })
-    )
+      updatedAt: schedule.updatedAt ?? null,
+    })),
   );
 }
 
-async function readSchedulesFromCache(): Promise<
-  Schedule[]
-> {
-  const rows =
-    await getAllSchedules();
+async function readSchedulesFromCache(): Promise<Schedule[]> {
+  const rows = await getAllSchedules();
 
   return rows
-    .map(
-      (row) =>
-        row?.payload
-    )
-    .filter(
-      (
-        item
-      ): item is Schedule =>
-        Boolean(item)
-    )
-    .map(
-      normalizeSchedule
-    );
+    .map((row) => row?.payload)
+    .filter((item): item is Schedule => Boolean(item))
+    .map(normalizeSchedule);
 }
 
-async function readScheduleByIdFromCache(
-  id: string
-): Promise<
-  Schedule | null
-> {
-  const row =
-    await getScheduleById(
-      id
-    );
+async function readScheduleByIdFromCache(id: string): Promise<Schedule | null> {
+  const row = await getScheduleById(id);
 
   if (!row?.payload) {
     return null;
   }
 
-  return normalizeSchedule(
-    row.payload as Schedule
-  );
+  return normalizeSchedule(row.payload as Schedule);
 }
 
 /*
@@ -723,43 +439,26 @@ async function readScheduleByIdFromCache(
  * ============================================================
  */
 
-async function list(): Promise<
-  Schedule[]
-> {
+async function list(): Promise<Schedule[]> {
   try {
-    const response =
-      await api.get<ListSchedulesApiResponse>(
-        "/schedules",
-        true
-      );
-
-    const schedules =
-      Array.isArray(
-        response
-      )
-        ? response
-        : Array.isArray(
-              response?.schedules
-            )
-          ? response.schedules
-          : [];
-
-    const normalized =
-      schedules.map(
-        normalizeSchedule
-      );
-
-    await saveSchedulesToCache(
-      normalized
+    const response = await api.get<ListSchedulesApiResponse>(
+      "/schedules",
+      true,
     );
+
+    const schedules = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.schedules)
+        ? response.schedules
+        : [];
+
+    const normalized = schedules.map(normalizeSchedule);
+
+    await saveSchedulesToCache(normalized);
 
     return normalized;
   } catch (error) {
-    if (
-      isApiNetworkError(
-        error
-      )
-    ) {
+    if (isApiNetworkError(error)) {
       return readSchedulesFromCache();
     }
 
@@ -767,61 +466,36 @@ async function list(): Promise<
   }
 }
 
-async function getById(
-  id: string
-): Promise<
-  Schedule
-> {
-  const normalizedId =
-    String(id || "").trim();
+async function getById(id: string): Promise<Schedule> {
+  const normalizedId = String(id || "").trim();
 
   if (!normalizedId) {
-    throw new Error(
-      "ID do agendamento não informado."
-    );
+    throw new Error("ID do agendamento não informado.");
   }
 
   try {
-    const response =
-      await api.get<GetScheduleApiResponse>(
-        `/schedules/${normalizedId}`,
-        true
-      );
+    const response = await api.get<GetScheduleApiResponse>(
+      `/schedules/${normalizedId}`,
+      true,
+    );
 
     const schedule =
-      response &&
-      typeof response ===
-        "object" &&
-      "schedule" in response
+      response && typeof response === "object" && "schedule" in response
         ? response.schedule
         : (response as Schedule);
 
     if (!schedule) {
-      throw new Error(
-        "Agendamento não retornado pela API."
-      );
+      throw new Error("Agendamento não retornado pela API.");
     }
 
-    const normalized =
-      normalizeSchedule(
-        schedule
-      );
+    const normalized = normalizeSchedule(schedule);
 
-    await saveSchedulesToCache(
-      [normalized]
-    );
+    await saveSchedulesToCache([normalized]);
 
     return normalized;
   } catch (error) {
-    if (
-      isApiNetworkError(
-        error
-      )
-    ) {
-      const cached =
-        await readScheduleByIdFromCache(
-          normalizedId
-        );
+    if (isApiNetworkError(error)) {
+      const cached = await readScheduleByIdFromCache(normalizedId);
 
       if (cached) {
         return cached;
@@ -832,111 +506,72 @@ async function getById(
   }
 }
 
-async function create(
-  payload: CreateSchedulePayload
-): Promise<
-  Schedule
-> {
-  const requestedMaterials =
-    serializeRequestedMaterials(
-      payload.requestedMaterials
-    );
+async function create(payload: CreateSchedulePayload): Promise<Schedule> {
+  const requestedMaterials = serializeRequestedMaterials(
+    payload.requestedMaterials,
+  );
 
-  if (
-    requestedMaterials.length ===
-    0
-  ) {
-    throw new Error(
-      "Informe ao menos um material solicitado."
-    );
+  if (requestedMaterials.length === 0) {
+    throw new Error("Informe ao menos um material solicitado.");
   }
 
-  const response =
-    await api.post<CreateScheduleApiResponse>(
-      "/schedules",
-      {
-        cooperativeId:
-          payload.cooperativeId ||
-          undefined,
+  const response = await api.post<CreateScheduleApiResponse>(
+    "/schedules",
+    {
+      pickupAddress: payload.pickupAddress || undefined,
+      pickupLatitude: payload.pickupLatitude ?? undefined,
+      pickupLongitude: payload.pickupLongitude ?? undefined,
+      cooperativeId: payload.cooperativeId || undefined,
 
-        generatorId:
-          payload.generatorId ||
-          undefined,
+      generatorId: payload.generatorId || undefined,
 
-        preferredDate:
-          payload.preferredDate ||
-          undefined,
+      preferredDate: payload.preferredDate || undefined,
 
-        scheduledDate:
-          payload.scheduledDate ||
-          undefined,
+      scheduledDate: payload.scheduledDate || undefined,
 
-        requestedMaterials,
+      requestedMaterials,
 
-        notes:
-          payload.notes?.trim() ||
-          undefined,
-      },
-      true
-    );
+      notes: payload.notes?.trim() || undefined,
+    },
+    true,
+  );
 
   if (!response?.schedule) {
-    throw new Error(
-      "Agendamento não retornado pela API."
-    );
+    throw new Error("Agendamento não retornado pela API.");
   }
 
-  const normalized =
-    normalizeSchedule(
-      response.schedule
-    );
+  const normalized = normalizeSchedule(response.schedule);
 
-  await saveSchedulesToCache(
-    [normalized]
-  );
+  await saveSchedulesToCache([normalized]);
 
   return normalized;
 }
 
 async function updateStatus(
   id: string,
-  payload: UpdateScheduleStatusPayload
-): Promise<
-  Schedule
-> {
-  const normalizedId =
-    String(id || "").trim();
+  payload: UpdateScheduleStatusPayload,
+): Promise<Schedule> {
+  const normalizedId = String(id || "").trim();
 
   if (!normalizedId) {
-    throw new Error(
-      "ID do agendamento não informado."
-    );
+    throw new Error("ID do agendamento não informado.");
   }
 
-  const response =
-    await api.patch<UpdateScheduleStatusApiResponse>(
-      `/schedules/${normalizedId}/status`,
-      {
-        status:
-          payload.status,
-      },
-      true
-    );
+  const response = await api.patch<UpdateScheduleStatusApiResponse>(
+    `/schedules/${normalizedId}/status`,
+    {
+      status: payload.status,
+    },
+    true,
+  );
 
   if (!response?.schedule) {
-    throw new Error(
-      "Agendamento não retornado pela API."
-    );
+    throw new Error("Agendamento não retornado pela API.");
   }
 
-  const normalized =
-    normalizeSchedule(
-      response.schedule
-    );
+  const normalized = normalizeSchedule(response.schedule);
 
-  await saveSchedulesToCache(
-    [normalized]
-  );
+  await saveSchedulesToCache([normalized]);
 
   return normalized;
 }
@@ -949,3 +584,5 @@ export const scheduleService = {
 };
 
 export default scheduleService;
+
+export type { ScheduleStatus } from "../types/schedule";

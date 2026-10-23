@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Text, View } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 
 export type OperationalMapPoint = {
@@ -18,6 +19,7 @@ type Props = {
   routeCoordinates?: { latitude: number; longitude: number }[];
   selectedPointId?: string | null;
   onSelectPoint?: (pointId: string) => void;
+  onPick?: (latitude: number, longitude: number) => void;
 };
 
 export default function OperationalMapNative({
@@ -28,6 +30,7 @@ export default function OperationalMapNative({
   routeCoordinates = [],
   selectedPointId,
   onSelectPoint,
+  onPick,
 }: Props) {
   const map = useRef<MapView>(null);
   const centeredGps = useRef(false);
@@ -59,9 +62,15 @@ export default function OperationalMapNative({
   }, [baseLabel, baseLatitude, baseLongitude, selectedPointId]);
   return (
     <MapView
+      onPress={(event) =>
+        onPick?.(
+          event.nativeEvent.coordinate.latitude,
+          event.nativeEvent.coordinate.longitude,
+        )
+      }
       ref={map}
       provider={PROVIDER_GOOGLE}
-      style={{ flex: 1 }}
+      style={{ flex: 1, minHeight: 320 }}
       initialRegion={{
         latitude: baseLatitude,
         longitude: baseLongitude,
@@ -92,7 +101,7 @@ export default function OperationalMapNative({
         />
       )}
 
-      {points.map((point) => (
+      {points.map((point, index) => (
         <Marker
           key={point.id}
           coordinate={{
@@ -105,7 +114,46 @@ export default function OperationalMapNative({
             selectedPointId === point.id ? "#111827" : point.color || "#2563EB"
           }
           onPress={() => onSelectPoint?.(point.id)}
-        />
+          anchor={{ x: 0.5, y: 1 }}
+        >
+          <View style={{ alignItems: "center" }}>
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor:
+                  selectedPointId === point.id
+                    ? "#111827"
+                    : point.color || "#2563EB",
+                borderWidth: 3,
+                borderColor: "white",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: "white", fontWeight: "800" }}>
+                {index + 1}
+              </Text>
+            </View>
+            <View
+              style={{
+                width: 0,
+                height: 0,
+                borderLeftWidth: 6,
+                borderRightWidth: 6,
+                borderTopWidth: 8,
+                borderLeftColor: "transparent",
+                borderRightColor: "transparent",
+                borderTopColor:
+                  selectedPointId === point.id
+                    ? "#111827"
+                    : point.color || "#2563EB",
+                marginTop: -1,
+              }}
+            />
+          </View>
+        </Marker>
       ))}
     </MapView>
   );

@@ -82,7 +82,9 @@ function quantityToKg(quantity: number, unit: WasteUnit): number {
   return 0;
 }
 
-function isGeneratorRole(role: string): role is "GENERATOR_SMALL" | "GENERATOR_LARGE" {
+function isGeneratorRole(
+  role: string,
+): role is "GENERATOR_SMALL" | "GENERATOR_LARGE" {
   return role === "GENERATOR_SMALL" || role === "GENERATOR_LARGE";
 }
 
@@ -103,7 +105,22 @@ const userSelect = {
 } satisfies Prisma.UserSelect;
 
 const collectionInclude = {
-  bin: {select:{id:true,binId:true,name:true,location:true,street:true,number:true,neighborhood:true,city:true,state:true,latitude:true,longitude:true}},
+  incidents: { orderBy: { createdAt: "desc" as const } },
+  bin: {
+    select: {
+      id: true,
+      binId: true,
+      name: true,
+      location: true,
+      street: true,
+      number: true,
+      neighborhood: true,
+      city: true,
+      state: true,
+      latitude: true,
+      longitude: true,
+    },
+  },
   generator: true,
   collector: true,
   driver: true,
@@ -176,7 +193,7 @@ export class CollectionService {
 
   private async getAccessContext(
     authUserId: string,
-    authUserRole: string
+    authUserRole: string,
   ): Promise<CollectionAccessContext> {
     const role = normalizeRole(authUserRole);
 
@@ -194,10 +211,13 @@ export class CollectionService {
       });
 
       if (!cooperative) {
-        throw new CollectionDomainError("Cooperativa do usuário autenticado não encontrada.", {
-          statusCode: 404,
-          code: "COOPERATIVE_NOT_FOUND",
-        });
+        throw new CollectionDomainError(
+          "Cooperativa do usuário autenticado não encontrada.",
+          {
+            statusCode: 404,
+            code: "COOPERATIVE_NOT_FOUND",
+          },
+        );
       }
 
       return {
@@ -214,17 +234,23 @@ export class CollectionService {
       });
 
       if (!collector) {
-        throw new CollectionDomainError("Catador do usuário autenticado não encontrado.", {
-          statusCode: 404,
-          code: "COLLECTOR_NOT_FOUND",
-        });
+        throw new CollectionDomainError(
+          "Catador do usuário autenticado não encontrado.",
+          {
+            statusCode: 404,
+            code: "COLLECTOR_NOT_FOUND",
+          },
+        );
       }
 
       if (!collector.cooperativeId) {
-        throw new CollectionDomainError("O catador não está vinculado a uma cooperativa.", {
-          statusCode: 403,
-          code: "COLLECTOR_WITHOUT_COOPERATIVE",
-        });
+        throw new CollectionDomainError(
+          "O catador não está vinculado a uma cooperativa.",
+          {
+            statusCode: 403,
+            code: "COLLECTOR_WITHOUT_COOPERATIVE",
+          },
+        );
       }
 
       return {
@@ -242,10 +268,13 @@ export class CollectionService {
       });
 
       if (!driver) {
-        throw new CollectionDomainError("Motorista do usuário autenticado não encontrado.", {
-          statusCode: 404,
-          code: "DRIVER_NOT_FOUND",
-        });
+        throw new CollectionDomainError(
+          "Motorista do usuário autenticado não encontrado.",
+          {
+            statusCode: 404,
+            code: "DRIVER_NOT_FOUND",
+          },
+        );
       }
 
       return {
@@ -263,24 +292,33 @@ export class CollectionService {
       });
 
       if (!generator) {
-        throw new CollectionDomainError("Gerador do usuário autenticado não encontrado.", {
-          statusCode: 404,
-          code: "GENERATOR_NOT_FOUND",
-        });
+        throw new CollectionDomainError(
+          "Gerador do usuário autenticado não encontrado.",
+          {
+            statusCode: 404,
+            code: "GENERATOR_NOT_FOUND",
+          },
+        );
       }
 
       return {
         userId: authUserId,
-        role: role === UserRole.GENERATOR_SMALL ? "GENERATOR_SMALL" : "GENERATOR_LARGE",
+        role:
+          role === UserRole.GENERATOR_SMALL
+            ? "GENERATOR_SMALL"
+            : "GENERATOR_LARGE",
         cooperativeId: generator.cooperativeId!,
         generatorId: generator.id,
       };
     }
 
-    throw new CollectionDomainError("Usuário sem permissão para acessar coletas.", {
-      statusCode: 403,
-      code: "COLLECTION_ACCESS_DENIED",
-    });
+    throw new CollectionDomainError(
+      "Usuário sem permissão para acessar coletas.",
+      {
+        statusCode: 403,
+        code: "COLLECTION_ACCESS_DENIED",
+      },
+    );
   }
 
   /*
@@ -414,7 +452,14 @@ export class CollectionService {
           catalogItem?.defaultUnit ||
           WasteUnit.KG;
 
-        if (catalogItem && (catalogItem.unit !== unit || catalogItem.defaultUnit !== unit)) throw new CollectionDomainError("A unidade coletada deve corresponder à unidade do catálogo. Revise o material antes de concluir.", { statusCode: 400, code: "COLLECTION_MATERIAL_UNIT_MISMATCH" });
+        if (
+          catalogItem &&
+          (catalogItem.unit !== unit || catalogItem.defaultUnit !== unit)
+        )
+          throw new CollectionDomainError(
+            "A unidade coletada deve corresponder à unidade do catálogo. Revise o material antes de concluir.",
+            { statusCode: 400, code: "COLLECTION_MATERIAL_UNIT_MISMATCH" },
+          );
 
         return {
           wasteTypeId: catalogItem?.id || null,
@@ -470,7 +515,7 @@ export class CollectionService {
     materials: NormalizedCollectionMaterial[],
     createdByUserId: string,
     createdByNameSnapshot: string | null,
-    collectedAt: Date
+    collectedAt: Date,
   ) {
     for (const material of materials) {
       const collectionMaterial = await transaction.collectionMaterial.create({
@@ -779,10 +824,13 @@ export class CollectionService {
         where = { generatorId: context.generatorId };
         break;
       default:
-        throw new CollectionDomainError("Usuário sem permissão para listar coletas.", {
-          statusCode: 403,
-          code: "COLLECTION_LIST_DENIED",
-        });
+        throw new CollectionDomainError(
+          "Usuário sem permissão para listar coletas.",
+          {
+            statusCode: 403,
+            code: "COLLECTION_LIST_DENIED",
+          },
+        );
     }
 
     return prisma.collection.findMany({
@@ -798,7 +846,11 @@ export class CollectionService {
    * ============================================================
    */
 
-  async findById(authUserId: string, authUserRole: string, collectionId: string) {
+  async findById(
+    authUserId: string,
+    authUserRole: string,
+    collectionId: string,
+  ) {
     const context = await this.getAccessContext(authUserId, authUserRole);
 
     let where: Prisma.CollectionWhereInput = {
@@ -820,10 +872,13 @@ export class CollectionService {
         where = { ...where, generatorId: context.generatorId };
         break;
       default:
-        throw new CollectionDomainError("Usuário sem permissão para consultar coleta.", {
-          statusCode: 403,
-          code: "COLLECTION_FIND_DENIED",
-        });
+        throw new CollectionDomainError(
+          "Usuário sem permissão para consultar coleta.",
+          {
+            statusCode: 403,
+            code: "COLLECTION_FIND_DENIED",
+          },
+        );
     }
 
     const collection = await prisma.collection.findFirst({
@@ -1247,7 +1302,7 @@ export class CollectionService {
     authUserId: string,
     authUserRole: string,
     collectionId: string,
-    data: ReceiveCollectionInput
+    data: ReceiveCollectionInput,
   ) {
     return this.cooperativeTransition(
       authUserId,
@@ -1259,7 +1314,7 @@ export class CollectionService {
         receivedAt: normalizeDate(data.receivedAt),
         receivedByUserId: authUserId,
         notes: data.notes !== undefined ? normalizeText(data.notes) : undefined,
-      }
+      },
     );
   }
 
@@ -1273,7 +1328,7 @@ export class CollectionService {
     authUserId: string,
     authUserRole: string,
     collectionId: string,
-    data: StartSortingInput
+    data: StartSortingInput,
   ) {
     return this.cooperativeTransition(
       authUserId,
@@ -1285,7 +1340,7 @@ export class CollectionService {
         sortingStartedAt: normalizeDate(data.sortingStartedAt),
         sortingStartedByUserId: authUserId,
         notes: data.notes !== undefined ? normalizeText(data.notes) : undefined,
-      }
+      },
     );
   }
 
@@ -1381,6 +1436,16 @@ export class CollectionService {
         throw new CollectionDomainError(
           "Existem reservas temporárias. Confirme a destinação antes de encerrar.",
           { statusCode: 409, code: "COLLECTION_HAS_RESERVATIONS" },
+        );
+
+      if (
+        await transaction.collectionIncident.count({
+          where: { collectionId, status: "OPEN" },
+        })
+      )
+        throw new CollectionDomainError(
+          "Trate as ocorrências abertas antes de concluir a operação.",
+          { statusCode: 409, code: "COLLECTION_HAS_OPEN_INCIDENTS" },
         );
 
       const updated = await transaction.collection.update({
@@ -1525,15 +1590,133 @@ export class CollectionService {
    * ============================================================
    */
 
+  async reportIncident(
+    authUserId: string,
+    authUserRole: string,
+    collectionId: string,
+    data: { description: string; operationId?: string },
+  ) {
+    const context = await this.getAccessContext(authUserId, authUserRole);
+    if (!["COLLECTOR", "COOPERATIVE"].includes(context.role))
+      throw new CollectionDomainError(
+        "Perfil sem permissão para registrar esta ocorrência.",
+        { statusCode: 403, code: "INCIDENT_ACCESS_DENIED" },
+      );
+    return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Collection" WHERE id = ${collectionId} FOR UPDATE`;
+      const collection = await transaction.collection.findFirst({
+        where: {
+          id: collectionId,
+          cooperativeId: context.cooperativeId,
+          ...(context.role === "COLLECTOR"
+            ? { collectorId: context.collectorId }
+            : {}),
+        },
+      });
+      if (!collection)
+        throw new CollectionDomainError(
+          "Coleta não encontrada para este usuário.",
+          { statusCode: 404, code: "COLLECTION_NOT_FOUND" },
+        );
+      const prior = data.operationId
+        ? await transaction.collectionIncident.findFirst({
+            where: {
+              collectionId,
+              reportedByUserId: authUserId,
+              operationId: data.operationId,
+            },
+          })
+        : null;
+      if (prior && prior.description !== data.description)
+        throw new CollectionDomainError(
+          "Operação já utilizada com outra descrição.",
+          { statusCode: 409, code: "INCIDENT_PAYLOAD_CONFLICT" },
+        );
+      const actor = await transaction.user.findUnique({
+        where: { id: authUserId },
+        select: { displayName: true, email: true },
+      });
+      if (!prior)
+        await transaction.collectionIncident.create({
+          data: {
+            ...data,
+            collectionId,
+            cooperativeId: collection.cooperativeId,
+            reportedByUserId: authUserId,
+            reportedByName: actor?.displayName || actor?.email,
+          },
+        });
+      return transaction.collection.findUniqueOrThrow({
+        where: { id: collectionId },
+        include: collectionInclude,
+      });
+    });
+  }
+
+  async resolveIncident(
+    authUserId: string,
+    authUserRole: string,
+    collectionId: string,
+    incidentId: string,
+    resolution: string,
+  ) {
+    const context = await this.getAccessContext(authUserId, authUserRole);
+    if (context.role !== "COOPERATIVE")
+      throw new CollectionDomainError(
+        "Somente a cooperativa pode concluir o tratamento.",
+        { statusCode: 403, code: "INCIDENT_RESOLUTION_DENIED" },
+      );
+    return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Collection" WHERE id = ${collectionId} FOR UPDATE`;
+      const incident = await transaction.collectionIncident.findFirst({
+        where: {
+          id: incidentId,
+          collectionId,
+          cooperativeId: context.cooperativeId,
+        },
+      });
+      if (!incident)
+        throw new CollectionDomainError("Ocorrência não encontrada.", {
+          statusCode: 404,
+          code: "INCIDENT_NOT_FOUND",
+        });
+      if (incident.status !== "OPEN")
+        throw new CollectionDomainError("Esta ocorrência já foi tratada.", {
+          statusCode: 409,
+          code: "INCIDENT_ALREADY_RESOLVED",
+        });
+      const actor = await transaction.user.findUnique({
+        where: { id: authUserId },
+        select: { displayName: true, email: true },
+      });
+      await transaction.collectionIncident.update({
+        where: { id: incident.id },
+        data: {
+          status: "RESOLVED",
+          resolution,
+          resolvedAt: new Date(),
+          resolvedByUserId: authUserId,
+          resolvedByName: actor?.displayName || actor?.email,
+        },
+      });
+      return transaction.collection.findUniqueOrThrow({
+        where: { id: collectionId },
+        include: collectionInclude,
+      });
+    });
+  }
+
   async updateStatus(
     authUserId: string,
     authUserRole: string,
     collectionId: string,
-    data: UpdateCollectionStatusInput
+    data: UpdateCollectionStatusInput,
   ) {
     switch (data.status) {
       case CollectionStatus.IN_PROGRESS:
-        return this.start(authUserId, authUserRole, collectionId, { notes: data.notes });
+        return this.start(authUserId, authUserRole, collectionId, {
+          notes: data.notes,
+        });
       case CollectionStatus.COLLECTED:
         return this.completeField(authUserId, authUserRole, collectionId, {
           collectedAt: data.collectedAt,
@@ -1542,20 +1725,31 @@ export class CollectionService {
           notes: data.notes,
         });
       case CollectionStatus.RECEIVED:
-        return this.receive(authUserId, authUserRole, collectionId, { notes: data.notes });
+        return this.receive(authUserId, authUserRole, collectionId, {
+          notes: data.notes,
+        });
       case CollectionStatus.SORTING:
-        return this.startSorting(authUserId, authUserRole, collectionId, { notes: data.notes });
+        return this.startSorting(authUserId, authUserRole, collectionId, {
+          notes: data.notes,
+        });
       case CollectionStatus.COMPLETED:
-        return this.complete(authUserId, authUserRole, collectionId, { notes: data.notes });
+        return this.complete(authUserId, authUserRole, collectionId, {
+          notes: data.notes,
+        });
       case CollectionStatus.CANCELLED:
         return this.cancel(authUserId, authUserRole, collectionId, {
-          cancellationReason: data.cancellationReason || "Cancelamento solicitado pela rota legada.",
+          cancellationReason:
+            data.cancellationReason ||
+            "Cancelamento solicitado pela rota legada.",
         });
       case CollectionStatus.PENDING:
-        throw new CollectionDomainError("Não é permitido retornar uma coleta para PENDING.", {
-          statusCode: 409,
-          code: "COLLECTION_CANNOT_RETURN_TO_PENDING",
-        });
+        throw new CollectionDomainError(
+          "Não é permitido retornar uma coleta para PENDING.",
+          {
+            statusCode: 409,
+            code: "COLLECTION_CANNOT_RETURN_TO_PENDING",
+          },
+        );
       default:
         throw new CollectionDomainError("Status de coleta não suportado.", {
           statusCode: 400,

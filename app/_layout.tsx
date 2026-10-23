@@ -1,3 +1,4 @@
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Text, View } from "react-native";
@@ -122,10 +123,17 @@ export default function RootLayout() {
   }
 
   return (
-    <NotificationProvider>
-      <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }} />
-      </AuthProvider>
-    </NotificationProvider>
+    <SafeAreaProvider>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: "#F8FAFC" }}
+        edges={["top", "left", "right"]}
+      >
+        <NotificationProvider>
+          <AuthProvider>
+            <Stack screenOptions={{ headerShown: false }} />
+          </AuthProvider>
+        </NotificationProvider>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }

@@ -1,3 +1,8 @@
+import { useAuth } from "@/src/contexts/AuthContext";
+import {
+  collectionOrigin,
+  validCoordinates,
+} from "@/src/utils/collectionOrigin";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -173,10 +178,7 @@ function normalizeMaterials(value: unknown): CollectionMaterial[] {
     .filter((item): item is CollectionMaterial => item !== null);
 }
 
-function getCollectionGenerator(collection?: Collection | null) {
-  if (!collection) return null;
-  return collection.generator ?? collection.schedule?.generator ?? null;
-}
+const getCollectionGenerator = collectionOrigin;
 
 function getCollectionContactPhone(
   collection: Collection,
@@ -364,6 +366,25 @@ function normalizePhone(phone?: string | null) {
 
 export default function CatadorMapScreen() {
   const gps = useForegroundLocation();
+  const { user } = useAuth();
+  const headquarters =
+    (user as any)?.cooperative || (user as any)?.collector?.cooperative;
+  const headquartersPoint = validCoordinates(
+    headquarters?.latitude,
+    headquarters?.longitude,
+  )
+    ? [
+        {
+          id: "headquarters",
+          title: "Sede da cooperativa",
+          latitude: Number(headquarters.latitude),
+          longitude: Number(headquarters.longitude),
+          description: headquarters.name || "Sede",
+          color: "#065F46",
+        },
+      ]
+    : [];
+  const retryGps = gps.retry;
   const { isOffline } = useConnectivity();
   const { notifyError } = useNotification();
 
@@ -376,8 +397,8 @@ export default function CatadorMapScreen() {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadLocation = useCallback(async () => {
-    gps.retry();
-  }, [gps.retry]);
+    retryGps();
+  }, [retryGps]);
   useEffect(() => {
     if (gps.position)
       setRegion((p) => ({
@@ -398,7 +419,7 @@ export default function CatadorMapScreen() {
         const nextCollections = Array.isArray(data) ? data : [];
 
         setCollections(nextCollections);
-        setLastSyncAt(new Date().toISOString());
+        setLastSyncAt(collectionService.getLastRemoteSyncAt());
 
         setSelectedId((currentId) =>
           currentId && nextCollections.some((item) => item.id === currentId)
@@ -407,7 +428,10 @@ export default function CatadorMapScreen() {
         );
       } catch (error) {
         console.error("Erro ao carregar mapa do catador:", error);
-        notifyError("Erro", "Não foi possível carregar o mapa do catador.");
+        notifyError({
+          message: "Não foi possível carregar o mapa do catador.",
+          title: "Erro",
+        });
         setCollections([]);
       } finally {
         if (showLoader) {
@@ -504,22 +528,25 @@ export default function CatadorMapScreen() {
     );
   }, [allPoints, filter]);
 
-  const orderedPoints = useMemo(() => {
-    return [...filteredPoints].sort((a, b) => {
-      if (a.status === "IN_PROGRESS" && b.status !== "IN_PROGRESS") {
-        return -1;
-      }
-
-      if (b.status === "IN_PROGRESS" && a.status !== "IN_PROGRESS") {
-        return 1;
-      }
-
-      return (
-        (a.distanceKm ?? Number.MAX_SAFE_INTEGER) -
-        (b.distanceKm ?? Number.MAX_SAFE_INTEGER)
-      );
-    });
-  }, [filteredPoints]);
+  const orderedPoints = useMemo(
+    () =>
+      [...filteredPoints].sort((a, b) => {
+        if (
+          a.collection.routeId &&
+          a.collection.routeId === b.collection.routeId
+        ) {
+          const order = a.collection.route?.collectionOrder || [];
+          const ai = order.indexOf(a.id),
+            bi = order.indexOf(b.id);
+          if (ai >= 0 && bi >= 0) return ai - bi;
+        }
+        return (
+          (a.distanceKm ?? Number.MAX_SAFE_INTEGER) -
+          (b.distanceKm ?? Number.MAX_SAFE_INTEGER)
+        );
+      }),
+    [filteredPoints],
+  );
 
   const selected = useMemo(() => {
     return (
@@ -530,7 +557,7 @@ export default function CatadorMapScreen() {
   }, [allPoints, orderedPoints, selectedId]);
 
   const selectedLine = useMemo(() => {
-    if (!selected) return [];
+    if (!selected || !gps.position) return [];
 
     return [
       {
@@ -542,7 +569,7 @@ export default function CatadorMapScreen() {
         longitude: selected.longitude,
       },
     ];
-  }, [region, selected]);
+  }, [region, selected, gps.position]);
 
   const routeCoordinates = useMemo(() => {
     if (selectedLine.length > 0) {
@@ -554,16 +581,15 @@ export default function CatadorMapScreen() {
     }
 
     return [
-      {
-        latitude: region.latitude,
-        longitude: region.longitude,
-      },
+      ...(gps.position
+        ? [{ latitude: region.latitude, longitude: region.longitude }]
+        : []),
       ...orderedPoints.map((point) => ({
         latitude: point.latitude,
         longitude: point.longitude,
       })),
     ];
-  }, [orderedPoints, region, selectedLine]);
+  }, [orderedPoints, region, selectedLine, gps.position]);
 
   const routeMetrics = useMemo(() => {
     const totalWeightKg = orderedPoints.reduce(
@@ -630,14 +656,20 @@ export default function CatadorMapScreen() {
       const supported = await Linking.canOpenURL(urlToOpen);
 
       if (!supported) {
-        notifyError("Erro", "Não foi possível abrir o aplicativo de mapas.");
+        notifyError({
+          message: "Não foi possível abrir o aplicativo de mapas.",
+          title: "Erro",
+        });
         return;
       }
 
       await Linking.openURL(urlToOpen);
     } catch (error) {
       console.error("Erro ao abrir rota externa:", error);
-      notifyError("Erro", "Não foi possível abrir a rota externa.");
+      notifyError({
+        message: "Não foi possível abrir a rota externa.",
+        title: "Erro",
+      });
     }
   }, [notifyError, selected]);
 
@@ -645,10 +677,10 @@ export default function CatadorMapScreen() {
     const phone = normalizePhone(selected?.phone);
 
     if (!phone) {
-      notifyError(
-        "Telefone indisponível",
-        "Não há telefone cadastrado para este gerador.",
-      );
+      notifyError({
+        message: "Telefone indisponível",
+        title: "Não há telefone cadastrado para este gerador.",
+      });
       return;
     }
 
@@ -658,14 +690,20 @@ export default function CatadorMapScreen() {
       const supported = await Linking.canOpenURL(url);
 
       if (!supported) {
-        notifyError("Erro", "Não foi possível abrir o telefone.");
+        notifyError({
+          message: "Não foi possível abrir o telefone.",
+          title: "Erro",
+        });
         return;
       }
 
       await Linking.openURL(url);
     } catch (error) {
       console.error("Erro ao abrir telefone:", error);
-      notifyError("Erro", "Não foi possível iniciar a ligação.");
+      notifyError({
+        message: "Não foi possível iniciar a ligação.",
+        title: "Erro",
+      });
     }
   }, [notifyError, selected]);
 
@@ -673,10 +711,10 @@ export default function CatadorMapScreen() {
     const phone = normalizePhone(selected?.phone);
 
     if (!phone) {
-      notifyError(
-        "WhatsApp indisponível",
-        "Não há telefone cadastrado para este gerador.",
-      );
+      notifyError({
+        message: "WhatsApp indisponível",
+        title: "Não há telefone cadastrado para este gerador.",
+      });
       return;
     }
 
@@ -690,14 +728,20 @@ export default function CatadorMapScreen() {
       const supported = await Linking.canOpenURL(url);
 
       if (!supported) {
-        notifyError("Erro", "Não foi possível abrir o WhatsApp.");
+        notifyError({
+          message: "Não foi possível abrir o WhatsApp.",
+          title: "Erro",
+        });
         return;
       }
 
       await Linking.openURL(url);
     } catch (error) {
       console.error("Erro ao abrir WhatsApp:", error);
-      notifyError("Erro", "Não foi possível abrir o WhatsApp.");
+      notifyError({
+        message: "Não foi possível abrir o WhatsApp.",
+        title: "Erro",
+      });
     }
   }, [notifyError, selected]);
 
@@ -724,7 +768,7 @@ export default function CatadorMapScreen() {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 48,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 28,
@@ -924,15 +968,18 @@ export default function CatadorMapScreen() {
               baseLabel={gps.position ? "Minha posição" : null}
               baseLatitude={region.latitude}
               baseLongitude={region.longitude}
-              points={filteredPoints.map((point) => ({
-                id: point.id,
-                latitude: point.latitude,
-                longitude: point.longitude,
-                title: point.title,
-                description: `${translateStatus(point.status)} • ${point.address}`,
-                color: getStatusColor(point.status),
-              }))}
-              routeCoordinates={gps.position ? routeCoordinates : []}
+              points={[
+                ...headquartersPoint,
+                ...orderedPoints.map((point) => ({
+                  id: point.id,
+                  latitude: point.latitude,
+                  longitude: point.longitude,
+                  title: point.title,
+                  description: `${translateStatus(point.status)} • ${point.address}`,
+                  color: getStatusColor(point.status),
+                })),
+              ]}
+              routeCoordinates={routeCoordinates}
               selectedPointId={selected?.id ?? null}
               onSelectPoint={(pointId: string) => {
                 if (pointId === "__base__") {
@@ -991,7 +1038,7 @@ export default function CatadorMapScreen() {
               marginBottom: 10,
             }}
           >
-            Ordem sugerida
+            Sequência de visitas
           </Text>
 
           <Text
@@ -1003,7 +1050,8 @@ export default function CatadorMapScreen() {
             }}
           >
             Coletas ordenadas pela situação operacional e pela distância
-            aproximada.
+            aproximada. Coletas vinculadas à mesma rota seguem a ordem
+            registrada no planejamento.
           </Text>
 
           <View
@@ -1337,8 +1385,8 @@ function SelectedCollectionCard({
             lineHeight: 19,
           }}
         >
-          Toque em um marcador ou em um item da ordem sugerida para visualizar
-          os detalhes.
+          Toque em um marcador ou em um item da sequência de visitas para
+          visualizar os detalhes.
         </Text>
       </View>
     );

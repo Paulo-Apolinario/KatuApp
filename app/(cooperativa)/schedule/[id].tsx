@@ -13,11 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { api } from "@/src/services/api";
-import {
-  scheduleService,
-  type Schedule,
-  type ScheduleStatus,
-} from "@/src/services/scheduleService";
+import { scheduleService, type Schedule } from "@/src/services/scheduleService";
 import { collectionService } from "@/src/services/collectionService";
 import { driverService, type Driver } from "@/src/services/driverService";
 import { vehicleService, type Vehicle } from "@/src/services/vehicleService";
@@ -126,7 +122,7 @@ function getScheduleName(item: Schedule) {
 
 async function fetchCollectors(): Promise<CollectorOption[]> {
   const response = await api.get<CollectorListResponse>("/collectors", true);
-  return Array.isArray(response) ? response : response.collectors ?? [];
+  return Array.isArray(response) ? response : (response.collectors ?? []);
 }
 
 export default function CooperativeScheduleDetailScreen() {
@@ -195,10 +191,12 @@ export default function CooperativeScheduleDetailScreen() {
           setSelectedRouteId((current) => current || routeList[0].id);
         }
       } catch (error: any) {
-        notifyError(
-          "Erro",
-          error?.message || "Não foi possível carregar os detalhes do agendamento."
-        );
+        notifyError({
+          message:
+            error?.message ||
+            "Não foi possível carregar os detalhes do agendamento.",
+          title: "Erro",
+        });
         setSchedule(null);
         setCollectors([]);
         setDrivers([]);
@@ -209,13 +207,13 @@ export default function CooperativeScheduleDetailScreen() {
         setRefreshing(false);
       }
     },
-    [scheduleId, notifyError]
+    [scheduleId, notifyError],
   );
 
   useFocusEffect(
     useCallback(() => {
       loadSchedule(true);
-    }, [loadSchedule])
+    }, [loadSchedule]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -232,29 +230,38 @@ export default function CooperativeScheduleDetailScreen() {
 
     return routes.filter((route) => {
       const driverMatches =
-        !selectedDriverId || !route.driverId || route.driverId === selectedDriverId;
+        !selectedDriverId ||
+        !route.driverId ||
+        route.driverId === selectedDriverId;
 
       const vehicleMatches =
-        !selectedVehicleId || !route.vehicleId || route.vehicleId === selectedVehicleId;
+        !selectedVehicleId ||
+        !route.vehicleId ||
+        route.vehicleId === selectedVehicleId;
 
       return driverMatches && vehicleMatches;
     });
   }, [routes, selectedDriverId, selectedVehicleId]);
 
-  async function handleUpdateStatus(status: ScheduleStatus) {
+  async function handleUpdateStatus(status: "SCHEDULED" | "CANCELLED") {
     if (!schedule?.id) return;
 
     try {
       setUpdating(true);
-      const updated = await scheduleService.updateStatus(schedule.id, { status });
+      const updated = await scheduleService.updateStatus(schedule.id, {
+        status,
+      });
       setSchedule(updated);
 
-      notifySuccess("Sucesso", "Status do agendamento atualizado.");
+      notifySuccess({
+        message: "Status do agendamento atualizado.",
+        title: "Sucesso",
+      });
     } catch (error: any) {
-      notifyError(
-        "Erro",
-        error?.message || "Não foi possível atualizar o status."
-      );
+      notifyError({
+        message: error?.message || "Não foi possível atualizar o status.",
+        title: "Erro",
+      });
     } finally {
       setUpdating(false);
     }
@@ -264,22 +271,25 @@ export default function CooperativeScheduleDetailScreen() {
     if (!schedule?.id) return;
 
     if (!selectedCollectorId) {
-      notifyError("Atenção", "Selecione um catador para delegar a coleta.");
+      notifyError({
+        message: "Selecione um catador para delegar a coleta.",
+        title: "Atenção",
+      });
       return;
     }
 
     if (!selectedDriverId) {
-      notifyError("Atenção", "Selecione um motorista.");
+      notifyError({ message: "Selecione um motorista.", title: "Atenção" });
       return;
     }
 
     if (!selectedVehicleId) {
-      notifyError("Atenção", "Selecione um veículo.");
+      notifyError({ message: "Selecione um veículo.", title: "Atenção" });
       return;
     }
 
     if (!selectedRouteId) {
-      notifyError("Atenção", "Selecione uma rota.");
+      notifyError({ message: "Selecione uma rota.", title: "Atenção" });
       return;
     }
 
@@ -298,12 +308,15 @@ export default function CooperativeScheduleDetailScreen() {
       const found = refreshed.find((item) => item.id === schedule.id) || null;
       setSchedule(found);
 
-      notifySuccess("Sucesso", "Coleta delegada com logística completa.");
+      notifySuccess({
+        message: "Coleta delegada com logística completa.",
+        title: "Sucesso",
+      });
     } catch (error: any) {
-      notifyError(
-        "Erro",
-        error?.message || "Não foi possível delegar a coleta."
-      );
+      notifyError({
+        message: error?.message || "Não foi possível delegar a coleta.",
+        title: "Erro",
+      });
     } finally {
       setDelegating(false);
     }
@@ -376,9 +389,9 @@ export default function CooperativeScheduleDetailScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 24,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -386,7 +399,10 @@ export default function CooperativeScheduleDetailScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 14 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -484,7 +500,8 @@ export default function CooperativeScheduleDetailScreen() {
           </Text>
         </SectionCard>
 
-        {(schedule.status === "REQUESTED" || schedule.status === "SCHEDULED") && (
+        {(schedule.status === "REQUESTED" ||
+          schedule.status === "SCHEDULED") && (
           <>
             <SectionCard>
               <Text style={sectionTitle}>Delegação para catador</Text>
@@ -517,11 +534,15 @@ export default function CooperativeScheduleDetailScreen() {
                         {collector.name || "Catador"}
                       </Text>
 
-                      <Text style={{ fontSize: 13, color: "#4B5563", marginTop: 4 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#4B5563", marginTop: 4 }}
+                      >
                         E-mail: {collector.email || "-"}
                       </Text>
 
-                      <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}
+                      >
                         Telefone: {collector.phone || "-"}
                       </Text>
                     </TouchableOpacity>
@@ -555,14 +576,26 @@ export default function CooperativeScheduleDetailScreen() {
                         marginBottom: 10,
                       }}
                     >
-                      <Text style={{ fontSize: 15, fontWeight: "700", color: "#111827" }}>
+                      <Text
+                        style={{
+                          fontSize: 15,
+                          fontWeight: "700",
+                          color: "#111827",
+                        }}
+                      >
                         {driver.name}
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}
+                      >
                         CNH: {driver.cnh || "-"}
-                        {driver.cnhCategory ? ` • Categoria ${driver.cnhCategory}` : ""}
+                        {driver.cnhCategory
+                          ? ` • Categoria ${driver.cnhCategory}`
+                          : ""}
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}
+                      >
                         Telefone: {driver.phone || "-"}
                       </Text>
                     </TouchableOpacity>
@@ -596,13 +629,23 @@ export default function CooperativeScheduleDetailScreen() {
                         marginBottom: 10,
                       }}
                     >
-                      <Text style={{ fontSize: 15, fontWeight: "700", color: "#111827" }}>
+                      <Text
+                        style={{
+                          fontSize: 15,
+                          fontWeight: "700",
+                          color: "#111827",
+                        }}
+                      >
                         {vehicle.model} - {vehicle.plate}
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}
+                      >
                         Marca: {vehicle.brand || "-"}
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}
+                      >
                         Capacidade: {vehicle.capacityKg ?? 0} kg
                       </Text>
                     </TouchableOpacity>
@@ -636,13 +679,23 @@ export default function CooperativeScheduleDetailScreen() {
                         marginBottom: 10,
                       }}
                     >
-                      <Text style={{ fontSize: 15, fontWeight: "700", color: "#111827" }}>
+                      <Text
+                        style={{
+                          fontSize: 15,
+                          fontWeight: "700",
+                          color: "#111827",
+                        }}
+                      >
                         {route.name}
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}
+                      >
                         Data: {formatDate(route.scheduledDate)}
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                      <Text
+                        style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}
+                      >
                         Pontos: {route.stops?.length || 0}
                       </Text>
                     </TouchableOpacity>

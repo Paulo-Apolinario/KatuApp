@@ -67,30 +67,33 @@ export default function MotoristaProfileScreen() {
   const [profile, setProfile] = useState<DriverProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProfile = useCallback(async (showRefresh = false) => {
-    try {
-      setError(null);
+  const loadProfile = useCallback(
+    async (showRefresh = false) => {
+      try {
+        setError(null);
 
-      if (showRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+        if (showRefresh) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
+
+        const response = await driverService.getMeWithVehicle(user?.driver?.id);
+        setProfile(response);
+      } catch (err: any) {
+        setError(err?.message || "Não foi possível carregar o perfil.");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      const response = await driverService.getMeWithVehicle(user?.driver?.id);
-      setProfile(response);
-    } catch (err: any) {
-      setError(err?.message || "Não foi possível carregar o perfil.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user?.driver?.id]);
+    },
+    [user?.driver?.id],
+  );
 
   useFocusEffect(
     useCallback(() => {
       void loadProfile();
-    }, [loadProfile])
+    }, [loadProfile]),
   );
 
   if (loading) {
@@ -114,11 +117,11 @@ export default function MotoristaProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 48,
+          paddingTop: 20,
           paddingBottom: 18,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 26,

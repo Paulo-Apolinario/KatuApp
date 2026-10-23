@@ -212,6 +212,7 @@ export interface CollectionVehicleSummary {
 }
 
 export interface CollectionRouteSummary {
+  collectionOrder?: string[];
   id: string;
   name?: string | null;
   description?: string | null;
@@ -233,6 +234,9 @@ export interface CollectionScheduleRequestedMaterialSummary {
 }
 
 export interface CollectionScheduleSummary {
+  pickupAddress?: string | null;
+  pickupLatitude?: number | null;
+  pickupLongitude?: number | null;
   id: string;
   scheduledDate?: string | null;
   preferredDate?: string | null;
@@ -255,6 +259,20 @@ export interface CollectionScheduleSummary {
  */
 
 export interface Collection {
+  bin?: {
+    id: string;
+    binId?: string;
+    name?: string | null;
+    location?: string | null;
+    street?: string | null;
+    number?: string | null;
+    neighborhood?: string | null;
+    city?: string | null;
+    state?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  } | null;
+  incidents?: CollectionIncident[];
   syncStatus?: "PENDING" | "SYNCED";
   syncError?: string | null;
   id: string;
@@ -357,4 +375,15 @@ export interface UpdateCollectionStatusPayload {
   materials?: CollectionMaterial[];
   notes?: string;
   cancellationReason?: string;
+}
+
+export interface CollectionIncident {
+  id: string;
+  description: string;
+  status: "OPEN" | "RESOLVED";
+  reportedByName?: string | null;
+  createdAt: string;
+  resolution?: string | null;
+  resolvedAt?: string | null;
+  resolvedByName?: string | null;
 }

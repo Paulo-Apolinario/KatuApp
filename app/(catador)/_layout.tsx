@@ -118,11 +118,7 @@ export default function CatadorLayout() {
 
             tabBarIcon: ({ color, focused }) => (
               <Ionicons
-                name={
-                  focused
-                    ? "document-text"
-                    : "document-text-outline"
-                }
+                name={focused ? "document-text" : "document-text-outline"}
                 size={24}
                 color={color}
               />
@@ -130,6 +126,10 @@ export default function CatadorLayout() {
           }}
         />
 
+        <Tabs.Screen
+          name="profile"
+          options={{ href: null, title: "Minha conta" }}
+        />
         <Tabs.Screen
           name="dashboard"
           options={{

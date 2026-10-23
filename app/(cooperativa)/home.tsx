@@ -1,3 +1,5 @@
+import { loadSections } from "@/src/utils/loadSections";
+import { Action } from "@/src/components/ui/Workspace";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -15,10 +17,7 @@ import * as Location from "@/src/services/deviceLocation";
 import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { useAuth } from "@/src/contexts/AuthContext";
-import {
-  scheduleService,
-  type Schedule,
-} from "@/src/services/scheduleService";
+import { scheduleService, type Schedule } from "@/src/services/scheduleService";
 import { routeService, type RouteItem } from "@/src/services/routeService";
 import {
   collectionService,
@@ -308,13 +307,7 @@ function MenuCard({
   );
 }
 
-function Badge({
-  label,
-  color,
-}: {
-  label: string;
-  color: string;
-}) {
+function Badge({ label, color }: { label: string; color: string }) {
   return (
     <View
       style={{
@@ -460,133 +453,140 @@ export default function CooperativeHomeScreen() {
   const displayName = getUserDisplayName(currentUser);
 
   const getUserLocation = useCallback(async () => {
-  setIsLoadingLocation(true);
+    setIsLoadingLocation(true);
 
-  try {
-    const servicesEnabled = await Location.hasServicesEnabledAsync();
+    try {
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
 
-    if (!servicesEnabled) {
-      setCurrentCity("Localização desativada");
+      if (!servicesEnabled) {
+        setCurrentCity("Localização desativada");
+        setLocationError(true);
+        notifyWarning("A localização está desativada no dispositivo.");
+        return;
+      }
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        setCurrentCity("Permissão negada");
+        setLocationError(true);
+
+        notifyWarning(
+          "Permissão de localização negada. Libere a localização nas configurações do navegador ou dispositivo.",
+        );
+
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const addresses = await Location.reverseGeocodeAsync({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+
+      if (addresses.length > 0) {
+        const address = addresses[0];
+
+        const city =
+          address.city ||
+          address.subregion ||
+          address.region ||
+          address.country ||
+          "Localização desconhecida";
+
+        setCurrentCity(city);
+        setLocationError(false);
+      } else {
+        setCurrentCity("GPS ativo — cidade não identificada");
+        setLocationError(false);
+      }
+    } catch (error) {
+      console.error("Erro ao obter localização:", error);
+      setCurrentCity("Erro ao carregar");
       setLocationError(true);
-      notifyWarning("A localização está desativada no dispositivo.");
-      return;
+      notifyWarning("Não foi possível obter sua localização.");
+    } finally {
+      setIsLoadingLocation(false);
     }
-
-    const { status } = await Location.requestForegroundPermissionsAsync();
-
-    if (status !== "granted") {
-      setCurrentCity("Permissão negada");
-      setLocationError(true);
-
-      notifyWarning(
-        "Permissão de localização negada. Libere a localização nas configurações do navegador ou dispositivo."
-      );
-
-      return;
-    }
-
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-
-    const addresses = await Location.reverseGeocodeAsync({
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-    });
-
-    if (addresses.length > 0) {
-      const address = addresses[0];
-
-      const city =
-        address.city ||
-        address.subregion ||
-        address.region ||
-        address.country ||
-        "Localização desconhecida";
-
-      setCurrentCity(city);
-      setLocationError(false);
-    } else {
-      setCurrentCity("GPS ativo — cidade não identificada");
-      setLocationError(false);
-
-    }
-  } catch (error) {
-    console.error("Erro ao obter localização:", error);
-    setCurrentCity("Erro ao carregar");
-    setLocationError(true);
-    notifyWarning("Não foi possível obter sua localização.");
-  } finally {
-    setIsLoadingLocation(false);
-  }
-}, 
-[notifyWarning]);
+  }, [notifyWarning]);
 
   const loadHome = useCallback(
-  async (showLoader = true) => {
-    try {
-      if (showLoader) setLoading(true);
+    async (showLoader = true) => {
+      try {
+        if (showLoader) setLoading(true);
 
-      const [scheduleResponse, routeResponse, collectionResponse] =
-        await Promise.all([
-          scheduleService.list(),
-          routeService.list(),
-          collectionService.list(),
+        const failed = await loadSections([
+          {
+            label: "Solicitações",
+            load: () => scheduleService.list(),
+            apply: (rows) => setSchedules(Array.isArray(rows) ? rows : []),
+          },
+          {
+            label: "Rotas",
+            load: () => routeService.list(),
+            apply: (rows) => setRoutes(Array.isArray(rows) ? rows : []),
+          },
+          {
+            label: "Coletas",
+            load: () => collectionService.list(),
+            apply: (rows) => setCollections(Array.isArray(rows) ? rows : []),
+          },
         ]);
+        if (failed.length)
+          notifyError(
+            `Não foi possível atualizar: ${failed.join(", ")}. Dados anteriores preservados.`,
+          );
+      } catch (error) {
+        console.error("Erro ao carregar home da cooperativa:", error);
 
-      setSchedules(Array.isArray(scheduleResponse) ? scheduleResponse : []);
-      setRoutes(Array.isArray(routeResponse) ? routeResponse : []);
-      setCollections(Array.isArray(collectionResponse) ? collectionResponse : []);
-    } catch (error) {
-      console.error("Erro ao carregar home da cooperativa:", error);
-
-      notifyError("Erro ao carregar dados da cooperativa.");
-
-      setSchedules([]);
-      setRoutes([]);
-      setCollections([]);
-    } finally {
-      if (showLoader) setLoading(false);
-      setRefreshing(false);
-    }
-  },
-  [notifyError]
-);
+        notifyError(
+          "Não foi possível atualizar os dados. Os últimos dados carregados foram preservados.",
+        );
+      } finally {
+        if (showLoader) setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [notifyError],
+  );
 
   useFocusEffect(
     useCallback(() => {
       getUserLocation();
       loadHome(true);
-    }, [getUserLocation, loadHome])
+    }, [getUserLocation, loadHome]),
   );
 
   const onRefresh = useCallback(async () => {
-  setRefreshing(true);
-  notifyInfo("Atualizando dados...");
-  await Promise.all([getUserLocation(), loadHome(false)]);
-}, [getUserLocation, loadHome, notifyInfo]);
+    setRefreshing(true);
+    notifyInfo("Atualizando dados...");
+    await Promise.all([getUserLocation(), loadHome(false)]);
+  }, [getUserLocation, loadHome, notifyInfo]);
 
   const metrics = useMemo(() => {
     const requestedSchedules = schedules.filter(
-      (item) => item.status === "REQUESTED"
+      (item) => item.status === "REQUESTED",
     );
     const scheduledSchedules = schedules.filter(
-      (item) => item.status === "SCHEDULED"
+      (item) => item.status === "SCHEDULED",
     );
     const inProgressSchedules = schedules.filter(
-      (item) => item.status === "IN_PROGRESS"
+      (item) => item.status === "IN_PROGRESS",
     );
 
     const activeRoutes = routes.filter(
-      (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS"
+      (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS",
     );
 
     const activeCollections = collections.filter(
-      (item) => item.status === "IN_PROGRESS"
+      (item) => item.status === "IN_PROGRESS",
     );
 
     const pendingCollections = collections.filter(
-      (item) => item.status === "PENDING"
+      (item) => item.status === "PENDING",
     );
 
     const highlightedSchedules = [...schedules]
@@ -594,14 +594,14 @@ export default function CooperativeHomeScreen() {
         (item) =>
           item.status === "REQUESTED" ||
           item.status === "SCHEDULED" ||
-          item.status === "IN_PROGRESS"
+          item.status === "IN_PROGRESS",
       )
       .sort((a, b) => {
         const aTime = new Date(
-          a.scheduledDate || a.preferredDate || a.createdAt || 0
+          a.scheduledDate || a.preferredDate || a.createdAt || 0,
         ).getTime();
         const bTime = new Date(
-          b.scheduledDate || b.preferredDate || b.createdAt || 0
+          b.scheduledDate || b.preferredDate || b.createdAt || 0,
         ).getTime();
         return aTime - bTime;
       })
@@ -637,7 +637,7 @@ export default function CooperativeHomeScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -666,7 +666,9 @@ export default function CooperativeHomeScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity onPress={() => router.replace("/(public)/access-type")}>
+          <TouchableOpacity
+            onPress={() => router.replace("/(public)/access-type")}
+          >
             <Ionicons name="log-out-outline" size={28} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -870,7 +872,9 @@ export default function CooperativeHomeScreen() {
                       >
                         Data:{" "}
                         {formatDateTime(
-                          item.scheduledDate || item.preferredDate || item.createdAt
+                          item.scheduledDate ||
+                            item.preferredDate ||
+                            item.createdAt,
                         )}
                       </Text>
 
@@ -882,7 +886,9 @@ export default function CooperativeHomeScreen() {
                         }}
                       >
                         Materiais:{" "}
-                        {materials.length > 0 ? materials.join(", ") : "Não informado"}
+                        {materials.length > 0
+                          ? materials.join(", ")
+                          : "Não informado"}
                       </Text>
                     </View>
 
@@ -1112,6 +1118,12 @@ export default function CooperativeHomeScreen() {
             flexWrap: "wrap",
           }}
         >
+          <View style={{ width: "100%", marginBottom: 16 }}>
+            <Action
+              label="Recebimento, triagem e ocorrências"
+              onPress={() => router.push("/(cooperativa)/operations")}
+            />
+          </View>
           <MenuCard
             title="PEQUENO GERADOR"
             subtitle="Cadastre, acompanhe e gerencie pequenos geradores."

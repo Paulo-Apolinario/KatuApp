@@ -147,10 +147,14 @@ async function syncRouteStatus(payload: SyncRoutePayload) {
 }
 
 async function syncFieldAction(
-  payload: { id: string; action: "start" | "complete-field"; body: unknown },
+  payload: {
+    id: string;
+    action: "start" | "complete-field" | "report-incident";
+    body: unknown;
+  },
   currentId: string,
 ) {
-  if (!["start", "complete-field"].includes(payload.action))
+  if (!["start", "complete-field", "report-incident"].includes(payload.action))
     throw new Error("Etapa de campo inválida.");
   const response = await api.post<UpdateCollectionStatusApiResponse>(
     `/collections/${payload.id}/${payload.action}`,
@@ -171,8 +175,15 @@ async function syncFieldAction(
     collection = {
       ...collection,
       ...item.payload.body,
-      ...(item.payload.localMaterials ? { materials: item.payload.localMaterials } : {}),
-      status: item.payload.action === "start" ? "IN_PROGRESS" : "COLLECTED",
+      ...(item.payload.localMaterials
+        ? { materials: item.payload.localMaterials }
+        : {}),
+      status:
+        item.payload.action === "start"
+          ? "IN_PROGRESS"
+          : item.payload.action === "report-incident"
+            ? collection.status
+            : "COLLECTED",
       syncStatus: "PENDING",
     };
   }

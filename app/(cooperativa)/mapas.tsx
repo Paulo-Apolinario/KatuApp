@@ -1,3 +1,8 @@
+import { useAuth } from "@/src/contexts/AuthContext";
+import {
+  collectionOrigin,
+  validCoordinates,
+} from "@/src/utils/collectionOrigin";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -188,7 +193,12 @@ function normalizeSchedulePoints(schedules: Schedule[]): MapOperationalPoint[] {
       ["REQUESTED", "SCHEDULED", "IN_PROGRESS"].includes(item.status),
     )
     .map((item) => {
-      const coordinates = getGeneratorCoordinates(item.generator);
+      const coordinates = getGeneratorCoordinates(
+        item.generator || {
+          latitude: item.pickupLatitude,
+          longitude: item.pickupLongitude,
+        },
+      );
 
       if (!coordinates) return null;
 
@@ -202,7 +212,10 @@ function normalizeSchedulePoints(schedules: Schedule[]): MapOperationalPoint[] {
           item.generator?.name ||
           item.requestedBy?.displayName ||
           "Solicitação operacional",
-        address: item.generator?.address || "Endereço não informado",
+        address:
+          item.generator?.address ||
+          item.pickupAddress ||
+          "Endereço não informado",
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
         status: item.status as PointStatus,
@@ -225,7 +238,7 @@ function normalizeCollectionPoints(
       (item) => item.status === "PENDING" || item.status === "IN_PROGRESS",
     )
     .map((item) => {
-      const generator = item.generator || item.schedule?.generator;
+      const generator = collectionOrigin(item);
       const coordinates = getGeneratorCoordinates(generator);
 
       if (!coordinates) return null;
@@ -234,6 +247,8 @@ function normalizeCollectionPoints(
         id: `collection-${item.id}`,
         scheduleId: item.scheduleId || item.schedule?.id || "",
         collectionId: item.id,
+        order:
+          (item.route?.collectionOrder || []).indexOf(item.id) + 1 || undefined,
         sourceType: "COLLECTION" as const,
         title:
           generator?.companyName ||
@@ -266,8 +281,27 @@ function normalizeCollectionPoints(
 
 export default function CooperativeMapScreen() {
   const gps = useForegroundLocation();
+  const { user } = useAuth();
+  const headquarters =
+    (user as any)?.cooperative || (user as any)?.collector?.cooperative;
+  const headquartersPoint = validCoordinates(
+    headquarters?.latitude,
+    headquarters?.longitude,
+  )
+    ? [
+        {
+          id: "headquarters",
+          title: "Sede da cooperativa",
+          latitude: Number(headquarters.latitude),
+          longitude: Number(headquarters.longitude),
+          description: headquarters.name || "Sede",
+          color: "#065F46",
+        },
+      ]
+    : [];
+  const retryGps = gps.retry;
   const { isOffline } = useConnectivity();
-  const { notifyError, notifyWarning, notifyInfo } = useNotification();
+  const { notifyError, notifyInfo } = useNotification();
 
   const [loadingData, setLoadingData] = useState(true);
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
@@ -282,8 +316,8 @@ export default function CooperativeMapScreen() {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadLocation = useCallback(async () => {
-    gps.retry();
-  }, [gps.retry]);
+    retryGps();
+  }, [retryGps]);
   useEffect(() => {
     if (gps.position)
       setRegion((p) => ({
@@ -323,7 +357,7 @@ export default function CooperativeMapScreen() {
 
         return stillExists;
       });
-      setLastSyncAt(new Date().toISOString());
+      setLastSyncAt(collectionService.getLastRemoteSyncAt());
     } catch (error) {
       console.error("Erro ao carregar mapa operacional:", error);
       notifyError(
@@ -366,14 +400,15 @@ export default function CooperativeMapScreen() {
   }, [filteredByStatus, selectedRouteId, viewMode]);
 
   const orderedPoints = useMemo(() => {
+    if (viewMode === "ROUTE_ONLY")
+      return [...routeFocusedPoints].sort(
+        (a, b) => (a.order || 9999) - (b.order || 9999),
+      );
     return optimizeRouteByNearestNeighbor(
-      {
-        latitude: region.latitude,
-        longitude: region.longitude,
-      },
+      { latitude: region.latitude, longitude: region.longitude },
       routeFocusedPoints,
     );
-  }, [routeFocusedPoints, region.latitude, region.longitude]);
+  }, [routeFocusedPoints, region.latitude, region.longitude, viewMode]);
 
   const allRouteOptions = useMemo(() => {
     const grouped = new Map<
@@ -422,7 +457,9 @@ export default function CooperativeMapScreen() {
   const selectedRouteCoordinates = useMemo(() => {
     if (viewMode === "ROUTE_ONLY" && orderedPoints.length > 0) {
       return [
-        { latitude: region.latitude, longitude: region.longitude },
+        ...(gps.position
+          ? [{ latitude: region.latitude, longitude: region.longitude }]
+          : []),
         ...orderedPoints.map((item) => ({
           latitude: item.latitude,
           longitude: item.longitude,
@@ -430,7 +467,7 @@ export default function CooperativeMapScreen() {
       ];
     }
 
-    if (!selectedPoint) return [];
+    if (!selectedPoint || !gps.position) return [];
 
     return [
       { latitude: region.latitude, longitude: region.longitude },
@@ -442,6 +479,7 @@ export default function CooperativeMapScreen() {
     selectedPoint,
     orderedPoints,
     viewMode,
+    gps.position,
   ]);
 
   const summary = useMemo(() => {
@@ -500,11 +538,11 @@ export default function CooperativeMapScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 48,
+          paddingTop: 20,
           paddingBottom: 18,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 26,
@@ -677,7 +715,7 @@ export default function CooperativeMapScreen() {
 
         <View
           style={{
-            height: 340,
+            height: Platform.OS === "web" ? undefined : 340,
             marginTop: 14,
             marginHorizontal: 16,
             borderRadius: 22,
@@ -704,21 +742,24 @@ export default function CooperativeMapScreen() {
               baseLabel={gps.position ? "Minha posição" : null}
               baseLatitude={region.latitude}
               baseLongitude={region.longitude}
-              points={orderedPoints.map((point) => ({
-                id: point.id,
-                latitude: point.latitude,
-                longitude: point.longitude,
-                title:
-                  point.order && viewMode === "ROUTE_ONLY"
-                    ? `${point.order}. ${point.title}`
-                    : point.title,
-                description: point.address,
-                color:
-                  selectedPoint?.id === point.id
-                    ? "#111827"
-                    : getMarkerColor(point.status),
-              }))}
-              routeCoordinates={gps.position ? selectedRouteCoordinates : []}
+              points={[
+                ...headquartersPoint,
+                ...orderedPoints.map((point) => ({
+                  id: point.id,
+                  latitude: point.latitude,
+                  longitude: point.longitude,
+                  title:
+                    point.order && viewMode === "ROUTE_ONLY"
+                      ? `${point.order}. ${point.title}`
+                      : point.title,
+                  description: point.address,
+                  color:
+                    selectedPoint?.id === point.id
+                      ? "#111827"
+                      : getMarkerColor(point.status),
+                })),
+              ]}
+              routeCoordinates={selectedRouteCoordinates}
               selectedPointId={selectedPoint?.id ?? null}
               onSelectPoint={(pointId: string) => {
                 if (pointId === "__base__") {

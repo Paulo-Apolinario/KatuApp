@@ -46,7 +46,9 @@ export default function PFHomeScreen() {
       if (!servicesEnabled) {
         setCurrentCity("Localização desativada");
         setLocationError(true);
-        notifyWarning("Ative a localização do aparelho para mostrar a cidade atual.");
+        notifyWarning(
+          "Ative a localização do aparelho para mostrar a cidade atual.",
+        );
         return;
       }
 
@@ -56,7 +58,9 @@ export default function PFHomeScreen() {
         setCurrentCity("Permissão negada");
         setLocationError(true);
 
-        notifyWarning("Precisamos da sua localização para mostrar a cidade atual.");
+        notifyWarning(
+          "Precisamos da sua localização para mostrar a cidade atual.",
+        );
         return;
       }
 
@@ -97,7 +101,7 @@ export default function PFHomeScreen() {
   useFocusEffect(
     useCallback(() => {
       getUserLocation();
-    }, [getUserLocation])
+    }, [getUserLocation]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -274,25 +278,6 @@ export default function PFHomeScreen() {
             title="Calculadora"
             subtitle="Acessar recursos complementares"
             onPress={() => router.push("/(pf-tabs)/calculator")}
-          />
-          <QuickAction
-            icon="scan-outline"
-            title="NFC"
-            subtitle="Explorar integração futura"
-            onPress={() => router.push("/(pf-tabs)/nfc")}
-          />
-          <QuickAction
-            icon="storefront-outline"
-            title="Loja"
-            subtitle="Ver benefícios e itens disponíveis"
-            onPress={() => router.push("/(pf-tabs)/store")}
-          />
-          <QuickAction
-            icon="chatbubble-outline"
-            title="Chat"
-            subtitle="Abrir comunicação da conta"
-            onPress={() => router.push("/(pf-tabs)/chat")}
-            isLast
           />
         </View>
       </View>

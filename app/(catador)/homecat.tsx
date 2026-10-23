@@ -139,12 +139,10 @@ function normalizeMaterials(value: unknown): CollectionMaterial[] {
           material.type ??
           material.nameSnapshot ??
           material.materialNameSnapshot ??
-          "Material"
+          "Material",
       ).trim();
 
-      const unit = String(
-        material.unit || "KG"
-      ).toUpperCase() as WasteUnit;
+      const unit = String(material.unit || "KG").toUpperCase() as WasteUnit;
 
       const quantity =
         material.quantity !== undefined
@@ -166,9 +164,7 @@ function normalizeMaterials(value: unknown): CollectionMaterial[] {
         type: name,
         name,
         category:
-          typeof material.category === "string"
-            ? material.category
-            : null,
+          typeof material.category === "string" ? material.category : null,
         subcategory:
           typeof material.subcategory === "string"
             ? material.subcategory
@@ -176,72 +172,50 @@ function normalizeMaterials(value: unknown): CollectionMaterial[] {
         quantity,
         quantityKg,
         unit,
-        notes:
-          typeof material.notes === "string"
-            ? material.notes
-            : null,
+        notes: typeof material.notes === "string" ? material.notes : null,
       };
     })
     .filter((item): item is CollectionMaterial => item !== null);
 }
 
 function getCollectionMaterials(collection: Collection) {
-  const collectedMaterials = normalizeMaterials(
-    collection.materials
-  );
+  const collectedMaterials = normalizeMaterials(collection.materials);
 
   if (collectedMaterials.length > 0) {
     return collectedMaterials;
   }
 
   const requestedMaterials = normalizeMaterials(
-    collection.schedule?.requestedMaterials
+    collection.schedule?.requestedMaterials,
   );
 
   if (requestedMaterials.length > 0) {
     return requestedMaterials;
   }
 
-  return normalizeMaterials(
-    collection.collectionMaterials
-  );
+  return normalizeMaterials(collection.collectionMaterials);
 }
 
 function getCollectionTotalKg(collection: Collection) {
-  const explicitWeight = safeNumber(
-    collection.totalWeightKg
-  );
+  const explicitWeight = safeNumber(collection.totalWeightKg);
 
   if (explicitWeight > 0) {
     return explicitWeight;
   }
 
-  return getCollectionMaterials(collection).reduce(
-    (sum, material) => {
-      if (safeNumber(material.quantityKg) > 0) {
-        return (
-          sum + safeNumber(material.quantityKg)
-        );
-      }
+  return getCollectionMaterials(collection).reduce((sum, material) => {
+    if (safeNumber(material.quantityKg) > 0) {
+      return sum + safeNumber(material.quantityKg);
+    }
 
-      return (
-        sum +
-        quantityToKg(
-          safeNumber(material.quantity),
-          material.unit || "KG"
-        )
-      );
-    },
-    0
-  );
+    return (
+      sum + quantityToKg(safeNumber(material.quantity), material.unit || "KG")
+    );
+  }, 0);
 }
 
 function getCollectionGenerator(collection: Collection) {
-  return (
-    collection.generator ??
-    collection.schedule?.generator ??
-    null
-  );
+  return collection.generator ?? collection.schedule?.generator ?? null;
 }
 
 function getSourceName(collection: Collection) {
@@ -259,9 +233,7 @@ function getSourceName(collection: Collection) {
     return generator.name;
   }
 
-  if (
-    collection.schedule?.requestedBy?.displayName
-  ) {
+  if (collection.schedule?.requestedBy?.displayName) {
     return collection.schedule.requestedBy.displayName;
   }
 
@@ -273,10 +245,7 @@ function getSourceName(collection: Collection) {
 }
 
 function getAddress(collection: Collection) {
-  return (
-    getCollectionGenerator(collection)?.address ||
-    "-"
-  );
+  return getCollectionGenerator(collection)?.address || "-";
 }
 
 function getReferenceDate(collection: Collection) {
@@ -297,16 +266,10 @@ function formatMaterials(materials: CollectionMaterial[]) {
 
   return materials
     .map((item) => {
-      const quantity =
-        safeNumber(item.quantity) ||
-        safeNumber(item.quantityKg);
+      const quantity = safeNumber(item.quantity) || safeNumber(item.quantityKg);
 
       return `${item.name || item.type || "Material"}${
-        quantity > 0
-          ? ` • ${quantity.toFixed(1)} ${formatUnit(
-              item.unit
-            )}`
-          : ""
+        quantity > 0 ? ` • ${quantity.toFixed(1)} ${formatUnit(item.unit)}` : ""
       }`;
     })
     .join("\n");
@@ -353,9 +316,7 @@ function isToday(dateString?: string | null) {
   );
 }
 
-function calculateEnvironmentalMetrics(
-  totalKg: number
-): EnvironmentalMetrics {
+function calculateEnvironmentalMetrics(totalKg: number): EnvironmentalMetrics {
   return {
     co2AvoidedKg: totalKg * 1.5,
     treesEquivalent: totalKg / 100,
@@ -370,12 +331,9 @@ export default function HomeCatScreen() {
   const { notifyError } = useNotification();
 
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] =
-    useState(false);
-  const [collections, setCollections] =
-    useState<Collection[]>([]);
-  const [lastSyncAt, setLastSyncAt] =
-    useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const loadCollections = useCallback(
     async (showLoader = true) => {
@@ -384,22 +342,16 @@ export default function HomeCatScreen() {
           setLoading(true);
         }
 
-        const data =
-          await collectionService.list();
+        const data = await collectionService.list();
 
-        setCollections(
-          Array.isArray(data) ? data : []
-        );
+        setCollections(Array.isArray(data) ? data : []);
         setLastSyncAt(new Date().toISOString());
       } catch (error) {
-        console.error(
-          "Erro ao carregar painel do catador:",
-          error
-        );
-        notifyError(
-          "Erro",
-          "Não foi possível carregar o painel do catador."
-        );
+        console.error("Erro ao carregar painel do catador:", error);
+        notifyError({
+          message: "Não foi possível carregar o painel do catador.",
+          title: "Erro",
+        });
         setCollections([]);
       } finally {
         if (showLoader) {
@@ -409,13 +361,13 @@ export default function HomeCatScreen() {
         setRefreshing(false);
       }
     },
-    [notifyError]
+    [notifyError],
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadCollections(true);
-    }, [loadCollections])
+    }, [loadCollections]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -428,134 +380,78 @@ export default function HomeCatScreen() {
   }, [signOut]);
 
   const metrics = useMemo(() => {
-    const pendingCollections =
-      collections.filter(
-        (item) => item.status === "PENDING"
-      );
+    const pendingCollections = collections.filter(
+      (item) => item.status === "PENDING",
+    );
 
-    const inProgressCollections =
-      collections.filter(
-        (item) =>
-          item.status === "IN_PROGRESS"
-      );
+    const inProgressCollections = collections.filter(
+      (item) => item.status === "IN_PROGRESS",
+    );
 
-    const collectedCollections =
-      collections.filter((item) =>
-        COLLECTED_STATUSES.includes(
-          item.status
-        )
-      );
+    const collectedCollections = collections.filter((item) =>
+      COLLECTED_STATUSES.includes(item.status),
+    );
 
-    const todayCollectedCollections =
-      collectedCollections.filter((item) =>
-        isToday(
-          item.collectedAt ||
-            item.completedAt ||
-            item.createdAt
-        )
-      );
+    const todayCollectedCollections = collectedCollections.filter((item) =>
+      isToday(item.collectedAt || item.completedAt || item.createdAt),
+    );
 
-    const totalCollectedTodayKg =
-      todayCollectedCollections.reduce(
-        (sum, item) =>
-          sum + getCollectionTotalKg(item),
-        0
-      );
+    const totalCollectedTodayKg = todayCollectedCollections.reduce(
+      (sum, item) => sum + getCollectionTotalKg(item),
+      0,
+    );
 
     const activeOperation =
-      inProgressCollections[0] ||
-      pendingCollections[0] ||
-      null;
+      inProgressCollections[0] || pendingCollections[0] || null;
 
-    const nextCollections = [
-      ...pendingCollections,
-      ...inProgressCollections,
-    ]
+    const nextCollections = [...pendingCollections, ...inProgressCollections]
       .sort((a, b) => {
-        if (
-          a.status === "IN_PROGRESS" &&
-          b.status !== "IN_PROGRESS"
-        ) {
+        if (a.status === "IN_PROGRESS" && b.status !== "IN_PROGRESS") {
           return -1;
         }
 
-        if (
-          b.status === "IN_PROGRESS" &&
-          a.status !== "IN_PROGRESS"
-        ) {
+        if (b.status === "IN_PROGRESS" && a.status !== "IN_PROGRESS") {
           return 1;
         }
 
         const aTime = getReferenceDate(a)
-          ? new Date(
-              getReferenceDate(a) as string
-            ).getTime()
+          ? new Date(getReferenceDate(a) as string).getTime()
           : Number.MAX_SAFE_INTEGER;
 
         const bTime = getReferenceDate(b)
-          ? new Date(
-              getReferenceDate(b) as string
-            ).getTime()
+          ? new Date(getReferenceDate(b) as string).getTime()
           : Number.MAX_SAFE_INTEGER;
 
         return aTime - bTime;
       })
       .slice(0, 5);
 
-    const recentCollections = [
-      ...collectedCollections,
-    ]
+    const recentCollections = [...collectedCollections]
       .sort((a, b) => {
-        const aDate =
-          a.collectedAt ||
-          a.completedAt ||
-          a.createdAt ||
-          "";
+        const aDate = a.collectedAt || a.completedAt || a.createdAt || "";
 
-        const bDate =
-          b.collectedAt ||
-          b.completedAt ||
-          b.createdAt ||
-          "";
+        const bDate = b.collectedAt || b.completedAt || b.createdAt || "";
 
-        return (
-          new Date(bDate).getTime() -
-          new Date(aDate).getTime()
-        );
+        return new Date(bDate).getTime() - new Date(aDate).getTime();
       })
       .slice(0, 4);
 
-    const environmental =
-      calculateEnvironmentalMetrics(
-        totalCollectedTodayKg
-      );
+    const environmental = calculateEnvironmentalMetrics(totalCollectedTodayKg);
 
-    const totalCollectedAllTimeKg =
-      collectedCollections.reduce(
-        (sum, item) =>
-          sum + getCollectionTotalKg(item),
-        0
-      );
+    const totalCollectedAllTimeKg = collectedCollections.reduce(
+      (sum, item) => sum + getCollectionTotalKg(item),
+      0,
+    );
 
     const uniqueWorkDays = new Set(
       collectedCollections
-        .map(
-          (item) =>
-            item.collectedAt ||
-            item.completedAt ||
-            item.createdAt
-        )
+        .map((item) => item.collectedAt || item.completedAt || item.createdAt)
         .filter(Boolean)
-        .map((date) =>
-          new Date(date as string).toDateString()
-        )
+        .map((date) => new Date(date as string).toDateString()),
     ).size;
 
     const dailyAverageKg =
-      uniqueWorkDays > 0
-        ? totalCollectedAllTimeKg /
-          uniqueWorkDays
-        : 0;
+      uniqueWorkDays > 0 ? totalCollectedAllTimeKg / uniqueWorkDays : 0;
 
     return {
       pendingCollections,
@@ -583,10 +479,7 @@ export default function HomeCatScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator
-          size="large"
-          color="#028C56"
-        />
+        <ActivityIndicator size="large" color="#028C56" />
 
         <Text
           style={{
@@ -612,10 +505,7 @@ export default function HomeCatScreen() {
           flex: 1,
         }}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
@@ -653,18 +543,13 @@ export default function HomeCatScreen() {
                   width: 54,
                   height: 54,
                   borderRadius: 27,
-                  backgroundColor:
-                    "rgba(255,255,255,0.18)",
+                  backgroundColor: "rgba(255,255,255,0.18)",
                   alignItems: "center",
                   justifyContent: "center",
                   marginRight: 12,
                 }}
               >
-                <Ionicons
-                  name="person-outline"
-                  size={28}
-                  color="#FFFFFF"
-                />
+                <Ionicons name="person-outline" size={28} color="#FFFFFF" />
               </View>
 
               <View style={{ flex: 1 }}>
@@ -701,8 +586,7 @@ export default function HomeCatScreen() {
                       height: 8,
                       borderRadius: 4,
                       backgroundColor:
-                        metrics.inProgressCollections
-                          .length > 0
+                        metrics.inProgressCollections.length > 0
                           ? "#FDE68A"
                           : "#BBF7D0",
                       marginRight: 6,
@@ -716,8 +600,7 @@ export default function HomeCatScreen() {
                       fontWeight: "700",
                     }}
                   >
-                    {metrics.inProgressCollections
-                      .length > 0
+                    {metrics.inProgressCollections.length > 0
                       ? "Em rota"
                       : "Disponível"}
                   </Text>
@@ -729,8 +612,7 @@ export default function HomeCatScreen() {
               activeOpacity={0.85}
               onPress={handleSignOut}
               style={{
-                backgroundColor:
-                  "rgba(255,255,255,0.18)",
+                backgroundColor: "rgba(255,255,255,0.18)",
                 borderRadius: 999,
                 paddingHorizontal: 12,
                 paddingVertical: 8,
@@ -739,11 +621,7 @@ export default function HomeCatScreen() {
                 marginLeft: 8,
               }}
             >
-              <Ionicons
-                name="log-out-outline"
-                size={18}
-                color="#FFFFFF"
-              />
+              <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
 
               <Text
                 style={{
@@ -766,7 +644,8 @@ export default function HomeCatScreen() {
               lineHeight: 22,
             }}
           >
-            Consulte sua próxima coleta, rota do dia, desempenho e ações rápidas em um único lugar.
+            Consulte sua próxima coleta, rota do dia, desempenho e ações rápidas
+            em um único lugar.
           </Text>
 
           <View
@@ -778,11 +657,7 @@ export default function HomeCatScreen() {
             <HeaderActionButton
               icon="trash-outline"
               label="Executar coleta"
-              onPress={() =>
-                router.push(
-                  "/(catador)/collect"
-                )
-              }
+              onPress={() => router.push("/(catador)/collect")}
               style={{
                 flex: 1,
                 marginRight: 10,
@@ -792,11 +667,7 @@ export default function HomeCatScreen() {
             <HeaderActionButton
               icon="map-outline"
               label="Mapa"
-              onPress={() =>
-                router.push(
-                  "/(catador)/mapas"
-                )
-              }
+              onPress={() => router.push("/(catador)/mapas")}
               style={{ flex: 1 }}
             />
           </View>
@@ -808,9 +679,7 @@ export default function HomeCatScreen() {
             paddingTop: 14,
           }}
         >
-          <OfflineBanner
-            visible={isOffline}
-          />
+          <OfflineBanner visible={isOffline} />
         </View>
 
         <View
@@ -819,9 +688,7 @@ export default function HomeCatScreen() {
             paddingTop: 12,
           }}
         >
-          <LastSyncBadge
-            value={lastSyncAt}
-          />
+          <LastSyncBadge value={lastSyncAt} />
         </View>
 
         <View
@@ -844,34 +711,25 @@ export default function HomeCatScreen() {
           >
             <MetricCard
               title="Pendentes"
-              value={String(
-                metrics.pendingCollections.length
-              )}
+              value={String(metrics.pendingCollections.length)}
               icon="time-outline"
             />
 
             <MetricCard
               title="Em andamento"
-              value={String(
-                metrics.inProgressCollections
-                  .length
-              )}
+              value={String(metrics.inProgressCollections.length)}
               icon="navigate-outline"
             />
 
             <MetricCard
               title="Realizadas"
-              value={String(
-                metrics.collectedCollections.length
-              )}
+              value={String(metrics.collectedCollections.length)}
               icon="checkmark-circle-outline"
             />
 
             <MetricCard
               title="Peso do dia"
-              value={`${metrics.totalCollectedTodayKg.toFixed(
-                1
-              )} kg`}
+              value={`${metrics.totalCollectedTodayKg.toFixed(1)} kg`}
               icon="scale-outline"
             />
           </View>
@@ -896,9 +754,7 @@ export default function HomeCatScreen() {
                       height: 46,
                       borderRadius: 23,
                       backgroundColor:
-                        metrics.activeOperation
-                          .status ===
-                        "IN_PROGRESS"
+                        metrics.activeOperation.status === "IN_PROGRESS"
                           ? "#FEF3C7"
                           : "#DBEAFE",
                       alignItems: "center",
@@ -908,17 +764,13 @@ export default function HomeCatScreen() {
                   >
                     <Ionicons
                       name={
-                        metrics.activeOperation
-                          .status ===
-                        "IN_PROGRESS"
+                        metrics.activeOperation.status === "IN_PROGRESS"
                           ? "navigate-outline"
                           : "time-outline"
                       }
                       size={22}
                       color={
-                        metrics.activeOperation
-                          .status ===
-                        "IN_PROGRESS"
+                        metrics.activeOperation.status === "IN_PROGRESS"
                           ? "#D97706"
                           : "#2563EB"
                       }
@@ -927,17 +779,13 @@ export default function HomeCatScreen() {
 
                   <View style={{ flex: 1 }}>
                     <Text style={itemTitle}>
-                      {getSourceName(
-                        metrics.activeOperation
-                      )}
+                      {getSourceName(metrics.activeOperation)}
                     </Text>
 
                     <Text
                       style={{
                         color:
-                          metrics.activeOperation
-                            .status ===
-                          "IN_PROGRESS"
+                          metrics.activeOperation.status === "IN_PROGRESS"
                             ? "#D97706"
                             : "#2563EB",
                         fontWeight: "800",
@@ -945,43 +793,34 @@ export default function HomeCatScreen() {
                         marginTop: 4,
                       }}
                     >
-                      {translateStatus(
-                        metrics.activeOperation
-                          .status
-                      )}
+                      {translateStatus(metrics.activeOperation.status)}
                     </Text>
                   </View>
                 </View>
 
                 <InfoRow
                   label="Endereço"
-                  value={getAddress(
-                    metrics.activeOperation
-                  )}
+                  value={getAddress(metrics.activeOperation)}
                 />
 
                 <InfoRow
                   label="Data e horário"
                   value={formatDateTime(
-                    getReferenceDate(
-                      metrics.activeOperation
-                    )
+                    getReferenceDate(metrics.activeOperation),
                   )}
                 />
 
                 <InfoRow
                   label="Peso previsto"
                   value={`${getCollectionTotalKg(
-                    metrics.activeOperation
+                    metrics.activeOperation,
                   ).toFixed(1)} kg`}
                 />
 
                 <InfoRow
                   label="Materiais"
                   value={formatMaterials(
-                    getCollectionMaterials(
-                      metrics.activeOperation
-                    )
+                    getCollectionMaterials(metrics.activeOperation),
                   )}
                   isLast
                 />
@@ -995,20 +834,15 @@ export default function HomeCatScreen() {
                   <QuickMiniButton
                     icon="play-outline"
                     label={
-                      metrics.activeOperation
-                        .status === "PENDING"
+                      metrics.activeOperation.status === "PENDING"
                         ? "Iniciar"
                         : "Continuar"
                     }
                     onPress={() =>
                       router.push({
-                        pathname:
-                          "/(catador)/collect",
+                        pathname: "/(catador)/collect",
                         params: {
-                          collectionId:
-                            metrics
-                              .activeOperation
-                              ?.id,
+                          collectionId: metrics.activeOperation?.id,
                         },
                       })
                     }
@@ -1021,13 +855,9 @@ export default function HomeCatScreen() {
                     label="Ver mapa"
                     onPress={() =>
                       router.push({
-                        pathname:
-                          "/(catador)/mapas",
+                        pathname: "/(catador)/mapas",
                         params: {
-                          collectionId:
-                            metrics
-                              .activeOperation
-                              ?.id,
+                          collectionId: metrics.activeOperation?.id,
                         },
                       })
                     }
@@ -1049,33 +879,23 @@ export default function HomeCatScreen() {
           />
 
           <View style={sectionCard}>
-            {metrics.nextCollections.length >
-            0 ? (
-              metrics.nextCollections.map(
-                (item, index) => (
-                  <RouteItem
-                    key={item.id}
-                    position={index + 1}
-                    collection={item}
-                    isLast={
-                      index ===
-                      metrics.nextCollections
-                        .length -
-                        1
-                    }
-                    onPress={() =>
-                      router.push({
-                        pathname:
-                          "/(catador)/mapas",
-                        params: {
-                          collectionId:
-                            item.id,
-                        },
-                      })
-                    }
-                  />
-                )
-              )
+            {metrics.nextCollections.length > 0 ? (
+              metrics.nextCollections.map((item, index) => (
+                <RouteItem
+                  key={item.id}
+                  position={index + 1}
+                  collection={item}
+                  isLast={index === metrics.nextCollections.length - 1}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(catador)/mapas",
+                      params: {
+                        collectionId: item.id,
+                      },
+                    })
+                  }
+                />
+              ))
             ) : (
               <EmptyState
                 icon="map-outline"
@@ -1100,33 +920,25 @@ export default function HomeCatScreen() {
             <EnvironmentalCard
               icon="leaf-outline"
               title="CO₂ evitado"
-              value={`${metrics.environmental.co2AvoidedKg.toFixed(
-                1
-              )} kg`}
+              value={`${metrics.environmental.co2AvoidedKg.toFixed(1)} kg`}
             />
 
             <EnvironmentalCard
               icon="water-outline"
               title="Água economizada"
-              value={`${metrics.environmental.waterSavedLiters.toFixed(
-                0
-              )} L`}
+              value={`${metrics.environmental.waterSavedLiters.toFixed(0)} L`}
             />
 
             <EnvironmentalCard
               icon="flash-outline"
               title="Energia economizada"
-              value={`${metrics.environmental.energySavedKwh.toFixed(
-                1
-              )} kWh`}
+              value={`${metrics.environmental.energySavedKwh.toFixed(1)} kWh`}
             />
 
             <EnvironmentalCard
               icon="leaf-outline"
               title="Árvores equivalentes"
-              value={metrics.environmental.treesEquivalent.toFixed(
-                2
-              )}
+              value={metrics.environmental.treesEquivalent.toFixed(2)}
             />
           </View>
 
@@ -1138,33 +950,25 @@ export default function HomeCatScreen() {
           <View style={sectionCard}>
             <PerformanceRow
               label="Coletas realizadas"
-              value={String(
-                metrics.collectedCollections.length
-              )}
+              value={String(metrics.collectedCollections.length)}
               icon="checkmark-circle-outline"
             />
 
             <PerformanceRow
               label="Peso acumulado"
-              value={`${metrics.totalCollectedAllTimeKg.toFixed(
-                1
-              )} kg`}
+              value={`${metrics.totalCollectedAllTimeKg.toFixed(1)} kg`}
               icon="scale-outline"
             />
 
             <PerformanceRow
               label="Dias trabalhados"
-              value={String(
-                metrics.uniqueWorkDays
-              )}
+              value={String(metrics.uniqueWorkDays)}
               icon="calendar-outline"
             />
 
             <PerformanceRow
               label="Média diária"
-              value={`${metrics.dailyAverageKg.toFixed(
-                1
-              )} kg`}
+              value={`${metrics.dailyAverageKg.toFixed(1)} kg`}
               icon="stats-chart-outline"
               isLast
             />
@@ -1174,28 +978,18 @@ export default function HomeCatScreen() {
             title="Coletas recentes"
             subtitle="Últimos registros realizados"
             actionLabel="Ver histórico"
-            onPress={() =>
-              router.push("/(catador)/data")
-            }
+            onPress={() => router.push("/(catador)/data")}
           />
 
           <View style={sectionCard}>
-            {metrics.recentCollections.length >
-            0 ? (
-              metrics.recentCollections.map(
-                (item, index) => (
-                  <RecentCollectionItem
-                    key={item.id}
-                    collection={item}
-                    isLast={
-                      index ===
-                      metrics.recentCollections
-                        .length -
-                        1
-                    }
-                  />
-                )
-              )
+            {metrics.recentCollections.length > 0 ? (
+              metrics.recentCollections.map((item, index) => (
+                <RecentCollectionItem
+                  key={item.id}
+                  collection={item}
+                  isLast={index === metrics.recentCollections.length - 1}
+                />
+              ))
             ) : (
               <EmptyState
                 icon="clipboard-outline"
@@ -1215,55 +1009,35 @@ export default function HomeCatScreen() {
               icon="trash-outline"
               title="Executar coleta"
               subtitle="Abrir a fila operacional delegada"
-              onPress={() =>
-                router.push(
-                  "/(catador)/collect"
-                )
-              }
+              onPress={() => router.push("/(catador)/collect")}
             />
 
             <QuickAction
               icon="map-outline"
               title="Mapa operacional"
               subtitle="Visualizar sua rota e os geradores"
-              onPress={() =>
-                router.push(
-                  "/(catador)/mapas"
-                )
-              }
+              onPress={() => router.push("/(catador)/mapas")}
             />
 
             <QuickAction
               icon="bar-chart-outline"
               title="Dados e histórico"
               subtitle="Acompanhar resultados e coletas anteriores"
-              onPress={() =>
-                router.push(
-                  "/(catador)/data"
-                )
-              }
+              onPress={() => router.push("/(catador)/data")}
             />
 
             <QuickAction
               icon="document-text-outline"
               title="Comprovantes"
               subtitle="Gerar e consultar comprovantes"
-              onPress={() =>
-                router.push(
-                  "/(catador)/receipts"
-                )
-              }
+              onPress={() => router.push("/(catador)/receipts")}
             />
 
             <QuickAction
               icon="person-outline"
               title="Perfil"
               subtitle="Consultar seus dados cadastrais"
-              onPress={() =>
-                router.push(
-                  "/(catador)/homecat"
-                )
-              }
+              onPress={() => router.push("/(catador)/profile")}
             />
 
             <QuickAction
@@ -1304,8 +1078,7 @@ function HeaderActionButton({
       onPress={onPress}
       style={[
         {
-          backgroundColor:
-            "rgba(255,255,255,0.18)",
+          backgroundColor: "rgba(255,255,255,0.18)",
           borderRadius: 16,
           paddingVertical: 14,
           paddingHorizontal: 16,
@@ -1316,11 +1089,7 @@ function HeaderActionButton({
         style,
       ]}
     >
-      <Ionicons
-        name={icon}
-        size={18}
-        color="#FFFFFF"
-      />
+      <Ionicons name={icon} size={18} color="#FFFFFF" />
 
       <Text
         style={{
@@ -1374,9 +1143,7 @@ function SectionHeader({
         </Text>
 
         {actionLabel && onPress ? (
-          <TouchableOpacity
-            onPress={onPress}
-          >
+          <TouchableOpacity onPress={onPress}>
             <Text
               style={{
                 color: "#028C56",
@@ -1438,11 +1205,7 @@ function MetricCard({
           marginBottom: 12,
         }}
       >
-        <Ionicons
-          name={icon}
-          size={22}
-          color="#028C56"
-        />
+        <Ionicons name={icon} size={22} color="#028C56" />
       </View>
 
       <Text
@@ -1499,11 +1262,7 @@ function EnvironmentalCard({
           justifyContent: "center",
         }}
       >
-        <Ionicons
-          name={icon}
-          size={20}
-          color="#15803D"
-        />
+        <Ionicons name={icon} size={20} color="#15803D" />
       </View>
 
       <Text
@@ -1597,11 +1356,7 @@ function QuickMiniButton({
         flexDirection: "row",
       }}
     >
-      <Ionicons
-        name={icon}
-        size={16}
-        color="#028C56"
-      />
+      <Ionicons name={icon} size={16} color="#028C56" />
 
       <Text
         style={{
@@ -1646,10 +1401,7 @@ function RouteItem({
           height: 38,
           borderRadius: 19,
           backgroundColor:
-            collection.status ===
-            "IN_PROGRESS"
-              ? "#FEF3C7"
-              : "#DBEAFE",
+            collection.status === "IN_PROGRESS" ? "#FEF3C7" : "#DBEAFE",
           alignItems: "center",
           justifyContent: "center",
           marginRight: 11,
@@ -1657,11 +1409,7 @@ function RouteItem({
       >
         <Text
           style={{
-            color:
-              collection.status ===
-              "IN_PROGRESS"
-                ? "#D97706"
-                : "#2563EB",
+            color: collection.status === "IN_PROGRESS" ? "#D97706" : "#2563EB",
             fontWeight: "900",
           }}
         >
@@ -1670,9 +1418,7 @@ function RouteItem({
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text style={itemTitle}>
-          {getSourceName(collection)}
-        </Text>
+        <Text style={itemTitle}>{getSourceName(collection)}</Text>
 
         <Text
           style={{
@@ -1691,22 +1437,13 @@ function RouteItem({
             marginTop: 4,
           }}
         >
-          {formatTime(
-            getReferenceDate(collection)
-          )}
+          {formatTime(getReferenceDate(collection))}
           {" • "}
-          {getCollectionTotalKg(
-            collection
-          ).toFixed(1)}{" "}
-          kg
+          {getCollectionTotalKg(collection).toFixed(1)} kg
         </Text>
       </View>
 
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color="#9CA3AF"
-      />
+      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
     </TouchableOpacity>
   );
 }
@@ -1744,11 +1481,7 @@ function PerformanceRow({
           marginRight: 12,
         }}
       >
-        <Ionicons
-          name={icon}
-          size={20}
-          color="#028C56"
-        />
+        <Ionicons name={icon} size={20} color="#028C56" />
       </View>
 
       <Text
@@ -1791,16 +1524,10 @@ function RecentCollectionItem({
         borderBottomColor: "#E5E7EB",
       }}
     >
-      <Text style={itemTitle}>
-        {getSourceName(collection)}
-      </Text>
+      <Text style={itemTitle}>{getSourceName(collection)}</Text>
 
       <Text style={itemText}>
-        Peso:{" "}
-        {getCollectionTotalKg(
-          collection
-        ).toFixed(1)}{" "}
-        kg
+        Peso: {getCollectionTotalKg(collection).toFixed(1)} kg
       </Text>
 
       <Text style={itemSubtext}>
@@ -1808,13 +1535,12 @@ function RecentCollectionItem({
         {formatDateTime(
           collection.collectedAt ||
             collection.completedAt ||
-            collection.createdAt
+            collection.createdAt,
         )}
       </Text>
 
       <Text style={itemSubtext}>
-        Status:{" "}
-        {translateStatus(collection.status)}
+        Status: {translateStatus(collection.status)}
       </Text>
     </View>
   );
@@ -1857,11 +1583,7 @@ function QuickAction({
           marginRight: 12,
         }}
       >
-        <Ionicons
-          name={icon}
-          size={22}
-          color="#028C56"
-        />
+        <Ionicons name={icon} size={22} color="#028C56" />
       </View>
 
       <View style={{ flex: 1 }}>
@@ -1887,11 +1609,7 @@ function QuickAction({
         </Text>
       </View>
 
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color="#9CA3AF"
-      />
+      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
     </TouchableOpacity>
   );
 }
@@ -1912,11 +1630,7 @@ function EmptyState({
         paddingVertical: 16,
       }}
     >
-      <Ionicons
-        name={icon}
-        size={42}
-        color="#9CA3AF"
-      />
+      <Ionicons name={icon} size={42} color="#9CA3AF" />
 
       <Text
         style={{

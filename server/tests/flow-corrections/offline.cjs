@@ -36,7 +36,19 @@ const api = {
     if (!operations.has(body.operationId)) {
       operations.add(body.operationId);
       if (url.endsWith("/start")) server = { ...server, status: "IN_PROGRESS" };
-      else {
+      else if (url.endsWith("/report-incident")) {
+        server = {
+          ...server,
+          incidents: [
+            ...(server.incidents || []),
+            {
+              id: body.operationId,
+              description: body.description,
+              status: "OPEN",
+            },
+          ],
+        };
+      } else {
         commits++;
         server = { ...server, status: "COLLECTED", materials: body.materials };
       }
@@ -246,9 +258,18 @@ async function seed(id) {
       assert.equal((await runtime.queue.getPendingSyncItems()).length, 0);
       assert.deepEqual(await runtime.service.list(), []);
       assert.equal((await runtime.engine.syncPendingOperations()).processed, 0);
-      await runtime.repo.upsertCollections([{ id: server.id, status: "PENDING", payload: { ...server, status: "PENDING" } }]);
+      await runtime.repo.upsertCollections([
+        {
+          id: server.id,
+          status: "PENDING",
+          payload: { ...server, status: "PENDING" },
+        },
+      ]);
       await login("catador-a");
-      assert.equal((await runtime.repo.getCollectionById(server.id)).payload.status, "IN_PROGRESS");
+      assert.equal(
+        (await runtime.repo.getCollectionById(server.id)).payload.status,
+        "IN_PROGRESS",
+      );
       assert.equal((await runtime.queue.getPendingSyncItems()).length, 1);
     },
   );
@@ -281,6 +302,29 @@ async function seed(id) {
         (await runtime.repo.getCollectionById(server.id)).status,
         "PENDING",
       );
+    },
+  );
+  await check(
+    "Ocorrência offline mantém etapa, sobrevive ao reinício e sincroniza uma vez",
+    async () => {
+      await seed("coleta-incidente");
+      networkFails = true;
+      const c = await runtime.service.reportIncident(
+        server.id,
+        "Portão fechado no horário combinado",
+      );
+      assert.equal(c.status, "PENDING");
+      assert.equal(c.syncStatus, "PENDING");
+      runtime = loadRuntime();
+      assert.equal((await runtime.queue.getPendingSyncItems()).length, 1);
+      networkFails = false;
+      assert.equal(
+        (await runtime.engine.syncPendingOperations()).success,
+        true,
+      );
+      assert.equal(server.status, "PENDING");
+      assert.equal(server.incidents.length, 1);
+      assert.equal((await runtime.queue.getPendingSyncItems()).length, 0);
     },
   );
   console.log(

@@ -22,7 +22,7 @@ export default function MotoristaEditProfileScreen() {
   const [phone, setPhone] = useState(user?.phone || "");
   const [cnh, setCnh] = useState(user?.driver?.cnh || "");
   const [cnhCategory, setCnhCategory] = useState(
-    user?.driver?.cnhCategory || ""
+    user?.driver?.cnhCategory || "",
   );
   const [notes, setNotes] = useState(user?.driver?.notes || "");
   const [loading, setLoading] = useState(false);
@@ -103,7 +103,9 @@ export default function MotoristaEditProfileScreen() {
             marginBottom: 16,
           }}
         >
-          <Text style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}>
+          <Text
+            style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}
+          >
             Nome
           </Text>
           <TextInput
@@ -120,7 +122,9 @@ export default function MotoristaEditProfileScreen() {
             }}
           />
 
-          <Text style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}>
+          <Text
+            style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}
+          >
             Telefone
           </Text>
           <TextInput
@@ -137,7 +141,9 @@ export default function MotoristaEditProfileScreen() {
             }}
           />
 
-          <Text style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}>
+          <Text
+            style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}
+          >
             CNH
           </Text>
           <TextInput
@@ -154,7 +160,9 @@ export default function MotoristaEditProfileScreen() {
             }}
           />
 
-          <Text style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}>
+          <Text
+            style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}
+          >
             Categoria CNH
           </Text>
           <TextInput
@@ -172,7 +180,9 @@ export default function MotoristaEditProfileScreen() {
             }}
           />
 
-          <Text style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}>
+          <Text
+            style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}
+          >
             Observações
           </Text>
           <TextInput
@@ -199,7 +209,7 @@ export default function MotoristaEditProfileScreen() {
           disabled={loading}
         >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#059669", "#028C56"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{

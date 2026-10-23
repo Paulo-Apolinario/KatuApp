@@ -101,7 +101,9 @@ export default function NovoPequenoGeradorScreen() {
 
   useEffect(() => {
     const nextLat =
-      typeof params.selectedLatitude === "string" ? params.selectedLatitude : "";
+      typeof params.selectedLatitude === "string"
+        ? params.selectedLatitude
+        : "";
     const nextLng =
       typeof params.selectedLongitude === "string"
         ? params.selectedLongitude
@@ -158,11 +160,14 @@ export default function NovoPequenoGeradorScreen() {
       setLoadingCep(true);
 
       const data = await api.getExternalJson<ViaCepResponse>(
-        `https://viacep.com.br/ws/${cleanCep}/json/`
+        `https://viacep.com.br/ws/${cleanCep}/json/`,
       );
 
       if (data.erro) {
-        notifyError("CEP não encontrado", "Verifique o CEP informado.");
+        notifyError({
+          message: "CEP não encontrado",
+          title: "Verifique o CEP informado.",
+        });
         return;
       }
 
@@ -188,7 +193,10 @@ export default function NovoPequenoGeradorScreen() {
       setAddress(nextAddress);
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
-      notifyError("Erro", "Não foi possível consultar o CEP.");
+      notifyError({
+        message: "Não foi possível consultar o CEP.",
+        title: "Erro",
+      });
     } finally {
       setLoadingCep(false);
     }
@@ -231,10 +239,10 @@ export default function NovoPequenoGeradorScreen() {
     const parsedLongitude = parseCoordinate(longitude);
 
     if (!companyName || !normalizedPhone || !normalizedEmail) {
-      notifyError(
-        "Atenção",
-        "Preencha nome do estabelecimento, telefone e email."
-      );
+      notifyError({
+        message: "Preencha nome do estabelecimento, telefone e email.",
+        title: "Atenção",
+      });
       return;
     }
 
@@ -244,10 +252,10 @@ export default function NovoPequenoGeradorScreen() {
       !cidade.trim() &&
       !(parsedLatitude !== undefined && parsedLongitude !== undefined)
     ) {
-      notifyError(
-        "Atenção",
-        "Informe o endereço ou selecione a localização no mapa."
-      );
+      notifyError({
+        message: "Informe o endereço ou selecione a localização no mapa.",
+        title: "Atenção",
+      });
       return;
     }
 
@@ -275,17 +283,18 @@ export default function NovoPequenoGeradorScreen() {
 
       generatorDraftStore.clear("SMALL");
 
-      notifySuccess(
-        "Gerador salvo com sucesso",
-        response.temporaryPassword
+      notifySuccess({
+        message: "Gerador salvo com sucesso",
+        title: response.temporaryPassword
           ? `O pequeno gerador foi cadastrado.\n\nSenha provisória: ${response.temporaryPassword}\n\nAgora ele precisa acessar a opção de ativação de acesso com o e-mail informado.`
-          : "O pequeno gerador foi cadastrado com sucesso."
-      );
+          : "O pequeno gerador foi cadastrado com sucesso.",
+      });
     } catch (error: any) {
-      notifyError(
-        "Erro",
-        error.message || "Não foi possível cadastrar o pequeno gerador."
-      );
+      notifyError({
+        message:
+          error.message || "Não foi possível cadastrar o pequeno gerador.",
+        title: "Erro",
+      });
     } finally {
       setSaving(false);
     }
@@ -297,13 +306,16 @@ export default function NovoPequenoGeradorScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={{ paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20 }}
+        style={{ paddingTop: 20, paddingBottom: 20, paddingHorizontal: 20 }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 15 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -313,7 +325,10 @@ export default function NovoPequenoGeradorScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1, padding: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
         <Field
           label="Nome do estabelecimento *"
           value={nome}
@@ -385,7 +400,7 @@ export default function NovoPequenoGeradorScreen() {
                 city: cidade,
                 state: estado,
                 zipCode: cep,
-              })
+              }),
             );
           }}
           placeholder="Ex: Rua das Flores"
@@ -403,7 +418,7 @@ export default function NovoPequenoGeradorScreen() {
                 city: cidade,
                 state: estado,
                 zipCode: cep,
-              })
+              }),
             );
           }}
           placeholder="Ex: 250"
@@ -421,7 +436,7 @@ export default function NovoPequenoGeradorScreen() {
                 city: cidade,
                 state: estado,
                 zipCode: cep,
-              })
+              }),
             );
           }}
           placeholder="Ex: Centro"
@@ -439,7 +454,7 @@ export default function NovoPequenoGeradorScreen() {
                 city: value,
                 state: estado,
                 zipCode: cep,
-              })
+              }),
             );
           }}
           placeholder="Ex: Fortaleza"
@@ -457,7 +472,7 @@ export default function NovoPequenoGeradorScreen() {
                 city: cidade,
                 state: value,
                 zipCode: cep,
-              })
+              }),
             );
           }}
           placeholder="Ex: CE"
@@ -528,9 +543,13 @@ export default function NovoPequenoGeradorScreen() {
           marcar o ponto exato no mapa.
         </Text>
 
-        <TouchableOpacity onPress={handleSalvar} disabled={saving} activeOpacity={0.9}>
+        <TouchableOpacity
+          onPress={handleSalvar}
+          disabled={saving}
+          activeOpacity={0.9}
+        >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#059669", "#028C56"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -558,7 +577,9 @@ export default function NovoPequenoGeradorScreen() {
                 </Text>
               </>
             ) : (
-              <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "800" }}
+              >
                 SALVAR PEQUENO GERADOR
               </Text>
             )}
@@ -609,7 +630,9 @@ function Field(props: {
             fontSize: 16,
           }}
         />
-        {props.loading ? <ActivityIndicator size="small" color="#028C56" /> : null}
+        {props.loading ? (
+          <ActivityIndicator size="small" color="#028C56" />
+        ) : null}
       </View>
     </View>
   );

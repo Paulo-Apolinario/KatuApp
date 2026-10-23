@@ -1,3 +1,4 @@
+import { onSessionExpired } from "../services/sessionEvents";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { router, Href } from "expo-router";
 import authService from "../services/authService";
@@ -26,18 +27,18 @@ interface AuthContextData {
     email: string,
     password: string,
     expectedProfile?: string,
-    rememberMe?: boolean
+    rememberMe?: boolean,
   ) => Promise<AuthActionResult>;
   signInWithLink: (token: string) => Promise<AuthActionResult>;
   signOut: () => Promise<void>;
   register: (
     email: string,
     password: string,
-    userData: any
+    userData: any,
   ) => Promise<AuthActionResult>;
   activateGeneratorAccess: (
     email: string,
-    password: string
+    password: string,
   ) => Promise<AuthActionResult>;
   forgotPassword: (email: string) => Promise<AuthActionResult>;
   resetPassword: (data: ResetPasswordInput) => Promise<AuthActionResult>;
@@ -49,7 +50,9 @@ const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 export const useAuth = () => useContext(AuthContext);
 
 function normalizeRole(role?: string | null) {
-  return String(role || "").trim().toUpperCase();
+  return String(role || "")
+    .trim()
+    .toUpperCase();
 }
 
 function getRouteByRole(role?: string | null): Href {
@@ -111,8 +114,8 @@ function checkRequiresActivation(result: any) {
 
   return Boolean(
     result?.requiresActivation ||
-      result?.firstAccess ||
-      result?.mustChangePassword
+    result?.firstAccess ||
+    result?.mustChangePassword,
   );
 }
 
@@ -121,6 +124,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<UserDoc | null>(null);
   const [loading, setLoading] = useState(true);
+  useEffect(
+    () =>
+      onSessionExpired(() => {
+        setUser(null);
+        router.replace("/(public)/access-type");
+      }),
+    [],
+  );
 
   async function refreshUser() {
     try {
@@ -153,10 +164,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
     expectedProfile?: string,
     rememberMe?: boolean,
-    linkToken?: string
+    linkToken?: string,
   ): Promise<AuthActionResult> => {
     try {
-      const result = linkToken ? await authService.loginWithLink(linkToken) : await authService.login(email, password);
+      const result = linkToken
+        ? await authService.loginWithLink(linkToken)
+        : await authService.login(email, password);
 
       if (result.success === false) {
         return {
@@ -228,7 +241,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const register = async (
     email: string,
     password: string,
-    userData: any
+    userData: any,
   ): Promise<AuthActionResult> => {
     try {
       let result;
@@ -292,7 +305,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const activateGeneratorAccess = async (
     email: string,
-    password: string
+    password: string,
   ): Promise<AuthActionResult> => {
     try {
       const result = await authService.activateGeneratorAccess(email, password);
@@ -351,7 +364,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const resetPassword = async (
-    data: ResetPasswordInput
+    data: ResetPasswordInput,
   ): Promise<AuthActionResult> => {
     try {
       const result = await authService.resetPassword({
@@ -389,7 +402,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         loading,
         signIn,
-        signInWithLink: (token: string) => signIn("", "", undefined, false, token),
+        signInWithLink: (token: string) =>
+          signIn("", "", undefined, false, token),
         signOut,
         register,
         activateGeneratorAccess,

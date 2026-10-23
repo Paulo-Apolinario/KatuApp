@@ -71,7 +71,7 @@ function normalizeMaterials(materials: unknown) {
 function getCollectionTotalKg(collection: Collection) {
   const materialsKg = normalizeMaterials(collection.materials).reduce(
     (sum, item) => sum + Number(item.quantityKg ?? 0),
-    0
+    0,
   );
 
   if (materialsKg > 0) return materialsKg;
@@ -89,7 +89,7 @@ function formatCollectionDate(value?: string | null) {
 
 function mapGeneratorToViewModel(
   generator: Generator,
-  collections: Collection[]
+  collections: Collection[],
 ): GeradorViewModel {
   const materialsMap: Record<string, number> = {};
 
@@ -98,7 +98,8 @@ function mapGeneratorToViewModel(
 
     materials.forEach((material) => {
       const type = material.type.trim() || "Não informado";
-      materialsMap[type] = (materialsMap[type] || 0) + Number(material.quantityKg ?? 0);
+      materialsMap[type] =
+        (materialsMap[type] || 0) + Number(material.quantityKg ?? 0);
     });
   });
 
@@ -108,7 +109,7 @@ function mapGeneratorToViewModel(
 
   const totalKg = collections.reduce(
     (sum, item) => sum + getCollectionTotalKg(item),
-    0
+    0,
   );
 
   const currentMonth = new Date().getMonth();
@@ -128,7 +129,7 @@ function mapGeneratorToViewModel(
 
   const kgMes = collectionsThisMonth.reduce(
     (sum, item) => sum + getCollectionTotalKg(item),
-    0
+    0,
   );
 
   const latestCollection =
@@ -136,14 +137,14 @@ function mapGeneratorToViewModel(
       const aTime = a.collectedAt
         ? new Date(a.collectedAt).getTime()
         : a.createdAt
-        ? new Date(a.createdAt).getTime()
-        : 0;
+          ? new Date(a.createdAt).getTime()
+          : 0;
 
       const bTime = b.collectedAt
         ? new Date(b.collectedAt).getTime()
         : b.createdAt
-        ? new Date(b.createdAt).getTime()
-        : 0;
+          ? new Date(b.createdAt).getTime()
+          : 0;
 
       return bTime - aTime;
     })[0] || null;
@@ -160,10 +161,10 @@ function mapGeneratorToViewModel(
       generator.accessStatus === "ACTIVE"
         ? "ativo"
         : generator.accessStatus === "PENDING_ACTIVATION"
-        ? "pendente"
-        : "inativo",
+          ? "pendente"
+          : "inativo",
     ultimaColeta: formatCollectionDate(
-      latestCollection?.collectedAt || latestCollection?.createdAt
+      latestCollection?.collectedAt || latestCollection?.createdAt,
     ),
     kgTotal: totalKg,
     kgMes,
@@ -215,7 +216,7 @@ export default function GeradorDetailScreen() {
 
   const loadGerador = useCallback(async () => {
     if (!documentId) {
-      notifyError("Erro", "ID do gerador não informado.");
+      notifyError({ message: "ID do gerador não informado.", title: "Erro" });
       router.back();
       return;
     }
@@ -223,7 +224,10 @@ export default function GeradorDetailScreen() {
     try {
       setLoading(true);
 
-      if (!generatorService || typeof generatorService.getGeneratorById !== "function") {
+      if (
+        !generatorService ||
+        typeof generatorService.getGeneratorById !== "function"
+      ) {
         throw new Error("Serviço de geradores não carregado.");
       }
 
@@ -237,20 +241,27 @@ export default function GeradorDetailScreen() {
       ]);
 
       if (!generator) {
-        notifyError("Erro", "Gerador não encontrado.");
+        notifyError({ message: "Gerador não encontrado.", title: "Erro" });
         router.back();
         return;
       }
 
-      const safeCollections = Array.isArray(allCollections) ? allCollections : [];
+      const safeCollections = Array.isArray(allCollections)
+        ? allCollections
+        : [];
 
       const generatorCollections = safeCollections.filter(
-        (item) => item.generatorId === documentId && item.status === "COMPLETED"
+        (item) =>
+          item.generatorId === documentId && item.status === "COMPLETED",
       );
 
       setGerador(mapGeneratorToViewModel(generator, generatorCollections));
     } catch (error: any) {
-      notifyError("Erro", error?.message || "Não foi possível carregar os dados do gerador.");
+      notifyError({
+        message:
+          error?.message || "Não foi possível carregar os dados do gerador.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -266,7 +277,11 @@ export default function GeradorDetailScreen() {
     try {
       setAgendando(true);
 
-      notifyError("Próxima etapa", "A criação de agendamentos será integrada no próximo módulo, usando a API de schedules.");
+      notifyError({
+        message: "Próxima etapa",
+        title:
+          "A criação de agendamentos será integrada no próximo módulo, usando a API de schedules.",
+      });
     } finally {
       setAgendando(false);
     }
@@ -274,7 +289,10 @@ export default function GeradorDetailScreen() {
 
   const handleEnviarMensagem = async () => {
     if (!gerador?.telefone || gerador.telefone === "Não informado") {
-      notifyError("Aviso", "Este gerador não possui telefone cadastrado.");
+      notifyError({
+        message: "Aviso",
+        title: "Este gerador não possui telefone cadastrado.",
+      });
       return;
     }
 
@@ -285,20 +303,26 @@ export default function GeradorDetailScreen() {
       const mensagem = encodeURIComponent(
         `Olá, ${
           gerador.contato !== "Não informado" ? gerador.contato : gerador.nome
-        }! Somos da cooperativa e estamos entrando em contato sobre a coleta do estabelecimento ${gerador.nome}.`
+        }! Somos da cooperativa e estamos entrando em contato sobre a coleta do estabelecimento ${gerador.nome}.`,
       );
 
       const url = `https://wa.me/${numeroComDdi}?text=${mensagem}`;
       const canOpen = await Linking.canOpenURL(url);
 
       if (!canOpen) {
-        notifyError("Erro", "Não foi possível abrir o WhatsApp.");
+        notifyError({
+          message: "Não foi possível abrir o WhatsApp.",
+          title: "Erro",
+        });
         return;
       }
 
       await Linking.openURL(url);
     } catch {
-      notifyError("Erro", "Não foi possível abrir o WhatsApp.");
+      notifyError({
+        message: "Não foi possível abrir o WhatsApp.",
+        title: "Erro",
+      });
     }
   };
 
@@ -359,11 +383,11 @@ export default function GeradorDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
         }}
@@ -375,7 +399,10 @@ export default function GeradorDetailScreen() {
             justifyContent: "space-between",
           }}
         >
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 15 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -396,7 +423,10 @@ export default function GeradorDetailScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+      >
         <View
           style={{
             backgroundColor: "#F9FAFB",
@@ -435,7 +465,9 @@ export default function GeradorDetailScreen() {
                 marginLeft: 10,
               }}
             >
-              <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "600" }}>
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "600" }}
+              >
                 {formatStatus(gerador.status)}
               </Text>
             </View>
@@ -478,10 +510,21 @@ export default function GeradorDetailScreen() {
               Resumo de Coletas
             </Text>
 
-            <View style={{ flexDirection: "row", justifyContent: "space-around" }}>
-              <ResumoItem label="Total" value={`${gerador.kgTotal.toFixed(1)} kg`} />
-              <ResumoItem label="Este mês" value={`${gerador.kgMes.toFixed(1)} kg`} />
-              <ResumoItem label="Coletas" value={String(gerador.coletasRealizadas)} />
+            <View
+              style={{ flexDirection: "row", justifyContent: "space-around" }}
+            >
+              <ResumoItem
+                label="Total"
+                value={`${gerador.kgTotal.toFixed(1)} kg`}
+              />
+              <ResumoItem
+                label="Este mês"
+                value={`${gerador.kgMes.toFixed(1)} kg`}
+              />
+              <ResumoItem
+                label="Coletas"
+                value={String(gerador.coletasRealizadas)}
+              />
             </View>
           </View>
         </View>
@@ -494,16 +537,36 @@ export default function GeradorDetailScreen() {
             marginBottom: 20,
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 15 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "600",
+              color: "#111827",
+              marginBottom: 15,
+            }}
+          >
             Endereço estruturado
           </Text>
 
           <AddressRow label="CEP" value={gerador.cep || "Não informado"} />
           <AddressRow label="Rua" value={gerador.rua || "Não informado"} />
-          <AddressRow label="Número" value={gerador.numero || "Não informado"} />
-          <AddressRow label="Bairro" value={gerador.bairro || "Não informado"} />
-          <AddressRow label="Cidade" value={gerador.cidade || "Não informado"} />
-          <AddressRow label="Estado" value={gerador.estado || "Não informado"} isLast />
+          <AddressRow
+            label="Número"
+            value={gerador.numero || "Não informado"}
+          />
+          <AddressRow
+            label="Bairro"
+            value={gerador.bairro || "Não informado"}
+          />
+          <AddressRow
+            label="Cidade"
+            value={gerador.cidade || "Não informado"}
+          />
+          <AddressRow
+            label="Estado"
+            value={gerador.estado || "Não informado"}
+            isLast
+          />
         </View>
 
         <View
@@ -514,7 +577,14 @@ export default function GeradorDetailScreen() {
             marginBottom: 20,
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 10 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "600",
+              color: "#111827",
+              marginBottom: 10,
+            }}
+          >
             Última Coleta
           </Text>
 
@@ -527,14 +597,22 @@ export default function GeradorDetailScreen() {
           >
             <View>
               <Text style={{ fontSize: 14, color: "#6B7280" }}>Data</Text>
-              <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
+              <Text
+                style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}
+              >
                 {gerador.ultimaColeta}
               </Text>
             </View>
 
             <View>
-              <Text style={{ fontSize: 14, color: "#6B7280", textAlign: "right" }}>Peso</Text>
-              <Text style={{ fontSize: 16, fontWeight: "600", color: "#028C56" }}>
+              <Text
+                style={{ fontSize: 14, color: "#6B7280", textAlign: "right" }}
+              >
+                Peso
+              </Text>
+              <Text
+                style={{ fontSize: 16, fontWeight: "600", color: "#028C56" }}
+              >
                 {gerador.kgMes.toFixed(1)} kg
               </Text>
             </View>
@@ -549,7 +627,14 @@ export default function GeradorDetailScreen() {
             marginBottom: 20,
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 15 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "600",
+              color: "#111827",
+              marginBottom: 15,
+            }}
+          >
             Materiais Reciclados
           </Text>
 
@@ -559,7 +644,10 @@ export default function GeradorDetailScreen() {
               const percent = Math.min((material.kg / total) * 100, 100);
 
               return (
-                <View key={`${material.nome}-${index}`} style={{ marginBottom: 12 }}>
+                <View
+                  key={`${material.nome}-${index}`}
+                  style={{ marginBottom: 12 }}
+                >
                   <View
                     style={{
                       flexDirection: "row",
@@ -567,13 +655,27 @@ export default function GeradorDetailScreen() {
                       marginBottom: 4,
                     }}
                   >
-                    <Text style={{ fontSize: 14, color: "#4B5563" }}>{material.nome}</Text>
-                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#028C56" }}>
+                    <Text style={{ fontSize: 14, color: "#4B5563" }}>
+                      {material.nome}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "600",
+                        color: "#028C56",
+                      }}
+                    >
                       {material.kg.toFixed(1)} kg
                     </Text>
                   </View>
 
-                  <View style={{ height: 8, backgroundColor: "#E5E7EB", borderRadius: 4 }}>
+                  <View
+                    style={{
+                      height: 8,
+                      backgroundColor: "#E5E7EB",
+                      borderRadius: 4,
+                    }}
+                  >
                     <View
                       style={{
                         width: `${percent}%`,
@@ -582,10 +684,10 @@ export default function GeradorDetailScreen() {
                           index === 0
                             ? "#10B981"
                             : index === 1
-                            ? "#F59E0B"
-                            : index === 2
-                            ? "#3B82F6"
-                            : "#8B5CF6",
+                              ? "#F59E0B"
+                              : index === 2
+                                ? "#3B82F6"
+                                : "#8B5CF6",
                         borderRadius: 4,
                       }}
                     />
@@ -608,13 +710,21 @@ export default function GeradorDetailScreen() {
             marginBottom: 20,
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 15 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "600",
+              color: "#111827",
+              marginBottom: 15,
+            }}
+          >
             Histórico de Coletas
           </Text>
 
           {gerador.coletasRealizadas > 0 ? (
             <Text style={{ color: "#6B7280" }}>
-              Este gerador possui {gerador.coletasRealizadas} coleta(s) concluída(s) registradas.
+              Este gerador possui {gerador.coletasRealizadas} coleta(s)
+              concluída(s) registradas.
             </Text>
           ) : (
             <Text style={{ color: "#6B7280" }}>
@@ -623,7 +733,13 @@ export default function GeradorDetailScreen() {
           )}
         </View>
 
-        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 30 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginBottom: 30,
+          }}
+        >
           <TouchableOpacity
             onPress={handleAgendarColeta}
             disabled={agendando}
@@ -695,7 +811,9 @@ function InfoRow({
   value: string;
 }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+    <View
+      style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}
+    >
       <Ionicons name={icon} size={18} color="#6B7280" />
       <Text style={{ fontSize: 14, color: "#6B7280", marginLeft: 8, flex: 1 }}>
         {value}
@@ -704,16 +822,12 @@ function InfoRow({
   );
 }
 
-function ResumoItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function ResumoItem({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ alignItems: "center" }}>
-      <Text style={{ fontSize: 20, fontWeight: "700", color: "#028C56" }}>{value}</Text>
+      <Text style={{ fontSize: 20, fontWeight: "700", color: "#028C56" }}>
+        {value}
+      </Text>
       <Text style={{ fontSize: 12, color: "#6B7280" }}>{label}</Text>
     </View>
   );
@@ -737,8 +851,12 @@ function AddressRow({
         borderBottomColor: "#E5E7EB",
       }}
     >
-      <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>{label}</Text>
-      <Text style={{ fontSize: 15, color: "#111827", fontWeight: "600" }}>{value}</Text>
+      <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
+        {label}
+      </Text>
+      <Text style={{ fontSize: 15, color: "#111827", fontWeight: "600" }}>
+        {value}
+      </Text>
     </View>
   );
 }

@@ -36,7 +36,10 @@ export default function NovoCatadorScreen() {
 
   async function handleSalvar() {
     if (!name.trim() || !phone.trim() || !email.trim()) {
-      notifyError("Atenção", "Preencha nome, telefone e email.");
+      notifyError({
+        message: "Preencha nome, telefone e email.",
+        title: "Atenção",
+      });
       return;
     }
 
@@ -51,10 +54,16 @@ export default function NovoCatadorScreen() {
         address,
       });
 
-      notifySuccess("Sucesso", "Catador cadastrado com sucesso!");
+      notifySuccess({
+        message: "Catador cadastrado com sucesso!",
+        title: "Sucesso",
+      });
     } catch (error: any) {
       console.error("Erro ao cadastrar catador:", error);
-      notifyError("Erro", error?.message || "Não foi possível cadastrar o catador.");
+      notifyError({
+        message: error?.message || "Não foi possível cadastrar o catador.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -66,11 +75,11 @@ export default function NovoCatadorScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
         }}
@@ -89,7 +98,10 @@ export default function NovoCatadorScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+      >
         <View style={{ marginBottom: 20 }}>
           <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
             Nome Completo *
@@ -201,7 +213,7 @@ export default function NovoCatadorScreen() {
           style={{ marginBottom: 30 }}
         >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#059669", "#028C56"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -228,7 +240,9 @@ export default function NovoCatadorScreen() {
                 </Text>
               </>
             ) : (
-              <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}
+              >
                 SALVAR CATADOR
               </Text>
             )}

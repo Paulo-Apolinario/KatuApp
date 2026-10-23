@@ -1,8 +1,4 @@
-import type {
-  Collection,
-  CollectionStatus,
-  WasteUnit,
-} from "./collection";
+import type { Collection, CollectionStatus, WasteUnit } from "./collection";
 
 /*
  * ============================================================
@@ -11,11 +7,7 @@ import type {
  */
 
 export type ScheduleStatus =
-  | "REQUESTED"
-  | "SCHEDULED"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "CANCELLED";
+  "REQUESTED" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
 /*
  * ============================================================
@@ -141,6 +133,9 @@ export interface ScheduleRequestedBySummary {
  */
 
 export interface Schedule {
+  pickupAddress?: string | null;
+  pickupLatitude?: number | null;
+  pickupLongitude?: number | null;
   id: string;
   cooperativeId: string;
   generatorId?: string | null;
@@ -165,6 +160,9 @@ export interface Schedule {
  */
 
 export interface CreateSchedulePayload {
+  pickupAddress?: string | null;
+  pickupLatitude?: number | null;
+  pickupLongitude?: number | null;
   cooperativeId?: string;
   generatorId?: string;
   preferredDate?: string;
@@ -201,8 +199,6 @@ export interface ScheduleMaterialDraft {
  * ============================================================
  */
 
-export type RequestedScheduleMaterial =
-  RequestedScheduleMaterialInput;
+export type RequestedScheduleMaterial = RequestedScheduleMaterialInput;
 
-export type ScheduleCollectionStatus =
-  CollectionStatus;
+export type ScheduleCollectionStatus = CollectionStatus;

@@ -1,7 +1,4 @@
-import {
-  api,
-  isApiNetworkError,
-} from "./api";
+import { api, isApiNetworkError } from "./api";
 
 import {
   getAllCollections,
@@ -18,10 +15,7 @@ import {
   markSyncItemError,
 } from "../database/repositories/syncQueueRepository";
 
-import {
-  SYNC_ENTITY,
-  SYNC_OPERATION,
-} from "../database/schema";
+import { SYNC_ENTITY, SYNC_OPERATION } from "../database/schema";
 
 import type {
   CancelCollectionPayload,
@@ -82,488 +76,258 @@ type CollectionApiResponse = {
  * ============================================================
  */
 
-function normalizeOptionalText(
-  value: unknown
-): string | null {
-  if (
-    value === null ||
-    value === undefined
-  ) {
+function normalizeOptionalText(value: unknown): string | null {
+  if (value === null || value === undefined) {
     return null;
   }
 
-  const normalized =
-    String(value).trim();
+  const normalized = String(value).trim();
 
   return normalized || null;
 }
 
-function normalizeNumber(
-  value: unknown
-): number {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
+function normalizeNumber(value: unknown): number {
+  if (value === null || value === undefined || value === "") {
     return 0;
   }
 
   const normalized =
-    typeof value ===
-    "string"
-      ? value.replace(
-          ",",
-          "."
-        )
-      : value;
+    typeof value === "string" ? value.replace(",", ".") : value;
 
-  const numeric =
-    Number(normalized);
+  const numeric = Number(normalized);
 
-  return Number.isFinite(
-    numeric
-  )
-    ? numeric
-    : 0;
+  return Number.isFinite(numeric) ? numeric : 0;
 }
 
-function normalizeWasteUnit(
-  value: unknown
-): WasteUnit {
-  const normalized =
-    String(value || "")
-      .trim()
-      .toUpperCase();
+function normalizeWasteUnit(value: unknown): WasteUnit {
+  const normalized = String(value || "")
+    .trim()
+    .toUpperCase();
 
-  const units: WasteUnit[] = [
-    "KG",
-    "TON",
-    "LITER",
-    "UNIT",
-    "CUBIC_METER",
-  ];
+  const units: WasteUnit[] = ["KG", "TON", "LITER", "UNIT", "CUBIC_METER"];
 
-  return units.includes(
-    normalized as WasteUnit
-  )
+  return units.includes(normalized as WasteUnit)
     ? (normalized as WasteUnit)
     : "KG";
 }
 
-function normalizeMaterials(
-  materials: unknown
-): CollectionMaterial[] {
-  if (
-    !Array.isArray(
-      materials
-    )
-  ) {
+function normalizeMaterials(materials: unknown): CollectionMaterial[] {
+  if (!Array.isArray(materials)) {
     return [];
   }
 
   return materials
-    .map(
-      (
-        item
-      ): CollectionMaterial | null => {
-        if (
-          typeof item ===
-          "string"
-        ) {
-          const type =
-            item.trim();
-
-          if (!type) {
-            return null;
-          }
-
-          return {
-            type,
-            name:
-              type,
-            quantity:
-              0,
-            quantityKg:
-              0,
-            unit:
-              "KG",
-          };
-        }
-
-        if (
-          !item ||
-          typeof item !==
-            "object"
-        ) {
-          return null;
-        }
-
-        const material =
-          item as Record<
-            string,
-            unknown
-          >;
-
-        const type =
-          normalizeOptionalText(
-            material.type
-          ) ||
-          normalizeOptionalText(
-            material.name
-          ) ||
-          "";
+    .map((item): CollectionMaterial | null => {
+      if (typeof item === "string") {
+        const type = item.trim();
 
         if (!type) {
           return null;
         }
 
-        const unit =
-          normalizeWasteUnit(
-            material.unit
-          );
-
-        const quantity =
-          material.quantity !==
-            undefined
-            ? normalizeNumber(
-                material.quantity
-              )
-            : normalizeNumber(
-                material.quantityKg
-              );
-
-        const quantityKg =
-          material.quantityKg !==
-            undefined
-            ? normalizeNumber(
-                material.quantityKg
-              )
-            : unit ===
-                "KG"
-              ? quantity
-              : unit ===
-                  "TON"
-                ? quantity *
-                  1000
-                : 0;
-
         return {
-          wasteTypeId:
-            normalizeOptionalText(
-              material.wasteTypeId
-            ),
-
           type,
-
-          name:
-            normalizeOptionalText(
-              material.name
-            ) ||
-            type,
-
-          category:
-            normalizeOptionalText(
-              material.category
-            ),
-
-          subcategory:
-            normalizeOptionalText(
-              material.subcategory
-            ),
-
-          quantity,
-
-          quantityKg,
-
-          unit,
-
-          notes:
-            normalizeOptionalText(
-              material.notes
-            ),
+          name: type,
+          quantity: 0,
+          quantityKg: 0,
+          unit: "KG",
         };
       }
-    )
-    .filter(
-      (
-        item
-      ): item is CollectionMaterial =>
-        item !== null
-    );
+
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const material = item as Record<string, unknown>;
+
+      const type =
+        normalizeOptionalText(material.type) ||
+        normalizeOptionalText(material.name) ||
+        "";
+
+      if (!type) {
+        return null;
+      }
+
+      const unit = normalizeWasteUnit(material.unit);
+
+      const quantity =
+        material.quantity !== undefined
+          ? normalizeNumber(material.quantity)
+          : normalizeNumber(material.quantityKg);
+
+      const quantityKg =
+        material.quantityKg !== undefined
+          ? normalizeNumber(material.quantityKg)
+          : unit === "KG"
+            ? quantity
+            : unit === "TON"
+              ? quantity * 1000
+              : 0;
+
+      return {
+        wasteTypeId: normalizeOptionalText(material.wasteTypeId),
+
+        type,
+
+        name: normalizeOptionalText(material.name) || type,
+
+        category: normalizeOptionalText(material.category),
+
+        subcategory: normalizeOptionalText(material.subcategory),
+
+        quantity,
+
+        quantityKg,
+
+        unit,
+
+        notes: normalizeOptionalText(material.notes),
+      };
+    })
+    .filter((item): item is CollectionMaterial => item !== null);
 }
 
-function normalizeCollection(
-  collection: Collection
-): Collection {
+function normalizeCollection(collection: Collection): Collection {
   return {
     ...collection,
 
-    totalWeightKg:
-      normalizeNumber(
-        collection.totalWeightKg
-      ),
+    totalWeightKg: normalizeNumber(collection.totalWeightKg),
 
-    materials:
-      normalizeMaterials(
-        collection.materials
-      ),
+    materials: normalizeMaterials(collection.materials),
 
-    collectionMaterials:
-      Array.isArray(
-        collection.collectionMaterials
-      )
-        ? collection.collectionMaterials.map(
-            (material) => ({
-              ...material,
+    collectionMaterials: Array.isArray(collection.collectionMaterials)
+      ? collection.collectionMaterials.map((material) => ({
+          ...material,
 
-              quantity:
-                material.quantity ===
-                  undefined
-                  ? undefined
-                  : normalizeNumber(
-                      material.quantity
-                    ),
+          quantity:
+            material.quantity === undefined
+              ? undefined
+              : normalizeNumber(material.quantity),
 
-              wasteEntry:
-                material.wasteEntry
-                  ? {
-                      ...material.wasteEntry,
+          wasteEntry: material.wasteEntry
+            ? {
+                ...material.wasteEntry,
 
-                      collectedQuantity:
-                        material
-                          .wasteEntry
-                          .collectedQuantity ===
-                          undefined
+                collectedQuantity:
+                  material.wasteEntry.collectedQuantity === undefined
+                    ? undefined
+                    : normalizeNumber(material.wasteEntry.collectedQuantity),
+
+                destinedQuantity:
+                  material.wasteEntry.destinedQuantity === undefined
+                    ? undefined
+                    : normalizeNumber(material.wasteEntry.destinedQuantity),
+
+                remainingQuantity:
+                  material.wasteEntry.remainingQuantity === undefined
+                    ? undefined
+                    : normalizeNumber(material.wasteEntry.remainingQuantity),
+
+                destinations: Array.isArray(material.wasteEntry.destinations)
+                  ? material.wasteEntry.destinations.map((destination) => ({
+                      ...destination,
+
+                      quantity:
+                        destination.quantity === undefined
                           ? undefined
-                          : normalizeNumber(
-                              material
-                                .wasteEntry
-                                .collectedQuantity
-                            ),
-
-                      destinedQuantity:
-                        material
-                          .wasteEntry
-                          .destinedQuantity ===
-                          undefined
-                          ? undefined
-                          : normalizeNumber(
-                              material
-                                .wasteEntry
-                                .destinedQuantity
-                            ),
-
-                      remainingQuantity:
-                        material
-                          .wasteEntry
-                          .remainingQuantity ===
-                          undefined
-                          ? undefined
-                          : normalizeNumber(
-                              material
-                                .wasteEntry
-                                .remainingQuantity
-                            ),
-
-                      destinations:
-                        Array.isArray(
-                          material
-                            .wasteEntry
-                            .destinations
-                        )
-                          ? material.wasteEntry.destinations.map(
-                              (
-                                destination
-                              ) => ({
-                                ...destination,
-
-                                quantity:
-                                  destination.quantity ===
-                                    undefined
-                                    ? undefined
-                                    : normalizeNumber(
-                                        destination.quantity
-                                      ),
-                              })
-                            )
-                          : [],
-                    }
-                  : null,
-            })
-          )
-        : [],
-
-    collectionWasteEntries:
-      Array.isArray(
-        collection.collectionWasteEntries
-      )
-        ? collection.collectionWasteEntries.map(
-            (entry) => ({
-              ...entry,
-
-              collectedQuantity:
-                entry.collectedQuantity ===
-                  undefined
-                  ? undefined
-                  : normalizeNumber(
-                      entry.collectedQuantity
-                    ),
-
-              destinedQuantity:
-                entry.destinedQuantity ===
-                  undefined
-                  ? undefined
-                  : normalizeNumber(
-                      entry.destinedQuantity
-                    ),
-
-              remainingQuantity:
-                entry.remainingQuantity ===
-                  undefined
-                  ? undefined
-                  : normalizeNumber(
-                      entry.remainingQuantity
-                    ),
-
-              destinations:
-                Array.isArray(
-                  entry.destinations
-                )
-                  ? entry.destinations.map(
-                      (
-                        destination
-                      ) => ({
-                        ...destination,
-
-                        quantity:
-                          destination.quantity ===
-                            undefined
-                            ? undefined
-                            : normalizeNumber(
-                                destination.quantity
-                              ),
-                      })
-                    )
+                          : normalizeNumber(destination.quantity),
+                    }))
                   : [],
-            })
+              }
+            : null,
+        }))
+      : [],
+
+    collectionWasteEntries: Array.isArray(collection.collectionWasteEntries)
+      ? collection.collectionWasteEntries.map((entry) => ({
+          ...entry,
+
+          collectedQuantity:
+            entry.collectedQuantity === undefined
+              ? undefined
+              : normalizeNumber(entry.collectedQuantity),
+
+          destinedQuantity:
+            entry.destinedQuantity === undefined
+              ? undefined
+              : normalizeNumber(entry.destinedQuantity),
+
+          remainingQuantity:
+            entry.remainingQuantity === undefined
+              ? undefined
+              : normalizeNumber(entry.remainingQuantity),
+
+          destinations: Array.isArray(entry.destinations)
+            ? entry.destinations.map((destination) => ({
+                ...destination,
+
+                quantity:
+                  destination.quantity === undefined
+                    ? undefined
+                    : normalizeNumber(destination.quantity),
+              }))
+            : [],
+        }))
+      : [],
+
+    generator: collection.generator
+      ? {
+          ...collection.generator,
+
+          latitude:
+            collection.generator.latitude === null ||
+            collection.generator.latitude === undefined
+              ? null
+              : normalizeNumber(collection.generator.latitude),
+
+          longitude:
+            collection.generator.longitude === null ||
+            collection.generator.longitude === undefined
+              ? null
+              : normalizeNumber(collection.generator.longitude),
+        }
+      : null,
+
+    schedule: collection.schedule
+      ? {
+          ...collection.schedule,
+
+          requestedMaterials: Array.isArray(
+            collection.schedule.requestedMaterials,
           )
-        : [],
+            ? collection.schedule.requestedMaterials.map((material) => ({
+                ...material,
 
-    generator:
-      collection.generator
-        ? {
-            ...collection.generator,
+                estimatedQuantity:
+                  material.estimatedQuantity === null ||
+                  material.estimatedQuantity === undefined
+                    ? null
+                    : normalizeNumber(material.estimatedQuantity),
 
-            latitude:
-              collection.generator
-                .latitude ===
-                null ||
-              collection.generator
-                .latitude ===
-                undefined
-                ? null
-                : normalizeNumber(
-                    collection.generator
-                      .latitude
-                  ),
+                unit: normalizeWasteUnit(material.unit),
+              }))
+            : [],
 
-            longitude:
-              collection.generator
-                .longitude ===
-                null ||
-              collection.generator
-                .longitude ===
-                undefined
-                ? null
-                : normalizeNumber(
-                    collection.generator
-                      .longitude
-                  ),
-          }
-        : null,
+          generator: collection.schedule.generator
+            ? {
+                ...collection.schedule.generator,
 
-    schedule:
-      collection.schedule
-        ? {
-            ...collection.schedule,
+                latitude:
+                  collection.schedule.generator.latitude === null ||
+                  collection.schedule.generator.latitude === undefined
+                    ? null
+                    : normalizeNumber(collection.schedule.generator.latitude),
 
-            requestedMaterials:
-              Array.isArray(
-                collection.schedule
-                  .requestedMaterials
-              )
-                ? collection.schedule.requestedMaterials.map(
-                    (material) => ({
-                      ...material,
-
-                      estimatedQuantity:
-                        material.estimatedQuantity ===
-                          null ||
-                        material.estimatedQuantity ===
-                          undefined
-                          ? null
-                          : normalizeNumber(
-                              material.estimatedQuantity
-                            ),
-
-                      unit:
-                        normalizeWasteUnit(
-                          material.unit
-                        ),
-                    })
-                  )
-                : [],
-
-            generator:
-              collection.schedule
-                .generator
-                ? {
-                    ...collection
-                      .schedule
-                      .generator,
-
-                    latitude:
-                      collection
-                        .schedule
-                        .generator
-                        .latitude ===
-                        null ||
-                      collection
-                        .schedule
-                        .generator
-                        .latitude ===
-                        undefined
-                        ? null
-                        : normalizeNumber(
-                            collection
-                              .schedule
-                              .generator
-                              .latitude
-                          ),
-
-                    longitude:
-                      collection
-                        .schedule
-                        .generator
-                        .longitude ===
-                        null ||
-                      collection
-                        .schedule
-                        .generator
-                        .longitude ===
-                        undefined
-                        ? null
-                        : normalizeNumber(
-                            collection
-                              .schedule
-                              .generator
-                              .longitude
-                          ),
-                  }
-                : null,
-          }
-        : null,
+                longitude:
+                  collection.schedule.generator.longitude === null ||
+                  collection.schedule.generator.longitude === undefined
+                    ? null
+                    : normalizeNumber(collection.schedule.generator.longitude),
+              }
+            : null,
+        }
+      : null,
   };
 }
 
@@ -652,8 +416,15 @@ async function overlayPending(collection: Collection): Promise<Collection> {
     result = normalizeCollection({
       ...result,
       ...body,
-      ...(item.payload.localMaterials ? { materials: item.payload.localMaterials } : {}),
-      status: action === "start" ? "IN_PROGRESS" : "COLLECTED",
+      ...(item.payload.localMaterials
+        ? { materials: item.payload.localMaterials }
+        : {}),
+      status:
+        action === "start"
+          ? "IN_PROGRESS"
+          : action === "report-incident"
+            ? result.status
+            : "COLLECTED",
       syncStatus: "PENDING",
       syncError: item.errorMessage,
     } as Collection);
@@ -661,96 +432,50 @@ async function overlayPending(collection: Collection): Promise<Collection> {
   return result;
 }
 
-async function saveCollectionsToCache(
-  collections: Collection[]
-) {
+async function saveCollectionsToCache(collections: Collection[]) {
   await upsertCollections(
-    collections.map(
-      (collection) => ({
-        id:
-          collection.id,
+    collections.map((collection) => ({
+      id: collection.id,
 
-        status:
-          collection.status,
+      status: collection.status,
 
-        routeId:
-          collection.routeId ??
-          collection.route?.id ??
-          null,
+      routeId: collection.routeId ?? collection.route?.id ?? null,
 
-        driverId:
-          collection.driverId ??
-          collection.route
-            ?.driverId ??
-          null,
+      driverId: collection.driverId ?? collection.route?.driverId ?? null,
 
-        collectorId:
-          collection.collectorId ??
-          collection.collector
-            ?.id ??
-          null,
+      collectorId: collection.collectorId ?? collection.collector?.id ?? null,
 
-        totalWeightKg:
-          normalizeNumber(
-            collection.totalWeightKg
-          ),
+      totalWeightKg: normalizeNumber(collection.totalWeightKg),
 
-        payload:
-          collection,
+      payload: collection,
 
-        updatedAt:
-          collection.updatedAt ??
-          null,
-      })
-    )
+      updatedAt: collection.updatedAt ?? null,
+    })),
   );
 }
 
-async function readCollectionsFromCache(): Promise<
-  Collection[]
-> {
-  const rows =
-    await getAllCollections();
+async function readCollectionsFromCache(): Promise<Collection[]> {
+  const rows = await getAllCollections();
 
   return rows
-    .map(
-      (row) =>
-        row?.payload
-    )
-    .filter(
-      (
-        item
-      ): item is Collection =>
-        Boolean(item)
-    )
-    .map(
-      normalizeCollection
-    );
+    .map((row) => row?.payload)
+    .filter((item): item is Collection => Boolean(item))
+    .map(normalizeCollection);
 }
 
 async function readCollectionByIdFromCache(
-  id: string
-): Promise<
-  Collection | null
-> {
-  const row =
-    await getCollectionById(
-      id
-    );
+  id: string,
+): Promise<Collection | null> {
+  const row = await getCollectionById(id);
 
   if (!row?.payload) {
     return null;
   }
 
-  return normalizeCollection(
-    row.payload as Collection
-  );
+  return normalizeCollection(row.payload as Collection);
 }
 
-function createSyncQueueId(
-  prefix: string,
-  entityId: string
-) {
+function createSyncQueueId(prefix: string, entityId: string) {
   return `${prefix}_${entityId}_${Date.now()}_${Math.random()
     .toString(36)
     .slice(2, 10)}`;
@@ -864,104 +589,52 @@ async function list(): Promise<Collection[]> {
   }
 }
 
-async function listByDriver(
-  driverId?: string | null
-): Promise<
-  Collection[]
-> {
+async function listByDriver(driverId?: string | null): Promise<Collection[]> {
   if (!driverId) {
     return list();
   }
 
   try {
-    const collections =
-      await list();
+    const collections = await list();
 
-    const filtered =
-      collections.filter(
-        (collection) =>
-          collection.driverId ===
-            driverId ||
-          collection.route
-            ?.driverId ===
-            driverId
-      );
+    const filtered = collections.filter(
+      (collection) =>
+        collection.driverId === driverId ||
+        collection.route?.driverId === driverId,
+    );
 
     return filtered;
   } catch (error) {
-    if (
-      isApiNetworkError(
-        error
-      )
-    ) {
-      const rows =
-        await getCollectionsByDriverFromCache(
-          driverId
-        );
+    if (isApiNetworkError(error)) {
+      const rows = await getCollectionsByDriverFromCache(driverId);
 
       return rows
-        .map(
-          (row) =>
-            row?.payload
-        )
-        .filter(
-          (
-            item
-          ): item is Collection =>
-            Boolean(item)
-        )
-        .map(
-          normalizeCollection
-        );
+        .map((row) => row?.payload)
+        .filter((item): item is Collection => Boolean(item))
+        .map(normalizeCollection);
     }
 
     throw error;
   }
 }
 
-async function listByRoute(
-  routeId?: string | null
-): Promise<
-  Collection[]
-> {
+async function listByRoute(routeId?: string | null): Promise<Collection[]> {
   if (!routeId) {
     return list();
   }
 
   try {
-    const collections =
-      await list();
+    const collections = await list();
 
-    return collections.filter(
-      (collection) =>
-        collection.routeId ===
-        routeId
-    );
+    return collections.filter((collection) => collection.routeId === routeId);
   } catch (error) {
-    if (
-      isApiNetworkError(
-        error
-      )
-    ) {
-      const rows =
-        await getCollectionsByRouteFromCache(
-          routeId
-        );
+    if (isApiNetworkError(error)) {
+      const rows = await getCollectionsByRouteFromCache(routeId);
 
       return rows
-        .map(
-          (row) =>
-            row?.payload
-        )
-        .filter(
-          (
-            item
-          ): item is Collection =>
-            Boolean(item)
-        )
-        .map(
-          normalizeCollection
-        );
+        .map((row) => row?.payload)
+        .filter((item): item is Collection => Boolean(item))
+        .map(normalizeCollection);
     }
 
     throw error;
@@ -969,21 +642,13 @@ async function listByRoute(
 }
 
 async function listActiveByDriver(
-  driverId?: string | null
-): Promise<
-  Collection[]
-> {
-  const collections =
-    await listByDriver(
-      driverId
-    );
+  driverId?: string | null,
+): Promise<Collection[]> {
+  const collections = await listByDriver(driverId);
 
   return collections.filter(
     (collection) =>
-      collection.status ===
-        "PENDING" ||
-      collection.status ===
-        "IN_PROGRESS"
+      collection.status === "PENDING" || collection.status === "IN_PROGRESS",
   );
 }
 
@@ -1033,184 +698,136 @@ async function getById(id: string): Promise<Collection> {
  * ============================================================
  */
 
-async function create(
-  payload: CreateCollectionPayload
-): Promise<
-  Collection
-> {
-  const response =
-    await api.post<CollectionApiResponse>(
-      "/collections",
-      {
-        scheduleId:
-          payload.scheduleId,
+async function create(payload: CreateCollectionPayload): Promise<Collection> {
+  const response = await api.post<CollectionApiResponse>(
+    "/collections",
+    {
+      scheduleId: payload.scheduleId,
 
-        collectorId:
-          payload.collectorId,
+      collectorId: payload.collectorId,
 
-        driverId:
-          payload.driverId ||
-          undefined,
+      driverId: payload.driverId || undefined,
 
-        vehicleId:
-          payload.vehicleId ||
-          undefined,
+      vehicleId: payload.vehicleId || undefined,
 
-        routeId:
-          payload.routeId ||
-          undefined,
+      routeId: payload.routeId || undefined,
 
-        notes:
-          payload.notes?.trim() ||
-          undefined,
-      },
-      true
-    );
+      notes: payload.notes?.trim() || undefined,
+    },
+    true,
+  );
 
   if (!response?.collection) {
-    throw new Error(
-      "Coleta não retornada pela API."
-    );
+    throw new Error("Coleta não retornada pela API.");
   }
 
-  const normalized =
-    normalizeCollection(
-      response.collection
-    );
+  const normalized = normalizeCollection(response.collection);
 
-  await saveCollectionsToCache(
-    [normalized]
-  );
+  await saveCollectionsToCache([normalized]);
 
   return normalized;
 }
 
 async function start(
   id: string,
-  payload: StartCollectionPayload = {}
-): Promise<
-  Collection
-> {
-  return postCollectionAction(
-    id,
-    "start",
-    {
-      startedAt:
-        payload.startedAt ||
-        undefined,
+  payload: StartCollectionPayload = {},
+): Promise<Collection> {
+  return postCollectionAction(id, "start", {
+    startedAt: payload.startedAt || undefined,
 
-      notes:
-        payload.notes?.trim() ||
-        undefined,
-    }
-  );
+    notes: payload.notes?.trim() || undefined,
+  });
 }
 
-async function completeField(id: string, payload: CompleteFieldCollectionPayload): Promise<Collection> {
+async function completeField(
+  id: string,
+  payload: CompleteFieldCollectionPayload,
+): Promise<Collection> {
   const materials = serializeCompleteFieldMaterials(payload);
-  const localMaterials = payload.materials.map(material => {
-    const name = material.displayName || material.proposedMaterial?.name || "Material do catálogo";
-    const unit = normalizeWasteUnit(material.unit || material.proposedMaterial?.unit);
-    return { wasteTypeId: material.wasteTypeId, name, type: name, quantity: material.quantity, quantityKg: unit === "KG" ? material.quantity : unit === "TON" ? material.quantity * 1000 : 0, unit, notes: material.notes };
+  const localMaterials = payload.materials.map((material) => {
+    const name =
+      material.displayName ||
+      material.proposedMaterial?.name ||
+      "Material do catálogo";
+    const unit = normalizeWasteUnit(
+      material.unit || material.proposedMaterial?.unit,
+    );
+    return {
+      wasteTypeId: material.wasteTypeId,
+      name,
+      type: name,
+      quantity: material.quantity,
+      quantityKg:
+        unit === "KG"
+          ? material.quantity
+          : unit === "TON"
+            ? material.quantity * 1000
+            : 0,
+      unit,
+      notes: material.notes,
+    };
   });
-  return postCollectionAction(id, "complete-field", {
-    collectedAt: payload.collectedAt || undefined,
-    materials,
-    totalWeightKg: payload.totalWeightKg,
-    notes: payload.notes?.trim() || undefined,
-  }, localMaterials);
+  return postCollectionAction(
+    id,
+    "complete-field",
+    {
+      collectedAt: payload.collectedAt || undefined,
+      materials,
+      totalWeightKg: payload.totalWeightKg,
+      notes: payload.notes?.trim() || undefined,
+    },
+    localMaterials,
+  );
 }
 
 async function receive(
   id: string,
-  payload: ReceiveCollectionPayload = {}
-): Promise<
-  Collection
-> {
-  return postCollectionAction(
-    id,
-    "receive",
-    {
-      receivedAt:
-        payload.receivedAt ||
-        undefined,
+  payload: ReceiveCollectionPayload = {},
+): Promise<Collection> {
+  return postCollectionAction(id, "receive", {
+    receivedAt: payload.receivedAt || undefined,
 
-      notes:
-        payload.notes?.trim() ||
-        undefined,
-    }
-  );
+    notes: payload.notes?.trim() || undefined,
+  });
 }
 
 async function startSorting(
   id: string,
-  payload: StartSortingPayload = {}
-): Promise<
-  Collection
-> {
-  return postCollectionAction(
-    id,
-    "start-sorting",
-    {
-      sortingStartedAt:
-        payload.sortingStartedAt ||
-        undefined,
+  payload: StartSortingPayload = {},
+): Promise<Collection> {
+  return postCollectionAction(id, "start-sorting", {
+    sortingStartedAt: payload.sortingStartedAt || undefined,
 
-      notes:
-        payload.notes?.trim() ||
-        undefined,
-    }
-  );
+    notes: payload.notes?.trim() || undefined,
+  });
 }
 
 async function complete(
   id: string,
-  payload: CompleteCollectionPayload = {}
-): Promise<
-  Collection
-> {
-  return postCollectionAction(
-    id,
-    "complete",
-    {
-      completedAt:
-        payload.completedAt ||
-        undefined,
+  payload: CompleteCollectionPayload = {},
+): Promise<Collection> {
+  return postCollectionAction(id, "complete", {
+    completedAt: payload.completedAt || undefined,
 
-      notes:
-        payload.notes?.trim() ||
-        undefined,
-    }
-  );
+    notes: payload.notes?.trim() || undefined,
+  });
 }
 
 async function cancel(
   id: string,
-  payload: CancelCollectionPayload
-): Promise<
-  Collection
-> {
-  const cancellationReason =
-    payload.cancellationReason
-      .trim();
+  payload: CancelCollectionPayload,
+): Promise<Collection> {
+  const cancellationReason = payload.cancellationReason.trim();
 
   if (!cancellationReason) {
-    throw new Error(
-      "Informe o motivo do cancelamento."
-    );
+    throw new Error("Informe o motivo do cancelamento.");
   }
 
-  return postCollectionAction(
-    id,
-    "cancel",
-    {
-      cancelledAt:
-        payload.cancelledAt ||
-        undefined,
+  return postCollectionAction(id, "cancel", {
+    cancelledAt: payload.cancelledAt || undefined,
 
-      cancellationReason,
-    }
-  );
+    cancellationReason,
+  });
 }
 
 async function postCollectionAction(
@@ -1218,6 +835,7 @@ async function postCollectionAction(
   action:
     | "start"
     | "complete-field"
+    | "report-incident"
     | "receive"
     | "start-sorting"
     | "complete"
@@ -1231,7 +849,7 @@ async function postCollectionAction(
     throw new Error("ID da coleta não informado.");
   }
 
-  if (action === "start" || action === "complete-field") {
+  if (["start", "complete-field", "report-incident"].includes(action)) {
     const existing = await readCollectionByIdFromCache(normalizedId);
     if (!existing)
       throw new Error(
@@ -1249,14 +867,20 @@ async function postCollectionAction(
       const after = body as Record<string, unknown>;
       if (
         JSON.stringify(before.materials) !== JSON.stringify(after.materials) ||
-        (before.notes || "") !== (after.notes || "")
+        (before.notes || "") !== (after.notes || "") ||
+        (before.description || "") !== (after.description || "")
       )
         throw new Error(
           "Esta etapa já aguarda sincronização com dados diferentes. Sincronize e confira a coleta antes de alterar os materiais.",
         );
       return overlayPending(existing);
     }
-    const expected = action === "start" ? "PENDING" : "IN_PROGRESS";
+    const expected =
+      action === "start"
+        ? "PENDING"
+        : action === "report-incident"
+          ? existing.status
+          : "IN_PROGRESS";
     if (existing.status !== expected)
       throw new Error(
         "A etapa da coleta mudou. Atualize os dados antes de continuar.",
@@ -1365,6 +989,23 @@ async function updateStatus(
 }
 
 export const collectionService = {
+  reportIncident: (id: string, description: string) =>
+    postCollectionAction(id, "report-incident", {
+      description: description.trim(),
+    }),
+  resolveIncident: async (
+    id: string,
+    incidentId: string,
+    resolution: string,
+  ) => {
+    const response = await api.post<CollectionApiResponse>(
+      `/collections/${id}/incidents/${incidentId}/resolve`,
+      { resolution },
+      true,
+    );
+    if (!response.collection) throw new Error("Coleta não retornada.");
+    return response.collection;
+  },
   getLastRemoteSyncAt: () => lastRemoteSyncAt,
   list,
   listByDriver,

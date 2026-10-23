@@ -30,9 +30,9 @@ export default function RotaDetalheScreen() {
     useNotification();
 
   const [rota, setRota] = useState<RouteItem | null>(null);
-  const [availableCollections, setAvailableCollections] = useState<Collection[]>(
-    []
-  );
+  const [availableCollections, setAvailableCollections] = useState<
+    Collection[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
@@ -213,7 +213,7 @@ export default function RotaDetalheScreen() {
     useCallback(() => {
       setLoading(true);
       loadScreen();
-    }, [loadScreen])
+    }, [loadScreen]),
   );
 
   const onRefresh = useCallback(() => {
@@ -230,13 +230,19 @@ export default function RotaDetalheScreen() {
       const updated = await routeService.updateStatus(routeId, newStatus);
       setRota(updated);
       if (updated.syncStatus === "PENDING") {
-        notifyInfo("Alteração salva localmente. Aguarde a sincronização e a confirmação do servidor.");
+        notifyInfo(
+          "Alteração salva localmente. Aguarde a sincronização e a confirmação do servidor.",
+        );
       } else {
         notifySuccess("Status da rota confirmado pelo servidor.");
       }
     } catch (error) {
       console.error("Erro ao atualizar status da rota:", error);
-      notifyError(error instanceof Error ? error.message : "Não foi possível atualizar o status da rota.");
+      notifyError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar o status da rota.",
+      );
     } finally {
       setSavingStatus(false);
     }
@@ -276,19 +282,6 @@ export default function RotaDetalheScreen() {
     }
   }
 
-  function startEdit() {
-    if (!rota) return;
-
-    setEditName(rota.name);
-    setEditDate(rota.scheduledDate ? formatDate(rota.scheduledDate) : "");
-    setEditDescription(rota.description || "");
-    setEditStopsInput((rota.stops || []).join("\n"));
-    setEditDriverId(rota.driverId || rota.driver?.id || "");
-    setEditVehicleId(rota.vehicleId || rota.vehicle?.id || "");
-
-    setEditMode(true);
-  }
-
   function cancelEdit() {
     setEditMode(false);
   }
@@ -326,7 +319,11 @@ export default function RotaDetalheScreen() {
       notifySuccess("Rota atualizada com sucesso.");
     } catch (error) {
       console.error("Erro ao editar rota:", error);
-      notifyError(error instanceof Error ? error.message : "Não foi possível atualizar a rota.");
+      notifyError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar a rota.",
+      );
     } finally {
       setSavingEdit(false);
     }
@@ -341,40 +338,48 @@ export default function RotaDetalheScreen() {
       fieldCompletedCollections: rota?.stats?.fieldCompletedCollections ?? 0,
       cancelledCollections: rota?.stats?.cancelledCollections ?? 0,
     }),
-    [rota]
+    [rota],
   );
 
   const currentCollections = useMemo(
     () => (Array.isArray(rota?.collections) ? rota?.collections : []),
-    [rota]
+    [rota],
   );
 
   const activeCollections = useMemo(
-    () => (Array.isArray(rota?.activeCollections) ? rota?.activeCollections : []),
-    [rota]
+    () =>
+      Array.isArray(rota?.activeCollections) ? rota?.activeCollections : [],
+    [rota],
   );
 
   const availableDrivers = useMemo(
-    () => drivers.filter((item) => item.status !== "INACTIVE" || item.id === rota?.driverId),
-    [drivers, rota?.driverId]
+    () =>
+      drivers.filter(
+        (item) => item.status !== "INACTIVE" || item.id === rota?.driverId,
+      ),
+    [drivers, rota?.driverId],
   );
 
   const availableVehicles = useMemo(
-    () => vehicles.filter((item) => item.status !== "INACTIVE" || item.id === rota?.vehicleId),
-    [vehicles, rota?.vehicleId]
+    () =>
+      vehicles.filter(
+        (item) => item.status !== "INACTIVE" || item.id === rota?.vehicleId,
+      ),
+    [vehicles, rota?.vehicleId],
   );
 
   const previewStops = useMemo(
     () => normalizeStops(editStopsInput),
-    [editStopsInput]
+    [editStopsInput],
   );
 
-  const statusOptions: { label: string; value: RouteStatus; color: string }[] = [
-    { label: "Agendada", value: "SCHEDULED", color: "#F59E0B" },
-    { label: "Em andamento", value: "IN_PROGRESS", color: "#10B981" },
-    { label: "Concluída", value: "COMPLETED", color: "#6B7280" },
-    { label: "Cancelada", value: "CANCELLED", color: "#DC2626" },
-  ];
+  const statusOptions: { label: string; value: RouteStatus; color: string }[] =
+    [
+      { label: "Agendada", value: "SCHEDULED", color: "#F59E0B" },
+      { label: "Em andamento", value: "IN_PROGRESS", color: "#10B981" },
+      { label: "Concluída", value: "COMPLETED", color: "#6B7280" },
+      { label: "Cancelada", value: "CANCELLED", color: "#DC2626" },
+    ];
 
   if (loading) {
     return (
@@ -438,11 +443,11 @@ export default function RotaDetalheScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 52,
+          paddingTop: 20,
           paddingBottom: 24,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 28,
@@ -471,7 +476,15 @@ export default function RotaDetalheScreen() {
           </Text>
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-            <TouchableOpacity onPress={startEdit}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({
+                  pathname: "/(cooperativa)/rotas/editar",
+                  params: { id: routeId },
+                })
+              }
+            >
               <Ionicons name="create-outline" size={22} color="#FFFFFF" />
             </TouchableOpacity>
 
@@ -554,14 +567,40 @@ export default function RotaDetalheScreen() {
           >
             Resumo operacional
           </Text>
-          <InfoRow label="Motorista da rota" value={rota.driver?.name || "Não vinculado"} />
-          <InfoRow label="Veículo da rota" value={[rota.vehicle?.brand, rota.vehicle?.model, rota.vehicle?.plate].filter(Boolean).join(" • ") || "Não vinculado"} />
-          <TouchableOpacity onPress={startEdit} accessibilityRole="button" accessibilityLabel="Editar motorista e veículo" style={{ marginVertical: 12 }}>
-            <Text style={{ color: "#028C56", fontWeight: "700" }}>Editar motorista e veículo</Text>
+          <InfoRow
+            label="Motorista da rota"
+            value={rota.driver?.name || "Não vinculado"}
+          />
+          <InfoRow
+            label="Veículo da rota"
+            value={
+              [rota.vehicle?.brand, rota.vehicle?.model, rota.vehicle?.plate]
+                .filter(Boolean)
+                .join(" • ") || "Não vinculado"
+            }
+          />
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: "/(cooperativa)/rotas/editar",
+                params: { id: routeId },
+              })
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Planejar equipe e coletas"
+            style={{ marginVertical: 12 }}
+          >
+            <Text style={{ color: "#028C56", fontWeight: "700" }}>
+              Planejar equipe e coletas
+            </Text>
           </TouchableOpacity>
-          <Text style={{ color: "#6B7280", marginBottom: 12 }}>Atribuições de coletas já finalizadas são preservadas.</Text>
+          <Text style={{ color: "#6B7280", marginBottom: 12 }}>
+            Atribuições de coletas já finalizadas são preservadas.
+          </Text>
           {rota.syncStatus === "PENDING" && (
-            <Text style={{ color: "#92400E", marginBottom: 12 }}>Status local pendente de confirmação do servidor.</Text>
+            <Text style={{ color: "#92400E", marginBottom: 12 }}>
+              Status local pendente de confirmação do servidor.
+            </Text>
           )}
 
           <View
@@ -572,12 +611,36 @@ export default function RotaDetalheScreen() {
               rowGap: 12,
             }}
           >
-            <MetricCard label="Total" value={String(stats.totalCollections)} color="#111827" />
-            <MetricCard label="Pendentes" value={String(stats.pendingCollections)} color="#F59E0B" />
-            <MetricCard label="Em andamento" value={String(stats.inProgressCollections)} color="#10B981" />
-            <MetricCard label="Finalizadas em campo" value={String(stats.fieldCompletedCollections)} color="#2563EB" />
-            <MetricCard label="Canceladas" value={String(stats.cancelledCollections)} color="#DC2626" />
-            <MetricCard label="Paradas" value={String(rota.stops?.length || 0)} color="#7C3AED" />
+            <MetricCard
+              label="Total"
+              value={String(stats.totalCollections)}
+              color="#111827"
+            />
+            <MetricCard
+              label="Pendentes"
+              value={String(stats.pendingCollections)}
+              color="#F59E0B"
+            />
+            <MetricCard
+              label="Em andamento"
+              value={String(stats.inProgressCollections)}
+              color="#10B981"
+            />
+            <MetricCard
+              label="Finalizadas em campo"
+              value={String(stats.fieldCompletedCollections)}
+              color="#2563EB"
+            />
+            <MetricCard
+              label="Canceladas"
+              value={String(stats.cancelledCollections)}
+              color="#DC2626"
+            />
+            <MetricCard
+              label="Paradas"
+              value={String(rota.stops?.length || 0)}
+              color="#7C3AED"
+            />
           </View>
         </View>
 
@@ -706,7 +769,10 @@ export default function RotaDetalheScreen() {
             </View>
 
             <FieldLabel label="Motorista" />
-            <TouchableOpacity onPress={() => setEditDriverId("")} style={chipStyle(!editDriverId)}>
+            <TouchableOpacity
+              onPress={() => setEditDriverId("")}
+              style={chipStyle(!editDriverId)}
+            >
               <Text style={chipTextStyle(!editDriverId)}>Sem motorista</Text>
             </TouchableOpacity>
             {availableDrivers.length === 0 ? (
@@ -738,7 +804,10 @@ export default function RotaDetalheScreen() {
             )}
 
             <FieldLabel label="Veículo" />
-            <TouchableOpacity onPress={() => setEditVehicleId("")} style={chipStyle(!editVehicleId)}>
+            <TouchableOpacity
+              onPress={() => setEditVehicleId("")}
+              style={chipStyle(!editVehicleId)}
+            >
               <Text style={chipTextStyle(!editVehicleId)}>Sem veículo</Text>
             </TouchableOpacity>
             {availableVehicles.length === 0 ? (
@@ -826,8 +895,14 @@ export default function RotaDetalheScreen() {
               Dados da rota
             </Text>
 
-            <InfoRow label="Data programada" value={formatDate(rota.scheduledDate)} />
-            <InfoRow label="Motorista" value={rota.driver?.name || "Não informado"} />
+            <InfoRow
+              label="Data programada"
+              value={formatDate(rota.scheduledDate)}
+            />
+            <InfoRow
+              label="Motorista"
+              value={rota.driver?.name || "Não informado"}
+            />
             <InfoRow
               label="Veículo"
               value={
@@ -838,7 +913,10 @@ export default function RotaDetalheScreen() {
                   : "Não informado"
               }
             />
-            <InfoRow label="Coletas a finalizar em campo" value={String(activeCollections.length)} />
+            <InfoRow
+              label="Coletas a finalizar em campo"
+              value={String(activeCollections.length)}
+            />
 
             <Text
               style={{
@@ -914,7 +992,10 @@ export default function RotaDetalheScreen() {
             Ações rápidas
           </Text>
 
-          <Text style={{ color: "#6B7280", marginBottom: 12 }}>Conclua a rota após finalizar as coletas em campo. Recebimento e triagem continuam separados.</Text>
+          <Text style={{ color: "#6B7280", marginBottom: 12 }}>
+            Conclua a rota após finalizar as coletas em campo. Recebimento e
+            triagem continuam separados.
+          </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
             {statusOptions.map((option) => {
               const isCurrent = rota.status === option.value;
@@ -966,7 +1047,9 @@ export default function RotaDetalheScreen() {
           {currentCollections.length > 0 ? (
             currentCollections.map((item) => {
               const isMutating = mutatingCollectionId === item.id;
-              const canRemoveCollection = ["PENDING", "IN_PROGRESS"].includes(item.status) && !["COMPLETED", "CANCELLED"].includes(rota.status);
+              const canRemoveCollection =
+                ["PENDING", "IN_PROGRESS"].includes(item.status) &&
+                !["COMPLETED", "CANCELLED"].includes(rota.status);
 
               return (
                 <View
@@ -1039,7 +1122,7 @@ export default function RotaDetalheScreen() {
                         {formatDate(
                           item.schedule?.scheduledDate ||
                             item.schedule?.preferredDate ||
-                            item.collectedAt
+                            item.collectedAt,
                         )}
                       </Text>
                     </View>
@@ -1083,7 +1166,11 @@ export default function RotaDetalheScreen() {
                         fontSize: 12,
                       }}
                     >
-                      {isMutating ? "Removendo..." : canRemoveCollection ? "Remover da rota" : "Vínculo histórico preservado"}
+                      {isMutating
+                        ? "Removendo..."
+                        : canRemoveCollection
+                          ? "Remover da rota"
+                          : "Vínculo histórico preservado"}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1138,29 +1225,40 @@ export default function RotaDetalheScreen() {
                     {getCollectionOriginName(item)}
                   </Text>
 
-                  <Text style={{ color: "#6B7280", marginTop: 4, fontSize: 13 }}>
+                  <Text
+                    style={{ color: "#6B7280", marginTop: 4, fontSize: 13 }}
+                  >
                     {getCollectionAddress(item)}
                   </Text>
 
-                  <Text style={{ color: "#6B7280", marginTop: 6, fontSize: 13 }}>
+                  <Text
+                    style={{ color: "#6B7280", marginTop: 6, fontSize: 13 }}
+                  >
                     Peso: {formatWeight(item.totalWeightKg)}
                   </Text>
 
-                  <Text style={{ color: "#6B7280", marginTop: 2, fontSize: 13 }}>
+                  <Text
+                    style={{ color: "#6B7280", marginTop: 2, fontSize: 13 }}
+                  >
                     Catador: {item.collector?.name || "Não informado"}
                   </Text>
 
-                  <Text style={{ color: "#6B7280", marginTop: 2, fontSize: 13 }}>
+                  <Text
+                    style={{ color: "#6B7280", marginTop: 2, fontSize: 13 }}
+                  >
                     Data:{" "}
                     {formatDate(
                       item.schedule?.scheduledDate ||
                         item.schedule?.preferredDate ||
-                        item.collectedAt
+                        item.collectedAt,
                     )}
                   </Text>
 
                   <TouchableOpacity
-                    disabled={isMutating || ["COMPLETED", "CANCELLED"].includes(rota.status)}
+                    disabled={
+                      isMutating ||
+                      ["COMPLETED", "CANCELLED"].includes(rota.status)
+                    }
                     onPress={() => addCollection(item.id)}
                     style={{
                       marginTop: 12,

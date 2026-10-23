@@ -16,11 +16,7 @@ import { sendFeedback } from "@/src/services/feedbackService";
 import { useNotification } from "@/src/contexts/NotificationContext";
 
 type FeedbackCategory =
-  | "ATENDIMENTO"
-  | "PONTUALIDADE"
-  | "COLETA"
-  | "APLICATIVO"
-  | "COMUNICACAO";
+  "ATENDIMENTO" | "PONTUALIDADE" | "COLETA" | "APLICATIVO" | "COMUNICACAO";
 
 function getNpsLabel(score: number | null) {
   if (score === null) return "Selecione uma nota";
@@ -38,7 +34,9 @@ function getNpsColor(score: number | null) {
 
 export default function FeedbackScreen() {
   const [npsScore, setNpsScore] = useState<number | null>(null);
-  const [selectedCategories, setSelectedCategories] = useState<FeedbackCategory[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<
+    FeedbackCategory[]
+  >([]);
   const [reason, setReason] = useState("");
   const [improvement, setImprovement] = useState("");
   const [likes, setLikes] = useState("");
@@ -77,7 +75,10 @@ export default function FeedbackScreen() {
 
   const handleSubmit = async () => {
     if (npsScore === null) {
-      notifyError("Atenção", "Selecione uma nota de 0 a 10.");
+      notifyError({
+        message: "Selecione uma nota de 0 a 10.",
+        title: "Atenção",
+      });
       return;
     }
 
@@ -94,20 +95,20 @@ export default function FeedbackScreen() {
       });
 
       notifySuccess(
-  result.emailSent
-    ? "Seu feedback foi enviado com sucesso para a cooperativa."
-    : "Seu feedback foi registrado, mas o envio do email ainda não foi concluído."
-);
+        result.emailSent
+          ? "Seu feedback foi enviado com sucesso para a cooperativa."
+          : "Seu feedback foi registrado, mas o envio do email ainda não foi concluído.",
+      );
 
-resetForm();
-router.back();
+      resetForm();
+      router.back();
     } catch (error: any) {
       console.error("Erro ao enviar feedback:", error);
 
-      notifyError(
-        "Erro",
-        error?.message || "Não foi possível enviar seu feedback."
-      );
+      notifyError({
+        message: error?.message || "Não foi possível enviar seu feedback.",
+        title: "Erro",
+      });
     } finally {
       setSending(false);
     }
@@ -119,11 +120,11 @@ router.back();
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -151,7 +152,8 @@ router.back();
             marginTop: 10,
           }}
         >
-          Conte como foi sua experiência com o serviço e com a operação da coleta.
+          Conte como foi sua experiência com o serviço e com a operação da
+          coleta.
         </Text>
       </LinearGradient>
 
@@ -189,7 +191,8 @@ router.back();
               lineHeight: 20,
             }}
           >
-            De 0 a 10, qual a probabilidade de você recomendar nossa operação de coleta para outra empresa?
+            De 0 a 10, qual a probabilidade de você recomendar nossa operação de
+            coleta para outra empresa?
           </Text>
 
           <View
@@ -238,9 +241,7 @@ router.back();
             <Text style={{ fontSize: 12, color: "#6B7280" }}>
               Não recomendaria
             </Text>
-            <Text style={{ fontSize: 12, color: "#6B7280" }}>
-              Recomendaria
-            </Text>
+            <Text style={{ fontSize: 12, color: "#6B7280" }}>Recomendaria</Text>
           </View>
 
           <View
@@ -361,7 +362,7 @@ router.back();
             colors={
               sending || !canSubmit
                 ? ["#9CA3AF", "#6B7280"]
-                : ["#10F35D", "#028C56"]
+                : ["#059669", "#028C56"]
             }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}

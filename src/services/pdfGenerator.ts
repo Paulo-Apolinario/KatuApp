@@ -1,11 +1,14 @@
+import { materialQuantity } from "../utils/materials";
 import { Platform } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import type { CollectionMaterial } from "@/src/types/collection";
+import type { CollectionMaterial, WasteUnit } from "@/src/types/collection";
 
 type TopMaterial = {
   type: string;
   quantityKg: number;
+  quantity?: number;
+  unit?: WasteUnit;
 };
 
 interface UserData {
@@ -70,9 +73,9 @@ const renderMaterialsTable = (materials?: CollectionMaterial[]) => {
       (item) => `
         <tr>
           <td>${escapeHtml(item.type)}</td>
-          <td class="text-right">${escapeHtml(formatKg(item.quantityKg))} kg</td>
+          <td class="text-right">${escapeHtml(materialQuantity(item))}</td>
         </tr>
-      `
+      `,
     )
     .join("");
 };
@@ -92,16 +95,16 @@ const renderTopMaterialsTable = (materials?: TopMaterial[]) => {
         <tr>
           <td class="text-center">${index + 1}</td>
           <td>${escapeHtml(item.type)}</td>
-          <td class="text-right">${escapeHtml(formatKg(item.quantityKg))} kg</td>
+          <td class="text-right">${escapeHtml(materialQuantity(item))}</td>
         </tr>
-      `
+      `,
     )
     .join("");
 };
 
 const buildReceiptHtml = (
   userData: UserData,
-  receipt?: ReceiptData
+  receipt?: ReceiptData,
 ): { html: string; fileName: string } => {
   const now = new Date();
   const currentDate = now.toLocaleDateString("pt-BR");
@@ -123,14 +126,16 @@ const buildReceiptHtml = (
 
   const documentNumber = receipt
     ? `COL-${receipt.id.slice(0, 8).toUpperCase()}`
-    : `CON-${String(safeCode || "GERAL").slice(0, 8).toUpperCase()}`;
+    : `CON-${String(safeCode || "GERAL")
+        .slice(0, 8)
+        .toUpperCase()}`;
 
   const fileName = receipt
     ? `Comprovante_KATUA_Coleta_${sanitizeFileNamePart(
-        receipt.id.slice(0, 8)
+        receipt.id.slice(0, 8),
       )}_${currentDate.replace(/\//g, "-")}.pdf`
     : `Comprovante_KATUA_Consolidado_${sanitizeFileNamePart(
-        String(safeCode || "geral")
+        String(safeCode || "geral"),
       )}_${currentDate.replace(/\//g, "-")}.pdf`;
 
   const html = `
@@ -469,7 +474,7 @@ const buildReceiptHtml = (
     </div>
 
     <div class="summary-hero">
-      <div class="summary-label">Peso total comprovado</div>
+      <div class="summary-label">Massa registrada comprovado</div>
       <div class="summary-value">
         ${escapeHtml(formatKg(receipt ? receipt.kg : safeTotalKg))}
         <span class="summary-unit">kg</span>
@@ -533,7 +538,7 @@ const buildReceiptHtml = (
                       <td class="info-value">${escapeHtml(receipt.id)}</td>
                     </tr>
                     <tr>
-                      <td class="info-label">Peso total</td>
+                      <td class="info-label">Massa registrada</td>
                       <td class="info-value">${escapeHtml(formatKg(receipt.kg))} kg</td>
                     </tr>
                     <tr>
@@ -619,7 +624,7 @@ const buildReceiptHtml = (
           receipt
             ? ` Este documento comprova a execução da coleta identificada por
               <strong>${escapeHtml(receipt.id)}</strong>, realizada em
-              <strong>${escapeHtml(receipt.date)}</strong>, com volume total de
+              <strong>${escapeHtml(receipt.date)}</strong>, com massa registrada de
               <strong>${escapeHtml(formatKg(receipt.kg))} kg</strong>.`
             : ` Este documento consolida o histórico operacional do usuário
               até a data de emissão, totalizando
@@ -663,7 +668,9 @@ const printHtmlOnWeb = async (html: string) => {
   const printWindow = window.open("", "_blank", "width=900,height=1200");
 
   if (!printWindow) {
-    throw new Error("Não foi possível abrir a janela de impressão. Verifique se o navegador bloqueou pop-ups.");
+    throw new Error(
+      "Não foi possível abrir a janela de impressão. Verifique se o navegador bloqueou pop-ups.",
+    );
   }
 
   printWindow.document.open();
@@ -679,7 +686,7 @@ const printHtmlOnWeb = async (html: string) => {
 
 export const generateReceiptPDF = async (
   userData: UserData | null | undefined,
-  receipt?: ReceiptData
+  receipt?: ReceiptData,
 ): Promise<GenerateReceiptResult> => {
   try {
     if (!userData) {

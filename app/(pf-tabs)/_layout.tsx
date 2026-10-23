@@ -71,7 +71,7 @@ export default function PFLayout() {
         <Tabs.Screen
           name="ranking"
           options={{
-            title: "Ranking",
+            title: "Participação",
             tabBarIcon: ({ color }) => (
               <Ionicons name="trophy-outline" size={24} color={color} />
             ),

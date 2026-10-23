@@ -19,7 +19,7 @@ import { useNotification } from "@/src/contexts/NotificationContext";
 export default function ActivateAccessScreen() {
   const { activateGeneratorAccess } = useAuth();
   const params = useLocalSearchParams<{ email?: string }>();
-  const { notifyError, notifySuccess, notifyWarning} = useNotification();
+  const { notifyError, notifySuccess, notifyWarning } = useNotification();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,17 +39,20 @@ export default function ActivateAccessScreen() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail || !password.trim() || !confirmPassword.trim()) {
-      notifyWarning("Atenção", "Preencha todos os campos.");
+      notifyWarning({ message: "Preencha todos os campos.", title: "Atenção" });
       return false;
     }
 
     if (password.length < 6) {
-      notifyWarning("Atenção", "A senha deve ter pelo menos 6 caracteres.");
+      notifyWarning({
+        message: "A senha deve ter pelo menos 6 caracteres.",
+        title: "Atenção",
+      });
       return false;
     }
 
     if (password !== confirmPassword) {
-      notifyWarning("Atenção", "As senhas não coincidem.");
+      notifyWarning({ message: "As senhas não coincidem.", title: "Atenção" });
       return false;
     }
 
@@ -67,13 +70,22 @@ export default function ActivateAccessScreen() {
       const result = await activateGeneratorAccess(normalizedEmail, password);
 
       if (!result.success) {
-        notifyError("Erro", result.error || "Não foi possível liberar o acesso.");
+        notifyError({
+          message: result.error || "Não foi possível liberar o acesso.",
+          title: "Erro",
+        });
         return;
       }
 
-      notifySuccess("Acesso liberado", "Seu acesso foi liberado com sucesso.");
+      notifySuccess({
+        message: "Acesso liberado",
+        title: "Seu acesso foi liberado com sucesso.",
+      });
     } catch {
-      notifyError("Erro", "Não foi possível liberar o acesso.");
+      notifyError({
+        message: "Não foi possível liberar o acesso.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -254,14 +266,10 @@ export default function ActivateAccessScreen() {
                 Confirmar senha *
               </Text>
               <TouchableOpacity
-                onPress={() =>
-                  setShowConfirmPassword(!showConfirmPassword)
-                }
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
               >
                 <Ionicons
-                  name={
-                    showConfirmPassword ? "eye-outline" : "eye-off-outline"
-                  }
+                  name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
                   size={22}
                   color="#028C56"
                 />
@@ -293,7 +301,7 @@ export default function ActivateAccessScreen() {
             disabled={loading}
           >
             <LinearGradient
-              colors={["#10F35D", "#028C56"]}
+              colors={["#059669", "#028C56"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{

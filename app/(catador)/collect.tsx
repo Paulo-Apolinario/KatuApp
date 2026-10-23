@@ -111,7 +111,10 @@ function getAddress(item: Collection) {
 }
 
 function normalizeMaterialsForEditing(item: Collection): CollectionMaterial[] {
-  if (Array.isArray(item.collectionMaterials) && item.collectionMaterials.length > 0) {
+  if (
+    Array.isArray(item.collectionMaterials) &&
+    item.collectionMaterials.length > 0
+  ) {
     return item.collectionMaterials.map((material) => {
       const unit = material.unit || "KG";
       const quantity = Number(material.quantity || 0);
@@ -300,7 +303,10 @@ export default function CollectScreen() {
         });
       } catch (error) {
         console.error("Erro ao carregar coletas delegadas:", error);
-        notifyError("Erro", "Não foi possível carregar as coletas delegadas.");
+        notifyError({
+          message: "Não foi possível carregar as coletas delegadas.",
+          title: "Erro",
+        });
         setCollections([]);
       } finally {
         if (showLoader) setLoading(false);
@@ -320,7 +326,7 @@ export default function CollectScreen() {
     setRefreshing(true);
     const result = await syncManager.runSyncNow();
     if (!result.success && !isOffline)
-      notifyError("Sincronização pendente", result.message);
+      notifyError({ message: result.message, title: "Sincronização pendente" });
     await loadCollections(false);
   }, [loadCollections, isOffline, notifyError]);
 
@@ -493,10 +499,11 @@ export default function CollectScreen() {
       setCatalogItems(items);
       setCatalogModalVisible(true);
     } catch (error: any) {
-      notifyError(
-        "Erro",
-        error?.message || "Não foi possível carregar o catálogo de resíduos.",
-      );
+      notifyError({
+        message:
+          error?.message || "Não foi possível carregar o catálogo de resíduos.",
+        title: "Erro",
+      });
     } finally {
       setCatalogLoading(false);
     }
@@ -508,7 +515,10 @@ export default function CollectScreen() {
     );
 
     if (alreadyAdded) {
-      notifyError("Atenção", "Este resíduo já foi adicionado à coleta.");
+      notifyError({
+        message: "Este resíduo já foi adicionado à coleta.",
+        title: "Atenção",
+      });
       return;
     }
 
@@ -537,15 +547,18 @@ export default function CollectScreen() {
     messageOffline: string,
     pending = false,
   ) => {
-    notifySuccess(
-      pending ? "Aguardando sincronização" : "Sucesso",
-      pending ? messageOffline : messageOnline,
-    );
+    notifySuccess({
+      message: pending ? "Aguardando sincronização" : "Sucesso",
+      title: pending ? messageOffline : messageOnline,
+    });
   };
 
   const handleStartCollection = async () => {
     if (!selectedCollection) {
-      notifyError("Atenção", "Selecione uma coleta delegada.");
+      notifyError({
+        message: "Selecione uma coleta delegada.",
+        title: "Atenção",
+      });
       return;
     }
 
@@ -564,10 +577,10 @@ export default function CollectScreen() {
         result.syncStatus === "PENDING",
       );
     } catch (error: any) {
-      notifyError(
-        "Erro",
-        error?.message || "Não foi possível iniciar a coleta.",
-      );
+      notifyError({
+        message: error?.message || "Não foi possível iniciar a coleta.",
+        title: "Erro",
+      });
     } finally {
       setUpdatingId(null);
     }
@@ -575,15 +588,18 @@ export default function CollectScreen() {
 
   const handleCompleteCollection = async () => {
     if (!selectedCollection) {
-      notifyError("Atenção", "Selecione uma coleta delegada.");
+      notifyError({
+        message: "Selecione uma coleta delegada.",
+        title: "Atenção",
+      });
       return;
     }
 
     if (materialsDraft.length === 0) {
-      notifyError(
-        "Atenção",
-        "Informe ao menos um material com quantidade para concluir.",
-      );
+      notifyError({
+        message: "Informe ao menos um material com quantidade para concluir.",
+        title: "Atenção",
+      });
       return;
     }
 
@@ -598,10 +614,11 @@ export default function CollectScreen() {
     });
 
     if (hasInvalidMaterial) {
-      notifyError(
-        "Atenção",
-        "Todos os materiais devem possuir nome e quantidade maior que zero.",
-      );
+      notifyError({
+        message:
+          "Todos os materiais devem possuir nome e quantidade maior que zero.",
+        title: "Atenção",
+      });
       return;
     }
 
@@ -654,40 +671,38 @@ export default function CollectScreen() {
         result.syncStatus === "PENDING",
       );
     } catch (error: any) {
-      notifyError(
-        "Erro",
-        error?.message || "Não foi possível concluir a coleta.",
-      );
+      notifyError({
+        message: error?.message || "Não foi possível concluir a coleta.",
+        title: "Erro",
+      });
     } finally {
       setUpdatingId(null);
     }
   };
 
   const handleReportProblem = async () => {
-    if (!selectedCollection) {
-      notifyError("Atenção", "Selecione uma coleta delegada.");
+    if (!selectedCollection || updatingId) return;
+    if (notesDraft.trim().length < 5) {
+      notifyError(
+        "Descreva a ocorrência nas observações com pelo menos cinco caracteres.",
+      );
       return;
     }
-
     try {
       setUpdatingId(selectedCollection.id);
-
-      await collectionService.cancel(selectedCollection.id, {
-        cancelledAt: new Date().toISOString(),
-        cancellationReason:
-          notesDraft?.trim() || "Problema operacional informado pelo catador.",
-      });
-
+      const result = await collectionService.reportIncident(
+        selectedCollection.id,
+        notesDraft,
+      );
       await loadCollections(false);
-      showOperationSuccess(
-        "Problema registrado e coleta cancelada.",
-        "Problema registrado no dispositivo. Será sincronizado quando a internet voltar.",
+      notifySuccess(
+        result.syncStatus === "PENDING"
+          ? "Ocorrência salva neste dispositivo; aguarda sincronização."
+          : "Ocorrência registrada. A cooperativa avaliará o tratamento; a coleta permanece em sua etapa atual.",
       );
+      setNotesDraft("");
     } catch (error: any) {
-      notifyError(
-        "Erro",
-        error?.message || "Não foi possível atualizar a coleta.",
-      );
+      notifyError(error?.message || "Não foi possível registrar a ocorrência.");
     } finally {
       setUpdatingId(null);
     }
@@ -1374,7 +1389,7 @@ export default function CollectScreen() {
                 <QuickAction
                   icon="alert-circle-outline"
                   title="Relatar problema"
-                  subtitle="Cancelar a coleta por problema operacional"
+                  subtitle="Registrar uma ocorrência para análise da cooperativa"
                   onPress={handleReportProblem}
                   loading={updatingId === selectedCollection.id}
                   isLast

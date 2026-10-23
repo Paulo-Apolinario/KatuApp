@@ -60,7 +60,7 @@ export default function AlertsScreen() {
 
       const scheduleAlerts: AlertPoint[] = schedules
         .filter(
-          (item) => item.status === "REQUESTED" || item.status === "SCHEDULED"
+          (item) => item.status === "REQUESTED" || item.status === "SCHEDULED",
         )
         .map((item) => {
           const date =
@@ -83,8 +83,8 @@ export default function AlertsScreen() {
               item.status === "SCHEDULED"
                 ? "Agendado"
                 : days > 0
-                ? "Atrasado"
-                : "Solicitação",
+                  ? "Atrasado"
+                  : "Solicitação",
             days: days > 0 ? days : 1,
           };
         });
@@ -93,7 +93,7 @@ export default function AlertsScreen() {
         .filter(
           (item) =>
             item.accessStatus === "PENDING_ACTIVATION" ||
-            item.accessStatus === "INACTIVE"
+            item.accessStatus === "INACTIVE",
         )
         .map((item) => ({
           id: `generator-${item.id}`,
@@ -117,7 +117,7 @@ export default function AlertsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadAlerts();
-    }, [loadAlerts])
+    }, [loadAlerts]),
   );
 
   function handleOpen(point: AlertPoint) {
@@ -135,11 +135,11 @@ export default function AlertsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -153,7 +153,9 @@ export default function AlertsScreen() {
             justifyContent: "space-between",
           }}
         >
-          <TouchableOpacity onPress={() => router.replace("/(cooperativa)/home")}>
+          <TouchableOpacity
+            onPress={() => router.replace("/(cooperativa)/home")}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -185,7 +187,10 @@ export default function AlertsScreen() {
         </Text>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+      >
         <View
           style={{
             backgroundColor: "#F9FAFB",
@@ -196,10 +201,18 @@ export default function AlertsScreen() {
             borderColor: "#E5E7EB",
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 15,
+            }}
+          >
             <Ionicons name="person-circle-outline" size={40} color="#028C56" />
             <View style={{ marginLeft: 12 }}>
-              <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
+              <Text
+                style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}
+              >
                 {currentDriver}
               </Text>
               <Text style={{ fontSize: 14, color: "#6B7280" }}>
@@ -253,7 +266,11 @@ export default function AlertsScreen() {
               marginBottom: 30,
             }}
           >
-            <Ionicons name="checkmark-circle-outline" size={42} color="#10B981" />
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={42}
+              color="#10B981"
+            />
             <Text
               style={{
                 fontSize: 16,
@@ -286,7 +303,13 @@ export default function AlertsScreen() {
                 }}
               >
                 <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: 4,
+                    }}
+                  >
                     <Ionicons name="alert-circle" size={18} color="#DC2626" />
                     <Text
                       style={{
@@ -300,7 +323,9 @@ export default function AlertsScreen() {
                     </Text>
                   </View>
 
-                  <Text style={{ fontSize: 14, color: "#6B7280", marginLeft: 24 }}>
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginLeft: 24 }}
+                  >
                     {point.address}
                   </Text>
 
@@ -320,8 +345,15 @@ export default function AlertsScreen() {
                         paddingVertical: 2,
                       }}
                     >
-                      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "600" }}>
-                        {point.status} • {point.days} {point.days === 1 ? "dia" : "dias"}
+                      <Text
+                        style={{
+                          color: "#FFFFFF",
+                          fontSize: 11,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {point.status} • {point.days}{" "}
+                        {point.days === 1 ? "dia" : "dias"}
                       </Text>
                     </View>
                   </View>
@@ -339,7 +371,13 @@ export default function AlertsScreen() {
                     marginLeft: 12,
                   }}
                 >
-                  <Text style={{ color: "#DC2626", fontSize: 12, fontWeight: "600" }}>
+                  <Text
+                    style={{
+                      color: "#DC2626",
+                      fontSize: 12,
+                      fontWeight: "600",
+                    }}
+                  >
                     ABRIR
                   </Text>
                 </TouchableOpacity>

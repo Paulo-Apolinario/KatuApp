@@ -46,7 +46,10 @@ export default function NovoMotoristaScreen() {
 
   async function handleSalvar() {
     if (!nome.trim() || !email.trim()) {
-      notifyError("Atenção", "Preencha nome e email do motorista.");
+      notifyError({
+        message: "Preencha nome e email do motorista.",
+        title: "Atenção",
+      });
       return;
     }
 
@@ -63,14 +66,17 @@ export default function NovoMotoristaScreen() {
         notes: observacoes,
       });
 
-      notifySuccess("Sucesso", "Motorista cadastrado com sucesso!");
+      notifySuccess({
+        message: "Motorista cadastrado com sucesso!",
+        title: "Sucesso",
+      });
       router.replace("/(cooperativa)/motoristas");
     } catch (error: any) {
       console.error("Erro ao cadastrar motorista:", error);
-      notifyError(
-        "Erro",
-        error?.message || "Não foi possível cadastrar o motorista."
-      );
+      notifyError({
+        message: error?.message || "Não foi possível cadastrar o motorista.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -82,11 +88,11 @@ export default function NovoMotoristaScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
         }}
@@ -267,7 +273,7 @@ export default function NovoMotoristaScreen() {
           style={{ marginBottom: 30 }}
         >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#059669", "#028C56"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -294,7 +300,9 @@ export default function NovoMotoristaScreen() {
                 </Text>
               </>
             ) : (
-              <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}
+              >
                 SALVAR MOTORISTA
               </Text>
             )}

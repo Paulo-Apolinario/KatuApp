@@ -1,3 +1,4 @@
+import { getSession } from "./sessionRepository";
 import { runQuery, runSingle } from "../index";
 import { TABLES } from "../schema";
 
@@ -22,7 +23,7 @@ function mapScheduleRow(row: ScheduleRow | null) {
   if (!row) return null;
 
   return {
-    id: row.id,
+    id: row.payload_json ? JSON.parse(row.payload_json).id || row.id : row.id,
     status: row.status,
     generatorId: row.generator_id,
     payload: row.payload_json ? JSON.parse(row.payload_json) : null,
@@ -32,6 +33,9 @@ function mapScheduleRow(row: ScheduleRow | null) {
 }
 
 export async function upsertSchedules(schedules: ScheduleUpsertInput[]) {
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  if (!ownerId) throw new Error("Sessão necessária para salvar agendamentos.");
   const now = new Date().toISOString();
 
   for (const schedule of schedules) {
@@ -48,13 +52,16 @@ export async function upsertSchedules(schedules: ScheduleUpsertInput[]) {
       VALUES (?, ?, ?, ?, ?, ?)
       `,
       [
-        schedule.id,
+        `${ownerId}:${schedule.id}`,
         schedule.status ?? null,
         schedule.generatorId ?? null,
-        JSON.stringify(schedule.payload),
+        JSON.stringify({
+          ...(schedule.payload as object),
+          __cacheOwner: ownerId,
+        }),
         now,
         schedule.updatedAt ?? now,
-      ]
+      ],
     );
   }
 }
@@ -65,13 +72,20 @@ export async function getAllSchedules() {
     SELECT *
     FROM ${TABLES.SCHEDULES}
     ORDER BY updated_at DESC
-    `
+    `,
   )) as ScheduleRow[];
 
-  return rows.map((row) => mapScheduleRow(row));
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  return rows
+    .map(mapScheduleRow)
+    .filter((row) => ownerId && row?.payload?.__cacheOwner === ownerId);
 }
 
 export async function getScheduleById(id: string) {
+  const session = await getSession();
+  const ownerId = session?.userId || session?.payload?.id;
+  if (!ownerId) return null;
   const row = (await runSingle(
     `
     SELECT *
@@ -79,10 +93,11 @@ export async function getScheduleById(id: string) {
     WHERE id = ?
     LIMIT 1
     `,
-    [id]
+    [`${ownerId}:${id}`],
   )) as ScheduleRow | null;
 
-  return mapScheduleRow(row);
+  const mapped = mapScheduleRow(row);
+  return mapped?.payload?.__cacheOwner === ownerId ? mapped : null;
 }
 
 export async function clearSchedules() {

@@ -1,12 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -21,14 +16,9 @@ import { useNotification } from "@/src/contexts/NotificationContext";
 import { scheduleService } from "@/src/services/scheduleService";
 import { wasteCatalogService } from "@/src/services/wasteCatalogService";
 
-import type {
-  ScheduleMaterialDraft,
-} from "@/src/types/schedule";
+import type { ScheduleMaterialDraft } from "@/src/types/schedule";
 
-import type {
-  WasteCatalogItem,
-  WasteUnit,
-} from "@/src/types/collection";
+import type { WasteCatalogItem, WasteUnit } from "@/src/types/collection";
 
 /*
  * ============================================================
@@ -71,18 +61,13 @@ const WASTE_UNITS: {
  */
 
 function createLocalId() {
-  return `material_${Date.now()}_${Math.random()
-    .toString(36)
-    .slice(2, 9)}`;
+  return `material_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
 function normalizeDecimalInput(value: string) {
-  const cleaned = value
-    .replace(",", ".")
-    .replace(/[^0-9.]/g, "");
+  const cleaned = value.replace(",", ".").replace(/[^0-9.]/g, "");
 
-  const [integerPart, ...decimalParts] =
-    cleaned.split(".");
+  const [integerPart, ...decimalParts] = cleaned.split(".");
 
   if (decimalParts.length === 0) {
     return integerPart;
@@ -92,9 +77,7 @@ function normalizeDecimalInput(value: string) {
 }
 
 function parsePositiveNumber(value: string) {
-  const normalized = value
-    .trim()
-    .replace(",", ".");
+  const normalized = value.trim().replace(",", ".");
 
   if (!normalized) {
     return undefined;
@@ -110,9 +93,7 @@ function parsePositiveNumber(value: string) {
 }
 
 function formatDateInput(value: string) {
-  const digits = value
-    .replace(/\D/g, "")
-    .slice(0, 8);
+  const digits = value.replace(/\D/g, "").slice(0, 8);
 
   if (digits.length <= 2) {
     return digits;
@@ -122,16 +103,11 @@ function formatDateInput(value: string) {
     return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   }
 
-  return `${digits.slice(0, 2)}/${digits.slice(
-    2,
-    4
-  )}/${digits.slice(4)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
 function formatTimeInput(value: string) {
-  const digits = value
-    .replace(/\D/g, "")
-    .slice(0, 4);
+  const digits = value.replace(/\D/g, "").slice(0, 4);
 
   if (digits.length <= 2) {
     return digits;
@@ -142,7 +118,7 @@ function formatTimeInput(value: string) {
 
 function parseDateTimeToIso(
   dateValue: string,
-  timeValue: string
+  timeValue: string,
 ): string | null {
   if (
     !/^\d{2}\/\d{2}\/\d{4}$/.test(dateValue) ||
@@ -151,21 +127,11 @@ function parseDateTimeToIso(
     return null;
   }
 
-  const [day, month, year] =
-    dateValue.split("/").map(Number);
+  const [day, month, year] = dateValue.split("/").map(Number);
 
-  const [hour, minute] =
-    timeValue.split(":").map(Number);
+  const [hour, minute] = timeValue.split(":").map(Number);
 
-  const parsed = new Date(
-    year,
-    month - 1,
-    day,
-    hour,
-    minute,
-    0,
-    0
-  );
+  const parsed = new Date(year, month - 1, day, hour, minute, 0, 0);
 
   if (
     parsed.getFullYear() !== year ||
@@ -181,21 +147,11 @@ function parseDateTimeToIso(
 }
 
 function getUnitLabel(unit: WasteUnit) {
-  return (
-    WASTE_UNITS.find(
-      (item) => item.value === unit
-    )?.label || unit
-  );
+  return WASTE_UNITS.find((item) => item.value === unit)?.label || unit;
 }
 
-function getCatalogItemUnit(
-  item: WasteCatalogItem
-): WasteUnit {
-  return (
-    item.unit ||
-    item.defaultUnit ||
-    "KG"
-  );
+function getCatalogItemUnit(item: WasteCatalogItem): WasteUnit {
+  return item.unit || item.defaultUnit || "KG";
 }
 
 /*
@@ -207,71 +163,49 @@ function getCatalogItemUnit(
 export default function GeneratorScheduleScreen() {
   const { user } = useAuth();
 
-  const currentUser =
-    user as AuthUserLike | null;
+  const currentUser = user as AuthUserLike | null;
 
-  const {
-    notifyError,
-    notifySuccess,
-    notifyWarning,
-  } = useNotification();
+  const { notifyError, notifySuccess, notifyWarning } = useNotification();
 
-  const [catalogLoading, setCatalogLoading] =
-    useState(true);
+  const [catalogLoading, setCatalogLoading] = useState(true);
 
-  const [submitting, setSubmitting] =
-    useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [catalogItems, setCatalogItems] =
-    useState<WasteCatalogItem[]>([]);
+  const [catalogItems, setCatalogItems] = useState<WasteCatalogItem[]>([]);
 
-  const [catalogError, setCatalogError] =
-    useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
-  const [searchTerm, setSearchTerm] =
-    useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const [selectedDate, setSelectedDate] =
-    useState("");
+  const [selectedDate, setSelectedDate] = useState("");
 
-  const [selectedTime, setSelectedTime] =
-    useState("");
+  const [selectedTime, setSelectedTime] = useState("");
 
-  const [notes, setNotes] =
-    useState("");
+  const [notes, setNotes] = useState("");
 
-  const [materials, setMaterials] =
-    useState<ScheduleMaterialDraft[]>([]);
+  const [materials, setMaterials] = useState<ScheduleMaterialDraft[]>([]);
 
-  const [showNewMaterialForm, setShowNewMaterialForm] =
-    useState(false);
+  const [showNewMaterialForm, setShowNewMaterialForm] = useState(false);
 
-  const [proposedForm, setProposedForm] =
-    useState<ProposedMaterialForm>({
-      name: "",
-      category: "",
-      subcategory: "",
-      unit: "KG",
-      estimatedQuantity: "",
-    });
+  const [proposedForm, setProposedForm] = useState<ProposedMaterialForm>({
+    name: "",
+    category: "",
+    subcategory: "",
+    unit: "KG",
+    estimatedQuantity: "",
+  });
 
   const loadCatalog = useCallback(async () => {
     try {
       setCatalogLoading(true);
       setCatalogError(null);
 
-      const items =
-        await wasteCatalogService.list();
+      const items = await wasteCatalogService.list();
 
-      setCatalogItems(
-        Array.isArray(items)
-          ? items
-          : []
-      );
+      setCatalogItems(Array.isArray(items) ? items : []);
     } catch (error) {
       const message =
-        error instanceof Error &&
-        error.message.trim()
+        error instanceof Error && error.message.trim()
           ? error.message
           : "Não foi possível carregar o catálogo de resíduos.";
 
@@ -287,9 +221,7 @@ export default function GeneratorScheduleScreen() {
   }, [loadCatalog]);
 
   const filteredCatalogItems = useMemo(() => {
-    const normalizedTerm = searchTerm
-      .trim()
-      .toLocaleLowerCase("pt-BR");
+    const normalizedTerm = searchTerm.trim().toLocaleLowerCase("pt-BR");
 
     if (!normalizedTerm) {
       return catalogItems;
@@ -307,32 +239,24 @@ export default function GeneratorScheduleScreen() {
         .join(" ")
         .toLocaleLowerCase("pt-BR");
 
-      return searchable.includes(
-        normalizedTerm
-      );
+      return searchable.includes(normalizedTerm);
     });
   }, [catalogItems, searchTerm]);
 
   function isCatalogItemSelected(id: string) {
     return materials.some(
       (material) =>
-        material.source === "CATALOG" &&
-        material.wasteTypeId === id
+        material.source === "CATALOG" && material.wasteTypeId === id,
     );
   }
 
-  function addCatalogItem(
-    item: WasteCatalogItem
-  ) {
+  function addCatalogItem(item: WasteCatalogItem) {
     if (isCatalogItemSelected(item.id)) {
-      notifyWarning(
-        "Este material já foi adicionado."
-      );
+      notifyWarning("Este material já foi adicionado.");
       return;
     }
 
-    const unit =
-      getCatalogItemUnit(item);
+    const unit = getCatalogItemUnit(item);
 
     setMaterials((current) => [
       ...current,
@@ -351,60 +275,46 @@ export default function GeneratorScheduleScreen() {
 
   function removeMaterial(localId: string) {
     setMaterials((current) =>
-      current.filter(
-        (material) =>
-          material.localId !== localId
-      )
+      current.filter((material) => material.localId !== localId),
     );
   }
 
-  function updateMaterialQuantity(
-    localId: string,
-    value: string
-  ) {
-    const normalizedInput =
-      normalizeDecimalInput(value);
+  function updateMaterialQuantity(localId: string, value: string) {
+    const normalizedInput = normalizeDecimalInput(value);
 
     const quantity =
-      normalizedInput === ""
-        ? undefined
-        : Number(normalizedInput);
+      normalizedInput === "" ? undefined : Number(normalizedInput);
 
     setMaterials((current) =>
       current.map((material) =>
         material.localId === localId
           ? {
               ...material,
-              estimatedQuantity:
-                Number.isFinite(quantity)
-                  ? quantity
-                  : undefined,
+              estimatedQuantity: Number.isFinite(quantity)
+                ? quantity
+                : undefined,
             }
-          : material
-      )
+          : material,
+      ),
     );
   }
 
-  function updateMaterialUnit(
-    localId: string,
-    unit: WasteUnit
-  ) {
+  function updateMaterialUnit(localId: string, unit: WasteUnit) {
     setMaterials((current) =>
       current.map((material) =>
         material.localId === localId
           ? {
               ...material,
               unit,
-              proposedMaterial:
-                material.proposedMaterial
-                  ? {
-                      ...material.proposedMaterial,
-                      unit,
-                    }
-                  : undefined,
+              proposedMaterial: material.proposedMaterial
+                ? {
+                    ...material.proposedMaterial,
+                    unit,
+                  }
+                : undefined,
             }
-          : material
-      )
+          : material,
+      ),
     );
   }
 
@@ -421,37 +331,29 @@ export default function GeneratorScheduleScreen() {
   }
 
   function addProposedMaterial() {
-    const name =
-      proposedForm.name.trim();
+    const name = proposedForm.name.trim();
 
     if (name.length < 2) {
-      notifyWarning(
-        "Informe o nome do novo material."
-      );
+      notifyWarning("Informe o nome do novo material.");
       return;
     }
 
     const duplicate = materials.some(
       (material) =>
         material.source === "PROPOSED" &&
-        material.name
-          .trim()
-          .toLocaleLowerCase("pt-BR") ===
+        material.name.trim().toLocaleLowerCase("pt-BR") ===
           name.toLocaleLowerCase("pt-BR") &&
-        material.unit === proposedForm.unit
+        material.unit === proposedForm.unit,
     );
 
     if (duplicate) {
-      notifyWarning(
-        "Este material já foi adicionado."
-      );
+      notifyWarning("Este material já foi adicionado.");
       return;
     }
 
-    const estimatedQuantity =
-      parsePositiveNumber(
-        proposedForm.estimatedQuantity
-      );
+    const estimatedQuantity = parsePositiveNumber(
+      proposedForm.estimatedQuantity,
+    );
 
     setMaterials((current) => [
       ...current,
@@ -459,21 +361,13 @@ export default function GeneratorScheduleScreen() {
         localId: createLocalId(),
         proposedMaterial: {
           name,
-          category:
-            proposedForm.category.trim() ||
-            undefined,
-          subcategory:
-            proposedForm.subcategory.trim() ||
-            undefined,
+          category: proposedForm.category.trim() || undefined,
+          subcategory: proposedForm.subcategory.trim() || undefined,
           unit: proposedForm.unit,
         },
         name,
-        category:
-          proposedForm.category.trim() ||
-          undefined,
-        subcategory:
-          proposedForm.subcategory.trim() ||
-          undefined,
+        category: proposedForm.category.trim() || undefined,
+        subcategory: proposedForm.subcategory.trim() || undefined,
         estimatedQuantity,
         unit: proposedForm.unit,
         source: "PROPOSED",
@@ -484,75 +378,49 @@ export default function GeneratorScheduleScreen() {
   }
 
   async function handleSchedule() {
-    const cooperativeId =
-      currentUser?.generator
-        ?.cooperativeId;
+    const cooperativeId = currentUser?.generator?.cooperativeId;
 
     if (!currentUser?.id) {
-      notifyError(
-        "Usuário não autenticado."
-      );
+      notifyError("Usuário não autenticado.");
       return;
     }
 
     if (!cooperativeId) {
-      notifyError(
-        "Cooperativa do gerador não encontrada."
-      );
+      notifyError("Cooperativa do gerador não encontrada.");
       return;
     }
 
-    if (
-      !selectedDate ||
-      !selectedTime
-    ) {
-      notifyWarning(
-        "Informe a data e o horário preferencial."
-      );
+    if (!selectedDate || !selectedTime) {
+      notifyWarning("Informe a data e o horário preferencial.");
       return;
     }
 
-    const preferredDate =
-      parseDateTimeToIso(
-        selectedDate,
-        selectedTime
-      );
+    const preferredDate = parseDateTimeToIso(selectedDate, selectedTime);
 
     if (!preferredDate) {
-      notifyWarning(
-        "Informe uma data e um horário válidos."
-      );
+      notifyWarning("Informe uma data e um horário válidos.");
       return;
     }
 
-    if (
-      new Date(preferredDate).getTime() <=
-      Date.now()
-    ) {
-      notifyWarning(
-        "A data preferencial precisa estar no futuro."
-      );
+    if (new Date(preferredDate).getTime() <= Date.now()) {
+      notifyWarning("A data preferencial precisa estar no futuro.");
       return;
     }
 
     if (materials.length === 0) {
-      notifyWarning(
-        "Adicione ao menos um material."
-      );
+      notifyWarning("Adicione ao menos um material.");
       return;
     }
 
-    const invalidMaterial =
-      materials.find(
-        (material) =>
-          material.estimatedQuantity !==
-            undefined &&
-          material.estimatedQuantity <= 0
-      );
+    const invalidMaterial = materials.find(
+      (material) =>
+        material.estimatedQuantity !== undefined &&
+        material.estimatedQuantity <= 0,
+    );
 
     if (invalidMaterial) {
       notifyWarning(
-        `Informe uma quantidade válida para ${invalidMaterial.name}.`
+        `Informe uma quantidade válida para ${invalidMaterial.name}.`,
       );
       return;
     }
@@ -562,42 +430,27 @@ export default function GeneratorScheduleScreen() {
 
       await scheduleService.create({
         cooperativeId,
-        generatorId:
-          currentUser.generator?.id,
+        generatorId: currentUser.generator?.id,
         preferredDate,
-        requestedMaterials:
-          materials.map((material) => ({
-            wasteTypeId:
-              material.wasteTypeId,
-            proposedMaterial:
-              material.proposedMaterial,
-            estimatedQuantity:
-              material.estimatedQuantity,
-            unit:
-              material.unit,
-          })),
-        notes:
-          notes.trim() ||
-          undefined,
+        requestedMaterials: materials.map((material) => ({
+          wasteTypeId: material.wasteTypeId,
+          proposedMaterial: material.proposedMaterial,
+          estimatedQuantity: material.estimatedQuantity,
+          unit: material.unit,
+        })),
+        notes: notes.trim() || undefined,
       });
 
-      notifySuccess(
-        "Solicitação de coleta registrada com sucesso!"
-      );
+      notifySuccess("Solicitação de coleta registrada com sucesso!");
 
-      router.replace(
-        "/(gerador)/dashboard"
-      );
+      router.replace("/(gerador)/dashboard");
     } catch (error) {
-      console.error(
-        "Erro ao solicitar coleta:",
-        error
-      );
+      console.error("Erro ao solicitar coleta:", error);
 
       notifyError(
         error instanceof Error
           ? error.message
-          : "Não foi possível registrar a solicitação."
+          : "Não foi possível registrar a solicitação.",
       );
     } finally {
       setSubmitting(false);
@@ -612,10 +465,7 @@ export default function GeneratorScheduleScreen() {
       }}
     >
       <LinearGradient
-        colors={[
-          "#10F35D",
-          "#028C56",
-        ]}
+        colors={["#059669", "#028C56"]}
         start={{
           x: 0,
           y: 0,
@@ -650,7 +500,8 @@ export default function GeneratorScheduleScreen() {
             lineHeight: 20,
           }}
         >
-          Escolha os materiais, informe uma quantidade aproximada e indique o melhor horário.
+          Escolha os materiais, informe uma quantidade aproximada e indique o
+          melhor horário.
         </Text>
       </LinearGradient>
 
@@ -661,10 +512,7 @@ export default function GeneratorScheduleScreen() {
           paddingBottom: 40,
         }}
       >
-        <SectionCard
-          title="Data preferencial"
-          icon="calendar-outline"
-        >
+        <SectionCard title="Data preferencial" icon="calendar-outline">
           <View
             style={{
               flexDirection: "row",
@@ -672,11 +520,7 @@ export default function GeneratorScheduleScreen() {
           >
             <TextInput
               value={selectedDate}
-              onChangeText={(value) =>
-                setSelectedDate(
-                  formatDateInput(value)
-                )
-              }
+              onChangeText={(value) => setSelectedDate(formatDateInput(value))}
               placeholder="DD/MM/AAAA"
               placeholderTextColor="#9CA3AF"
               keyboardType="numeric"
@@ -692,11 +536,7 @@ export default function GeneratorScheduleScreen() {
 
             <TextInput
               value={selectedTime}
-              onChangeText={(value) =>
-                setSelectedTime(
-                  formatTimeInput(value)
-                )
-              }
+              onChangeText={(value) => setSelectedTime(formatTimeInput(value))}
               placeholder="HH:MM"
               placeholderTextColor="#9CA3AF"
               keyboardType="numeric"
@@ -711,10 +551,7 @@ export default function GeneratorScheduleScreen() {
           </View>
         </SectionCard>
 
-        <SectionCard
-          title="Catálogo de resíduos"
-          icon="search-outline"
-        >
+        <SectionCard title="Catálogo de resíduos" icon="search-outline">
           <TextInput
             value={searchTerm}
             onChangeText={setSearchTerm}
@@ -730,9 +567,7 @@ export default function GeneratorScheduleScreen() {
                 alignItems: "center",
               }}
             >
-              <ActivityIndicator
-                color="#028C56"
-              />
+              <ActivityIndicator color="#028C56" />
               <Text
                 style={{
                   marginTop: 8,
@@ -759,11 +594,7 @@ export default function GeneratorScheduleScreen() {
                   alignItems: "flex-start",
                 }}
               >
-                <Ionicons
-                  name="warning-outline"
-                  size={22}
-                  color="#B45309"
-                />
+                <Ionicons name="warning-outline" size={22} color="#B45309" />
 
                 <View
                   style={{
@@ -800,16 +631,14 @@ export default function GeneratorScheduleScreen() {
                       lineHeight: 19,
                     }}
                   >
-                    Você ainda pode continuar usando a opção
-                    “Material não encontrado” abaixo.
+                    Você ainda pode continuar usando a opção “Material não
+                    encontrado” abaixo.
                   </Text>
                 </View>
               </View>
 
               <TouchableOpacity
-                onPress={() =>
-                  void loadCatalog()
-                }
+                onPress={() => void loadCatalog()}
                 disabled={catalogLoading}
                 style={{
                   marginTop: 12,
@@ -822,11 +651,7 @@ export default function GeneratorScheduleScreen() {
                   flexDirection: "row",
                 }}
               >
-                <Ionicons
-                  name="refresh-outline"
-                  size={18}
-                  color="#B45309"
-                />
+                <Ionicons name="refresh-outline" size={18} color="#B45309" />
 
                 <Text
                   style={{
@@ -845,93 +670,71 @@ export default function GeneratorScheduleScreen() {
                 marginTop: 12,
               }}
             >
-              {filteredCatalogItems
-                .slice(0, 30)
-                .map((item) => {
-                  const selected =
-                    isCatalogItemSelected(
-                      item.id
-                    );
+              {filteredCatalogItems.slice(0, 30).map((item) => {
+                const selected = isCatalogItemSelected(item.id);
 
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      onPress={() =>
-                        addCatalogItem(
-                          item
-                        )
-                      }
-                      disabled={selected}
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => addCatalogItem(item)}
+                    disabled={selected}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 12,
+                      borderBottomWidth: 1,
+                      borderBottomColor: "#E5E7EB",
+                      opacity: selected ? 0.55 : 1,
+                    }}
+                  >
+                    <View
                       style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        paddingVertical: 12,
-                        borderBottomWidth: 1,
-                        borderBottomColor:
-                          "#E5E7EB",
-                        opacity: selected
-                          ? 0.55
-                          : 1,
+                        flex: 1,
                       }}
                     >
-                      <View
+                      <Text
                         style={{
-                          flex: 1,
+                          fontSize: 15,
+                          fontWeight: "700",
+                          color: "#111827",
                         }}
                       >
-                        <Text
-                          style={{
-                            fontSize: 15,
-                            fontWeight: "700",
-                            color: "#111827",
-                          }}
-                        >
-                          {item.name}
-                        </Text>
-
-                        <Text
-                          style={{
-                            marginTop: 3,
-                            fontSize: 13,
-                            color: "#6B7280",
-                          }}
-                        >
-                          {[
-                            item.category,
-                            item.subcategory,
-                          ]
-                            .filter(Boolean)
-                            .join(" • ") ||
-                            "Sem categoria"}
-                        </Text>
-                      </View>
+                        {item.name}
+                      </Text>
 
                       <Text
                         style={{
-                          marginRight: 10,
-                          color: "#4B5563",
-                          fontWeight: "600",
+                          marginTop: 3,
+                          fontSize: 13,
+                          color: "#6B7280",
                         }}
                       >
-                        {getUnitLabel(
-                          getCatalogItemUnit(
-                            item
-                          )
-                        )}
+                        {[item.category, item.subcategory]
+                          .filter(Boolean)
+                          .join(" • ") || "Sem categoria"}
                       </Text>
+                    </View>
 
-                      <Ionicons
-                        name={
-                          selected
-                            ? "checkmark-circle"
-                            : "add-circle-outline"
-                        }
-                        size={24}
-                        color="#028C56"
-                      />
-                    </TouchableOpacity>
-                  );
-                })}
+                    <Text
+                      style={{
+                        marginRight: 10,
+                        color: "#4B5563",
+                        fontWeight: "600",
+                      }}
+                    >
+                      {getUnitLabel(getCatalogItemUnit(item))}
+                    </Text>
+
+                    <Ionicons
+                      name={
+                        selected ? "checkmark-circle" : "add-circle-outline"
+                      }
+                      size={24}
+                      color="#028C56"
+                    />
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           ) : (
             <View
@@ -952,11 +755,7 @@ export default function GeneratorScheduleScreen() {
           )}
 
           <TouchableOpacity
-            onPress={() =>
-              setShowNewMaterialForm(
-                (current) => !current
-              )
-            }
+            onPress={() => setShowNewMaterialForm((current) => !current)}
             style={{
               marginTop: 14,
               paddingVertical: 12,
@@ -968,11 +767,7 @@ export default function GeneratorScheduleScreen() {
               justifyContent: "center",
             }}
           >
-            <Ionicons
-              name="create-outline"
-              size={18}
-              color="#028C56"
-            />
+            <Ionicons name="create-outline" size={18} color="#028C56" />
             <Text
               style={{
                 marginLeft: 8,
@@ -996,12 +791,10 @@ export default function GeneratorScheduleScreen() {
               <TextInput
                 value={proposedForm.name}
                 onChangeText={(name) =>
-                  setProposedForm(
-                    (current) => ({
-                      ...current,
-                      name,
-                    })
-                  )
+                  setProposedForm((current) => ({
+                    ...current,
+                    name,
+                  }))
                 }
                 placeholder="Nome do material"
                 placeholderTextColor="#9CA3AF"
@@ -1011,12 +804,10 @@ export default function GeneratorScheduleScreen() {
               <TextInput
                 value={proposedForm.category}
                 onChangeText={(category) =>
-                  setProposedForm(
-                    (current) => ({
-                      ...current,
-                      category,
-                    })
-                  )
+                  setProposedForm((current) => ({
+                    ...current,
+                    category,
+                  }))
                 }
                 placeholder="Categoria"
                 placeholderTextColor="#9CA3AF"
@@ -1031,12 +822,10 @@ export default function GeneratorScheduleScreen() {
               <TextInput
                 value={proposedForm.subcategory}
                 onChangeText={(subcategory) =>
-                  setProposedForm(
-                    (current) => ({
-                      ...current,
-                      subcategory,
-                    })
-                  )
+                  setProposedForm((current) => ({
+                    ...current,
+                    subcategory,
+                  }))
                 }
                 placeholder="Subcategoria, se houver"
                 placeholderTextColor="#9CA3AF"
@@ -1049,21 +838,12 @@ export default function GeneratorScheduleScreen() {
               />
 
               <TextInput
-                value={
-                  proposedForm.estimatedQuantity
-                }
-                onChangeText={(
-                  estimatedQuantity
-                ) =>
-                  setProposedForm(
-                    (current) => ({
-                      ...current,
-                      estimatedQuantity:
-                        normalizeDecimalInput(
-                          estimatedQuantity
-                        ),
-                    })
-                  )
+                value={proposedForm.estimatedQuantity}
+                onChangeText={(estimatedQuantity) =>
+                  setProposedForm((current) => ({
+                    ...current,
+                    estimatedQuantity: normalizeDecimalInput(estimatedQuantity),
+                  }))
                 }
                 placeholder="Quantidade estimada, opcional"
                 placeholderTextColor="#9CA3AF"
@@ -1079,12 +859,10 @@ export default function GeneratorScheduleScreen() {
               <UnitSelector
                 value={proposedForm.unit}
                 onChange={(unit) =>
-                  setProposedForm(
-                    (current) => ({
-                      ...current,
-                      unit,
-                    })
-                  )
+                  setProposedForm((current) => ({
+                    ...current,
+                    unit,
+                  }))
                 }
               />
 
@@ -1153,7 +931,8 @@ export default function GeneratorScheduleScreen() {
                 lineHeight: 20,
               }}
             >
-              Selecione materiais do catálogo ou cadastre um material não encontrado.
+              Selecione materiais do catálogo ou cadastre um material não
+              encontrado.
             </Text>
           ) : (
             materials.map((material) => (
@@ -1196,42 +975,27 @@ export default function GeneratorScheduleScreen() {
                         color: "#6B7280",
                       }}
                     >
-                      {material.source ===
-                      "CATALOG"
+                      {material.source === "CATALOG"
                         ? "Catálogo oficial"
                         : "Material proposto"}
                     </Text>
                   </View>
 
                   <TouchableOpacity
-                    onPress={() =>
-                      removeMaterial(
-                        material.localId
-                      )
-                    }
+                    onPress={() => removeMaterial(material.localId)}
                   >
-                    <Ionicons
-                      name="trash-outline"
-                      size={20}
-                      color="#DC2626"
-                    />
+                    <Ionicons name="trash-outline" size={20} color="#DC2626" />
                   </TouchableOpacity>
                 </View>
 
                 <TextInput
                   value={
-                    material.estimatedQuantity ===
-                    undefined
+                    material.estimatedQuantity === undefined
                       ? ""
-                      : String(
-                          material.estimatedQuantity
-                        )
+                      : String(material.estimatedQuantity)
                   }
                   onChangeText={(value) =>
-                    updateMaterialQuantity(
-                      material.localId,
-                      value
-                    )
+                    updateMaterialQuantity(material.localId, value)
                   }
                   placeholder="Quantidade estimada, opcional"
                   placeholderTextColor="#9CA3AF"
@@ -1247,10 +1011,7 @@ export default function GeneratorScheduleScreen() {
                 <UnitSelector
                   value={material.unit}
                   onChange={(unit) =>
-                    updateMaterialUnit(
-                      material.localId,
-                      unit
-                    )
+                    updateMaterialUnit(material.localId, unit)
                   }
                 />
               </View>
@@ -1258,10 +1019,7 @@ export default function GeneratorScheduleScreen() {
           )}
         </SectionCard>
 
-        <SectionCard
-          title="Observações"
-          icon="document-text-outline"
-        >
+        <SectionCard title="Observações" icon="document-text-outline">
           <TextInput
             value={notes}
             onChangeText={setNotes}
@@ -1285,10 +1043,7 @@ export default function GeneratorScheduleScreen() {
           onPress={handleSchedule}
         >
           <LinearGradient
-            colors={[
-              "#10F35D",
-              "#028C56",
-            ]}
+            colors={["#059669", "#028C56"]}
             start={{
               x: 0,
               y: 0,
@@ -1303,16 +1058,12 @@ export default function GeneratorScheduleScreen() {
               alignItems: "center",
               justifyContent: "center",
               flexDirection: "row",
-              opacity: submitting
-                ? 0.7
-                : 1,
+              opacity: submitting ? 0.7 : 1,
             }}
           >
             {submitting ? (
               <>
-                <ActivityIndicator
-                  color="#FFFFFF"
-                />
+                <ActivityIndicator color="#FFFFFF" />
                 <Text
                   style={{
                     marginLeft: 8,
@@ -1396,11 +1147,7 @@ function SectionCard({
             marginRight: 10,
           }}
         >
-          <Ionicons
-            name={icon}
-            size={19}
-            color="#15803D"
-          />
+          <Ionicons name={icon} size={19} color="#15803D" />
         </View>
 
         <Text
@@ -1436,34 +1183,25 @@ function UnitSelector({
       }}
     >
       {WASTE_UNITS.map((unit) => {
-        const selected =
-          unit.value === value;
+        const selected = unit.value === value;
 
         return (
           <TouchableOpacity
             key={unit.value}
-            onPress={() =>
-              onChange(unit.value)
-            }
+            onPress={() => onChange(unit.value)}
             style={{
               paddingHorizontal: 13,
               paddingVertical: 9,
               borderRadius: 18,
               marginRight: 8,
-              backgroundColor: selected
-                ? "#028C56"
-                : "#FFFFFF",
+              backgroundColor: selected ? "#028C56" : "#FFFFFF",
               borderWidth: 1,
-              borderColor: selected
-                ? "#028C56"
-                : "#D1D5DB",
+              borderColor: selected ? "#028C56" : "#D1D5DB",
             }}
           >
             <Text
               style={{
-                color: selected
-                  ? "#FFFFFF"
-                  : "#4B5563",
+                color: selected ? "#FFFFFF" : "#4B5563",
                 fontWeight: "700",
               }}
             >

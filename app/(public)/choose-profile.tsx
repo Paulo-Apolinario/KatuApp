@@ -1,11 +1,6 @@
 import { router } from "expo-router";
-import { useState, useEffect } from "react";
-import {
-  Image,
-  Text,
-  View,
-  TouchableOpacity,
-} from "react-native";
+import { useState, useEffect, useCallback } from "react";
+import { Image, Text, View, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "@/src/services/deviceLocation";
 import GradientButton from "@/src/components/GradientButton";
@@ -13,17 +8,13 @@ import { useNotification } from "@/src/contexts/NotificationContext";
 
 export default function ChooseProfile() {
   const [currentCity, setCurrentCity] = useState<string>(
-    "Carregando localização..."
+    "Carregando localização...",
   );
   const [locationError, setLocationError] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const {notifyWarning} = useNotification();
+  const { notifyWarning } = useNotification();
 
-  useEffect(() => {
-    getUserLocation();
-  }, []);
-
-  async function getUserLocation() {
+  const getUserLocation = useCallback(async () => {
     setIsLoading(true);
 
     try {
@@ -41,7 +32,9 @@ export default function ChooseProfile() {
         setCurrentCity("Permissão negada");
         setLocationError(true);
 
-        notifyWarning("Precisamos da sua localização para mostrar a cidade atual.");
+        notifyWarning(
+          "Precisamos da sua localização para mostrar a cidade atual.",
+        );
 
         return;
       }
@@ -77,7 +70,11 @@ export default function ChooseProfile() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [notifyWarning]);
+
+  useEffect(() => {
+    void getUserLocation();
+  }, [getUserLocation]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>

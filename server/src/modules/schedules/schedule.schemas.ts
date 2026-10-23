@@ -12,22 +12,16 @@ export const scheduleWasteUnitSchema = z.enum(
     errorMap: () => ({
       message: "Unidade de medida do material solicitado inválida.",
     }),
-  }
+  },
 );
 
 export const scheduleStatusSchema = z.enum(
-  [
-    "REQUESTED",
-    "SCHEDULED",
-    "IN_PROGRESS",
-    "COMPLETED",
-    "CANCELLED",
-  ],
+  ["REQUESTED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"],
   {
     errorMap: () => ({
       message: "Status do agendamento inválido.",
     }),
-  }
+  },
 );
 
 /*
@@ -55,17 +49,14 @@ const optionalTrimmedString = (maxLength = 255) =>
       .string({
         invalid_type_error: "O campo deve ser um texto.",
       })
-      .max(
-        maxLength,
-        `O campo deve possuir no máximo ${maxLength} caracteres.`
-      )
-      .optional()
+      .max(maxLength, `O campo deve possuir no máximo ${maxLength} caracteres.`)
+      .optional(),
   );
 
 const requiredTrimmedString = (
   fieldName: string,
   minLength = 1,
-  maxLength = 255
+  maxLength = 255,
 ) =>
   z
     .string({
@@ -76,7 +67,7 @@ const requiredTrimmedString = (
     .min(minLength, `${fieldName} é obrigatório.`)
     .max(
       maxLength,
-      `${fieldName} deve possuir no máximo ${maxLength} caracteres.`
+      `${fieldName} deve possuir no máximo ${maxLength} caracteres.`,
     );
 
 const optionalPositiveNumber = z.preprocess(
@@ -108,23 +99,20 @@ const optionalPositiveNumber = z.preprocess(
     })
     .finite("A quantidade estimada deve ser um valor numérico válido.")
     .positive("A quantidade estimada deve ser maior que zero.")
-    .optional()
+    .optional(),
 );
 
-const optionalWasteUnit = z.preprocess(
-  (value) => {
-    if (value === null || value === undefined || value === "") {
-      return undefined;
-    }
+const optionalWasteUnit = z.preprocess((value) => {
+  if (value === null || value === undefined || value === "") {
+    return undefined;
+  }
 
-    if (typeof value === "string") {
-      return value.trim().toUpperCase();
-    }
+  if (typeof value === "string") {
+    return value.trim().toUpperCase();
+  }
 
-    return value;
-  },
-  scheduleWasteUnitSchema.optional()
-);
+  return value;
+}, scheduleWasteUnitSchema.optional());
 
 const optionalIsoDate = z.preprocess(
   (value) => {
@@ -146,7 +134,7 @@ const optionalIsoDate = z.preprocess(
       message: "A data deve estar em formato ISO válido.",
       offset: true,
     })
-    .optional()
+    .optional(),
 );
 
 /*
@@ -284,8 +272,7 @@ export const structuredRequestedMaterialSchema = z
     }
   })
   .transform((material) => {
-    const estimatedQuantity =
-      material.estimatedQuantity ?? material.quantity;
+    const estimatedQuantity = material.estimatedQuantity ?? material.quantity;
 
     if (material.wasteTypeId) {
       return {
@@ -336,7 +323,7 @@ export const structuredRequestedMaterialSchema = z
 export const legacyRequestedMaterialSchema = requiredTrimmedString(
   "O material solicitado",
   1,
-  150
+  150,
 ).transform((name) => ({
   wasteTypeId: undefined,
   proposedMaterial: {
@@ -357,14 +344,10 @@ export const requestedMaterialSchema = z.union([
 export const requestedMaterialsSchema = z
   .array(requestedMaterialSchema, {
     required_error: "Informe ao menos um tipo de resíduo.",
-    invalid_type_error:
-      "A lista de materiais solicitados deve ser um array.",
+    invalid_type_error: "A lista de materiais solicitados deve ser um array.",
   })
   .min(1, "Informe ao menos um tipo de resíduo.")
-  .max(
-    100,
-    "Um agendamento pode possuir no máximo 100 materiais solicitados."
-  )
+  .max(100, "Um agendamento pode possuir no máximo 100 materiais solicitados.")
   .superRefine((materials, context) => {
     const keys = new Set<string>();
 
@@ -415,6 +398,9 @@ export const requestedMaterialsSchema = z
 
 export const createScheduleSchema = z
   .object({
+    pickupAddress: z.string().trim().min(5).max(500).optional(),
+    pickupLatitude: z.number().finite().min(-90).max(90).optional(),
+    pickupLongitude: z.number().finite().min(-180).max(180).optional(),
     /*
      * Obrigatório apenas quando a cooperativa cria a solicitação
      * em nome de um gerador.
@@ -437,6 +423,15 @@ export const createScheduleSchema = z
   })
   .superRefine((data, context) => {
     if (
+      (data.pickupLatitude === undefined) !==
+      (data.pickupLongitude === undefined)
+    )
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pickupLatitude"],
+        message: "Informe latitude e longitude juntas.",
+      });
+    if (
       data.preferredDate &&
       data.scheduledDate &&
       new Date(data.scheduledDate).getTime() <
@@ -445,8 +440,7 @@ export const createScheduleSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["scheduledDate"],
-        message:
-          "A data agendada não pode ser anterior à data preferencial.",
+        message: "A data agendada não pode ser anterior à data preferencial.",
       });
     }
   });
@@ -479,15 +473,12 @@ export const scheduleIdParamsSchema = z.object({
  * - Collection COMPLETED   -> Schedule COMPLETED.
  */
 export const updateScheduleStatusSchema = z.object({
-  status: z.enum(
-    ["SCHEDULED", "CANCELLED"],
-    {
-      errorMap: () => ({
-        message:
-          "A atualização manual do agendamento aceita apenas SCHEDULED ou CANCELLED.",
-      }),
-    }
-  ),
+  status: z.enum(["SCHEDULED", "CANCELLED"], {
+    errorMap: () => ({
+      message:
+        "A atualização manual do agendamento aceita apenas SCHEDULED ou CANCELLED.",
+    }),
+  }),
 });
 
 /*
@@ -496,25 +487,17 @@ export const updateScheduleStatusSchema = z.object({
  * ============================================================
  */
 
-export type ScheduleWasteUnit = z.infer<
-  typeof scheduleWasteUnitSchema
->;
+export type ScheduleWasteUnit = z.infer<typeof scheduleWasteUnitSchema>;
 
 export type ProposedScheduleMaterial = z.infer<
   typeof proposedScheduleMaterialSchema
 >;
 
-export type RequestedScheduleMaterial = z.infer<
-  typeof requestedMaterialSchema
->;
+export type RequestedScheduleMaterial = z.infer<typeof requestedMaterialSchema>;
 
-export type CreateScheduleInput = z.infer<
-  typeof createScheduleSchema
->;
+export type CreateScheduleInput = z.infer<typeof createScheduleSchema>;
 
-export type ScheduleIdParams = z.infer<
-  typeof scheduleIdParamsSchema
->;
+export type ScheduleIdParams = z.infer<typeof scheduleIdParamsSchema>;
 
 export type UpdateScheduleStatusInput = z.infer<
   typeof updateScheduleStatusSchema

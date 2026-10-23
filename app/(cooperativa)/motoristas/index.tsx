@@ -29,7 +29,10 @@ export default function MotoristasScreen() {
       setMotoristas(data);
     } catch (error) {
       console.error("Erro ao carregar motoristas:", error);
-      notifyError("Erro", "Não foi possível carregar os motoristas.");
+      notifyError({
+        message: "Não foi possível carregar os motoristas.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -38,34 +41,34 @@ export default function MotoristasScreen() {
   useFocusEffect(
     useCallback(() => {
       carregarMotoristas();
-    }, [carregarMotoristas])
+    }, [carregarMotoristas]),
   );
 
   const getStatusColor = (status: string) => {
-  switch (status) {
-    case "AVAILABLE":
-      return "#10B981";
-    case "ON_ROUTE":
-      return "#F59E0B";
-    case "INACTIVE":
-      return "#6B7280";
-    default:
-      return "#6B7280";
-  }
-};
+    switch (status) {
+      case "AVAILABLE":
+        return "#10B981";
+      case "ON_ROUTE":
+        return "#F59E0B";
+      case "INACTIVE":
+        return "#6B7280";
+      default:
+        return "#6B7280";
+    }
+  };
 
-const getStatusText = (status: string) => {
-  switch (status) {
-    case "AVAILABLE":
-      return "DISPONÍVEL";
-    case "ON_ROUTE":
-      return "EM ROTA";
-    case "INACTIVE":
-      return "INATIVO";
-    default:
-      return status.toUpperCase();
-  }
-};
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "AVAILABLE":
+        return "DISPONÍVEL";
+      case "ON_ROUTE":
+        return "EM ROTA";
+      case "INACTIVE":
+        return "INATIVO";
+      default:
+        return status.toUpperCase();
+    }
+  };
 
   function formatCpf(cpf?: string | null) {
     const only = (cpf || "").replace(/\D/g, "");
@@ -74,30 +77,30 @@ const getStatusText = (status: string) => {
   }
 
   const filteredMotoristas = useMemo(() => {
-  const term = searchText.trim().toLowerCase();
+    const term = searchText.trim().toLowerCase();
 
-  if (!term) return motoristas;
+    if (!term) return motoristas;
 
-  return motoristas.filter((m) => {
-    const normalizedCpf = (m.cpf || "").replace(/\D/g, "");
-    const rawSearchCpf = searchText.replace(/\D/g, "");
+    return motoristas.filter((m) => {
+      const normalizedCpf = (m.cpf || "").replace(/\D/g, "");
+      const rawSearchCpf = searchText.replace(/\D/g, "");
 
-    return (
-      m.name.toLowerCase().includes(term) ||
-      (m.email || "").toLowerCase().includes(term) ||
-      (m.phone || "").toLowerCase().includes(term) ||
-      normalizedCpf.includes(rawSearchCpf)
-    );
-  });
-}, [motoristas, searchText]);
+      return (
+        m.name.toLowerCase().includes(term) ||
+        (m.email || "").toLowerCase().includes(term) ||
+        (m.phone || "").toLowerCase().includes(term) ||
+        normalizedCpf.includes(rawSearchCpf)
+      );
+    });
+  }, [motoristas, searchText]);
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -111,7 +114,9 @@ const getStatusText = (status: string) => {
             justifyContent: "space-between",
           }}
         >
-          <TouchableOpacity onPress={() => router.replace("/(cooperativa)/home")}>
+          <TouchableOpacity
+            onPress={() => router.replace("/(cooperativa)/home")}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -203,7 +208,9 @@ const getStatusText = (status: string) => {
                 key={motorista.id}
                 activeOpacity={0.9}
                 onPress={() =>
-                  router.push(`/(cooperativa)/motoristas/${motorista.id}` as any)
+                  router.push(
+                    `/(cooperativa)/motoristas/${motorista.id}` as any,
+                  )
                 }
                 style={{
                   backgroundColor: "#F9FAFB",
@@ -243,36 +250,39 @@ const getStatusText = (status: string) => {
                     </View>
 
                     <Text
-  style={{
-    fontSize: 13,
-    color: "#6B7280",
-    marginLeft: 28,
-  }}
->
-  CPF: {formatCpf(motorista.cpf)}
-</Text>
+                      style={{
+                        fontSize: 13,
+                        color: "#6B7280",
+                        marginLeft: 28,
+                      }}
+                    >
+                      CPF: {formatCpf(motorista.cpf)}
+                    </Text>
 
-<Text
-  style={{
-    fontSize: 13,
-    color: "#6B7280",
-    marginLeft: 28,
-  }}
->
-  {motorista.phone || "Telefone não informado"} • {motorista.email}
-                </Text>
-                      {!!motorista.cnh && (
-                     <Text
-                            style={{
-                               fontSize: 13,
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#6B7280",
+                        marginLeft: 28,
+                      }}
+                    >
+                      {motorista.phone || "Telefone não informado"} •{" "}
+                      {motorista.email}
+                    </Text>
+                    {!!motorista.cnh && (
+                      <Text
+                        style={{
+                          fontSize: 13,
                           color: "#6B7280",
-                            marginLeft: 28,
-                              }}
-                        >
-                         CNH: {motorista.cnh}
-                        {motorista.cnhCategory ? ` • Categoria ${motorista.cnhCategory}` : ""}
+                          marginLeft: 28,
+                        }}
+                      >
+                        CNH: {motorista.cnh}
+                        {motorista.cnhCategory
+                          ? ` • Categoria ${motorista.cnhCategory}`
+                          : ""}
                       </Text>
-               )}
+                    )}
                   </View>
 
                   <View style={{ alignItems: "flex-end", marginLeft: 12 }}>

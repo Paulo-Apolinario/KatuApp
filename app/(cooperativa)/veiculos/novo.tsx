@@ -26,19 +26,25 @@ export default function NovoVeiculoScreen() {
   const { notifyError, notifySuccess } = useNotification();
 
   function formatPlate(value: string) {
-    return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+    return value
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 7);
   }
 
   async function handleSalvar() {
     if (!model.trim() || !plate.trim()) {
-      notifyError("Atenção", "Preencha modelo e placa do veículo.");
+      notifyError({
+        message: "Preencha modelo e placa do veículo.",
+        title: "Atenção",
+      });
       return;
     }
 
     if (year.trim()) {
       const parsedYear = Number(year);
       if (Number.isNaN(parsedYear) || parsedYear < 1900) {
-        notifyError("Atenção", "Informe um ano válido.");
+        notifyError({ message: "Informe um ano válido.", title: "Atenção" });
         return;
       }
     }
@@ -46,7 +52,10 @@ export default function NovoVeiculoScreen() {
     if (capacityKg.trim()) {
       const parsedCapacity = Number(capacityKg.replace(",", "."));
       if (Number.isNaN(parsedCapacity) || parsedCapacity <= 0) {
-        notifyError("Atenção", "Informe uma capacidade válida.");
+        notifyError({
+          message: "Informe uma capacidade válida.",
+          title: "Atenção",
+        });
         return;
       }
     }
@@ -62,11 +71,17 @@ export default function NovoVeiculoScreen() {
         capacityKg,
       });
 
-      notifySuccess("Sucesso", "Veículo cadastrado com sucesso!");
+      notifySuccess({
+        message: "Veículo cadastrado com sucesso!",
+        title: "Sucesso",
+      });
       router.replace("/(cooperativa)/veiculos");
     } catch (error: any) {
       console.error("Erro ao cadastrar veículo:", error);
-      notifyError("Erro", error?.message || "Não foi possível cadastrar o veículo.");
+      notifyError({
+        message: error?.message || "Não foi possível cadastrar o veículo.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -78,11 +93,11 @@ export default function NovoVeiculoScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
         }}
@@ -101,7 +116,10 @@ export default function NovoVeiculoScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1, padding: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={{ marginBottom: 20 }}>
           <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
             Modelo *
@@ -206,9 +224,13 @@ export default function NovoVeiculoScreen() {
           />
         </View>
 
-        <TouchableOpacity onPress={handleSalvar} disabled={loading} activeOpacity={0.9}>
+        <TouchableOpacity
+          onPress={handleSalvar}
+          disabled={loading}
+          activeOpacity={0.9}
+        >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#059669", "#028C56"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -236,7 +258,9 @@ export default function NovoVeiculoScreen() {
                 </Text>
               </>
             ) : (
-              <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}
+              >
                 SALVAR VEÍCULO
               </Text>
             )}

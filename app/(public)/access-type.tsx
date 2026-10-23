@@ -19,7 +19,7 @@ function EntryButton({ title, onPress }: EntryButtonProps) {
       }}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{

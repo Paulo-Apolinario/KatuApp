@@ -34,7 +34,6 @@ export default function ResetPasswordScreen() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const { notifyError, notifySuccess } = useNotification();
-  
 
   const [showTemporaryPassword, setShowTemporaryPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -65,33 +64,40 @@ export default function ResetPasswordScreen() {
     const normalizedTemporaryPassword = temporaryPassword.trim();
 
     if (!normalizedEmail || !normalizedToken) {
-      notifyError(
-        "Link inválido",
-        "O link de redefinição está incompleto ou expirado. Solicite uma nova recuperação de senha."
-      );
+      notifyError({
+        message: "Link inválido",
+        title:
+          "O link de redefinição está incompleto ou expirado. Solicite uma nova recuperação de senha.",
+      });
       return;
     }
 
     if (!normalizedTemporaryPassword) {
-      notifyError(
-        "Atenção",
-        "Informe a senha temporária recebida por e-mail."
-      );
+      notifyError({
+        message: "Informe a senha temporária recebida por e-mail.",
+        title: "Atenção",
+      });
       return;
     }
 
     if (!newPassword || !confirmPassword) {
-      notifyError("Atenção", "Preencha a nova senha e a confirmação.");
+      notifyError({
+        message: "Preencha a nova senha e a confirmação.",
+        title: "Atenção",
+      });
       return;
     }
 
     if (newPassword.length < 6) {
-      notifyError("Atenção", "A nova senha deve ter pelo menos 6 caracteres.");
+      notifyError({
+        message: "A nova senha deve ter pelo menos 6 caracteres.",
+        title: "Atenção",
+      });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      notifyError("Atenção", "As senhas não coincidem.");
+      notifyError({ message: "As senhas não coincidem.", title: "Atenção" });
       return;
     }
 
@@ -107,29 +113,29 @@ export default function ResetPasswordScreen() {
       });
 
       if (!result.success) {
-        notifyError(
-          "Erro",
-          result.error || "Não foi possível redefinir a senha."
-        );
+        notifyError({
+          message: result.error || "Não foi possível redefinir a senha.",
+          title: "Erro",
+        });
         return;
       }
 
-      notifySuccess(
-  "Senha redefinida",
-  result.message || "Sua senha foi redefinida com sucesso."
-);
+      notifySuccess({
+        message: "Senha redefinida",
+        title: result.message || "Sua senha foi redefinida com sucesso.",
+      });
 
-const query = profile ? `?profile=${profile}` : "";
+      const query = profile ? `?profile=${profile}` : "";
 
-setTimeout(() => {
-  router.replace(`/(auth)/login${query}` as any);
-}, 1200);
+      setTimeout(() => {
+        router.replace(`/(auth)/login${query}` as any);
+      }, 1200);
     } catch (error: any) {
       console.error("Erro ao redefinir senha:", error);
-      notifyError(
-        "Erro",
-        error?.message || "Não foi possível redefinir a senha."
-      );
+      notifyError({
+        message: error?.message || "Não foi possível redefinir a senha.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -429,7 +435,7 @@ setTimeout(() => {
             disabled={loading}
           >
             <LinearGradient
-              colors={["#10F35D", "#028C56"]}
+              colors={["#059669", "#028C56"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{

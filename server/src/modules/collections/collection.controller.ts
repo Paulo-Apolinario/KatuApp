@@ -1,6 +1,9 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
 import {
+  reportCollectionIncidentSchema,
+  resolveCollectionIncidentSchema,
+  collectionIncidentParamsSchema,
   cancelCollectionSchema,
   collectionIdParamsSchema,
   completeCollectionSchema,
@@ -12,7 +15,10 @@ import {
   updateCollectionStatusSchema,
 } from "./collection.schemas";
 import { CollectionService } from "./collection.service";
-import { isCollectionDomainError, type AuthenticatedUser } from "./collection.types";
+import {
+  isCollectionDomainError,
+  type AuthenticatedUser,
+} from "./collection.types";
 
 const collectionService = new CollectionService();
 
@@ -27,7 +33,9 @@ function getZodFieldErrors(error: ZodError) {
 function getAuthenticatedUser(request: FastifyRequest): AuthenticatedUser {
   const authUser = request.user as Partial<AuthenticatedUser>;
   const userId = authUser?.sub || authUser?.id || authUser?.userId;
-  const role = String(authUser?.role || "").trim().toUpperCase();
+  const role = String(authUser?.role || "")
+    .trim()
+    .toUpperCase();
 
   if (!userId) throw new Error("Usuário autenticado não identificado.");
   if (!role) throw new Error("Perfil do usuário autenticado não identificado.");
@@ -35,7 +43,11 @@ function getAuthenticatedUser(request: FastifyRequest): AuthenticatedUser {
   return { sub: userId, role, id: authUser.id, userId: authUser.userId };
 }
 
-function sendCollectionError(reply: FastifyReply, error: unknown, fallbackMessage: string) {
+function sendCollectionError(
+  reply: FastifyReply,
+  error: unknown,
+  fallbackMessage: string,
+) {
   if (error instanceof ZodError) {
     return reply.status(400).send({
       success: false,
@@ -55,7 +67,9 @@ function sendCollectionError(reply: FastifyReply, error: unknown, fallbackMessag
   }
 
   if (error instanceof Error) {
-    const statusCode = error.message.includes("autenticado não identificado") ? 401 : 400;
+    const statusCode = error.message.includes("autenticado não identificado")
+      ? 401
+      : 400;
     return reply.status(statusCode).send({
       success: false,
       error: error.message || fallbackMessage,
@@ -75,8 +89,18 @@ export class CollectionController {
     try {
       const authUser = getAuthenticatedUser(request);
       const body = createCollectionSchema.parse(request.body);
-      const collection = await collectionService.create(authUser.sub, authUser.role, body);
-      return reply.status(201).send({ success: true, message: "Coleta criada e delegada com sucesso.", collection });
+      const collection = await collectionService.create(
+        authUser.sub,
+        authUser.role,
+        body,
+      );
+      return reply
+        .status(201)
+        .send({
+          success: true,
+          message: "Coleta criada e delegada com sucesso.",
+          collection,
+        });
     } catch (error: unknown) {
       request.log.error({ error }, "Erro ao criar coleta.");
       return sendCollectionError(reply, error, "Erro ao criar coleta.");
@@ -86,8 +110,15 @@ export class CollectionController {
   async listMine(request: FastifyRequest, reply: FastifyReply) {
     try {
       const authUser = getAuthenticatedUser(request);
-      const collections = await collectionService.listMine(authUser.sub, authUser.role);
-      return reply.send({ success: true, collections, total: collections.length });
+      const collections = await collectionService.listMine(
+        authUser.sub,
+        authUser.role,
+      );
+      return reply.send({
+        success: true,
+        collections,
+        total: collections.length,
+      });
     } catch (error: unknown) {
       request.log.error({ error }, "Erro ao listar coletas.");
       return sendCollectionError(reply, error, "Erro ao listar coletas.");
@@ -98,7 +129,11 @@ export class CollectionController {
     try {
       const authUser = getAuthenticatedUser(request);
       const params = collectionIdParamsSchema.parse(request.params);
-      const collection = await collectionService.findById(authUser.sub, authUser.role, params.id);
+      const collection = await collectionService.findById(
+        authUser.sub,
+        authUser.role,
+        params.id,
+      );
       return reply.send({ success: true, collection });
     } catch (error: unknown) {
       request.log.error({ error }, "Erro ao buscar coleta.");
@@ -111,8 +146,17 @@ export class CollectionController {
       const authUser = getAuthenticatedUser(request);
       const params = collectionIdParamsSchema.parse(request.params);
       const body = startCollectionSchema.parse(request.body ?? {});
-      const collection = await collectionService.start(authUser.sub, authUser.role, params.id, body);
-      return reply.send({ success: true, message: "Coleta iniciada com sucesso.", collection });
+      const collection = await collectionService.start(
+        authUser.sub,
+        authUser.role,
+        params.id,
+        body,
+      );
+      return reply.send({
+        success: true,
+        message: "Coleta iniciada com sucesso.",
+        collection,
+      });
     } catch (error: unknown) {
       request.log.error({ error }, "Erro ao iniciar coleta.");
       return sendCollectionError(reply, error, "Erro ao iniciar coleta.");
@@ -124,11 +168,25 @@ export class CollectionController {
       const authUser = getAuthenticatedUser(request);
       const params = collectionIdParamsSchema.parse(request.params);
       const body = completeFieldCollectionSchema.parse(request.body);
-      const collection = await collectionService.completeField(authUser.sub, authUser.role, params.id, body);
-      return reply.send({ success: true, message: "Etapa de campo concluída. O material aguarda recebimento pela cooperativa.", collection });
+      const collection = await collectionService.completeField(
+        authUser.sub,
+        authUser.role,
+        params.id,
+        body,
+      );
+      return reply.send({
+        success: true,
+        message:
+          "Etapa de campo concluída. O material aguarda recebimento pela cooperativa.",
+        collection,
+      });
     } catch (error: unknown) {
       request.log.error({ error }, "Erro ao concluir etapa de campo.");
-      return sendCollectionError(reply, error, "Erro ao concluir etapa de campo.");
+      return sendCollectionError(
+        reply,
+        error,
+        "Erro ao concluir etapa de campo.",
+      );
     }
   }
 
@@ -137,11 +195,24 @@ export class CollectionController {
       const authUser = getAuthenticatedUser(request);
       const params = collectionIdParamsSchema.parse(request.params);
       const body = receiveCollectionSchema.parse(request.body ?? {});
-      const collection = await collectionService.receive(authUser.sub, authUser.role, params.id, body);
-      return reply.send({ success: true, message: "Recebimento confirmado com sucesso.", collection });
+      const collection = await collectionService.receive(
+        authUser.sub,
+        authUser.role,
+        params.id,
+        body,
+      );
+      return reply.send({
+        success: true,
+        message: "Recebimento confirmado com sucesso.",
+        collection,
+      });
     } catch (error: unknown) {
       request.log.error({ error }, "Erro ao confirmar recebimento.");
-      return sendCollectionError(reply, error, "Erro ao confirmar recebimento.");
+      return sendCollectionError(
+        reply,
+        error,
+        "Erro ao confirmar recebimento.",
+      );
     }
   }
 
@@ -150,8 +221,17 @@ export class CollectionController {
       const authUser = getAuthenticatedUser(request);
       const params = collectionIdParamsSchema.parse(request.params);
       const body = startSortingSchema.parse(request.body ?? {});
-      const collection = await collectionService.startSorting(authUser.sub, authUser.role, params.id, body);
-      return reply.send({ success: true, message: "Triagem iniciada com sucesso.", collection });
+      const collection = await collectionService.startSorting(
+        authUser.sub,
+        authUser.role,
+        params.id,
+        body,
+      );
+      return reply.send({
+        success: true,
+        message: "Triagem iniciada com sucesso.",
+        collection,
+      });
     } catch (error: unknown) {
       request.log.error({ error }, "Erro ao iniciar triagem.");
       return sendCollectionError(reply, error, "Erro ao iniciar triagem.");
@@ -163,8 +243,17 @@ export class CollectionController {
       const authUser = getAuthenticatedUser(request);
       const params = collectionIdParamsSchema.parse(request.params);
       const body = completeCollectionSchema.parse(request.body ?? {});
-      const collection = await collectionService.complete(authUser.sub, authUser.role, params.id, body);
-      return reply.send({ success: true, message: "Coleta concluída operacionalmente com sucesso.", collection });
+      const collection = await collectionService.complete(
+        authUser.sub,
+        authUser.role,
+        params.id,
+        body,
+      );
+      return reply.send({
+        success: true,
+        message: "Coleta concluída operacionalmente com sucesso.",
+        collection,
+      });
     } catch (error: unknown) {
       request.log.error({ error }, "Erro ao concluir coleta.");
       return sendCollectionError(reply, error, "Erro ao concluir coleta.");
@@ -176,11 +265,64 @@ export class CollectionController {
       const authUser = getAuthenticatedUser(request);
       const params = collectionIdParamsSchema.parse(request.params);
       const body = cancelCollectionSchema.parse(request.body);
-      const collection = await collectionService.cancel(authUser.sub, authUser.role, params.id, body);
-      return reply.send({ success: true, message: "Coleta cancelada com sucesso.", collection });
+      const collection = await collectionService.cancel(
+        authUser.sub,
+        authUser.role,
+        params.id,
+        body,
+      );
+      return reply.send({
+        success: true,
+        message: "Coleta cancelada com sucesso.",
+        collection,
+      });
     } catch (error: unknown) {
       request.log.error({ error }, "Erro ao cancelar coleta.");
       return sendCollectionError(reply, error, "Erro ao cancelar coleta.");
+    }
+  }
+
+  async reportIncident(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const auth = getAuthenticatedUser(request),
+        { id } = collectionIdParamsSchema.parse(request.params),
+        data = reportCollectionIncidentSchema.parse(request.body);
+      const collection = await collectionService.reportIncident(
+        auth.sub,
+        auth.role,
+        id,
+        data,
+      );
+      return reply.send({ success: true, collection });
+    } catch (error) {
+      return sendCollectionError(
+        reply,
+        error,
+        "Não foi possível registrar a ocorrência.",
+      );
+    }
+  }
+  async resolveIncident(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const auth = getAuthenticatedUser(request),
+        { id, incidentId } = collectionIncidentParamsSchema.parse(
+          request.params,
+        ),
+        { resolution } = resolveCollectionIncidentSchema.parse(request.body);
+      const collection = await collectionService.resolveIncident(
+        auth.sub,
+        auth.role,
+        id,
+        incidentId,
+        resolution,
+      );
+      return reply.send({ success: true, collection });
+    } catch (error) {
+      return sendCollectionError(
+        reply,
+        error,
+        "Não foi possível concluir o tratamento.",
+      );
     }
   }
 
@@ -189,11 +331,24 @@ export class CollectionController {
       const authUser = getAuthenticatedUser(request);
       const params = collectionIdParamsSchema.parse(request.params);
       const body = updateCollectionStatusSchema.parse(request.body);
-      const collection = await collectionService.updateStatus(authUser.sub, authUser.role, params.id, body);
-      return reply.send({ success: true, message: "Status da coleta atualizado com sucesso.", collection });
+      const collection = await collectionService.updateStatus(
+        authUser.sub,
+        authUser.role,
+        params.id,
+        body,
+      );
+      return reply.send({
+        success: true,
+        message: "Status da coleta atualizado com sucesso.",
+        collection,
+      });
     } catch (error: unknown) {
       request.log.error({ error }, "Erro ao atualizar status da coleta.");
-      return sendCollectionError(reply, error, "Erro ao atualizar status da coleta.");
+      return sendCollectionError(
+        reply,
+        error,
+        "Erro ao atualizar status da coleta.",
+      );
     }
   }
 }

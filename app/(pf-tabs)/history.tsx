@@ -86,7 +86,7 @@ export default function HistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData(true);
-    }, [loadData])
+    }, [loadData]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -100,15 +100,18 @@ export default function HistoryScreen() {
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       {/* Header */}
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 15 }}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -119,7 +122,9 @@ export default function HistoryScreen() {
       </LinearGradient>
 
       {loading ? (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
           <ActivityIndicator color="#028C56" />
           <Text style={{ marginTop: 10 }}>Carregando histórico...</Text>
         </View>
@@ -167,7 +172,9 @@ export default function HistoryScreen() {
                   borderBottomColor: "#F3F4F6",
                 }}
               >
-                <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
+                <Text
+                  style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}
+                >
                   {formatDate(item.scheduledDate || item.createdAt)}
                 </Text>
 

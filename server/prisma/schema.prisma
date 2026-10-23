@@ -183,6 +183,9 @@ model Generator {
 }
 
 model Schedule {
+  pickupAddress String?
+  pickupLatitude Float?
+  pickupLongitude Float?
   id                String         @id @default(uuid())
   cooperativeId     String
   generatorId       String?
@@ -365,6 +368,7 @@ model CollectorDocument {
 }
 
 model Collection {
+  incidents CollectionIncident[]
   startOperationId String?
   startOperationHash String?
   fieldOperationId String?
@@ -1300,4 +1304,23 @@ model CollectionWasteDestinationEvent {
   createdAt DateTime @default(now())
   destination CollectionWasteDestination @relation(fields: [destinationId], references: [id], onDelete: Restrict)
   @@index([destinationId, createdAt])
+}
+
+model CollectionIncident {
+  id String @id @default(cuid())
+  collectionId String
+  cooperativeId String
+  reportedByUserId String
+  reportedByName String?
+  operationId String?
+  description String
+  status String @default("OPEN")
+  resolution String?
+  resolvedByUserId String?
+  resolvedByName String?
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Restrict)
+  @@unique([collectionId, reportedByUserId, operationId])
+  @@index([cooperativeId, status, createdAt])
 }

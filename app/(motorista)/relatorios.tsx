@@ -77,7 +77,7 @@ export default function MotoristaRelatoriosScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadReports();
-    }, [loadReports])
+    }, [loadReports]),
   );
 
   async function handleSubmit() {
@@ -110,11 +110,11 @@ export default function MotoristaRelatoriosScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 48,
+          paddingTop: 20,
           paddingBottom: 18,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 26,
@@ -255,7 +255,7 @@ export default function MotoristaRelatoriosScreen() {
           disabled={loading}
         >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#059669", "#028C56"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -295,7 +295,9 @@ export default function MotoristaRelatoriosScreen() {
           </Text>
 
           {!!error && (
-            <Text style={{ color: "#B91C1C", marginTop: 10, fontWeight: "700" }}>
+            <Text
+              style={{ color: "#B91C1C", marginTop: 10, fontWeight: "700" }}
+            >
               {error}
             </Text>
           )}
@@ -323,7 +325,9 @@ export default function MotoristaRelatoriosScreen() {
                 <Text style={{ color: "#028C56", fontWeight: "800" }}>
                   {formatReportType(report.type)}
                 </Text>
-                <Text style={{ color: "#374151", marginTop: 6, lineHeight: 20 }}>
+                <Text
+                  style={{ color: "#374151", marginTop: 6, lineHeight: 20 }}
+                >
                   {report.description}
                 </Text>
                 <Text style={{ color: "#9CA3AF", marginTop: 8, fontSize: 12 }}>

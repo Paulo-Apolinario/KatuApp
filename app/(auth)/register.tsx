@@ -71,7 +71,9 @@ export default function RegisterScreen() {
   const [name, setName] = useState(initialDraft.name);
   const [email, setEmail] = useState(initialDraft.email);
   const [password, setPassword] = useState(initialDraft.password);
-  const [confirmPassword, setConfirmPassword] = useState(initialDraft.confirmPassword);
+  const [confirmPassword, setConfirmPassword] = useState(
+    initialDraft.confirmPassword,
+  );
   const [phone, setPhone] = useState(initialDraft.phone);
   const [rememberMe, setRememberMe] = useState(initialDraft.rememberMe);
 
@@ -81,8 +83,12 @@ export default function RegisterScreen() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const [cpf, setCpf] = useState(initialDraft.cpf);
-  const [cooperativeName, setCooperativeName] = useState(initialDraft.cooperativeName);
-  const [registrationNumber, setRegistrationNumber] = useState(initialDraft.registrationNumber);
+  const [cooperativeName, setCooperativeName] = useState(
+    initialDraft.cooperativeName,
+  );
+  const [registrationNumber, setRegistrationNumber] = useState(
+    initialDraft.registrationNumber,
+  );
 
   const [zipCode, setZipCode] = useState(initialDraft.zipCode);
   const [street, setStreet] = useState(initialDraft.street);
@@ -114,9 +120,13 @@ export default function RegisterScreen() {
     if (profile !== "cooperativa") return;
 
     const nextLat =
-      typeof params.selectedLatitude === "string" ? params.selectedLatitude : "";
+      typeof params.selectedLatitude === "string"
+        ? params.selectedLatitude
+        : "";
     const nextLng =
-      typeof params.selectedLongitude === "string" ? params.selectedLongitude : "";
+      typeof params.selectedLongitude === "string"
+        ? params.selectedLongitude
+        : "";
 
     if (nextLat && nextLng) {
       setLatitude(nextLat);
@@ -178,7 +188,7 @@ export default function RegisterScreen() {
       setErrorMessage("");
 
       const data = await api.getExternalJson<ViaCepResponse>(
-        `https://viacep.com.br/ws/${cep}/json/`
+        `https://viacep.com.br/ws/${cep}/json/`,
       );
 
       if (data?.erro) {
@@ -207,7 +217,7 @@ export default function RegisterScreen() {
       console.error("Erro ao buscar CEP:", error);
       Alert.alert(
         "Erro",
-        "Não foi possível consultar o CEP agora. Você pode preencher manualmente."
+        "Não foi possível consultar o CEP agora. Você pode preencher manualmente.",
       );
     } finally {
       setLoadingCep(false);
@@ -268,7 +278,7 @@ export default function RegisterScreen() {
 
       if (!hasStructuredAddress && !hasManualCoordinates) {
         setErrorMessage(
-          "Informe ao menos um endereço ou marque a localização no mapa."
+          "Informe ao menos um endereço ou marque a localização no mapa.",
         );
         return false;
       }
@@ -408,19 +418,22 @@ export default function RegisterScreen() {
         setErrorMessage(
           (result as any).error ||
             (result as any).message ||
-            "Erro ao cadastrar."
+            "Erro ao cadastrar.",
         );
         return;
       }
 
       registerDraftStore.clear(profile as RegisterDraftProfile);
 
-      notifySuccess("Cadastro realizado com sucesso!", "Sucesso!");
+      notifySuccess({
+        message: "Cadastro realizado com sucesso!",
+        title: "Sucesso!",
+      });
       router.replace(getRouteByProfile(profile));
     } catch (error: any) {
       console.error("Erro no cadastro:", error);
       setErrorMessage(
-        error?.message || "Não foi possível concluir o cadastro."
+        error?.message || "Não foi possível concluir o cadastro.",
       );
     } finally {
       setLoading(false);
@@ -796,7 +809,7 @@ export default function RegisterScreen() {
                     </Text>
                   </TouchableOpacity>
 
-                  {(latitude || longitude) ? (
+                  {latitude || longitude ? (
                     <View
                       style={{
                         backgroundColor: "#ECFDF5",
@@ -816,16 +829,18 @@ export default function RegisterScreen() {
                       >
                         Localização selecionada
                       </Text>
-                      <Text style={{ color: "#065F46", marginTop: 6, fontSize: 13 }}>
+                      <Text
+                        style={{ color: "#065F46", marginTop: 6, fontSize: 13 }}
+                      >
                         Latitude: {latitude || "-"}
                       </Text>
-                      <Text style={{ color: "#065F46", marginTop: 4, fontSize: 13 }}>
+                      <Text
+                        style={{ color: "#065F46", marginTop: 4, fontSize: 13 }}
+                      >
                         Longitude: {longitude || "-"}
                       </Text>
                     </View>
                   ) : null}
-
-                  
                 </>
               )}
 
@@ -874,7 +889,7 @@ export default function RegisterScreen() {
                 style={{ borderRadius: 18, overflow: "hidden" }}
               >
                 <LinearGradient
-                  colors={["#10F35D", "#028C56"]}
+                  colors={["#059669", "#028C56"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={{

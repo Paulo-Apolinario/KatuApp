@@ -169,7 +169,7 @@ function normalizeMaterials(materials: unknown): CollectionMaterial[] {
           material.type ??
           material.nameSnapshot ??
           material.materialNameSnapshot ??
-          "Não informado"
+          "Não informado",
       ).trim();
 
       const unit = String(material.unit || "KG").toUpperCase() as WasteUnit;
@@ -208,10 +208,7 @@ function normalizeMaterials(materials: unknown): CollectionMaterial[] {
         quantity,
         quantityKg,
         unit,
-        notes:
-          typeof material.notes === "string"
-            ? material.notes
-            : null,
+        notes: typeof material.notes === "string" ? material.notes : null,
       };
     })
     .filter((item): item is CollectionMaterial => item !== null);
@@ -225,7 +222,7 @@ function getCollectionMaterials(collection: Collection) {
   }
 
   const normalizedCollectionMaterials = normalizeMaterials(
-    collection.collectionMaterials
+    collection.collectionMaterials,
   );
 
   if (normalizedCollectionMaterials.length > 0) {
@@ -247,10 +244,7 @@ function getCollectionTotalKg(collection: Collection) {
       return sum + safeNumber(item.quantityKg);
     }
 
-    return sum + quantityToKg(
-      safeNumber(item.quantity),
-      item.unit || "KG"
-    );
+    return sum + quantityToKg(safeNumber(item.quantity), item.unit || "KG");
   }, 0);
 }
 
@@ -309,12 +303,10 @@ function getMaterialsLabel(materials: CollectionMaterial[]) {
 
   return materials
     .map((item) => {
-      const quantity =
-        safeNumber(item.quantity) ||
-        safeNumber(item.quantityKg);
+      const quantity = safeNumber(item.quantity) || safeNumber(item.quantityKg);
 
       return `${item.name || item.type || "Material"} (${quantity.toFixed(
-        1
+        1,
       )} ${formatUnit(item.unit)})`;
     })
     .join(", ");
@@ -342,7 +334,7 @@ function translateStatus(status: CollectionStatus) {
 }
 
 function getStatusIcon(
-  status: CollectionStatus
+  status: CollectionStatus,
 ): keyof typeof Ionicons.glyphMap {
   switch (status) {
     case "PENDING":
@@ -412,7 +404,7 @@ function getPeriodStart(period: PeriodFilter) {
 
 function isCollectionInsidePeriod(
   collection: Collection,
-  period: PeriodFilter
+  period: PeriodFilter,
 ) {
   const referenceDate = getCollectionReferenceDate(collection);
 
@@ -457,7 +449,8 @@ function buildTimeline(collection: Collection | null): TimelineItem[] {
     {
       id: "collected",
       title: "Etapa de campo concluída",
-      subtitle: "Os materiais coletados foram registrados.",
+      subtitle:
+        "Sua etapa foi concluída. As próximas ações são da cooperativa.",
       date: collection.collectedAt || null,
       icon: "bag-check-outline",
       completed:
@@ -477,18 +470,23 @@ function buildTimeline(collection: Collection | null): TimelineItem[] {
     },
     {
       id: "sorting",
-      title: "Triagem iniciada",
-      subtitle: "Os materiais entraram no processo de triagem.",
+      title: collection.sortingStartedAt
+        ? "Triagem iniciada"
+        : "Aguardando triagem da cooperativa",
+      subtitle:
+        "A cooperativa registra a conferência e separação dos materiais.",
       date: collection.sortingStartedAt || null,
       icon: "git-compare-outline",
       completed:
-        collection.status === "SORTING" ||
-        collection.status === "COMPLETED",
+        collection.status === "SORTING" || collection.status === "COMPLETED",
     },
     {
       id: "completed",
-      title: "Coleta concluída",
-      subtitle: "Todo o ciclo operacional foi finalizado.",
+      title: collection.completedAt
+        ? "Coleta concluída"
+        : "Aguardando encerramento pela cooperativa",
+      subtitle:
+        "A cooperativa encerra a operação após conferir as destinações.",
       date: collection.completedAt || null,
       icon: "checkmark-done-outline",
       completed: collection.status === "COMPLETED",
@@ -541,12 +539,9 @@ export default function CollectorDashboardScreen() {
         : [];
 
       setCollections(normalized);
-      setLastSyncAt(new Date().toISOString());
+      setLastSyncAt(collectionService.getLastRemoteSyncAt());
     } catch (error) {
-      console.error(
-        "Erro ao carregar dashboard do catador:",
-        error
-      );
+      console.error("Erro ao carregar dashboard do catador:", error);
       setCollections([]);
     } finally {
       if (showLoader) {
@@ -560,7 +555,7 @@ export default function CollectorDashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadCollections(true);
-    }, [loadCollections])
+    }, [loadCollections]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -576,25 +571,25 @@ export default function CollectorDashboardScreen() {
     const counts = STATUS_ORDER.reduce(
       (acc, status) => {
         acc[status] = collections.filter(
-          (item) => item.status === status
+          (item) => item.status === status,
         ).length;
 
         return acc;
       },
-      {} as Record<CollectionStatus, number>
+      {} as Record<CollectionStatus, number>,
     );
 
     const collectedCollections = collections.filter((item) =>
-      COLLECTED_STATUSES.includes(item.status)
+      COLLECTED_STATUSES.includes(item.status),
     );
 
     const periodCollections = collectedCollections.filter((item) =>
-      isCollectionInsidePeriod(item, period)
+      isCollectionInsidePeriod(item, period),
     );
 
     const totalKg = periodCollections.reduce(
       (acc, item) => acc + getCollectionTotalKg(item),
-      0
+      0,
     );
 
     const sortedCollectedCollections = [...collectedCollections].sort(
@@ -606,49 +601,37 @@ export default function CollectorDashboardScreen() {
         const bTime = bDate ? new Date(bDate).getTime() : 0;
 
         return bTime - aTime;
-      }
+      },
     );
 
-    const lastCollection =
-      sortedCollectedCollections[0] || null;
+    const lastCollection = sortedCollectedCollections[0] || null;
 
     const materialsMap: Record<string, number> = {};
 
     periodCollections.forEach((collection) => {
       getCollectionMaterials(collection).forEach((material) => {
         const materialName =
-          material.name?.trim() ||
-          material.type?.trim() ||
-          "Não informado";
+          material.name?.trim() || material.type?.trim() || "Não informado";
 
         const quantityKg =
           safeNumber(material.quantityKg) ||
-          quantityToKg(
-            safeNumber(material.quantity),
-            material.unit || "KG"
-          );
+          quantityToKg(safeNumber(material.quantity), material.unit || "KG");
 
         materialsMap[materialName] =
-          (materialsMap[materialName] || 0) +
-          quantityKg;
+          (materialsMap[materialName] || 0) + quantityKg;
       });
     });
 
     const totalRankedKg = Object.values(materialsMap).reduce(
       (sum, quantityKg) => sum + quantityKg,
-      0
+      0,
     );
 
-    const topMaterials: MaterialRankingItem[] = Object.entries(
-      materialsMap
-    )
+    const topMaterials: MaterialRankingItem[] = Object.entries(materialsMap)
       .map(([material, quantityKg]) => ({
         material,
         quantityKg,
-        percentage:
-          totalRankedKg > 0
-            ? (quantityKg / totalRankedKg) * 100
-            : 0,
+        percentage: totalRankedKg > 0 ? (quantityKg / totalRankedKg) * 100 : 0,
       }))
       .sort((a, b) => b.quantityKg - a.quantityKg)
       .slice(0, 5);
@@ -666,12 +649,8 @@ export default function CollectorDashboardScreen() {
       .slice(0, 5);
 
     const activeCollection =
-      collections.find(
-        (item) => item.status === "IN_PROGRESS"
-      ) ||
-      collections.find(
-        (item) => item.status === "PENDING"
-      ) ||
+      collections.find((item) => item.status === "IN_PROGRESS") ||
+      collections.find((item) => item.status === "PENDING") ||
       lastCollection;
 
     return {
@@ -696,10 +675,7 @@ export default function CollectorDashboardScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator
-          size="large"
-          color="#028C56"
-        />
+        <ActivityIndicator size="large" color="#028C56" />
 
         <Text
           style={{
@@ -727,10 +703,7 @@ export default function CollectorDashboardScreen() {
           flex: 1,
         }}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
@@ -787,8 +760,7 @@ export default function CollectorDashboardScreen() {
               activeOpacity={0.85}
               onPress={handleSignOut}
               style={{
-                backgroundColor:
-                  "rgba(255,255,255,0.18)",
+                backgroundColor: "rgba(255,255,255,0.18)",
                 borderRadius: 999,
                 paddingHorizontal: 12,
                 paddingVertical: 8,
@@ -796,11 +768,7 @@ export default function CollectorDashboardScreen() {
                 alignItems: "center",
               }}
             >
-              <Ionicons
-                name="log-out-outline"
-                size={18}
-                color="#FFFFFF"
-              />
+              <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
 
               <Text
                 style={{
@@ -823,8 +791,8 @@ export default function CollectorDashboardScreen() {
               lineHeight: 22,
             }}
           >
-            Acompanhe suas coletas desde a delegação até a conclusão
-            operacional pela cooperativa.
+            Acompanhe suas coletas desde a delegação até a conclusão operacional
+            pela cooperativa.
           </Text>
 
           <View
@@ -833,9 +801,7 @@ export default function CollectorDashboardScreen() {
               alignSelf: "flex-start",
             }}
           >
-            <LastSyncBadge
-              value={lastSyncAt}
-            />
+            <LastSyncBadge value={lastSyncAt} />
           </View>
         </LinearGradient>
 
@@ -906,10 +872,7 @@ export default function CollectorDashboardScreen() {
             subtitle="Resultados calculados para o período selecionado"
           />
 
-          <PeriodSelector
-            value={period}
-            onChange={setPeriod}
-          />
+          <PeriodSelector value={period} onChange={setPeriod} />
 
           <View
             style={{
@@ -927,25 +890,20 @@ export default function CollectorDashboardScreen() {
 
             <MetricCard
               title="Coletas no período"
-              value={String(
-                metrics.periodCollectionCount
-              )}
+              value={String(metrics.periodCollectionCount)}
               icon="checkmark-circle-outline"
             />
 
             <MetricCard
               title="Tipos de materiais"
-              value={String(
-                metrics.topMaterials.length
-              )}
+              value={String(metrics.topMaterials.length)}
               icon="albums-outline"
             />
 
             <MetricCard
               title="Em atendimento"
               value={String(
-                metrics.counts.PENDING +
-                  metrics.counts.IN_PROGRESS
+                metrics.counts.PENDING + metrics.counts.IN_PROGRESS,
               )}
               icon="trail-sign-outline"
             />
@@ -961,47 +919,37 @@ export default function CollectorDashboardScreen() {
               <>
                 <InfoRow
                   label="Gerador ou origem"
-                  value={getSourceName(
-                    metrics.lastCollection
-                  )}
+                  value={getSourceName(metrics.lastCollection)}
                 />
 
                 <InfoRow
                   label="Endereço"
-                  value={getAddress(
-                    metrics.lastCollection
-                  )}
+                  value={getAddress(metrics.lastCollection)}
                 />
 
                 <InfoRow
                   label="Data"
                   value={formatDateTime(
-                    getCollectionReferenceDate(
-                      metrics.lastCollection
-                    )
+                    getCollectionReferenceDate(metrics.lastCollection),
                   )}
                 />
 
                 <InfoRow
                   label="Status atual"
-                  value={translateStatus(
-                    metrics.lastCollection.status
-                  )}
+                  value={translateStatus(metrics.lastCollection.status)}
                 />
 
                 <InfoRow
                   label="Peso"
                   value={`${getCollectionTotalKg(
-                    metrics.lastCollection
+                    metrics.lastCollection,
                   ).toFixed(1)} kg`}
                 />
 
                 <InfoRow
                   label="Materiais"
                   value={getMaterialsLabel(
-                    getCollectionMaterials(
-                      metrics.lastCollection
-                    )
+                    getCollectionMaterials(metrics.lastCollection),
                   )}
                   isLast
                 />
@@ -1022,19 +970,14 @@ export default function CollectorDashboardScreen() {
 
           <View style={sectionCard}>
             {metrics.topMaterials.length > 0 ? (
-              metrics.topMaterials.map(
-                (item, index) => (
-                  <MaterialRankingRow
-                    key={item.material}
-                    position={index + 1}
-                    item={item}
-                    isLast={
-                      index ===
-                      metrics.topMaterials.length - 1
-                    }
-                  />
-                )
-              )
+              metrics.topMaterials.map((item, index) => (
+                <MaterialRankingRow
+                  key={item.material}
+                  position={index + 1}
+                  item={item}
+                  isLast={index === metrics.topMaterials.length - 1}
+                />
+              ))
             ) : (
               <EmptyState
                 icon="cube-outline"
@@ -1048,27 +991,20 @@ export default function CollectorDashboardScreen() {
             title="Linha do tempo operacional"
             subtitle={
               metrics.activeCollection
-                ? `Coleta de ${getSourceName(
-                    metrics.activeCollection
-                  )}`
+                ? `Coleta de ${getSourceName(metrics.activeCollection)}`
                 : "Etapas da coleta selecionada"
             }
           />
 
           <View style={sectionCard}>
             {metrics.timeline.length > 0 ? (
-              metrics.timeline.map(
-                (item, index) => (
-                  <TimelineRow
-                    key={item.id}
-                    item={item}
-                    isLast={
-                      index ===
-                      metrics.timeline.length - 1
-                    }
-                  />
-                )
-              )
+              metrics.timeline.map((item, index) => (
+                <TimelineRow
+                  key={item.id}
+                  item={item}
+                  isLast={index === metrics.timeline.length - 1}
+                />
+              ))
             ) : (
               <EmptyState
                 icon="git-branch-outline"
@@ -1085,18 +1021,13 @@ export default function CollectorDashboardScreen() {
 
           <View style={sectionCard}>
             {metrics.recentCollections.length > 0 ? (
-              metrics.recentCollections.map(
-                (item, index) => (
-                  <RecentCollectionCard
-                    key={item.id}
-                    collection={item}
-                    isLast={
-                      index ===
-                      metrics.recentCollections.length - 1
-                    }
-                  />
-                )
-              )
+              metrics.recentCollections.map((item, index) => (
+                <RecentCollectionCard
+                  key={item.id}
+                  collection={item}
+                  isLast={index === metrics.recentCollections.length - 1}
+                />
+              ))
             ) : (
               <EmptyState
                 icon="time-outline"
@@ -1116,18 +1047,14 @@ export default function CollectorDashboardScreen() {
               icon="play-circle-outline"
               title="Executar coletas"
               subtitle="Abrir coletas pendentes e em andamento"
-              onPress={() =>
-                router.push("/(catador)/collect")
-              }
+              onPress={() => router.push("/(catador)/collect")}
             />
 
             <QuickAction
               icon="map-outline"
               title="Ver mapa operacional"
               subtitle="Consultar localização e rotas disponíveis"
-              onPress={() =>
-                router.push("/(catador)/mapas")
-              }
+              onPress={() => router.push("/(catador)/mapas")}
             />
 
             <QuickAction
@@ -1238,11 +1165,7 @@ function StatusCard({
             justifyContent: "center",
           }}
         >
-          <Ionicons
-            name={getStatusIcon(status)}
-            size={21}
-            color={color}
-          />
+          <Ionicons name={getStatusIcon(status)} size={21} color={color} />
         </View>
 
         <Text
@@ -1311,28 +1234,20 @@ function PeriodSelector({
           <TouchableOpacity
             key={option.value}
             activeOpacity={0.85}
-            onPress={() =>
-              onChange(option.value)
-            }
+            onPress={() => onChange(option.value)}
             style={{
               flex: 1,
               alignItems: "center",
               justifyContent: "center",
               paddingVertical: 10,
               borderRadius: 11,
-              backgroundColor: selected
-                ? "#FFFFFF"
-                : "transparent",
+              backgroundColor: selected ? "#FFFFFF" : "transparent",
             }}
           >
             <Text
               style={{
-                color: selected
-                  ? "#15803D"
-                  : "#6B7280",
-                fontWeight: selected
-                  ? "800"
-                  : "600",
+                color: selected ? "#15803D" : "#6B7280",
+                fontWeight: selected ? "800" : "600",
                 fontSize: 13,
               }}
             >
@@ -1378,11 +1293,7 @@ function MetricCard({
           marginBottom: 10,
         }}
       >
-        <Ionicons
-          name={icon}
-          size={20}
-          color="#15803D"
-        />
+        <Ionicons name={icon} size={20} color="#15803D" />
       </View>
 
       <Text
@@ -1543,10 +1454,7 @@ function MaterialRankingRow({
       >
         <View
           style={{
-            width: `${Math.min(
-              item.percentage,
-              100
-            )}%`,
+            width: `${Math.min(item.percentage, 100)}%`,
             height: "100%",
             borderRadius: 999,
             backgroundColor: "#22C55E",
@@ -1564,9 +1472,7 @@ function TimelineRow({
   item: TimelineItem;
   isLast: boolean;
 }) {
-  const color = item.completed
-    ? "#15803D"
-    : "#9CA3AF";
+  const color = item.completed ? "#15803D" : "#9CA3AF";
 
   return (
     <View
@@ -1586,19 +1492,13 @@ function TimelineRow({
             width: 34,
             height: 34,
             borderRadius: 17,
-            backgroundColor: item.completed
-              ? "#DCFCE7"
-              : "#F3F4F6",
+            backgroundColor: item.completed ? "#DCFCE7" : "#F3F4F6",
             alignItems: "center",
             justifyContent: "center",
             zIndex: 2,
           }}
         >
-          <Ionicons
-            name={item.icon}
-            size={18}
-            color={color}
-          />
+          <Ionicons name={item.icon} size={18} color={color} />
         </View>
 
         {!isLast ? (
@@ -1606,9 +1506,7 @@ function TimelineRow({
             style={{
               width: 2,
               flex: 1,
-              backgroundColor: item.completed
-                ? "#86EFAC"
-                : "#E5E7EB",
+              backgroundColor: item.completed ? "#86EFAC" : "#E5E7EB",
             }}
           />
         ) : null}
@@ -1630,9 +1528,7 @@ function TimelineRow({
         >
           <Text
             style={{
-              color: item.completed
-                ? "#111827"
-                : "#6B7280",
+              color: item.completed ? "#111827" : "#6B7280",
               fontWeight: "800",
               fontSize: 15,
               flex: 1,
@@ -1649,9 +1545,7 @@ function TimelineRow({
               fontWeight: "600",
             }}
           >
-            {item.date
-              ? formatTime(item.date)
-              : "Pendente"}
+            {item.date ? formatTime(item.date) : "Pendente"}
           </Text>
         </View>
 
@@ -1689,11 +1583,8 @@ function RecentCollectionCard({
   collection: Collection;
   isLast: boolean;
 }) {
-  const color = getStatusColor(
-    collection.status
-  );
-  const materials =
-    getCollectionMaterials(collection);
+  const color = getStatusColor(collection.status);
+  const materials = getCollectionMaterials(collection);
 
   return (
     <View
@@ -1722,9 +1613,7 @@ function RecentCollectionCard({
           }}
         >
           <Ionicons
-            name={getStatusIcon(
-              collection.status
-            )}
+            name={getStatusIcon(collection.status)}
             size={20}
             color={color}
           />
@@ -1753,9 +1642,7 @@ function RecentCollectionCard({
               marginTop: 3,
             }}
           >
-            {translateStatus(
-              collection.status
-            )}
+            {translateStatus(collection.status)}
           </Text>
 
           <Text
@@ -1765,16 +1652,10 @@ function RecentCollectionCard({
               marginTop: 5,
             }}
           >
-            {formatDateTime(
-              getCollectionReferenceDate(
-                collection
-              )
-            )}
+            {formatDateTime(getCollectionReferenceDate(collection))}
           </Text>
 
-          {COLLECTED_STATUSES.includes(
-            collection.status
-          ) ? (
+          {COLLECTED_STATUSES.includes(collection.status) ? (
             <Text
               style={{
                 fontSize: 13,
@@ -1783,11 +1664,7 @@ function RecentCollectionCard({
                 fontWeight: "600",
               }}
             >
-              Peso:{" "}
-              {getCollectionTotalKg(
-                collection
-              ).toFixed(1)}{" "}
-              kg
+              Peso: {getCollectionTotalKg(collection).toFixed(1)} kg
             </Text>
           ) : null}
 
@@ -1801,8 +1678,7 @@ function RecentCollectionCard({
                 marginTop: 5,
               }}
             >
-              Materiais:{" "}
-              {getMaterialsLabel(materials)}
+              Materiais: {getMaterialsLabel(materials)}
             </Text>
           ) : null}
         </View>
@@ -1848,11 +1724,7 @@ function QuickAction({
           marginRight: 12,
         }}
       >
-        <Ionicons
-          name={icon}
-          size={20}
-          color="#15803D"
-        />
+        <Ionicons name={icon} size={20} color="#15803D" />
       </View>
 
       <View
@@ -1882,11 +1754,7 @@ function QuickAction({
         </Text>
       </View>
 
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color="#9CA3AF"
-      />
+      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
     </TouchableOpacity>
   );
 }
@@ -1907,11 +1775,7 @@ function EmptyState({
         paddingVertical: 28,
       }}
     >
-      <Ionicons
-        name={icon}
-        size={42}
-        color="#9CA3AF"
-      />
+      <Ionicons name={icon} size={42} color="#9CA3AF" />
 
       <Text
         style={{

@@ -12,10 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNotification } from "@/src/contexts/NotificationContext";
 
-import {
-  vehicleService,
-  type Vehicle,
-} from "@/src/services/vehicleService";
+import { vehicleService, type Vehicle } from "@/src/services/vehicleService";
 
 export default function VeiculosScreen() {
   const [veiculos, setVeiculos] = useState<Vehicle[]>([]);
@@ -29,7 +26,10 @@ export default function VeiculosScreen() {
       setVeiculos(data);
     } catch (error) {
       console.error("Erro ao carregar veículos:", error);
-      notifyError("Erro", "Não foi possível carregar os veículos.");
+      notifyError({
+        message: "Não foi possível carregar os veículos.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -38,7 +38,7 @@ export default function VeiculosScreen() {
   useFocusEffect(
     useCallback(() => {
       carregarVeiculos();
-    }, [carregarVeiculos])
+    }, [carregarVeiculos]),
   );
 
   const getStatusColor = (status: string) => {
@@ -70,11 +70,11 @@ export default function VeiculosScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -88,7 +88,9 @@ export default function VeiculosScreen() {
             justifyContent: "space-between",
           }}
         >
-          <TouchableOpacity onPress={() => router.replace("/(cooperativa)/home")}>
+          <TouchableOpacity
+            onPress={() => router.replace("/(cooperativa)/home")}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -103,7 +105,9 @@ export default function VeiculosScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity onPress={() => router.push("/(cooperativa)/veiculos/novo")}>
+          <TouchableOpacity
+            onPress={() => router.push("/(cooperativa)/veiculos/novo")}
+          >
             <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -131,7 +135,10 @@ export default function VeiculosScreen() {
         </Text>
       </LinearGradient>
 
-      <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1, padding: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 40 }}>
             <ActivityIndicator size="large" color="#028C56" />
@@ -175,22 +182,29 @@ export default function VeiculosScreen() {
                   </Text>
 
                   {!!veiculo.brand && (
-                    <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}>
+                    <Text
+                      style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}
+                    >
                       Marca: {veiculo.brand}
                     </Text>
                   )}
 
                   {veiculo.year !== null && veiculo.year !== undefined && (
-                    <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}>
+                    <Text
+                      style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}
+                    >
                       Ano: {veiculo.year}
                     </Text>
                   )}
 
-                  {veiculo.capacityKg !== null && veiculo.capacityKg !== undefined && (
-                    <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}>
-                      Capacidade: {veiculo.capacityKg} kg
-                    </Text>
-                  )}
+                  {veiculo.capacityKg !== null &&
+                    veiculo.capacityKg !== undefined && (
+                      <Text
+                        style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}
+                      >
+                        Capacidade: {veiculo.capacityKg} kg
+                      </Text>
+                    )}
                 </View>
 
                 <View

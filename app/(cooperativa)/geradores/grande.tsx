@@ -51,7 +51,9 @@ function mapGeneratorToGrande(item: Generator): GrandeGerador {
 
 export default function GrandeGeradorScreen() {
   const [searchText, setSearchText] = useState("");
-  const [filterStatus, setFilterStatus] = useState<GeradorStatus | "todos">("todos");
+  const [filterStatus, setFilterStatus] = useState<GeradorStatus | "todos">(
+    "todos",
+  );
   const [loading, setLoading] = useState(true);
   const [geradores, setGeradores] = useState<GrandeGerador[]>([]);
   const { notifyError } = useNotification();
@@ -68,7 +70,11 @@ export default function GrandeGeradorScreen() {
 
       setGeradores(lista);
     } catch (error: any) {
-      notifyError("Erro", error.message || "Não foi possível carregar os grandes geradores.");
+      notifyError({
+        message:
+          error.message || "Não foi possível carregar os grandes geradores.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -77,7 +83,7 @@ export default function GrandeGeradorScreen() {
   useFocusEffect(
     useCallback(() => {
       carregarGeradores();
-    }, [carregarGeradores])
+    }, [carregarGeradores]),
   );
 
   const filteredGeradores = useMemo(() => {
@@ -87,7 +93,8 @@ export default function GrandeGeradorScreen() {
         g.endereco.toLowerCase().includes(searchText.toLowerCase()) ||
         g.contato.toLowerCase().includes(searchText.toLowerCase());
 
-      const matchesFilter = filterStatus === "todos" || g.status === filterStatus;
+      const matchesFilter =
+        filterStatus === "todos" || g.status === filterStatus;
 
       return matchesSearch && matchesFilter;
     });
@@ -112,11 +119,11 @@ export default function GrandeGeradorScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -124,7 +131,11 @@ export default function GrandeGeradorScreen() {
         }}
       >
         <View
-          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
         >
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
@@ -141,15 +152,26 @@ export default function GrandeGeradorScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity onPress={() => router.push("/(cooperativa)/geradores/novo-grande")}>
+          <TouchableOpacity
+            onPress={() => router.push("/(cooperativa)/geradores/novo-grande")}
+          >
             <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        <Text style={{ fontSize: 24, fontWeight: "700", color: "#FFFFFF", marginTop: 15 }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: "700",
+            color: "#FFFFFF",
+            marginTop: 15,
+          }}
+        >
           GRANDE GERADOR
         </Text>
-        <Text style={{ fontSize: 14, color: "#FFFFFF", opacity: 0.9, marginTop: 5 }}>
+        <Text
+          style={{ fontSize: 14, color: "#FFFFFF", opacity: 0.9, marginTop: 5 }}
+        >
           {filteredGeradores.length} empresas cadastradas
         </Text>
       </LinearGradient>
@@ -165,7 +187,9 @@ export default function GrandeGeradorScreen() {
               marginRight: 10,
             }}
           >
-            <Text style={{ fontSize: 12, color: "#4B5563" }}>Total Coletado</Text>
+            <Text style={{ fontSize: 12, color: "#4B5563" }}>
+              Total Coletado
+            </Text>
             <Text style={{ fontSize: 20, fontWeight: "700", color: "#028C56" }}>
               {totalKg} kg
             </Text>
@@ -228,7 +252,9 @@ export default function GrandeGeradorScreen() {
               return (
                 <TouchableOpacity
                   key={item.value}
-                  onPress={() => setFilterStatus(item.value as GeradorStatus | "todos")}
+                  onPress={() =>
+                    setFilterStatus(item.value as GeradorStatus | "todos")
+                  }
                   style={{
                     backgroundColor: selected ? item.color : "#F3F4F6",
                     paddingHorizontal: 16,
@@ -251,7 +277,10 @@ export default function GrandeGeradorScreen() {
           </ScrollView>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} style={{ paddingHorizontal: 20 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          style={{ paddingHorizontal: 20 }}
+        >
           {loading ? (
             <View style={{ alignItems: "center", paddingVertical: 40 }}>
               <ActivityIndicator size="large" color="#028C56" />
@@ -263,7 +292,9 @@ export default function GrandeGeradorScreen() {
             filteredGeradores.map((gerador) => (
               <TouchableOpacity
                 key={gerador.id}
-                onPress={() => router.push(`/(cooperativa)/geradores/${gerador.id}`)}
+                onPress={() =>
+                  router.push(`/(cooperativa)/geradores/${gerador.id}`)
+                }
                 style={{
                   backgroundColor: "#F9FAFB",
                   borderRadius: 16,
@@ -273,8 +304,21 @@ export default function GrandeGeradorScreen() {
                   borderColor: "#E5E7EB",
                 }}
               >
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                  <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827", flex: 1 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "700",
+                      color: "#111827",
+                      flex: 1,
+                    }}
+                  >
                     {gerador.nome}
                   </Text>
 
@@ -287,30 +331,63 @@ export default function GrandeGeradorScreen() {
                       marginLeft: 10,
                     }}
                   >
-                    <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "600" }}>
+                    <Text
+                      style={{
+                        color: "#FFFFFF",
+                        fontSize: 10,
+                        fontWeight: "600",
+                      }}
+                    >
                       {gerador.status.toUpperCase()}
                     </Text>
                   </View>
                 </View>
 
                 <View style={{ marginBottom: 8 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-                    <Ionicons name="location-outline" size={14} color="#6B7280" />
-                    <Text style={{ fontSize: 12, color: "#6B7280", marginLeft: 4, flex: 1 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: 4,
+                    }}
+                  >
+                    <Ionicons
+                      name="location-outline"
+                      size={14}
+                      color="#6B7280"
+                    />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: "#6B7280",
+                        marginLeft: 4,
+                        flex: 1,
+                      }}
+                    >
                       {gerador.endereco}
                     </Text>
                   </View>
 
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: 4,
+                    }}
+                  >
                     <Ionicons name="person-outline" size={14} color="#6B7280" />
-                    <Text style={{ fontSize: 12, color: "#6B7280", marginLeft: 4 }}>
+                    <Text
+                      style={{ fontSize: 12, color: "#6B7280", marginLeft: 4 }}
+                    >
                       {gerador.contato}
                     </Text>
                   </View>
 
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <Ionicons name="call-outline" size={14} color="#6B7280" />
-                    <Text style={{ fontSize: 12, color: "#6B7280", marginLeft: 4 }}>
+                    <Text
+                      style={{ fontSize: 12, color: "#6B7280", marginLeft: 4 }}
+                    >
                       {gerador.telefone}
                     </Text>
                   </View>
@@ -327,8 +404,14 @@ export default function GrandeGeradorScreen() {
                   }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                    <Text style={{ fontSize: 12, color: "#6B7280", marginLeft: 4 }}>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={14}
+                      color="#6B7280"
+                    />
+                    <Text
+                      style={{ fontSize: 12, color: "#6B7280", marginLeft: 4 }}
+                    >
                       Última: {gerador.ultimaColeta}
                     </Text>
                   </View>
@@ -352,7 +435,14 @@ export default function GrandeGeradorScreen() {
           ) : (
             <View style={{ alignItems: "center", paddingVertical: 40 }}>
               <Ionicons name="business-outline" size={48} color="#9CA3AF" />
-              <Text style={{ fontSize: 16, color: "#6B7280", marginTop: 10, textAlign: "center" }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  color: "#6B7280",
+                  marginTop: 10,
+                  textAlign: "center",
+                }}
+              >
                 Nenhum grande gerador cadastrado
               </Text>
             </View>

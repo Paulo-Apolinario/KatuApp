@@ -47,10 +47,14 @@ export default function CooperativaLoginScreen() {
         if (addresses.length > 0) {
           const address = addresses[0];
           const city =
-            address.city || address.region || "GPS ativo — cidade não identificada";
+            address.city ||
+            address.region ||
+            "GPS ativo — cidade não identificada";
 
           setLocationName(city);
-        } else { setLocationName("GPS ativo — cidade não identificada"); }
+        } else {
+          setLocationName("GPS ativo — cidade não identificada");
+        }
       }
     } catch (error) {
       console.error("Erro ao obter localização:", error);
@@ -89,7 +93,7 @@ export default function CooperativaLoginScreen() {
 
   function handleSolicitarAcesso() {
     notifyInfo(
-      "Entre em contato com a administração da cooperativa para solicitar seu acesso."
+      "Entre em contato com a administração da cooperativa para solicitar seu acesso.",
     );
   }
 
@@ -99,11 +103,11 @@ export default function CooperativaLoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#059669", "#028C56"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 30,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -392,7 +396,7 @@ export default function CooperativaLoginScreen() {
             style={{ marginBottom: 20 }}
           >
             <LinearGradient
-              colors={["#10F35D", "#028C56"]}
+              colors={["#059669", "#028C56"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{

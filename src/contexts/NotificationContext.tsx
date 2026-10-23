@@ -19,14 +19,14 @@ type NotifyOptions = {
 
 type NotificationContextData = {
   notify: (options: NotifyOptions) => void;
-  notifySuccess: (message: string, title?: string) => void;
-  notifyError: (message: string, title?: string) => void;
-  notifyWarning: (message: string, title?: string) => void;
-  notifyInfo: (message: string, title?: string) => void;
+  notifySuccess: (message: string | NotifyOptions, title?: string) => void;
+  notifyError: (message: string | NotifyOptions, title?: string) => void;
+  notifyWarning: (message: string | NotifyOptions, title?: string) => void;
+  notifyInfo: (message: string | NotifyOptions, title?: string) => void;
 };
 
 const NotificationContext = createContext<NotificationContextData>(
-  {} as NotificationContextData
+  {} as NotificationContextData,
 );
 
 export function useNotification() {
@@ -114,31 +114,47 @@ export function NotificationProvider({
         hide();
       }, options.duration ?? 3500);
     },
-    [hide, opacity]
+    [hide, opacity],
   );
 
   const notifySuccess = useCallback(
-    (message: string, title = "Sucesso") =>
-      notify({ type: "success", title, message }),
-    [notify]
+    (message: string | NotifyOptions, title = "Sucesso") =>
+      notify(
+        typeof message === "string"
+          ? { type: "success", title, message }
+          : { ...message, type: "success" },
+      ),
+    [notify],
   );
 
   const notifyError = useCallback(
-    (message: string, title = "Erro") =>
-      notify({ type: "error", title, message }),
-    [notify]
+    (message: string | NotifyOptions, title = "Erro") =>
+      notify(
+        typeof message === "string"
+          ? { type: "error", title, message }
+          : { ...message, type: "error" },
+      ),
+    [notify],
   );
 
   const notifyWarning = useCallback(
-    (message: string, title = "Atenção") =>
-      notify({ type: "warning", title, message }),
-    [notify]
+    (message: string | NotifyOptions, title = "Atenção") =>
+      notify(
+        typeof message === "string"
+          ? { type: "warning", title, message }
+          : { ...message, type: "warning" },
+      ),
+    [notify],
   );
 
   const notifyInfo = useCallback(
-    (message: string, title = "Informação") =>
-      notify({ type: "info", title, message }),
-    [notify]
+    (message: string | NotifyOptions, title = "Informação") =>
+      notify(
+        typeof message === "string"
+          ? { type: "info", title, message }
+          : { ...message, type: "info" },
+      ),
+    [notify],
   );
 
   const type = notification?.type ?? "info";

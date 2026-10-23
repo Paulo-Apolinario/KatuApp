@@ -1,7 +1,9 @@
+import { collectionOrigin } from "@/src/utils/collectionOrigin";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Linking,
   RefreshControl,
   ScrollView,
@@ -131,10 +133,7 @@ function isValidCoordinate(latitude?: any, longitude?: any) {
   );
 }
 
-function getCollectionGenerator(collection?: Collection | null) {
-  if (!collection) return null;
-  return collection.generator ?? collection.schedule?.generator ?? null;
-}
+const getCollectionGenerator = collectionOrigin;
 
 export default function MotoristaMapaScreen() {
   const gps = useForegroundLocation();
@@ -190,7 +189,7 @@ export default function MotoristaMapaScreen() {
         setVehicle(currentVehicle);
         setCollections(driverCollections);
         setProfile(myProfile);
-        setLastSyncAt(new Date().toISOString());
+        setLastSyncAt(collectionService.getLastRemoteSyncAt());
 
         const highlightedRouteId = params.routeId
           ? String(params.routeId)
@@ -514,7 +513,7 @@ export default function MotoristaMapaScreen() {
         />
         <View
           style={{
-            height: 340,
+            height: Platform.OS === "web" ? undefined : 340,
             borderRadius: 22,
             overflow: "hidden",
             marginBottom: 14,
