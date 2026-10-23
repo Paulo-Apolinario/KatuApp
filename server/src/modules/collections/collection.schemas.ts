@@ -646,3 +646,27 @@ export const resolveCollectionIncidentSchema = z.object({
 export const collectionIncidentParamsSchema = collectionIdParamsSchema.extend({
   incidentId: z.string().min(1).max(150),
 });
+
+export const reviewQuantitiesSchema = z
+  .object({
+    expectedVersion: z.number().int().nonnegative(),
+    reason: z.string().trim().max(2000).default(""),
+    items: z
+      .array(
+        z
+          .object({
+            materialId: z.string().min(1),
+            quantity: z
+              .number()
+              .finite()
+              .min(0)
+              .max(1000000000)
+              .multipleOf(0.001),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(250),
+  })
+  .strict();
+export type ReviewQuantitiesInput = z.infer<typeof reviewQuantitiesSchema>;

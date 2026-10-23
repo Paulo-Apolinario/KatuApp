@@ -1,3 +1,4 @@
+import { reviewQuantitiesSchema } from "./collection.schemas";
 import { FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
 import {
@@ -94,13 +95,11 @@ export class CollectionController {
         authUser.role,
         body,
       );
-      return reply
-        .status(201)
-        .send({
-          success: true,
-          message: "Coleta criada e delegada com sucesso.",
-          collection,
-        });
+      return reply.status(201).send({
+        success: true,
+        message: "Coleta criada e delegada com sucesso.",
+        collection,
+      });
     } catch (error: unknown) {
       request.log.error({ error }, "Erro ao criar coleta.");
       return sendCollectionError(reply, error, "Erro ao criar coleta.");
@@ -186,6 +185,27 @@ export class CollectionController {
         reply,
         error,
         "Erro ao concluir etapa de campo.",
+      );
+    }
+  }
+
+  async reviewQuantities(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const user = getAuthenticatedUser(request);
+      const params = collectionIdParamsSchema.parse(request.params);
+      const body = reviewQuantitiesSchema.parse(request.body);
+      const collection = await collectionService.reviewQuantities(
+        user.sub,
+        user.role,
+        params.id,
+        body,
+      );
+      return reply.send({ success: true, collection });
+    } catch (error) {
+      return sendCollectionError(
+        reply,
+        error,
+        "Não foi possível conferir as quantidades.",
       );
     }
   }

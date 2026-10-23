@@ -2,7 +2,11 @@ import { materialQuantity } from "../utils/materials";
 import { Platform } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import type { CollectionMaterial, WasteUnit } from "@/src/types/collection";
+import type {
+  CollectionMaterial,
+  CollectionQuantityReview,
+  WasteUnit,
+} from "@/src/types/collection";
 
 type TopMaterial = {
   type: string;
@@ -30,6 +34,7 @@ interface UserData {
 }
 
 interface ReceiptData {
+  quantityReviews?: CollectionQuantityReview[];
   id: string;
   local: string;
   date: string;
@@ -145,6 +150,7 @@ export const buildReceiptHtml = (
  <section class="summary"><div class="summary-cell"><span class="summary-label">Massa registrada</span><div class="summary-value">${escapeHtml(formatKg(mass))} <small>kg</small></div></div><div class="summary-cell"><span class="summary-label">${receipt ? "Data da coleta" : "Coletas concluídas"}</span><div class="summary-description">${escapeHtml(receipt ? receipt.date : String(userData.collectionCount ?? "Não informado"))}</div></div><div class="summary-cell"><span class="summary-label">Período do histórico</span><div class="summary-description">${escapeHtml(period)}</div></div></section>
  <section class="section columns"><div class="column"><h2>Identificação do catador</h2><table class="info"><tbody>${row("Nome", name)}${row("CPF", userData.cpf || "")}${row("Telefone", userData.phone || "")}${row("E-mail", userData.email || "")}${row("Localidade", userData.location || "")}</tbody></table></div><div class="column"><h2>Identificação do registro</h2><table class="info"><tbody>${row("Cooperativa / OSC", userData.cooperativeName || "")}${row("Referência", receipt?.id || code)}${receipt ? row("Observações", receipt.local) : row("Abrangência", "Histórico disponível no sistema")}</tbody></table><p class="note">Documento <span class="reference">${escapeHtml(documentNumber)}</span></p></div></section>
  <section class="section"><h2>${receipt ? "Materiais da coleta" : "Materiais consolidados"}</h2><table class="data-table ${receipt ? "individual" : ""}"><thead><tr>${receipt ? "" : "<th scope=col>Item</th>"}<th scope=col>Material</th><th scope=col class="text-right">Quantidade registrada</th></tr></thead><tbody>${receipt ? renderMaterialsTable(receipt.materials) : renderTopMaterialsTable(userData.topMaterials)}</tbody></table><p class="note">Quantidades preservadas na unidade de origem. A massa em kg considera apenas kg e toneladas; litros, unidades e m³ não são convertidos em peso.</p></section>
+ ${receipt?.quantityReviews?.map((review) => `<section class="section"><h2>Conferência ${review.version} da cooperativa</h2><p>${escapeHtml(review.actorName)} · ${escapeHtml(new Date(review.createdAt).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" }))}</p><p>${escapeHtml(review.reason)}</p><table class="data-table"><thead><tr><th>Material</th><th>Informado</th><th>Anterior</th><th>Conferido</th></tr></thead><tbody>${review.items.map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(materialQuantity({ quantity: item.reportedQuantity, unit: item.unit }))}</td><td>${escapeHtml(materialQuantity({ quantity: item.previousQuantity, unit: item.unit }))}</td><td>${escapeHtml(materialQuantity({ quantity: item.confirmedQuantity, unit: item.unit }))}</td></tr>`).join("")}</tbody></table></section>`).join("") || ""}
  <section class="statement"><h2>Sobre este comprovante</h2><p>Este documento apresenta os registros operacionais de <strong>${escapeHtml(name)}</strong> disponíveis no sistema KATUÁ na data de emissão. As informações refletem o histórico consultado e não constituem certificação independente de pesagem ou destinação ambiental. Não substitui MTR, CDF ou documento fiscal.</p></section><section class="signature"><div class="signature-line"></div><span>Responsável pela conferência · nome e identificação</span></section><footer class="footer"><strong>KATUÁ · Registro operacional de coleta seletiva</strong><br>Gerado em ${escapeHtml(currentDate)} às ${escapeHtml(currentTime)} (Fortaleza). Para conferência, utilize a referência completa no histórico da cooperativa.</footer></main></body></html>`;
   return { html, fileName };
 };

@@ -208,6 +208,7 @@ export default function ReceiptsScreen() {
         date: formatDate(receipt.collectedAt || receipt.createdAt),
         kg: getCollectionTotalKg(receipt),
         materials: receipt.materials ?? [],
+        quantityReviews: receipt.quantityReviews,
         local: receipt.notes || "-",
       });
 

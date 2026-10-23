@@ -14,6 +14,10 @@ export async function collectionRoutes(app: FastifyInstance) {
     collectionController.resolveIncident(request, reply),
   );
 
+  app.post("/:id/review-quantities", (request, reply) =>
+    collectionController.reviewQuantities(request, reply),
+  );
+
   app.get("/ping", async () => ({
     success: true,
     ok: true,

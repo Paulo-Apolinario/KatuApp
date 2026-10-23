@@ -1,3 +1,5 @@
+import { notifyCollection } from "../inbox/inbox.service";
+import type { ReviewQuantitiesInput } from "./collection.schemas";
 import { createHash } from "node:crypto";
 import {
   CollectionEntryStatus,
@@ -105,6 +107,7 @@ const userSelect = {
 } satisfies Prisma.UserSelect;
 
 const collectionInclude = {
+  quantityReviews: { orderBy: { version: "desc" as const } },
   extraOrder: {
     select: { id: true, contextRouteId: true, routeNameSnapshot: true },
   },
@@ -530,6 +533,7 @@ export class CollectionService {
           subcategorySnapshot: material.subcategory,
           unit: material.unit,
           quantity: new Prisma.Decimal(material.quantity),
+          reportedQuantity: new Prisma.Decimal(material.quantity),
         },
       });
 
@@ -1429,6 +1433,18 @@ export class CollectionService {
           },
         });
       }
+      const title =
+        targetStatus === CollectionStatus.RECEIVED
+          ? "Coleta recebida pela cooperativa"
+          : "Triagem da coleta iniciada";
+      await notifyCollection(
+        transaction,
+        collectionId,
+        `stage:${collectionId}:${targetStatus}`,
+        "COLLECTION_STAGE",
+        title,
+        "A cooperativa atualizou a etapa da sua coleta. Acesse os detalhes para acompanhar.",
+      );
       return updated;
     });
   }
@@ -1438,6 +1454,210 @@ export class CollectionService {
    * RECEBIMENTO
    * ============================================================
    */
+
+  async reviewQuantities(
+    authUserId: string,
+    authUserRole: string,
+    collectionId: string,
+    data: ReviewQuantitiesInput,
+  ) {
+    const context = await this.getAccessContext(authUserId, authUserRole);
+    if (context.role !== "COOPERATIVE")
+      throw new CollectionDomainError(
+        "Somente a cooperativa pode conferir a quantidade recebida.",
+        { statusCode: 403, code: "REVIEW_FORBIDDEN" },
+      );
+    return prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Collection" WHERE id = ${collectionId} FOR UPDATE`;
+        const collection = await tx.collection.findFirst({
+          where: { id: collectionId, cooperativeId: context.cooperativeId },
+          include: collectionInclude,
+        });
+        if (!collection)
+          throw new CollectionDomainError("Coleta não encontrada.", {
+            statusCode: 404,
+            code: "COLLECTION_NOT_FOUND",
+          });
+        if (!["RECEIVED", "SORTING"].includes(collection.status))
+          throw new CollectionDomainError(
+            "Confira as quantidades após o recebimento, durante a triagem. Coletas encerradas não podem ser alteradas.",
+            { statusCode: 409, code: "REVIEW_STAGE_INVALID" },
+          );
+        if (collection.quantityReviewVersion !== data.expectedVersion)
+          throw new CollectionDomainError(
+            "A conferência foi atualizada por outro usuário. Recarregue a coleta antes de continuar.",
+            { statusCode: 409, code: "REVIEW_VERSION_CONFLICT" },
+          );
+        const materials = collection.collectionMaterials;
+        const ids = new Set(data.items.map((item) => item.materialId));
+        if (
+          ids.size !== data.items.length ||
+          ids.size !== materials.length ||
+          materials.some((m) => !ids.has(m.id))
+        )
+          throw new CollectionDomainError(
+            "Informe uma quantidade para cada material desta coleta, sem duplicar itens.",
+            { statusCode: 400, code: "REVIEW_ITEMS_INVALID" },
+          );
+        const quantities = new Map(
+          data.items.map((item) => [item.materialId, item.quantity]),
+        );
+        const items = materials.map((m) => ({
+          materialId: m.id,
+          name: m.nameSnapshot,
+          unit: m.unit,
+          reportedQuantity: Number(m.reportedQuantity ?? m.quantity),
+          previousQuantity: Number(m.quantity),
+          confirmedQuantity: quantities.get(m.id)!,
+        }));
+        const changed = items.some(
+          (item) => item.previousQuantity !== item.confirmedQuantity,
+        );
+        if (changed && data.reason.trim().length < 5)
+          throw new CollectionDomainError(
+            "Descreva a justificativa da diferença (mínimo de 5 caracteres).",
+            { statusCode: 400, code: "REVIEW_REASON_REQUIRED" },
+          );
+        if (!changed && collection.quantityReviewVersion > 0) return collection;
+        for (const m of materials) {
+          if (!m.wasteEntry)
+            throw new CollectionDomainError(
+              "Material sem entrada operacional. Regularize a coleta antes da conferência.",
+              { statusCode: 409, code: "REVIEW_ENTRY_MISSING" },
+            );
+          await tx.$queryRaw`SELECT id FROM "CollectionWasteEntry" WHERE id = ${m.wasteEntry.id} FOR UPDATE`;
+          const entry = await tx.collectionWasteEntry.findUniqueOrThrow({
+            where: { id: m.wasteEntry.id },
+          });
+          const quantity = new Prisma.Decimal(quantities.get(m.id)!);
+          if (quantity.lt(entry.destinedQuantity))
+            throw new CollectionDomainError(
+              `A quantidade de ${m.nameSnapshot} é menor que a já destinada. Cancele ou regularize as destinações afetadas antes de conferir.`,
+              { statusCode: 409, code: "REVIEW_BELOW_DESTINED" },
+            );
+          const remaining = quantity.sub(entry.destinedQuantity);
+          await tx.collectionMaterial.update({
+            where: { id: m.id },
+            data: {
+              quantity,
+              reportedQuantity: m.reportedQuantity ?? m.quantity,
+            },
+          });
+          await tx.collectionWasteEntry.update({
+            where: { id: entry.id },
+            data: {
+              collectedQuantity: quantity,
+              remainingQuantity: remaining,
+              status: remaining.eq(0)
+                ? "FULLY_DESTINED"
+                : entry.destinedQuantity.gt(0)
+                  ? "PARTIALLY_DESTINED"
+                  : "PENDING_DESTINATION",
+            },
+          });
+        }
+        const total =
+          Math.round(
+            items.reduce(
+              (sum, item) =>
+                sum + quantityToKg(item.confirmedQuantity, item.unit),
+              0,
+            ) * 1000,
+          ) / 1000;
+        const version = collection.quantityReviewVersion + 1;
+        const actor = await tx.user.findUniqueOrThrow({
+          where: { id: authUserId },
+          select: { displayName: true },
+        });
+        const reason =
+          data.reason.trim() || "Conferência sem divergência de quantidade.";
+        await tx.collectionQuantityReview.create({
+          data: {
+            collectionId,
+            version,
+            actorUserId: authUserId,
+            actorName: actor.displayName,
+            reason,
+            items,
+            previousTotalKg: collection.totalWeightKg,
+            confirmedTotalKg: total,
+          },
+        });
+        const updated = await tx.collection.update({
+          where: { id: collectionId },
+          data: {
+            reportedTotalWeightKg:
+              collection.reportedTotalWeightKg ?? collection.totalWeightKg,
+            totalWeightKg: total,
+            quantityReviewVersion: version,
+            quantitiesReviewedAt: new Date(),
+            materials: materials.map((m) => ({
+              type: m.nameSnapshot,
+              name: m.nameSnapshot,
+              wasteTypeId: m.wasteTypeId,
+              category: m.categorySnapshot,
+              subcategory: m.subcategorySnapshot,
+              notes: m.wasteEntry?.notes,
+              unit: m.unit,
+              quantity: quantities.get(m.id)!,
+              quantityKg: quantityToKg(quantities.get(m.id)!, m.unit),
+            })),
+          },
+          include: collectionInclude,
+        });
+        const delta = total - collection.totalWeightKg;
+        if (collection.collectorId && delta !== 0) {
+          await tx.$queryRaw`SELECT id FROM "Collector" WHERE id = ${collection.collectorId} FOR UPDATE`;
+          const day = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "America/Fortaleza",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(new Date());
+          const monthStart = new Date(`${day.slice(0, 7)}-01T00:00:00-03:00`),
+            monthEnd = new Date(monthStart);
+          monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
+          const month = await tx.collection.aggregate({
+            where: {
+              collectorId: collection.collectorId,
+              collectedAt: { gte: monthStart, lt: monthEnd },
+            },
+            _sum: { totalWeightKg: true },
+          });
+          await tx.collector.update({
+            where: { id: collection.collectorId },
+            data: {
+              totalKg: { increment: delta },
+              kgMonth: month._sum.totalWeightKg || 0,
+            },
+          });
+          if (collection.generatorId)
+            await tx.generator.update({
+              where: { id: collection.generatorId },
+              data: { totalKg: { increment: delta } },
+            });
+        }
+        const differences = items
+          .map(
+            (i) =>
+              `${i.name}: informado ${i.reportedQuantity}, conferido ${i.confirmedQuantity} ${i.unit}`,
+          )
+          .join("; ");
+        await notifyCollection(
+          tx,
+          collectionId,
+          `quantity-review:${collectionId}:${version}`,
+          "QUANTITY_REVIEW",
+          changed ? "Quantidade recebida ajustada" : "Quantidades conferidas",
+          `${differences}. Justificativa: ${reason}`,
+          { version, items, reason, actorName: actor.displayName },
+        );
+        return updated;
+      },
+      { timeout: 15000 },
+    );
+  }
 
   async receive(
     authUserId: string,
@@ -1610,6 +1830,14 @@ export class CollectionService {
         });
       }
 
+      await notifyCollection(
+        transaction,
+        collectionId,
+        `stage:${collectionId}:${updated.status}`,
+        "COLLECTION_STAGE",
+        "Operação da coleta concluída",
+        "A cooperativa atualizou a etapa da sua coleta. Acesse os detalhes para acompanhar.",
+      );
       return updated;
     });
   }
@@ -1721,6 +1949,14 @@ export class CollectionService {
         });
       }
 
+      await notifyCollection(
+        transaction,
+        collectionId,
+        `stage:${collectionId}:${updated.status}`,
+        "COLLECTION_STAGE",
+        "Coleta cancelada",
+        "A cooperativa atualizou a etapa da sua coleta. Acesse os detalhes para acompanhar.",
+      );
       return updated;
     });
   }

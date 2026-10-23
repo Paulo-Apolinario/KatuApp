@@ -23,6 +23,7 @@ model User {
   updatedAt              DateTime      @updatedAt
 
   authVersion Int @default(0)
+  inboxNotifications InboxNotification[]
   emailTokens        AuthEmailToken[]
 
   collector          Collector?
@@ -422,6 +423,11 @@ model Collection {
 
   cancellationReason String?
 
+  reportedTotalWeightKg Float?
+  quantityReviewVersion Int @default(0)
+  quantitiesReviewedAt DateTime?
+  quantityReviews CollectionQuantityReview[]
+  inboxNotifications InboxNotification[]
   totalWeightKg Float    @default(0)
   materials     Json?
   notes         String?
@@ -481,6 +487,7 @@ model CollectionMaterial {
   categorySnapshot    String?
   subcategorySnapshot String?
   unit                WasteUnit @default(KG)
+  reportedQuantity    Decimal?  @db.Decimal(18, 3)
   quantity            Decimal   @db.Decimal(18, 3)
 
   createdAt DateTime @default(now())
@@ -1408,4 +1415,35 @@ model OwnerDocument {
  @@index([cooperativeId,collectorId])
  @@index([cooperativeId,driverId])
  @@index([cooperativeId,vehicleId])
+}
+
+model CollectionQuantityReview {
+ id String @id @default(cuid())
+ collectionId String
+ version Int
+ actorUserId String
+ actorName String
+ reason String
+ items Json
+ previousTotalKg Float
+ confirmedTotalKg Float
+ createdAt DateTime @default(now())
+ collection Collection @relation(fields:[collectionId],references:[id],onDelete:Cascade)
+ @@unique([collectionId,version])
+}
+model InboxNotification {
+ id String @id @default(cuid())
+ userId String
+ collectionId String?
+ eventKey String
+ kind String
+ title String
+ message String
+ data Json?
+ readAt DateTime?
+ createdAt DateTime @default(now())
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ collection Collection? @relation(fields:[collectionId],references:[id],onDelete:SetNull)
+ @@unique([userId,eventKey])
+ @@index([userId,readAt,createdAt])
 }

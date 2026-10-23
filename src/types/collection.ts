@@ -258,7 +258,26 @@ export interface CollectionScheduleSummary {
  * ============================================================
  */
 
+export interface CollectionQuantityReview {
+  id: string;
+  version: number;
+  actorName: string;
+  reason: string;
+  createdAt: string;
+  items: {
+    materialId: string;
+    name: string;
+    unit: WasteUnit;
+    reportedQuantity: number;
+    previousQuantity: number;
+    confirmedQuantity: number;
+  }[];
+}
 export interface Collection {
+  quantityReviews?: CollectionQuantityReview[];
+  quantityReviewVersion?: number;
+  reportedTotalWeightKg?: number | null;
+
   extraOrder?: {
     id: string;
     contextRouteId?: string | null;
