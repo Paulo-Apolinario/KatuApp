@@ -1,8 +1,8 @@
+import {
+  parseLegacyDocument,
+  cleanupLegacyDocument,
+} from "../owner-documents/owner-documents.routes";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import fs from "node:fs";
-import path from "node:path";
-import { pipeline } from "node:stream/promises";
-import { randomUUID } from "node:crypto";
 
 import {
   createMaintenanceLogSchema,
@@ -15,37 +15,8 @@ function getUserId(request: FastifyRequest) {
   return user?.sub || user?.id || user?.userId;
 }
 
-async function parseMultipart(request: FastifyRequest) {
-  const body: Record<string, any> = {};
-  let fileUrl: string | null = null;
-
-  const uploadDir = path.join(process.cwd(), "uploads", "maintenance-logs");
-
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-
-  const parts = request.parts();
-
-  for await (const part of parts) {
-    if (part.type === "file") {
-      if (!part.filename) continue;
-
-      const extension = path.extname(part.filename);
-      const fileName = `${randomUUID()}${extension}`;
-      const fullPath = path.join(uploadDir, fileName);
-
-      await pipeline(part.file, fs.createWriteStream(fullPath));
-
-      fileUrl = `/uploads/maintenance-logs/${fileName}`;
-      continue;
-    }
-
-    body[part.fieldname] = part.value;
-  }
-
-  return { body, fileUrl };
-}
+const parseMultipart = (request: FastifyRequest) =>
+  parseLegacyDocument(request, "maintenance-logs");
 
 async function parseRequestBody(request: FastifyRequest) {
   const contentType = request.headers["content-type"] || "";
@@ -103,6 +74,7 @@ export const maintenanceLogsController = {
   },
 
   async create(request: FastifyRequest, reply: FastifyReply) {
+    let uploadedFile: string | null = null;
     try {
       const userId = getUserId(request);
 
@@ -111,9 +83,14 @@ export const maintenanceLogsController = {
       }
 
       const parsed = await parseRequestBody(request);
+      uploadedFile = parsed.fileUrl;
       const validated = createMaintenanceLogSchema.parse(parsed.body);
 
-      const data = await maintenanceLogsService.create(userId, validated, parsed.fileUrl);
+      const data = await maintenanceLogsService.create(
+        userId,
+        validated,
+        parsed.fileUrl,
+      );
 
       return reply.status(201).send({
         success: true,
@@ -121,12 +98,14 @@ export const maintenanceLogsController = {
         data,
       });
     } catch (error: any) {
+      await cleanupLegacyDocument(uploadedFile);
       request.log.error(error);
       return reply.badRequest(error.message || "Erro ao criar manutenção.");
     }
   },
 
   async update(request: FastifyRequest, reply: FastifyReply) {
+    let uploadedFile: string | null = null;
     try {
       const userId = getUserId(request);
       const { id } = request.params as { id: string };
@@ -136,9 +115,15 @@ export const maintenanceLogsController = {
       }
 
       const parsed = await parseRequestBody(request);
+      uploadedFile = parsed.fileUrl;
       const validated = updateMaintenanceLogSchema.parse(parsed.body);
 
-      const data = await maintenanceLogsService.update(userId, id, validated, parsed.fileUrl);
+      const data = await maintenanceLogsService.update(
+        userId,
+        id,
+        validated,
+        parsed.fileUrl,
+      );
 
       return reply.send({
         success: true,
@@ -146,6 +131,7 @@ export const maintenanceLogsController = {
         data,
       });
     } catch (error: any) {
+      await cleanupLegacyDocument(uploadedFile);
       request.log.error(error);
       return reply.badRequest(error.message || "Erro ao atualizar manutenção.");
     }

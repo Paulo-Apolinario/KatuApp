@@ -1,3 +1,4 @@
+import { ownerDocumentsRoutes } from "./modules/owner-documents/owner-documents.routes";
 import {dashboardRoutes} from "./modules/dashboard/dashboard.routes";
 import { settingsRoutes } from "./modules/settings/settings.routes";
 import { reportsRoutes } from "./modules/reports/reports.routes";
@@ -207,6 +208,7 @@ export async function buildApp() {
   await app.register(settingsRoutes);
   await app.register(dashboardRoutes);
   await app.register(vehicleDocumentsRoutes);
+  await app.register(ownerDocumentsRoutes);
   await app.register(maintenanceLogsRoutes);
 
   return app;

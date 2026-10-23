@@ -52,6 +52,7 @@ model User {
 }
 
 model Cooperative {
+  ownerDocuments OwnerDocument[]
   extraCollectionOrders ExtraCollectionOrder[]
   id                 String  @id @default(cuid())
   name               String
@@ -141,6 +142,7 @@ model PersonProfile {
 }
 
 model Generator {
+  ownerDocuments OwnerDocument[]
   id            String        @id @default(cuid())
   cooperativeId String
   userId        String?       @unique
@@ -300,6 +302,7 @@ model WasteCatalogSuggestion {
 }
 
 model Collector {
+  ownerDocuments OwnerDocument[]
   extraCollectionOrders ExtraCollectionOrder[]
   id            String  @id @default(cuid())
   cooperativeId String?
@@ -613,6 +616,7 @@ model CollectionWasteDestination {
 }
 
 model Driver {
+  ownerDocuments OwnerDocument[]
   id            String       @id @default(cuid())
   cooperativeId String
   userId        String?      @unique
@@ -642,6 +646,7 @@ model Driver {
 }
 
 model Vehicle {
+  ownerDocuments OwnerDocument[]
   id            String        @id @default(cuid())
   cooperativeId String
   driverId      String?
@@ -1374,4 +1379,33 @@ model ExtraCollectionOrderEvent {
  order ExtraCollectionOrder @relation(fields:[orderId],references:[id],onDelete:Restrict)
  @@unique([orderId,operationId])
  @@index([orderId,createdAt])
+}
+
+model OwnerDocument {
+ id String @id @default(cuid())
+ cooperativeId String
+ generatorId String?
+ collectorId String?
+ driverId String?
+ vehicleId String?
+ title String
+ documentType String
+ documentNumber String?
+ issueDate DateTime?
+ expiryDate DateTime?
+ notes String?
+ originalName String
+ storageKey String @unique
+ mimeType String
+ size Int
+ createdAt DateTime @default(now())
+ cooperative Cooperative @relation(fields:[cooperativeId], references:[id], onDelete:Restrict)
+ generator Generator? @relation(fields:[generatorId], references:[id], onDelete:Restrict)
+ collector Collector? @relation(fields:[collectorId], references:[id], onDelete:Restrict)
+ driver Driver? @relation(fields:[driverId], references:[id], onDelete:Restrict)
+ vehicle Vehicle? @relation(fields:[vehicleId], references:[id], onDelete:Restrict)
+ @@index([cooperativeId,generatorId])
+ @@index([cooperativeId,collectorId])
+ @@index([cooperativeId,driverId])
+ @@index([cooperativeId,vehicleId])
 }
