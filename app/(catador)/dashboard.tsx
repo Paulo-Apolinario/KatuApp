@@ -429,8 +429,12 @@ function buildTimeline(collection: Collection | null): TimelineItem[] {
   const items: TimelineItem[] = [
     {
       id: "created",
-      title: "Coleta delegada",
-      subtitle: "A cooperativa encaminhou esta coleta para execução.",
+      title: collection.extraOrder
+        ? "Registro da coleta por O.C."
+        : "Coleta delegada",
+      subtitle: collection.extraOrder
+        ? "A cooperativa aceitou a ordem extra. A realização em campo mantém sua data original."
+        : "A cooperativa encaminhou esta coleta para execução.",
       date: collection.createdAt || null,
       icon: "clipboard-outline",
       completed: true,
@@ -492,6 +496,9 @@ function buildTimeline(collection: Collection | null): TimelineItem[] {
       completed: collection.status === "COMPLETED",
     },
   ];
+
+  if (collection.extraOrder && collection.collectedAt && !collection.startedAt)
+    items.splice(1, 1);
 
   if (collection.status === "CANCELLED") {
     return [

@@ -1,3 +1,4 @@
+import { syncExtraOrder } from "./extraOrderSync";
 import { api } from "@/src/services/api";
 import {
   clearSyncedSyncItems,
@@ -207,7 +208,10 @@ async function processSyncItem(item: PendingSyncItem) {
   await markSyncItemSyncing(item.id);
 
   try {
-    if (item.operationType === "COLLECTION_FIELD_ACTION") {
+    if (item.operationType === "EXTRA_ORDER_WRITE") {
+      ensureEntity(item.entityType, "EXTRA_ORDER", item.operationType);
+      await syncExtraOrder(item.payload as any);
+    } else if (item.operationType === "COLLECTION_FIELD_ACTION") {
       ensureEntity(item.entityType, "COLLECTION", item.operationType);
       await syncFieldAction(item.payload as any, item.id);
     } else if (isCollectionOperation(item.operationType)) {

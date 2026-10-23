@@ -729,6 +729,11 @@ export default function CooperativeHomeScreen() {
       </LinearGradient>
 
       <View style={{ paddingHorizontal: 20, paddingTop: 18 }}>
+        <Action
+          secondary
+          label="Analisar ordens de coleta extras"
+          onPress={() => router.push("/(cooperativa)/extra-orders")}
+        />
         <SectionHeader
           title="Resumo da operação"
           subtitle="Visão rápida do que precisa de atenção agora."

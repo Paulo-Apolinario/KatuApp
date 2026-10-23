@@ -52,6 +52,7 @@ model User {
 }
 
 model Cooperative {
+  extraCollectionOrders ExtraCollectionOrder[]
   id                 String  @id @default(cuid())
   name               String
   registrationNumber String? @unique
@@ -183,6 +184,7 @@ model Generator {
 }
 
 model Schedule {
+  extraCollectionOrders ExtraCollectionOrder[]
   pickupAddress String?
   pickupLatitude Float?
   pickupLongitude Float?
@@ -298,6 +300,7 @@ model WasteCatalogSuggestion {
 }
 
 model Collector {
+  extraCollectionOrders ExtraCollectionOrder[]
   id            String  @id @default(cuid())
   cooperativeId String?
   userId        String? @unique
@@ -368,6 +371,7 @@ model CollectorDocument {
 }
 
 model Collection {
+  extraOrder ExtraCollectionOrder? @relation("ApprovedExtraCollection")
   incidents CollectionIncident[]
   startOperationId String?
   startOperationHash String?
@@ -667,6 +671,7 @@ model Vehicle {
 }
 
 model Route {
+  extraCollectionOrders ExtraCollectionOrder[]
   id            String      @id @default(cuid())
   cooperativeId String
   driverId      String?
@@ -1323,4 +1328,50 @@ model CollectionIncident {
   collection Collection @relation(fields: [collectionId], references: [id], onDelete: Restrict)
   @@unique([collectionId, reportedByUserId, operationId])
   @@index([cooperativeId, status, createdAt])
+}
+
+model ExtraCollectionOrder {
+ id String @id
+ cooperativeId String
+ collectorId String
+ contextRouteId String?
+ sourceScheduleId String?
+ collectionId String? @unique
+ status String @default("PENDING_REVIEW")
+ revision Int @default(1)
+ originalHash String
+ payload Json
+ reporterUserId String
+ reporterName String
+ routeNameSnapshot String?
+ receivedAt DateTime?
+ receivedByUserId String?
+ custody String
+ custodyNotes String
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Restrict)
+ collector Collector @relation(fields:[collectorId],references:[id],onDelete:Restrict)
+ contextRoute Route? @relation(fields:[contextRouteId],references:[id],onDelete:Restrict)
+ sourceSchedule Schedule? @relation(fields:[sourceScheduleId],references:[id],onDelete:Restrict)
+ collection Collection? @relation("ApprovedExtraCollection",fields:[collectionId],references:[id],onDelete:Restrict)
+ events ExtraCollectionOrderEvent[]
+ @@index([cooperativeId,status,createdAt])
+ @@index([collectorId,createdAt])
+ @@index([contextRouteId])
+}
+model ExtraCollectionOrderEvent {
+ id String @id @default(cuid())
+ orderId String
+ operationId String
+ operationHash String
+ kind String
+ actorUserId String
+ actorName String
+ notes String
+ data Json?
+ createdAt DateTime @default(now())
+ order ExtraCollectionOrder @relation(fields:[orderId],references:[id],onDelete:Restrict)
+ @@unique([orderId,operationId])
+ @@index([orderId,createdAt])
 }

@@ -1,7 +1,5 @@
 import type { Collection } from "../types/collection";
-export function collectionOrigin(
-  collection?: Collection | null,
-): {
+export function collectionOrigin(collection?: Collection | null): {
   id?: string;
   name: string;
   companyName?: string | null;
@@ -11,6 +9,14 @@ export function collectionOrigin(
   longitude?: number | null;
 } | null {
   if (!collection) return null;
+  if (collection.extraOrder && collection.schedule?.pickupAddress)
+    return {
+      id: collection.id,
+      name: collection.generator?.name || "Coleta extra",
+      address: collection.schedule.pickupAddress,
+      latitude: collection.schedule.pickupLatitude,
+      longitude: collection.schedule.pickupLongitude,
+    };
   const origin =
     collection.bin || collection.generator || collection.schedule?.generator;
   if (origin) {

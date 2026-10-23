@@ -105,6 +105,9 @@ const userSelect = {
 } satisfies Prisma.UserSelect;
 
 const collectionInclude = {
+  extraOrder: {
+    select: { id: true, contextRouteId: true, routeNameSnapshot: true },
+  },
   incidents: { orderBy: { createdAt: "desc" as const } },
   bin: {
     select: {
@@ -572,6 +575,157 @@ export class CollectionService {
         },
       });
     }
+  }
+
+  private async applyFieldTotals(
+    transaction: TransactionClient,
+    collection: { collectorId: string | null; generatorId: string | null },
+    totalWeightKg: number,
+  ) {
+    const collectorId = collection.collectorId;
+    if (!collectorId) return;
+    await transaction.$queryRaw`SELECT id FROM "Collector" WHERE id = ${collectorId} FOR UPDATE`;
+    const collectorState = await transaction.collector.findUniqueOrThrow({
+      where: { id: collectorId },
+    });
+    const localDay = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Fortaleza",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const dayStart = new Date(`${localDay}T00:00:00-03:00`);
+    const monthStart = new Date(`${localDay.slice(0, 7)}-01T00:00:00-03:00`);
+    const monthEnd = new Date(monthStart);
+    monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
+    const dayEnd = new Date(dayStart.getTime() + 86400000);
+    const kgMonth = await transaction.collection.aggregate({
+      where: { collectorId, collectedAt: { gte: monthStart, lt: monthEnd } },
+      _sum: { totalWeightKg: true },
+    });
+    const collectionsToday = await transaction.collection.count({
+      where: { collectorId, collectedAt: { gte: dayStart, lt: dayEnd } },
+    });
+    await transaction.collector.update({
+      where: { id: collectorId },
+      data: {
+        status:
+          collectorState.status === CollectorStatus.INACTIVE
+            ? CollectorStatus.INACTIVE
+            : (await transaction.collection.count({
+                  where: {
+                    collectorId,
+                    status: CollectionStatus.IN_PROGRESS,
+                  },
+                })) > 0
+              ? CollectorStatus.ON_ROUTE
+              : CollectorStatus.AVAILABLE,
+        totalKg: { increment: totalWeightKg },
+        kgMonth: kgMonth._sum.totalWeightKg || 0,
+        collectionsToday,
+      },
+    });
+
+    if (collection.generatorId && totalWeightKg > 0) {
+      await transaction.generator.update({
+        where: { id: collection.generatorId },
+        data: {
+          totalKg: { increment: totalWeightKg },
+        },
+      });
+    }
+  }
+
+  /** Called only by the scoped OC approval transaction; never exposed as a route. */
+  async createApprovedExtra(
+    transaction: TransactionClient,
+    data: {
+      cooperativeId: string;
+      collectorId: string;
+      scheduleId: string;
+      generatorId?: string | null;
+      driverId?: string;
+      vehicleId?: string;
+      notes: string;
+      collectedAt?: Date;
+      receivedAt?: Date;
+      receivedByUserId?: string | null;
+      reporterUserId: string;
+      reporterName: string;
+      estimatedQuantities?: (number | undefined)[];
+      materials: CollectionMaterialSchemaInput[];
+    },
+  ) {
+    await this.validateTeam(
+      transaction,
+      data.cooperativeId,
+      data.driverId || null,
+      data.vehicleId || null,
+    );
+    const normalized = await this.normalizeMaterials(
+      transaction,
+      data.cooperativeId,
+      data.materials,
+    );
+    if (
+      !data.collectedAt &&
+      !(await transaction.scheduleRequestedMaterial.count({
+        where: { scheduleId: data.scheduleId },
+      }))
+    ) {
+      for (const [index, m] of normalized.entries())
+        await transaction.scheduleRequestedMaterial.create({
+          data: {
+            scheduleId: data.scheduleId,
+            wasteTypeId: m.wasteTypeId,
+            nameSnapshot: m.name,
+            categorySnapshot: m.category,
+            subcategorySnapshot: m.subcategory,
+            unit: m.unit,
+            estimatedQuantity: data.estimatedQuantities?.[index],
+          },
+        });
+    }
+    const totalWeightKg = data.collectedAt
+      ? normalized.reduce((sum, m) => sum + m.quantityKg, 0)
+      : 0;
+    const collection = await transaction.collection.create({
+      data: {
+        cooperativeId: data.cooperativeId,
+        collectorId: data.collectorId,
+        scheduleId: data.scheduleId,
+        generatorId: data.generatorId,
+        driverId: data.driverId,
+        vehicleId: data.vehicleId,
+        routeId: null,
+        notes: data.notes,
+        status: data.collectedAt
+          ? data.receivedAt
+            ? CollectionStatus.RECEIVED
+            : CollectionStatus.COLLECTED
+          : CollectionStatus.PENDING,
+        collectedAt: data.collectedAt,
+        fieldCompletedByUserId: data.collectedAt ? data.reporterUserId : null,
+        receivedAt: data.receivedAt,
+        receivedByUserId: data.receivedByUserId,
+        totalWeightKg,
+        materials: data.collectedAt
+          ? (normalized as unknown as Prisma.InputJsonValue)
+          : [],
+      },
+    });
+    if (data.collectedAt) {
+      await this.createCollectedMaterials(
+        transaction,
+        collection,
+        normalized,
+        data.reporterUserId,
+        data.reporterName,
+        data.collectedAt,
+      );
+      await this.applyFieldTotals(transaction, collection, totalWeightKg);
+    }
+    return collection;
   }
 
   /*
@@ -1179,56 +1333,7 @@ export class CollectionService {
         });
       }
 
-      await transaction.$queryRaw`SELECT id FROM "Collector" WHERE id = ${collectorId} FOR UPDATE`;
-      const collectorState = await transaction.collector.findUniqueOrThrow({
-        where: { id: collectorId },
-      });
-      const localDay = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/Fortaleza",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(new Date());
-      const dayStart = new Date(`${localDay}T00:00:00-03:00`);
-      const monthStart = new Date(`${localDay.slice(0, 7)}-01T00:00:00-03:00`);
-      const monthEnd = new Date(monthStart);
-      monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
-      const dayEnd = new Date(dayStart.getTime() + 86400000);
-      const kgMonth = await transaction.collection.aggregate({
-        where: { collectorId, collectedAt: { gte: monthStart, lt: monthEnd } },
-        _sum: { totalWeightKg: true },
-      });
-      const collectionsToday = await transaction.collection.count({
-        where: { collectorId, collectedAt: { gte: dayStart, lt: dayEnd } },
-      });
-      await transaction.collector.update({
-        where: { id: collectorId },
-        data: {
-          status:
-            collectorState.status === CollectorStatus.INACTIVE
-              ? CollectorStatus.INACTIVE
-              : (await transaction.collection.count({
-                    where: {
-                      collectorId,
-                      status: CollectionStatus.IN_PROGRESS,
-                    },
-                  })) > 0
-                ? CollectorStatus.ON_ROUTE
-                : CollectorStatus.AVAILABLE,
-          totalKg: { increment: totalWeightKg },
-          kgMonth: kgMonth._sum.totalWeightKg || 0,
-          collectionsToday,
-        },
-      });
-
-      if (collection.generatorId && totalWeightKg > 0) {
-        await transaction.generator.update({
-          where: { id: collection.generatorId },
-          data: {
-            totalKg: { increment: totalWeightKg },
-          },
-        });
-      }
+      await this.applyFieldTotals(transaction, collection, totalWeightKg);
 
       return updated;
     });
@@ -1261,6 +1366,11 @@ export class CollectionService {
     }
 
     return prisma.$transaction(async (transaction) => {
+      const extra = await transaction.extraCollectionOrder.findUnique({
+        where: { collectionId },
+      });
+      if (extra)
+        await transaction.$queryRaw`SELECT id FROM "ExtraCollectionOrder" WHERE id=${extra.id} FOR UPDATE`;
       await transaction.$queryRaw`SELECT id FROM "Collection" WHERE id = ${collectionId} FOR UPDATE`;
       const collection = await transaction.collection.findFirst({
         where: {
@@ -1281,7 +1391,7 @@ export class CollectionService {
 
       this.assertTransition(collection.status, expectedStatus, targetStatus);
 
-      return transaction.collection.update({
+      const updated = await transaction.collection.update({
         where: { id: collection.id },
         data: {
           ...data,
@@ -1289,6 +1399,37 @@ export class CollectionService {
         },
         include: collectionInclude,
       });
+      if (extra && targetStatus === CollectionStatus.RECEIVED) {
+        const actor = await transaction.user.findUnique({
+          where: { id: authUserId },
+          select: { displayName: true },
+        });
+        await transaction.extraCollectionOrder.update({
+          where: { id: extra.id },
+          data: {
+            receivedAt: updated.receivedAt,
+            receivedByUserId: authUserId,
+            custody: "COOPERATIVE",
+            custodyNotes:
+              "Recebimento confirmado pelo fluxo da coleta vinculada.",
+          },
+        });
+        await transaction.extraCollectionOrderEvent.create({
+          data: {
+            orderId: extra.id,
+            operationId: `receive-collection:${collectionId}`,
+            operationHash: createHash("sha256")
+              .update(collectionId)
+              .digest("hex"),
+            kind: "RECEIVED_BY_COLLECTION",
+            actorUserId: authUserId,
+            actorName: actor?.displayName || "Cooperativa",
+            notes: "Recebimento confirmado no fluxo da coleta vinculada.",
+            data: { collectionId },
+          },
+        });
+      }
+      return updated;
     });
   }
 

@@ -262,6 +262,7 @@ function normalizeCollection(collection: BackendCollection): Collection {
   return {
     id: collection.id,
     bin: collection.bin,
+    extraOrder: (collection as any).extraOrder,
     cooperativeId: collection.cooperativeId ?? "",
     generatorId: collection.generatorId ?? null,
     collectorId: collection.collectorId ?? null,

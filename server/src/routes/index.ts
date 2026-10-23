@@ -1,3 +1,4 @@
+import { extraOrderRoutes } from "../modules/extra-collection-orders/extra-order.routes";
 import type { FastifyInstance } from "fastify";
 
 import { authRoutes } from "../modules/auth/auth.routes";
@@ -12,9 +13,7 @@ import { vehicleRoutes } from "../modules/vehicles/vehicle.routes";
 import { routeRoutes } from "../modules/routes/route.routes";
 import { wasteStockRoutes } from "../modules/waste-stock/waste-stock.routes";
 
-export async function appRoutes(
-  app: FastifyInstance
-) {
+export async function appRoutes(app: FastifyInstance) {
   /*
    * ============================================================
    * HEALTH CHECK
@@ -99,6 +98,8 @@ export async function appRoutes(
    * automaticamente.
    */
 
+  await app.register(extraOrderRoutes, { prefix: "/extra-collection-orders" });
+
   await app.register(collectionRoutes, {
     prefix: "/collections",
   });
@@ -131,12 +132,9 @@ export async function appRoutes(
    * GET /collection-entries/:id
    */
 
-  await app.register(
-    collectionEntriesRoutes,
-    {
-      prefix: "/collection-entries",
-    }
-  );
+  await app.register(collectionEntriesRoutes, {
+    prefix: "/collection-entries",
+  });
 
   /*
    * ============================================================
@@ -182,13 +180,9 @@ export async function appRoutes(
    * POST  /collection-waste-destinations/:id/cancel
    */
 
-  await app.register(
-    collectionWasteDestinationsRoutes,
-    {
-      prefix:
-        "/collection-waste-destinations",
-    }
-  );
+  await app.register(collectionWasteDestinationsRoutes, {
+    prefix: "/collection-waste-destinations",
+  });
 
   /*
    * ============================================================

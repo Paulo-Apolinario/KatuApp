@@ -5,13 +5,14 @@ import { SYNC_STATUS, TABLES } from "../schema";
 export type SyncQueueStatus = "PENDING" | "SYNCING" | "SYNCED" | "ERROR";
 
 export type SyncQueueOperation =
+  | "EXTRA_ORDER_WRITE"
   | "COLLECTION_FIELD_ACTION"
   | "UPDATE_COLLECTION_STATUS"
   | "COMPLETE_COLLECTION"
   | "UPDATE_ROUTE_STATUS"
   | "UPDATE_ROUTE_PROGRESS";
 
-export type SyncQueueEntity = "COLLECTION" | "ROUTE";
+export type SyncQueueEntity = "COLLECTION" | "ROUTE" | "EXTRA_ORDER";
 
 type SyncQueueRow = {
   id: string;
@@ -184,4 +185,11 @@ export async function clearSyncedSyncItems() {
     `,
     [SYNC_STATUS.SYNCED],
   );
+}
+
+/** Remove somente uma pendência da conta ativa, após conferência explícita do servidor. */
+export async function removeOwnedSyncItem(id: string) {
+  const active = (await getPendingSyncItems()).find((item) => item?.id === id);
+  if (!active) throw Error("A pendência mudou. Atualize a sincronização.");
+  await runQuery(`DELETE FROM ${TABLES.SYNC_QUEUE} WHERE id = ?`, [id]);
 }

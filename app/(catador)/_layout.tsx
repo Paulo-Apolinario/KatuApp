@@ -127,6 +127,10 @@ export default function CatadorLayout() {
         />
 
         <Tabs.Screen
+          name="extra-orders"
+          options={{ href: null, title: "Ordens de coleta extras" }}
+        />
+        <Tabs.Screen
           name="profile"
           options={{ href: null, title: "Minha conta" }}
         />

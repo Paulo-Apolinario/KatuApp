@@ -865,6 +865,20 @@ export default function CatadorMapScreen() {
           }}
         >
           <OfflineBanner visible={isOffline} />
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => router.push("/(catador)/extra-orders?create=1")}
+            style={{
+              padding: 16,
+              margin: 16,
+              borderRadius: 12,
+              backgroundColor: "#047857",
+            }}
+          >
+            <Text style={{ color: "white", fontWeight: "600" }}>
+              Registrar parada extra / O.C.
+            </Text>
+          </TouchableOpacity>
           <LocationStatus
             position={gps.position}
             error={gps.error}

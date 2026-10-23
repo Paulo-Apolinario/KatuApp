@@ -76,7 +76,11 @@ function loadRuntime() {
     }).outputText;
     new Function("require", "module", "exports", "localStorage", code)(
       (name) => {
-        if (name === "./api" || name === "@/src/services/api")
+        if (
+          name === "./api" ||
+          name === "@/src/services/api" ||
+          name.endsWith("/services/api")
+        )
           return { api, isApiNetworkError: (e) => Boolean(e?.offline) };
         if (name === "./connectivity")
           return { getCurrentConnectivity: async () => ({ isOffline: false }) };

@@ -259,6 +259,11 @@ export interface CollectionScheduleSummary {
  */
 
 export interface Collection {
+  extraOrder?: {
+    id: string;
+    contextRouteId?: string | null;
+    routeNameSnapshot?: string | null;
+  } | null;
   bin?: {
     id: string;
     binId?: string;

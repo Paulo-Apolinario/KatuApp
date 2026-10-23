@@ -6,6 +6,7 @@ const tables = new Set([
   "routes_local",
   "schedules_local",
   "sync_queue",
+  "extra_orders_local",
 ]);
 let writer: Promise<unknown> = Promise.resolve();
 export async function getDatabase() {
@@ -47,9 +48,11 @@ export function runQuery(sql: string, params: any[] = []): Promise<any[]> {
           : r,
       );
     } else if (/^DELETE/i.test(normalized)) {
-      rows = /WHERE status =/i.test(normalized)
-        ? rows.filter((r) => r.status !== params[0])
-        : [];
+      rows = /WHERE id =/i.test(normalized)
+        ? rows.filter((r) => r.id !== params[0])
+        : /WHERE status =/i.test(normalized)
+          ? rows.filter((r) => r.status !== params[0])
+          : [];
     } else if (/^SELECT/i.test(normalized)) {
       const field = /WHERE (id|driver_id|route_id|generator_id) =/i.exec(
         normalized,

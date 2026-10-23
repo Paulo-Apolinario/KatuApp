@@ -1006,6 +1006,12 @@ export default function HomeCatScreen() {
 
           <View style={sectionCard}>
             <QuickAction
+              icon="document-text-outline"
+              title="Ordens de coleta extras"
+              subtitle="Solicitações e paradas fora do planejamento"
+              onPress={() => router.push("/(catador)/extra-orders")}
+            />
+            <QuickAction
               icon="trash-outline"
               title="Executar coleta"
               subtitle="Abrir a fila operacional delegada"

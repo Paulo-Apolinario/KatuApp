@@ -67,7 +67,15 @@
         }
       ],
       "expo-secure-store",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir acesso às fotos selecionadas para anexar evidências à ordem de coleta.",
+          "cameraPermission": "Permitir usar a câmera para registrar evidências da coleta.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

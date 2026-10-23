@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS ${TABLES.SESSION} (
   updated_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS extra_orders_local (id TEXT PRIMARY KEY,status TEXT,payload_json TEXT,updated_at TEXT);
+
 CREATE TABLE IF NOT EXISTS ${TABLES.USERS} (
   id TEXT PRIMARY KEY,
   role TEXT,
