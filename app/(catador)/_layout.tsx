@@ -1,55 +1,15 @@
+import { useBottomTabOptions } from "@/src/hooks/useBottomTabOptions";
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 
 import ProtectedRoute from "@/src/components/ProtectedRoute";
 
 export default function CatadorLayout() {
+  const bottomTabOptions = useBottomTabOptions();
   return (
     <ProtectedRoute allowedUserTypes={["COLLECTOR"]}>
       <Tabs
-        screenOptions={{
-          headerShown: false,
-
-          tabBarActiveTintColor: "#047857",
-          tabBarInactiveTintColor: "#94A3B8",
-
-          tabBarHideOnKeyboard: true,
-
-          tabBarLabelStyle: {
-            fontSize: 11,
-            fontWeight: "700",
-            marginTop: 2,
-          },
-
-          tabBarIconStyle: {
-            marginTop: 2,
-          },
-
-          tabBarItemStyle: {
-            paddingVertical: 4,
-          },
-
-          tabBarStyle: {
-            height: 72,
-            paddingTop: 6,
-            paddingBottom: 8,
-
-            backgroundColor: "#FFFFFF",
-
-            borderTopWidth: 1,
-            borderTopColor: "#E5E7EB",
-
-            elevation: 10,
-
-            shadowColor: "#000000",
-            shadowOffset: {
-              width: 0,
-              height: -2,
-            },
-            shadowOpacity: 0.08,
-            shadowRadius: 6,
-          },
-        }}
+        screenOptions={{ ...bottomTabOptions, headerShown: false }}
       >
         <Tabs.Screen
           name="homecat"
@@ -115,6 +75,7 @@ export default function CatadorLayout() {
           name="receipts"
           options={{
             title: "Comprovantes",
+            tabBarLabel: "Recibos",
 
             tabBarIcon: ({ color, focused }) => (
               <Ionicons

@@ -1,52 +1,16 @@
+import { useBottomTabOptions } from "@/src/hooks/useBottomTabOptions";
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 
 import ProtectedRoute from "@/src/components/ProtectedRoute";
 
 export default function GeradorLayout() {
+  const bottomTabOptions = useBottomTabOptions();
   return (
     <ProtectedRoute allowedUserTypes={["GENERATOR_SMALL", "GENERATOR_LARGE"]}>
       <Tabs
         initialRouteName="dashboard"
-        screenOptions={{
-          headerShown: false,
-
-          tabBarActiveTintColor: "#047857",
-          tabBarInactiveTintColor: "#9CA3AF",
-
-          tabBarHideOnKeyboard: true,
-
-          tabBarLabelStyle: {
-            fontSize: 11,
-            fontWeight: "700",
-            marginBottom: 3,
-          },
-
-          tabBarIconStyle: {
-            marginTop: 3,
-          },
-
-          tabBarStyle: {
-            height: 66,
-            paddingTop: 6,
-            paddingBottom: 7,
-
-            backgroundColor: "#FFFFFF",
-
-            borderTopWidth: 1,
-            borderTopColor: "#E5E7EB",
-
-            elevation: 10,
-
-            shadowColor: "#000000",
-            shadowOffset: {
-              width: 0,
-              height: -2,
-            },
-            shadowOpacity: 0.08,
-            shadowRadius: 8,
-          },
-        }}
+        screenOptions={{ ...bottomTabOptions, headerShown: false }}
       >
         {/*
          * ============================================================
