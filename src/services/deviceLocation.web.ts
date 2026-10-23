@@ -48,11 +48,6 @@ export async function hasServicesEnabledAsync() {
   browserGeolocation();
   return true;
 }
-export async function reverseGeocodeAsync(
-  _position: Pick<Expo.LocationGeocodedLocation, "latitude" | "longitude">,
-): Promise<Expo.LocationGeocodedAddress[]> {
-  return [];
-}
 export async function watchPositionAsync(
   _options: Expo.LocationOptions,
   callback: Expo.LocationCallback,

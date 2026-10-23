@@ -605,6 +605,7 @@ export default function CooperativeMapScreen() {
             error={gps.error}
             loading={gps.loading}
             retry={gps.retry}
+            active={gps.active}
           />
           <LastSyncBadge value={lastSyncAt} />
         </View>

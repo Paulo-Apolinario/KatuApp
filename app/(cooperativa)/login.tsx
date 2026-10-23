@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Image,
   Text,
@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "@/src/services/deviceLocation";
+import { useForegroundLocation } from "@/src/hooks/useForegroundLocation";
+import { DeviceLocationCard } from "@/src/components/DeviceLocationCard";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useNotification } from "@/src/contexts/NotificationContext";
@@ -27,39 +28,7 @@ export default function CooperativaLoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [locationName, setLocationName] = useState("Localização não obtida");
-
-  useEffect(() => {
-    getUserLocation();
-  }, []);
-
-  async function getUserLocation() {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status === "granted") {
-        const location = await Location.getCurrentPositionAsync({});
-        const addresses = await Location.reverseGeocodeAsync({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-
-        if (addresses.length > 0) {
-          const address = addresses[0];
-          const city =
-            address.city ||
-            address.region ||
-            "GPS ativo — cidade não identificada";
-
-          setLocationName(city);
-        } else {
-          setLocationName("GPS ativo — cidade não identificada");
-        }
-      }
-    } catch (error) {
-      console.error("Erro ao obter localização:", error);
-    }
-  }
+  const deviceLocation = useForegroundLocation();
 
   async function handleLogin() {
     if (!email.trim() || !password.trim()) {
@@ -158,27 +127,7 @@ export default function CooperativaLoginScreen() {
           Cooperativa de Reciclagem
         </Text>
 
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            marginTop: 10,
-          }}
-        >
-          <Ionicons name="location-sharp" size={16} color="#FFFFFF" />
-
-          <Text
-            style={{
-              fontSize: 14,
-              color: "#FFFFFF",
-              marginLeft: 5,
-              opacity: 0.9,
-            }}
-          >
-            {locationName}
-          </Text>
-        </View>
+        <DeviceLocationCard location={deviceLocation} />
       </LinearGradient>
 
       <ScrollView

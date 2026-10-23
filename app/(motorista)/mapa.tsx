@@ -519,6 +519,7 @@ export default function MotoristaMapaScreen() {
           error={gps.error}
           loading={gps.loading}
           retry={gps.retry}
+            active={gps.active}
         />
         <View
           style={{

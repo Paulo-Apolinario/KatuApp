@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "@/src/services/deviceLocation";
+import { useForegroundLocation } from "@/src/hooks/useForegroundLocation";
+import { DeviceLocationCard } from "@/src/components/DeviceLocationCard";
 import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -437,11 +438,10 @@ function EmptyState({
 export default function CooperativeHomeScreen() {
   const { user } = useAuth();
   const currentUser = user as AuthUserLike | null;
-  const { notifyError, notifyWarning, notifyInfo } = useNotification();
+  const { notifyError, notifyInfo } = useNotification();
 
-  const [currentCity, setCurrentCity] = useState("Carregando localização...");
-  const [locationError, setLocationError] = useState(false);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const deviceLocation = useForegroundLocation();
+  const { retry: retryLocation } = deviceLocation;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -451,67 +451,6 @@ export default function CooperativeHomeScreen() {
   const [collections, setCollections] = useState<Collection[]>([]);
 
   const displayName = getUserDisplayName(currentUser);
-
-  const getUserLocation = useCallback(async () => {
-    setIsLoadingLocation(true);
-
-    try {
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
-
-      if (!servicesEnabled) {
-        setCurrentCity("Localização desativada");
-        setLocationError(true);
-        notifyWarning("A localização está desativada no dispositivo.");
-        return;
-      }
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") {
-        setCurrentCity("Permissão negada");
-        setLocationError(true);
-
-        notifyWarning(
-          "Permissão de localização negada. Libere a localização nas configurações do navegador ou dispositivo.",
-        );
-
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const addresses = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-
-      if (addresses.length > 0) {
-        const address = addresses[0];
-
-        const city =
-          address.city ||
-          address.subregion ||
-          address.region ||
-          address.country ||
-          "Localização desconhecida";
-
-        setCurrentCity(city);
-        setLocationError(false);
-      } else {
-        setCurrentCity("GPS ativo — cidade não identificada");
-        setLocationError(false);
-      }
-    } catch (error) {
-      console.error("Erro ao obter localização:", error);
-      setCurrentCity("Erro ao carregar");
-      setLocationError(true);
-      notifyWarning("Não foi possível obter sua localização.");
-    } finally {
-      setIsLoadingLocation(false);
-    }
-  }, [notifyWarning]);
 
   const loadHome = useCallback(
     async (showLoader = true) => {
@@ -555,16 +494,16 @@ export default function CooperativeHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      getUserLocation();
       loadHome(true);
-    }, [getUserLocation, loadHome]),
+    }, [loadHome]),
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     notifyInfo("Atualizando dados...");
-    await Promise.all([getUserLocation(), loadHome(false)]);
-  }, [getUserLocation, loadHome, notifyInfo]);
+    retryLocation();
+    await loadHome(false);
+  }, [retryLocation, loadHome, notifyInfo]);
 
   const metrics = useMemo(() => {
     const requestedSchedules = schedules.filter(
@@ -695,36 +634,7 @@ export default function CooperativeHomeScreen() {
             Central operacional da cooperativa
           </Text>
 
-          <TouchableOpacity
-            onPress={locationError ? getUserLocation : undefined}
-            disabled={isLoadingLocation || !locationError}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginTop: 14,
-              alignSelf: "flex-start",
-              backgroundColor: "rgba(255,255,255,0.16)",
-              borderRadius: 999,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-            }}
-          >
-            <Ionicons
-              name={locationError ? "alert-circle-outline" : "location"}
-              size={18}
-              color="#FFFFFF"
-            />
-            <Text
-              style={{
-                fontSize: 14,
-                fontWeight: "700",
-                color: "#FFFFFF",
-                marginLeft: 8,
-              }}
-            >
-              {isLoadingLocation ? "Carregando..." : currentCity}
-            </Text>
-          </TouchableOpacity>
+          <DeviceLocationCard location={deviceLocation} />
         </View>
       </LinearGradient>
 

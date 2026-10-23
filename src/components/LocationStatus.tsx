@@ -6,11 +6,13 @@ export function LocationStatus({
   error,
   loading,
   retry,
+  active = true,
 }: {
   position: LocationObject | null;
   error: string;
   loading: boolean;
   retry: () => void;
+  active?: boolean;
 }) {
   const [, tick] = useState(0);
   useEffect(() => {
@@ -28,11 +30,11 @@ export function LocationStatus({
       }}
     >
       <Text accessibilityLiveRegion="polite" style={{ color: "#203B2D" }}>
-        {error ||
+        {!active ? "Localização pausada enquanto esta tela está inativa." : error ||
           (loading
             ? "Obtendo posição do aparelho..."
             : position
-              ? `${age > 60000 ? "Última posição — desatualizada" : "GPS ativo"} · precisão aproximada ${position.coords.accuracy == null ? "não informada" : Math.round(position.coords.accuracy) + " m"}`
+              ? `${age > 60000 ? "Última posição — desatualizada" : "Posição obtida do aparelho"} · precisão aproximada ${position.coords.accuracy == null || !Number.isFinite(position.coords.accuracy) || position.coords.accuracy < 0 ? "não informada" : Math.round(position.coords.accuracy) + " m"}`
               : "Posição do aparelho ainda não obtida.")}
       </Text>
       {position && (
@@ -44,13 +46,17 @@ export function LocationStatus({
       )}
       <TouchableOpacity
         accessibilityRole="button"
+        disabled={loading || !active}
         onPress={retry}
         style={{ paddingVertical: 10 }}
       >
         <Text style={{ fontWeight: "700", color: "#176944" }}>
-          Atualizar localização
+          {loading ? "Obtendo localização..." : "Atualizar localização"}
         </Text>
       </TouchableOpacity>
+      {position && position.coords.accuracy != null && position.coords.accuracy > 100 && (
+        <Text style={{ color: "#8A4B11", fontSize: 12 }}>Precisão reduzida. Em local fechado, aproxime-se de uma janela ou área aberta e atualize a localização.</Text>
+      )}
       {error && Platform.OS !== "web" && (
         <TouchableOpacity
           accessibilityRole="button"

@@ -36,12 +36,3 @@ export async function getCurrentPositionAsync(
     clearTimeout(timer!);
   }
 }
-export async function reverseGeocodeAsync(
-  position: Pick<Expo.LocationGeocodedLocation, "latitude" | "longitude">,
-) {
-  try {
-    return await Expo.reverseGeocodeAsync(position);
-  } catch {
-    return [];
-  }
-}

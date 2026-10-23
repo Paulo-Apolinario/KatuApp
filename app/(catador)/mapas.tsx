@@ -884,6 +884,7 @@ export default function CatadorMapScreen() {
             error={gps.error}
             loading={gps.loading}
             retry={gps.retry}
+            active={gps.active}
           />
         </View>
 

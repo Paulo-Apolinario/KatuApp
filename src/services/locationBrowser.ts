@@ -4,6 +4,8 @@ export function locationMessage(error: any) {
     ? "Permissão negada. Libere a localização nas permissões deste site ou aplicativo."
     : error?.code === 3
       ? "O aparelho não respondeu a tempo. Vá para uma área aberta e tente novamente."
+      : error?.code === 2
+        ? "A posição está indisponível. Confira a localização do aparelho e tente novamente em uma área aberta."
       : error?.message ||
         "Não foi possível obter a posição do aparelho. Confira o GPS e tente novamente.";
 }
@@ -65,6 +67,7 @@ export function validPosition(p: any) {
     Math.abs(p.coords.latitude) <= 90 &&
     Math.abs(p.coords.longitude) <= 180 &&
     Number.isFinite(p.timestamp) &&
+    Date.now() - p.timestamp >= -5000 &&
     Date.now() - p.timestamp <= 60000
   );
 }

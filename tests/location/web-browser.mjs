@@ -75,20 +75,27 @@ try {
     geolocation: { latitude: -3.68, longitude: -40.35, accuracy: 20 },
     viewport: { width: 390, height: 844 },
   });
-  await c.route("**/*", (r) =>
-    ["127.0.0.1", "localhost"].includes(new URL(r.request().url()).hostname)
-      ? r.continue()
-      : r.abort(),
-  );
+  async function prepare(context) {
+    await context.addInitScript(() => {
+      localStorage.setItem("@katu:token", "gps-test-session");
+      localStorage.setItem("@katu:user", JSON.stringify({id:"gps-test",role:"PF",displayName:"Teste GPS"}));
+    });
+    await context.route("**/*", (r) => {
+      const url = new URL(r.request().url());
+      if (url.pathname === "/auth/me") return r.fulfill({status:200,contentType:"application/json",headers:{"Access-Control-Allow-Origin":"*"},body:JSON.stringify({user:{id:"gps-test",role:"PF",displayName:"Teste GPS"}})});
+      return ["127.0.0.1", "localhost"].includes(url.hostname) ? r.continue() : r.abort();
+    });
+  }
+  await prepare(c);
   const p = await c.newPage(),
     errors = [];
   p.on("pageerror", (e) => errors.push(e.message));
   await check(
-    "App web exportado: GPS permitido não é confundido com ausência de cidade",
+    "App web exportado: posição permitida mostra precisão sem consulta externa",
     async () => {
-      await p.goto("http://127.0.0.1:8089/choose-profile");
+      await p.goto("http://127.0.0.1:8089/(pf-tabs)/home");
       await p
-        .getByText("GPS ativo — cidade não identificada", { exact: true })
+        .getByText(/Posição obtida do aparelho.*20 m/)
         .waitFor({ timeout: 30000 });
       await p.screenshot({
         path: join(out, "app-gps-permitido.png"),
@@ -112,15 +119,11 @@ try {
           },
         });
       });
-      await denied.route("**/*", (r) =>
-        ["127.0.0.1", "localhost"].includes(new URL(r.request().url()).hostname)
-          ? r.continue()
-          : r.abort(),
-      );
+      await prepare(denied);
       const page = await denied.newPage();
-      await page.goto("http://127.0.0.1:8089/choose-profile");
+      await page.goto("http://127.0.0.1:8089/(pf-tabs)/home");
       await page
-        .getByText("Permissão negada", { exact: true })
+        .getByText(/Permissão negada\. Libere a localização/)
         .waitFor({ timeout: 30000 });
       await page.screenshot({
         path: join(out, "app-gps-negado.png"),
