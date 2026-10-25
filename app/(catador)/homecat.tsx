@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/src/components/NotificationBell";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -608,32 +609,42 @@ export default function HomeCatScreen() {
               </View>
             </View>
 
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={handleSignOut}
+            <View
               style={{
-                backgroundColor: "rgba(255,255,255,0.18)",
-                borderRadius: 999,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
                 flexDirection: "row",
                 alignItems: "center",
-                marginLeft: 8,
+                gap: 8,
+                flexShrink: 0,
               }}
             >
-              <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
-
-              <Text
+              <NotificationBell />{" "}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleSignOut}
                 style={{
-                  color: "#FFFFFF",
-                  fontWeight: "700",
-                  marginLeft: 6,
-                  fontSize: 13,
+                  backgroundColor: "rgba(255,255,255,0.18)",
+                  borderRadius: 999,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginLeft: 8,
                 }}
               >
-                Sair
-              </Text>
-            </TouchableOpacity>
+                <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+
+                <Text
+                  style={{
+                    color: "#FFFFFF",
+                    fontWeight: "700",
+                    marginLeft: 6,
+                    fontSize: 13,
+                  }}
+                >
+                  Sair
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <Text

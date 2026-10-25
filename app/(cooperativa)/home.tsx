@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/src/components/NotificationBell";
 import { loadSections } from "@/src/utils/loadSections";
 import { Action } from "@/src/components/ui/Workspace";
 import { router, useFocusEffect } from "expo-router";
@@ -605,11 +606,21 @@ export default function CooperativeHomeScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity
-            onPress={() => router.replace("/(public)/access-type")}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              flexShrink: 0,
+            }}
           >
-            <Ionicons name="log-out-outline" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
+            <NotificationBell />{" "}
+            <TouchableOpacity
+              onPress={() => router.replace("/(public)/access-type")}
+            >
+              <Ionicons name="log-out-outline" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={{ marginTop: 20 }}>

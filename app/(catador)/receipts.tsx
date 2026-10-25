@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/src/components/NotificationBell";
 import {
   groupMaterials,
   materialQuantity,
@@ -254,9 +255,17 @@ export default function ReceiptsScreen() {
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>
+          <Text
+            style={{
+              flex: 1,
+              fontSize: 22,
+              fontWeight: "700",
+              color: "#FFFFFF",
+            }}
+          >
             COMPROVANTES
           </Text>
+          <NotificationBell />
         </View>
 
         <View

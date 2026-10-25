@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/src/components/NotificationBell";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -273,19 +274,29 @@ export default function MotoristaHomeScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity
-            onPress={() => router.push("/(motorista)/profile")}
+          <View
             style={{
-              width: 50,
-              height: 50,
-              borderRadius: 25,
-              backgroundColor: "rgba(255,255,255,0.18)",
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
+              gap: 8,
+              flexShrink: 0,
             }}
           >
-            <Ionicons name="person-outline" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+            <NotificationBell />{" "}
+            <TouchableOpacity
+              onPress={() => router.push("/(motorista)/profile")}
+              style={{
+                width: 50,
+                height: 50,
+                borderRadius: 25,
+                backgroundColor: "rgba(255,255,255,0.18)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="person-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 

@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/src/components/NotificationBell";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -430,17 +431,29 @@ export default function DataScreen() {
               </Text>
             </View>
 
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => void onRefresh()}
-              style={styles.headerIconButton}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                flexShrink: 0,
+              }}
             >
-              {refreshing ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Ionicons name="refresh-outline" size={22} color="#FFFFFF" />
-              )}
-            </TouchableOpacity>
+              <NotificationBell />
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Recarregar dados"
+                activeOpacity={0.85}
+                onPress={() => void onRefresh()}
+                style={styles.headerIconButton}
+              >
+                {refreshing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="refresh-outline" size={22} color="#FFFFFF" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </LinearGradient>
 

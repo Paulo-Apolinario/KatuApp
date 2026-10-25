@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/src/components/NotificationBell";
 import { syncManager } from "@/src/offline/syncManager";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -761,31 +762,45 @@ export default function CollectScreen() {
           <Text
             style={{
               color: "#FFFFFF",
-              fontSize: 24,
+              fontSize: 20,
+              flex: 1,
+              marginHorizontal: 10,
               fontWeight: "700",
             }}
           >
             Coletas delegadas
           </Text>
 
-          <TouchableOpacity
-            onPress={() => void onRefresh()}
-            disabled={refreshing}
+          <View
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: "rgba(255,255,255,0.18)",
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
+              gap: 8,
+              flexShrink: 0,
             }}
           >
-            {refreshing ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Ionicons name="refresh-outline" size={20} color="#FFFFFF" />
-            )}
-          </TouchableOpacity>
+            <NotificationBell />
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Recarregar dados"
+              onPress={() => void onRefresh()}
+              disabled={refreshing}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: "rgba(255,255,255,0.18)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {refreshing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="refresh-outline" size={20} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Text

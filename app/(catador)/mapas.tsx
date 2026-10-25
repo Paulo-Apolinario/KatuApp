@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/src/components/NotificationBell";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
   collectionOrigin,
@@ -829,25 +830,37 @@ export default function CatadorMapScreen() {
             </View>
           </View>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => void refreshAll()}
+          <View
             style={{
-              width: 42,
-              height: 42,
-              borderRadius: 21,
-              backgroundColor: "rgba(255,255,255,0.18)",
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-              marginLeft: 12,
+              gap: 8,
+              flexShrink: 0,
             }}
           >
-            {refreshing ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Ionicons name="refresh-outline" size={22} color="#FFFFFF" />
-            )}
-          </TouchableOpacity>
+            <NotificationBell />
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Recarregar dados"
+              activeOpacity={0.85}
+              onPress={() => void refreshAll()}
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 21,
+                backgroundColor: "rgba(255,255,255,0.18)",
+                alignItems: "center",
+                justifyContent: "center",
+                marginLeft: 12,
+              }}
+            >
+              {refreshing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="refresh-outline" size={22} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 

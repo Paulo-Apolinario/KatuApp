@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/src/components/NotificationBell";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
@@ -527,6 +528,7 @@ export default function GeneratorDashboardScreen() {
             style={styles.headerActionSpacing}
           />
 
+          <NotificationBell style={{ marginRight: 8 }} />
           <HeaderAction
             icon="refresh-outline"
             label="Atualizar"
@@ -1148,6 +1150,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   headerActionText: {
+    flexShrink: 1,
     marginLeft: 7,
     color: "#FFFFFF",
     fontSize: 14,

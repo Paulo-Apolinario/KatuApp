@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/src/components/NotificationBell";
 import { router } from "expo-router";
 import {
   RefreshControl,
@@ -35,7 +36,10 @@ export default function PFHomeScreen() {
     <ScrollView
       style={{ flex: 1, backgroundColor: "#F3F4F6" }}
       refreshControl={
-        <RefreshControl refreshing={deviceLocation.loading} onRefresh={deviceLocation.retry} />
+        <RefreshControl
+          refreshing={deviceLocation.loading}
+          onRefresh={deviceLocation.retry}
+        />
       }
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 28 }}
@@ -59,7 +63,7 @@ export default function PFHomeScreen() {
             alignItems: "center",
           }}
         >
-          <View>
+          <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={{ color: "#E8FFF1", fontSize: 14 }}>
               Painel da Pessoa Física
             </Text>
@@ -75,9 +79,23 @@ export default function PFHomeScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity onPress={() => router.push("/(pf-tabs)/profile")}>
-            <Ionicons name="person-circle-outline" size={42} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              flexShrink: 0,
+            }}
+          >
+            <NotificationBell />{" "}
+            <TouchableOpacity onPress={() => router.push("/(pf-tabs)/profile")}>
+              <Ionicons
+                name="person-circle-outline"
+                size={42}
+                color="#FFFFFF"
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <DeviceLocationCard location={deviceLocation} />
