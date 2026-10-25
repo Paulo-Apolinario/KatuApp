@@ -236,7 +236,7 @@ export class AuthService {
 
     const passwordMatches = await comparePassword(
       data.password,
-      user.passwordHash
+      user.passwordHash,
     );
 
     if (!passwordMatches) {
@@ -269,7 +269,8 @@ export class AuthService {
     userId: string,
     data: {
       displayName: string;
-    }
+      avatarFile?: string;
+    },
   ) {
     const displayName = data.displayName.trim();
 
@@ -296,26 +297,26 @@ export class AuthService {
       throw new Error("Usuário não encontrado.");
     }
 
-    if (!currentUser.isActive || currentUser.accountStatus !== AccountStatus.ACTIVE) {
+    if (
+      !currentUser.isActive ||
+      currentUser.accountStatus !== AccountStatus.ACTIVE
+    ) {
       throw new Error("Conta inativa ou bloqueada.");
     }
 
-    const updatedUser = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id=${userId} FOR UPDATE`;
+      const previous = await tx.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { avatarFile: true },
+      });
       await tx.user.update({
         where: { id: userId },
         data: {
           displayName,
+          ...(data.avatarFile ? { avatarFile: data.avatarFile } : {}),
         },
       });
-
-      if (currentUser.role === UserRole.COOPERATIVE && currentUser.cooperative) {
-        await tx.cooperative.update({
-          where: { id: currentUser.cooperative.id },
-          data: {
-            name: displayName,
-          },
-        });
-      }
 
       if (
         (currentUser.role === UserRole.GENERATOR_SMALL ||
@@ -363,10 +364,10 @@ export class AuthService {
         throw new Error("Erro ao carregar usuário atualizado.");
       }
 
-      return hydratedUser;
+      return { user: hydratedUser, previousAvatarFile: previous.avatarFile };
     });
 
-    return updatedUser;
+    return result;
   }
 
   async changePassword(
@@ -374,7 +375,7 @@ export class AuthService {
     data: {
       currentPassword: string;
       newPassword: string;
-    }
+    },
   ) {
     const currentPassword = data.currentPassword;
     const newPassword = data.newPassword;
@@ -409,7 +410,7 @@ export class AuthService {
 
     const passwordMatches = await comparePassword(
       currentPassword,
-      user.passwordHash
+      user.passwordHash,
     );
 
     if (!passwordMatches) {
@@ -564,7 +565,7 @@ export class AuthService {
 
       if (driver.status === DriverStatus.INACTIVE) {
         throw new Error(
-          "Este motorista está inativo. Procure a cooperativa responsável."
+          "Este motorista está inativo. Procure a cooperativa responsável.",
         );
       }
 
@@ -624,7 +625,7 @@ export class AuthService {
     }
 
     throw new Error(
-      "Não encontramos cadastro com este e-mail. Verifique com a cooperativa."
+      "Não encontramos cadastro com este e-mail. Verifique com a cooperativa.",
     );
   }
 
@@ -649,18 +650,53 @@ export class AuthService {
       throw new Error("Usuário não encontrado.");
     }
 
-    const emailToken = await prisma.authEmailToken.findUnique({ where: { tokenHash: tokenHash(token) } });
+    const emailToken = await prisma.authEmailToken.findUnique({
+      where: { tokenHash: tokenHash(token) },
+    });
     if (emailToken) {
-      if (emailToken.userId !== user.id || emailToken.purpose !== "RESET" || emailToken.consumedAt || emailToken.expiresAt <= new Date() || !emailToken.temporaryPasswordHash || !user.isActive || user.accountStatus !== AccountStatus.ACTIVE) {
+      if (
+        emailToken.userId !== user.id ||
+        emailToken.purpose !== "RESET" ||
+        emailToken.consumedAt ||
+        emailToken.expiresAt <= new Date() ||
+        !emailToken.temporaryPasswordHash ||
+        !user.isActive ||
+        user.accountStatus !== AccountStatus.ACTIVE
+      ) {
         throw new Error("Link inválido, expirado ou já utilizado.");
       }
-      if (!(await comparePassword(temporaryPassword, emailToken.temporaryPasswordHash))) throw new Error("Senha temporária inválida.");
+      if (
+        !(await comparePassword(
+          temporaryPassword,
+          emailToken.temporaryPasswordHash,
+        ))
+      )
+        throw new Error("Senha temporária inválida.");
       const passwordHash = await hashPassword(newPassword);
-      await prisma.$transaction(async tx => {
-        const claim = await tx.authEmailToken.updateMany({ where: { id: emailToken.id, consumedAt: null, expiresAt: { gt: new Date() } }, data: { consumedAt: new Date() } });
-        if (claim.count !== 1) throw new Error("Link já utilizado ou expirado.");
-        await tx.user.update({ where: { id: user.id }, data: { passwordHash, authVersion: { increment: 1 }, resetPasswordToken: null, resetPasswordExpiresAt: null } });
-        await tx.authEmailToken.updateMany({ where: { userId: user.id, consumedAt: null }, data: { consumedAt: new Date() } });
+      await prisma.$transaction(async (tx) => {
+        const claim = await tx.authEmailToken.updateMany({
+          where: {
+            id: emailToken.id,
+            consumedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: { consumedAt: new Date() },
+        });
+        if (claim.count !== 1)
+          throw new Error("Link já utilizado ou expirado.");
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            passwordHash,
+            authVersion: { increment: 1 },
+            resetPasswordToken: null,
+            resetPasswordExpiresAt: null,
+          },
+        });
+        await tx.authEmailToken.updateMany({
+          where: { userId: user.id, consumedAt: null },
+          data: { consumedAt: new Date() },
+        });
       });
       return { message: "Senha redefinida com sucesso." };
     }
@@ -679,7 +715,7 @@ export class AuthService {
 
     const temporaryPasswordMatches = await comparePassword(
       temporaryPassword,
-      user.passwordHash
+      user.passwordHash,
     );
 
     if (!temporaryPasswordMatches) {
