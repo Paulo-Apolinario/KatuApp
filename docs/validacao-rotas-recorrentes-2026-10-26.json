@@ -1,0 +1,243 @@
+{
+  "date": "2026-10-26",
+  "totalChecks": 54,
+  "scope": "API real + PGlite, Chromium painel e Expo export; provedor rodoviário local controlado; sem VPS ou serviços externos",
+  "suites": [
+    {
+      "suite": "katua-recurring-routes",
+      "outcomes": [
+        {
+          "name": "Migração incremental mantém rotas existentes e adiciona planejamento",
+          "status": "PASS"
+        },
+        {
+          "name": "Fontes são isoladas por cooperativa e acessíveis só à gestão",
+          "status": "PASS"
+        },
+        {
+          "name": "Roteiro fixo gera próximos dias com coleta, endereço e responsável",
+          "status": "PASS"
+        },
+        {
+          "name": "Geração repetida não duplica execuções ou coletas",
+          "status": "PASS"
+        },
+        {
+          "name": "Catador consulta roteiro atribuído; outra cooperativa e catador não acessam",
+          "status": "PASS"
+        },
+        {
+          "name": "Pontos e equipe estrangeiros são rejeitados sem criar roteiro",
+          "status": "PASS"
+        },
+        {
+          "name": "Conflito de horário fica explícito e não gera execução conflitante",
+          "status": "PASS"
+        },
+        {
+          "name": "Editar roteiro sem aplicar preserva execuções já geradas",
+          "status": "PASS"
+        },
+        {
+          "name": "Aplicar às futuras substitui pontos pendentes e preserva cancelados no histórico",
+          "status": "PASS"
+        },
+        {
+          "name": "Revisões sucessivas preservam ponto avulso da execução e separam histórico do progresso",
+          "status": "PASS"
+        },
+        {
+          "name": "Versão antiga não sobrescreve alterações e pausa impede novas gerações",
+          "status": "PASS"
+        },
+        {
+          "name": "Frequência quinzenal e exceção por data controlam as execuções geradas",
+          "status": "PASS"
+        },
+        {
+          "name": "Rota avulsa reúne endereço novo e coleta existente em ordem intercalada",
+          "status": "PASS"
+        },
+        {
+          "name": "Editar endereço atualiza snapshot e agenda sem mudar cadastro de origem",
+          "status": "PASS"
+        },
+        {
+          "name": "Saída é confirmada pelo catador e alterações da equipe ficam protegidas",
+          "status": "PASS"
+        },
+        {
+          "name": "Visita sem material encerra sem peso, lote ou entrada de estoque",
+          "status": "PASS"
+        },
+        {
+          "name": "Notificações persistentes chegam aos envolvidos na execução",
+          "status": "PASS"
+        },
+        {
+          "name": "Sugestão usa matriz rodoviária e preserva partida e destino",
+          "status": "PASS"
+        },
+        {
+          "name": "Serviço rodoviário indisponível retorna erro explícito sem linha reta simulada",
+          "status": "PASS"
+        },
+        {
+          "name": "Painel apresenta rotas fixas, equipe e mapa em desktop",
+          "status": "PASS"
+        },
+        {
+          "name": "CEP, confirmação no mapa e edição de ponto avulso preservam formulário",
+          "status": "PASS"
+        },
+        {
+          "name": "Selecionar PEV cadastrado mantém endereço e permite confirmar sua posição",
+          "status": "PASS"
+        },
+        {
+          "name": "Painel móvel sem transbordamento, com acesso à programação e histórico",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "suite": "katua-route-execution",
+      "outcomes": [
+        {
+          "name": "Catador consulta sequência numerada de pontos avulsos, PEV e gerador",
+          "status": "PASS"
+        },
+        {
+          "name": "Confirmação de saída libera atendimento e mantém referência da coleta",
+          "status": "PASS"
+        },
+        {
+          "name": "Adiar ponto orienta próxima parada sem trocar ordem oficial",
+          "status": "PASS"
+        },
+        {
+          "name": "Ocorrência com motivo encerra visita e atualiza progresso",
+          "status": "PASS"
+        },
+        {
+          "name": "Reabertura offline preserva sequência e detalhes em cache",
+          "status": "PASS"
+        },
+        {
+          "name": "Layout em 320px não corta cartões ou controles",
+          "status": "PASS"
+        },
+        {
+          "name": "Notificação da rota abre a execução correta no app",
+          "status": "PASS"
+        },
+        {
+          "name": "Motorista usa a mesma execução sem ação exclusiva de coleta do catador",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "suite": "katua-route-planning",
+      "outcomes": [
+        {
+          "name": "API: validação de data, recursos, perfil e rollback de coletas indisponíveis",
+          "status": "PASS"
+        },
+        {
+          "name": "API: concorrência não duplica vínculo nem deixa rota parcial",
+          "status": "PASS"
+        },
+        {
+          "name": "Cadastro real: seleção de gerador/PEV, unidades, conflito de agenda e salvamento",
+          "status": "PASS"
+        },
+        {
+          "name": "Edição real: ordem persistente, remoção atômica e histórico preservado",
+          "status": "PASS"
+        },
+        {
+          "name": "Operação: ações separadas, início validado e compatibilidade dos vínculos antigos",
+          "status": "PASS"
+        },
+        {
+          "name": "Falhas: recuperar opções, preservar formulário e impedir envio duplicado",
+          "status": "PASS"
+        },
+        {
+          "name": "Planejamento móvel: mapa, sequência e controles sem transbordamento",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "suite": "katua-inbox-design",
+      "outcomes": [
+        {
+          "name": "Faixa global removida; sino junto de recarregar na tela Dados",
+          "status": "PASS"
+        },
+        {
+          "name": "Central usa cabeçalho, cartões de conferência e comparação 50 → 40",
+          "status": "PASS"
+        },
+        {
+          "name": "Filtro Não lidas e leitura abrem detalhes em janela",
+          "status": "PASS"
+        },
+        {
+          "name": "Marcar todas como lidas e histórico permanecem funcionais",
+          "status": "PASS"
+        },
+        {
+          "name": "Falha de rede preserva avisos e apresenta mensagem",
+          "status": "PASS"
+        },
+        {
+          "name": "Cartões sem transbordamento em largura de 320 px",
+          "status": "PASS"
+        },
+        {
+          "name": "Central vazia profissional, sem ação de leitura ativa",
+          "status": "PASS"
+        },
+        {
+          "name": "Sino acessível no cabeçalho /(catador)/homecat",
+          "status": "PASS"
+        },
+        {
+          "name": "Sino acessível no cabeçalho /(catador)/collect",
+          "status": "PASS"
+        },
+        {
+          "name": "Sino acessível no cabeçalho /(catador)/receipts",
+          "status": "PASS"
+        },
+        {
+          "name": "Sino acessível no cabeçalho /(catador)/mapas",
+          "status": "PASS"
+        },
+        {
+          "name": "Sino acessível no cabeçalho /(cooperativa)/mapas",
+          "status": "PASS"
+        },
+        {
+          "name": "Sino acessível no cabeçalho /(pf-tabs)/home",
+          "status": "PASS"
+        },
+        {
+          "name": "Sino acessível no cabeçalho /(gerador)/dashboard",
+          "status": "PASS"
+        },
+        {
+          "name": "Sino acessível no cabeçalho /(motorista)/home",
+          "status": "PASS"
+        },
+        {
+          "name": "Sino acessível no cabeçalho /(cooperativa)/home",
+          "status": "PASS"
+        }
+      ]
+    }
+  ]
+}

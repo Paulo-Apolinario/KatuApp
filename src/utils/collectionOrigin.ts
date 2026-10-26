@@ -9,6 +9,8 @@ export function collectionOrigin(collection?: Collection | null): {
   longitude?: number | null;
 } | null {
   if (!collection) return null;
+  if (collection.routePoint)
+    return { ...collection.routePoint, id: collection.id };
   if (collection.extraOrder && collection.schedule?.pickupAddress)
     return {
       id: collection.id,

@@ -9,6 +9,7 @@ export type InboxNotice = {
   readAt: string | null;
   createdAt: string;
   data?: {
+    routeId?: string;
     items?: {
       name: string;
       unit: string;

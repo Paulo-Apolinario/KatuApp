@@ -1,3 +1,4 @@
+import { routePlanningRoutes } from "./modules/routes/planning.routes";
 import { inboxRoutes } from "./modules/inbox/inbox.routes";
 import { ownerDocumentsRoutes } from "./modules/owner-documents/owner-documents.routes";
 import { dashboardRoutes } from "./modules/dashboard/dashboard.routes";
@@ -205,6 +206,7 @@ export async function buildApp() {
 
   await app.register(appRoutes);
   await app.register(inboxRoutes);
+  await app.register(routePlanningRoutes);
 
   /*
    * ============================================================

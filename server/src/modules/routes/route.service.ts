@@ -1,4 +1,13 @@
 import {
+  addPlannedPoints,
+  validatePoints,
+  validateTeam,
+  checkConflict,
+  notifyRoute,
+  dayDate,
+  localDay,
+} from "./planning.service";
+import {
   CollectionStatus,
   Prisma,
   RouteStatus,
@@ -185,8 +194,20 @@ const fieldFinishedStatuses: CollectionStatus[] = [
   CollectionStatus.COMPLETED,
 ];
 
-function buildRouteStats(collections: Array<{ status: CollectionStatus }>) {
+function buildRouteStats(
+  collections: Array<{
+    status: CollectionStatus;
+    cancellationReason?: string | null;
+  }>,
+) {
+  const archivedCollections = collections.filter(
+    (c) => c.cancellationReason === "Substituída por revisão do roteiro fixo",
+  ).length;
+  collections = collections.filter(
+    (c) => c.cancellationReason !== "Substituída por revisão do roteiro fixo",
+  );
   return {
+    archivedCollections,
     totalCollections: collections.length,
     pendingCollections: collections.filter(
       (item) => item.status === CollectionStatus.PENDING,
@@ -324,6 +345,30 @@ function orderedCollections<T extends { id: string }>(
   );
 }
 
+async function applyVisitOrder(
+  tx: Prisma.TransactionClient,
+  routeId: string,
+  order: string[] | undefined,
+  pairs: string[][],
+) {
+  if (!order) return;
+  const mapped = new Map(pairs.map((p) => [p[0], p[1]]));
+  const ids = order.map((id) => mapped.get(id) || id);
+  const collections = await tx.collection.findMany({
+    where: { routeId },
+    select: { id: true },
+  });
+  if (
+    ids.length !== collections.length ||
+    new Set(ids).size !== ids.length ||
+    collections.some((c) => !ids.includes(c.id))
+  )
+    throw Error("A sequência deve conter todas as visitas uma única vez.");
+  await tx.route.update({
+    where: { id: routeId },
+    data: { collectionOrder: ids },
+  });
+}
 export class RouteService {
   async create(cooperativeUserId: string, data: CreateRouteInput) {
     const cooperative = await prisma.cooperative.findUnique({
@@ -335,7 +380,9 @@ export class RouteService {
       throw new Error(
         "Crie a rota como Agendada. Inicie ou encerre a operação pelas ações da rota.",
       );
-    const date = normalizeDate(data.scheduledDate);
+    let date = normalizeDate(data.scheduledDate);
+    if (date && data.departureTime)
+      date = dayDate(localDay(date), data.departureTime);
     const id = await prisma.$transaction(
       async (tx) => {
         await validateResources(
@@ -344,9 +391,18 @@ export class RouteService {
           data.driverId,
           data.vehicleId,
         );
+        await validateTeam(tx, cooperative.id, {
+          ...data,
+          collectorIds: data.collectorIds || [],
+        });
         const route = await tx.route.create({
           data: {
             cooperativeId: cooperative.id,
+            collectorIds: data.collectorIds || [],
+            startPoint: data.startPoint,
+            endPoint: data.endPoint,
+            departureTime: data.departureTime,
+            estimatedMinutes: data.estimatedMinutes,
             name: data.name.trim(),
             description: data.description?.trim() || null,
             driverId: data.driverId || null,
@@ -358,9 +414,31 @@ export class RouteService {
         });
         if (data.collectionIds)
           await syncCollections(tx, route, data.collectionIds);
+        const ids = await addPlannedPoints(
+          tx,
+          route,
+          data.plannedPoints || [],
+          cooperativeUserId,
+        );
+        if (ids.length)
+          await tx.route.update({
+            where: { id: route.id },
+            data: { collectionOrder: [...(data.collectionIds || []), ...ids] },
+          });
+        await applyVisitOrder(
+          tx,
+          route.id,
+          data.visitOrder,
+          data.plannedPoints?.map((p, i) => [p.key, ids[i]]) || [],
+        );
+        if (data.departureTime) await checkConflict(tx, route);
+        await notifyRoute(tx, route.id, "Nova execução atribuída à equipe.");
         return route.id;
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        timeout: 20000,
+      },
     );
     return this.findById(cooperativeUserId, UserRole.COOPERATIVE, id);
   }
@@ -467,7 +545,10 @@ export class RouteService {
         });
         return updated;
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        timeout: 20000,
+      },
     );
   }
 
@@ -497,6 +578,7 @@ export class RouteService {
     cooperativeUserId: string,
     routeId: string,
     data: UpdateRouteAssignmentsInput,
+    actor?: { sub: string; role: string },
   ) {
     const cooperative = await prisma.cooperative.findUnique({
       where: { userId: cooperativeUserId },
@@ -506,10 +588,61 @@ export class RouteService {
 
     await prisma.$transaction(
       async (transaction) => {
+        await transaction.$queryRaw`SELECT id FROM "Route" WHERE id=${routeId} FOR UPDATE`;
         const route = await transaction.route.findFirst({
           where: { id: routeId, cooperativeId: cooperative.id },
         });
         if (!route) throw new Error("Rota não encontrada.");
+        if (actor) {
+          if (actor.role === "DRIVER") {
+            const driver = await transaction.driver.findFirst({
+              where: {
+                id: route.driverId || "",
+                userId: actor.sub,
+                status: { not: "INACTIVE" },
+              },
+            });
+            if (!driver)
+              throw Error("Esta execução não está atribuída ao motorista.");
+          } else if (actor.role === "COLLECTOR") {
+            const collector = await transaction.collector.findFirst({
+              where: {
+                userId: actor.sub,
+                cooperativeId: cooperative.id,
+                status: { not: "INACTIVE" },
+              },
+            });
+            if (
+              !collector ||
+              (!route.collectorIds.includes(collector.id) &&
+                !(await transaction.collection.count({
+                  where: { routeId: route.id, collectorId: collector.id },
+                })))
+            )
+              throw Error("Esta execução não está atribuída ao catador.");
+          } else throw Error("Sem permissão para iniciar esta execução.");
+        }
+        if (
+          data.expectedRevision !== undefined &&
+          data.expectedRevision !== route.revision
+        )
+          throw Error("A execução foi alterada. Recarregue antes de salvar.");
+        if (
+          route.status === "IN_PROGRESS" &&
+          ((data.driverId !== undefined && data.driverId !== route.driverId) ||
+            (data.vehicleId !== undefined &&
+              data.vehicleId !== route.vehicleId) ||
+            (data.collectorIds !== undefined &&
+              JSON.stringify(data.collectorIds) !==
+                JSON.stringify(route.collectorIds)))
+        )
+          throw Error("Altere a equipe antes de iniciar a execução.");
+        const collectorIds = data.collectorIds ?? route.collectorIds;
+        await validateTeam(transaction, cooperative.id, {
+          driverId: data.driverId ?? route.driverId,
+          vehicleId: data.vehicleId ?? route.vehicleId,
+          collectorIds,
+        });
         const driverId =
           data.driverId === undefined ? route.driverId : data.driverId;
         const vehicleId =
@@ -544,6 +677,82 @@ export class RouteService {
             { ...route, driverId, vehicleId },
             data.collectionIds,
           );
+        for (const update of data.pointUpdates || []) {
+          if (route.status !== "SCHEDULED")
+            throw Error(
+              "Edite os dados dos pontos antes de iniciar a execução.",
+            );
+          const c = await transaction.collection.findFirst({
+            where: {
+              id: update.collectionId,
+              routeId: route.id,
+              status: "PENDING",
+            },
+          });
+          if (!c || !c.routePointKey || c.routePointKey !== update.point.key)
+            throw Error("Ponto já iniciado ou não pertence à execução.");
+          await validatePoints(
+            transaction,
+            cooperative.id,
+            [update.point],
+            collectorIds,
+          );
+          await transaction.collection.update({
+            where: { id: c.id },
+            data: {
+              routePoint: {
+                ...update.point,
+                fromPlan: (c.routePoint as any)?.fromPlan === true,
+              },
+              generatorId:
+                update.point.kind === "GENERATOR"
+                  ? update.point.sourceId
+                  : null,
+              binId: update.point.kind === "PEV" ? update.point.sourceId : null,
+              collectorId: update.point.collectorId || collectorIds[0],
+              notes: update.point.notes,
+            },
+          });
+          if (c.scheduleId)
+            await transaction.schedule.update({
+              where: { id: c.scheduleId },
+              data: {
+                generatorId:
+                  update.point.kind === "GENERATOR"
+                    ? update.point.sourceId
+                    : null,
+                pickupAddress: update.point.address,
+                pickupLatitude: update.point.latitude,
+                pickupLongitude: update.point.longitude,
+                notes: update.point.notes,
+              },
+            });
+        }
+        if (data.plannedPoints?.length) {
+          const ids = await addPlannedPoints(
+            transaction,
+            { ...route, driverId, vehicleId, collectorIds, scheduledDate },
+            data.plannedPoints,
+            cooperativeUserId,
+          );
+          const current = await transaction.route.findUniqueOrThrow({
+            where: { id: route.id },
+          });
+          await transaction.route.update({
+            where: { id: route.id },
+            data: { collectionOrder: [...current.collectionOrder, ...ids] },
+          });
+          await applyVisitOrder(
+            transaction,
+            route.id,
+            data.visitOrder,
+            data.plannedPoints.map((p, i) => [p.key, ids[i]]),
+          );
+        }
+        if (!data.plannedPoints?.length)
+          await applyVisitOrder(transaction, route.id, data.visitOrder, []);
+        if (data.status === "SCHEDULED" && route.status !== "SCHEDULED")
+          throw Error("Uma execução iniciada não pode voltar para Agendada.");
         if (data.status === "IN_PROGRESS" && route.status !== "IN_PROGRESS") {
           const count = await transaction.collection.count({
             where: {
@@ -574,11 +783,7 @@ export class RouteService {
               "Finalize ou cancele as coletas pendentes/em andamento antes de concluir a rota.",
             );
           }
-          if (
-            !collections.some((item) =>
-              fieldFinishedStatuses.includes(item.status),
-            )
-          ) {
+          if (!collections.length) {
             throw new Error(
               "Para concluir a rota, finalize ao menos uma coleta em campo.",
             );
@@ -604,6 +809,12 @@ export class RouteService {
           data: {
             driverId: data.driverId,
             vehicleId: data.vehicleId,
+            collectorIds: data.collectorIds,
+            startPoint: data.startPoint,
+            endPoint: data.endPoint,
+            departureTime: data.departureTime,
+            estimatedMinutes: data.estimatedMinutes,
+            revision: { increment: 1 },
             name: data.name?.trim(),
             description:
               data.description === undefined
@@ -611,12 +822,61 @@ export class RouteService {
                 : data.description?.trim() || null,
             scheduledDate:
               data.scheduledDate === undefined
-                ? undefined
-                : normalizeDate(data.scheduledDate),
+                ? data.departureTime && route.scheduledDate
+                  ? dayDate(localDay(route.scheduledDate), data.departureTime)
+                  : undefined
+                : data.scheduledDate &&
+                    (data.departureTime || route.departureTime)
+                  ? dayDate(
+                      localDay(normalizeDate(data.scheduledDate)!),
+                      data.departureTime || route.departureTime!,
+                    )
+                  : normalizeDate(data.scheduledDate),
             stops: data.stops?.map((stop) => stop.trim()).filter(Boolean),
             status: data.status,
           },
         });
+        const updated = await transaction.route.findUniqueOrThrow({
+          where: { id: route.id },
+        });
+        if (updated.departureTime && !data.status)
+          await checkConflict(transaction, updated);
+        if (data.collectorIds) {
+          const removed = route.collectorIds.filter(
+            (id) => !data.collectorIds!.includes(id),
+          );
+          if (removed.length)
+            await transaction.collection.updateMany({
+              where: {
+                routeId: route.id,
+                status: "PENDING",
+                collectorId: { in: removed },
+              },
+              data: { collectorId: data.collectorIds[0] || null },
+            });
+        }
+        if (
+          data.scheduledDate !== undefined ||
+          data.departureTime !== undefined
+        ) {
+          const ids = await transaction.collection.findMany({
+            where: {
+              routeId: route.id,
+              status: "PENDING",
+              scheduleId: { not: null },
+            },
+            select: { scheduleId: true },
+          });
+          await transaction.schedule.updateMany({
+            where: { id: { in: ids.map((c) => c.scheduleId!) } },
+            data: { scheduledDate: updated.scheduledDate },
+          });
+        }
+        await notifyRoute(
+          transaction,
+          route.id,
+          "Confira a programação e a sequência de visitas.",
+        );
         if (driverId !== route.driverId || vehicleId !== route.vehicleId) {
           await transaction.collection.updateMany({
             where: {
@@ -630,7 +890,10 @@ export class RouteService {
           });
         }
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        timeout: 20000,
+      },
     );
 
     return this.findById(cooperativeUserId, UserRole.COOPERATIVE, routeId);
@@ -661,6 +924,7 @@ export class RouteService {
           select: {
             id: true,
             routeId: true,
+            cancellationReason: true,
             status: true,
             collectedAt: true,
             collectorId: true,
@@ -679,6 +943,23 @@ export class RouteService {
         ...route,
         stats: buildRouteStats(routeCollections),
       };
+    });
+  }
+
+  async listByAuthenticatedCollector(userId: string) {
+    const collector = await prisma.collector.findUnique({ where: { userId } });
+    if (!collector || collector.status === "INACTIVE")
+      throw Error("Catador indisponível.");
+    return prisma.route.findMany({
+      where: {
+        cooperativeId: collector.cooperativeId || "",
+        OR: [
+          { collectorIds: { has: collector.id } },
+          { collections: { some: { collectorId: collector.id } } },
+        ],
+      },
+      include: routeInclude,
+      orderBy: { scheduledDate: "asc" },
     });
   }
 
@@ -709,6 +990,7 @@ export class RouteService {
           select: {
             id: true,
             routeId: true,
+            cancellationReason: true,
             status: true,
             collectedAt: true,
             collectorId: true,
@@ -755,7 +1037,26 @@ export class RouteService {
         throw new Error("Motorista do usuário autenticado não encontrado.");
       }
 
+      if (driver.status === "INACTIVE") throw Error("Motorista inativo.");
       routeWhere.driverId = driver.id;
+    } else if (authUserRole === UserRole.COLLECTOR) {
+      const collector = await prisma.collector.findUnique({
+        where: { userId: authUserId },
+      });
+      if (!collector || collector.status === "INACTIVE")
+        throw Error("Catador indisponível.");
+      const allowed = await prisma.route.findFirst({
+        where: {
+          id: routeId,
+          cooperativeId: collector.cooperativeId || "",
+          OR: [
+            { collectorIds: { has: collector.id } },
+            { collections: { some: { collectorId: collector.id } } },
+          ],
+        },
+      });
+      if (!allowed) throw Error("Rota não atribuída ao catador.");
+      routeWhere.cooperativeId = collector.cooperativeId!;
     } else {
       throw new Error("Usuário sem permissão para consultar rota.");
     }
@@ -794,7 +1095,8 @@ export class RouteService {
     cooperativeUserId: string,
     routeId: string,
     data: UpdateRouteStatusInput,
+    actor?: { sub: string; role: string },
   ) {
-    return this.updateAssignments(cooperativeUserId, routeId, data);
+    return this.updateAssignments(cooperativeUserId, routeId, data, actor);
   }
 }

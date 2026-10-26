@@ -11,8 +11,10 @@ import { RouteService } from "./route.service";
 
 const routeService = new RouteService();
 function routeError(error: any, fallback: string) {
-  if (error instanceof ZodError) return error.issues.map((i) => i.message).join(" ");
-  if (error.code === "P2034") return "A operação foi alterada simultaneamente. Atualize a lista e tente novamente.";
+  if (error instanceof ZodError)
+    return error.issues.map((i) => i.message).join(" ");
+  if (error.code === "P2034")
+    return "A operação foi alterada simultaneamente. Atualize a lista e tente novamente.";
   if (error.name?.startsWith("PrismaClient") || error.code) return fallback;
   return error.message || fallback;
 }
@@ -39,7 +41,10 @@ export class RouteController {
     } catch (error: any) {
       return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: routeError(error, "Não foi possível criar a rota. Tente novamente ou contate o suporte."),
+        error: routeError(
+          error,
+          "Não foi possível criar a rota. Tente novamente ou contate o suporte.",
+        ),
       });
     }
   }
@@ -50,7 +55,7 @@ export class RouteController {
 
       if (authUser.role === "COOPERATIVE") {
         const routes = await routeService.listByAuthenticatedCooperative(
-          authUser.sub
+          authUser.sub,
         );
 
         return reply.send({
@@ -59,9 +64,14 @@ export class RouteController {
         });
       }
 
+      if (authUser.role === "COLLECTOR")
+        return reply.send({
+          success: true,
+          routes: await routeService.listByAuthenticatedCollector(authUser.sub),
+        });
       if (authUser.role === "DRIVER") {
         const routes = await routeService.listByAuthenticatedDriver(
-          authUser.sub
+          authUser.sub,
         );
 
         return reply.send({
@@ -87,7 +97,11 @@ export class RouteController {
       const authUser = request.user as { sub: string; role: string };
       const params = routeIdParamsSchema.parse(request.params);
 
-      if (authUser.role !== "COOPERATIVE" && authUser.role !== "DRIVER") {
+      if (
+        authUser.role !== "COOPERATIVE" &&
+        authUser.role !== "DRIVER" &&
+        authUser.role !== "COLLECTOR"
+      ) {
         return reply.status(403).send({
           success: false,
           error: "Usuário sem permissão para consultar rotas.",
@@ -97,7 +111,7 @@ export class RouteController {
       const route = await routeService.findById(
         authUser.sub,
         authUser.role,
-        params.id
+        params.id,
       );
 
       return reply.send({
@@ -128,7 +142,7 @@ export class RouteController {
       const route = await routeService.updateAssignments(
         authUser.sub,
         params.id,
-        body
+        body,
       );
 
       return reply.send({
@@ -138,7 +152,10 @@ export class RouteController {
     } catch (error: any) {
       return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: routeError(error, "Não foi possível atualizar a rota. Tente novamente ou contate o suporte."),
+        error: routeError(
+          error,
+          "Não foi possível atualizar a rota. Tente novamente ou contate o suporte.",
+        ),
       });
     }
   }
@@ -159,7 +176,7 @@ export class RouteController {
       const route = await routeService.updateStatus(
         authUser.sub,
         params.id,
-        body
+        body,
       );
 
       return reply.send({
@@ -186,7 +203,7 @@ export class RouteController {
       }
 
       const collections = await routeService.listAvailableCollectionsForRoute(
-        authUser.sub
+        authUser.sub,
       );
 
       return reply.send({
@@ -216,7 +233,7 @@ export class RouteController {
       const collection = await routeService.addCollectionToRoute(
         authUser.sub,
         params.id,
-        params.collectionId
+        params.collectionId,
       );
 
       return reply.send({
@@ -246,7 +263,7 @@ export class RouteController {
       const collection = await routeService.removeCollectionFromRoute(
         authUser.sub,
         params.id,
-        params.collectionId
+        params.collectionId,
       );
 
       return reply.send({

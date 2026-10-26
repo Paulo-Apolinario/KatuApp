@@ -274,6 +274,18 @@ export interface CollectionQuantityReview {
   }[];
 }
 export interface Collection {
+  routePoint?: {
+    key: string;
+    kind: "GENERATOR" | "PEV" | "ADDRESS";
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    notes?: string;
+    materials?: string;
+    phone?: string;
+  };
+  routePointKey?: string | null;
   quantityReviews?: CollectionQuantityReview[];
   quantityReviewVersion?: number;
   reportedTotalWeightKg?: number | null;

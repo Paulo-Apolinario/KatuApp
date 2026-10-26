@@ -38,6 +38,7 @@ export default function NotificationsScreen() {
   return user?.id ? <InboxContent key={user.id} userId={user.id} /> : null;
 }
 function InboxContent({ userId }: { userId: string }) {
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
   const [items, setItems] = useState<InboxNotice[]>([]),
     [unread, setUnread] = useState(0),
@@ -120,7 +121,18 @@ function InboxContent({ userId }: { userId: string }) {
         ),
       );
       if (!item.readAt) setUnread((n) => Math.max(0, n - 1));
-      if (item.collectionId) {
+      if (
+        item.data?.routeId &&
+        (user?.role === "COLLECTOR" || user?.role === "DRIVER")
+      ) {
+        router.push({
+          pathname:
+            user.role === "DRIVER"
+              ? "/(motorista)/rotas"
+              : "/(catador)/roteiro",
+          params: { highlightRouteId: item.data.routeId },
+        });
+      } else if (item.collectionId) {
         const data = await api.get<{
           collection: { id: string; status: string };
         }>(`/collections/${encodeURIComponent(item.collectionId)}`, true);
@@ -478,6 +490,7 @@ function NoticeCard({
   disabled: boolean;
 }) {
   const weighing = item.kind === "QUANTITY_REVIEW";
+  const routing = item.kind === "ROUTE_UPDATED";
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -492,7 +505,13 @@ function NoticeCard({
           style={[styles.cardIcon, weighing && { backgroundColor: "#FFF5E5" }]}
         >
           <Ionicons
-            name={weighing ? "scale-outline" : "layers-outline"}
+            name={
+              weighing
+                ? "scale-outline"
+                : routing
+                  ? "navigate-outline"
+                  : "layers-outline"
+            }
             size={22}
             color={weighing ? "#9A641C" : "#17694F"}
           />
@@ -500,7 +519,11 @@ function NoticeCard({
         <View style={{ flex: 1 }}>
           <View style={styles.cardMeta}>
             <Text style={styles.category}>
-              {weighing ? "CONFERÊNCIA DE QUANTIDADE" : "ETAPA DA COLETA"}
+              {weighing
+                ? "CONFERÊNCIA DE QUANTIDADE"
+                : routing
+                  ? "PROGRAMAÇÃO DA ROTA"
+                  : "ETAPA DA COLETA"}
             </Text>
             {!item.readAt && (
               <View style={styles.newBadge}>
@@ -556,9 +579,13 @@ function NoticeCard({
       ) : (
         <Text style={styles.message}>{item.message}</Text>
       )}
-      {item.collectionId && (
+      {(item.collectionId || item.data?.routeId) && (
         <View style={styles.cardFooter}>
-          <Text style={styles.link}>Consultar etapa da coleta</Text>
+          <Text style={styles.link}>
+            {item.data?.routeId
+              ? "Consultar rota e sequência"
+              : "Consultar etapa da coleta"}
+          </Text>
           <Ionicons name="arrow-forward" size={18} color="#17694F" />
         </View>
       )}

@@ -54,6 +54,7 @@ model User {
 }
 
 model Cooperative {
+  routePlans RoutePlan[]
   ownerDocuments OwnerDocument[]
   extraCollectionOrders ExtraCollectionOrder[]
   id                 String  @id @default(cuid())
@@ -376,6 +377,8 @@ model CollectorDocument {
 }
 
 model Collection {
+  routePoint Json?
+  routePointKey String?
   extraOrder ExtraCollectionOrder? @relation("ApprovedExtraCollection")
   incidents CollectionIncident[]
   startOperationId String?
@@ -684,6 +687,16 @@ model Vehicle {
 }
 
 model Route {
+  planId String?
+  plan RoutePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  executionDate String?
+  collectorIds String[] @default([])
+  startPoint Json?
+  endPoint Json?
+  departureTime String?
+  estimatedMinutes Int?
+  revision Int @default(0)
+  @@unique([planId, executionDate])
   extraCollectionOrders ExtraCollectionOrder[]
   id            String      @id @default(cuid())
   cooperativeId String
@@ -1447,4 +1460,33 @@ model InboxNotification {
  collection Collection? @relation(fields:[collectionId],references:[id],onDelete:SetNull)
  @@unique([userId,eventKey])
  @@index([userId,readAt,createdAt])
+}
+
+model RoutePlan {
+  id String @id @default(cuid())
+  cooperativeId String
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  name String
+  description String?
+  active Boolean @default(true)
+  version Int @default(0)
+  startsOn String
+  endsOn String?
+  weekdays Int[]
+  intervalWeeks Int @default(1)
+  departureTime String
+  estimatedMinutes Int @default(240)
+  driverId String?
+  vehicleId String?
+  collectorIds String[] @default([])
+  points Json
+  startPoint Json
+  endPoint Json
+  exceptions String[] @default([])
+  lastGenerationError String?
+  lastGeneratedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  routes Route[]
+  @@index([cooperativeId, active])
 }

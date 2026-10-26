@@ -1,3 +1,4 @@
+import { collectionOrigin } from "@/src/utils/collectionOrigin";
 import { NotificationBell } from "@/src/components/NotificationBell";
 import {
   groupMaterials,
@@ -210,7 +211,12 @@ export default function ReceiptsScreen() {
         kg: getCollectionTotalKg(receipt),
         materials: receipt.materials ?? [],
         quantityReviews: receipt.quantityReviews,
-        local: receipt.notes || "-",
+        local:
+          [collectionOrigin(receipt)?.name, collectionOrigin(receipt)?.address]
+            .filter(Boolean)
+            .join(" · ") ||
+          receipt.notes ||
+          "-",
       });
 
       if (result.success) {

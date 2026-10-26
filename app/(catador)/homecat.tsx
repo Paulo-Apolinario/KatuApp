@@ -1017,6 +1017,12 @@ export default function HomeCatScreen() {
 
           <View style={sectionCard}>
             <QuickAction
+              icon="navigate-outline"
+              title="Minhas rotas"
+              subtitle="Sequência de visitas e próxima parada"
+              onPress={() => router.push("/(catador)/roteiro")}
+            />
+            <QuickAction
               icon="document-text-outline"
               title="Ordens de coleta extras"
               subtitle="Solicitações e paradas fora do planejamento"

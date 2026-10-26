@@ -11,7 +11,10 @@ import { SYNC_ENTITY, SYNC_OPERATION } from "../database/schema";
 import type { Collection, CollectionStatus } from "../types/collection";
 
 export type RouteStatus =
-  "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  | "SCHEDULED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED";
 
 export interface RouteStats {
   totalCollections: number;
@@ -26,6 +29,7 @@ export interface RouteStats {
 }
 
 export interface RouteItem {
+  fromCache?: boolean;
   id: string;
   name: string;
   description?: string | null;
@@ -34,6 +38,23 @@ export interface RouteItem {
   vehicleId?: string | null;
   cooperativeId?: string | null;
   collectionOrder?: string[];
+  collectorIds?: string[];
+  startPoint?: {
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null;
+  endPoint?: {
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null;
+  departureTime?: string | null;
+  estimatedMinutes?: number | null;
+  revision?: number;
+  planId?: string | null;
   stops: string[];
   status: RouteStatus;
   createdAt?: string;
@@ -74,6 +95,23 @@ export interface RouteItem {
 
 type BackendRoute = {
   collectionOrder?: string[];
+  collectorIds?: string[];
+  startPoint?: {
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null;
+  endPoint?: {
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null;
+  departureTime?: string | null;
+  estimatedMinutes?: number | null;
+  revision?: number;
+  planId?: string | null;
   id: string;
   name: string;
   description?: string | null;
@@ -119,6 +157,8 @@ type BackendRoute = {
 };
 
 type BackendCollection = {
+  routePoint?: Collection["routePoint"];
+  routePointKey?: string | null;
   bin?: Collection["bin"];
   id: string;
   cooperativeId?: string;
@@ -128,6 +168,7 @@ type BackendCollection = {
   driverId?: string | null;
   vehicleId?: string | null;
   routeId?: string | null;
+  cancellationReason?: string | null;
   collectedAt?: string | null;
   totalWeightKg?: number;
   materials?: { type: string; quantityKg: number }[] | [null];
@@ -262,6 +303,8 @@ function normalizeCollection(collection: BackendCollection): Collection {
   return {
     id: collection.id,
     bin: collection.bin,
+    routePoint: collection.routePoint,
+    routePointKey: collection.routePointKey,
     extraOrder: (collection as any).extraOrder,
     cooperativeId: collection.cooperativeId ?? "",
     generatorId: collection.generatorId ?? null,
@@ -270,6 +313,7 @@ function normalizeCollection(collection: BackendCollection): Collection {
     driverId: collection.driverId ?? null,
     vehicleId: collection.vehicleId ?? null,
     routeId: collection.routeId ?? null,
+    cancellationReason: collection.cancellationReason,
     collectedAt: collection.collectedAt ?? null,
     totalWeightKg: Number(collection.totalWeightKg ?? 0),
     materials: normalizeMaterials(collection.materials),
@@ -374,6 +418,13 @@ function normalizeRoute(route: BackendRoute): RouteItem {
   return {
     id: route.id,
     collectionOrder: route.collectionOrder,
+    collectorIds: route.collectorIds,
+    startPoint: route.startPoint,
+    endPoint: route.endPoint,
+    departureTime: route.departureTime,
+    estimatedMinutes: route.estimatedMinutes,
+    revision: route.revision,
+    planId: route.planId,
     name: route.name,
     description: route.description ?? null,
     scheduledDate: route.scheduledDate ?? null,
@@ -468,7 +519,7 @@ async function readRoutesFromCache(): Promise<RouteItem[]> {
   return rows
     .map((row) => row?.payload)
     .filter((item): item is RouteItem => !!item)
-    .map((item) => item);
+    .map((item) => ({ ...item, fromCache: true }));
 }
 
 async function readRouteByIdFromCache(id: string): Promise<RouteItem | null> {
@@ -476,7 +527,7 @@ async function readRouteByIdFromCache(id: string): Promise<RouteItem | null> {
 
   if (!row?.payload) return null;
 
-  return row.payload as RouteItem;
+  return { ...row.payload, fromCache: true } as RouteItem;
 }
 
 async function saveRouteStatusOffline(
@@ -515,6 +566,28 @@ async function saveRouteStatusOffline(
 }
 
 export const routeService = {
+  async fieldStatus(
+    id: string,
+    status: "IN_PROGRESS" | "COMPLETED",
+  ): Promise<RouteItem> {
+    const response = await api.post<GetRouteByIdResponse>(
+      `/routes/${id}/field-status`,
+      { status },
+      true,
+    );
+    if (!response.route)
+      throw Error("Resposta inválida ao atualizar execução.");
+    const value = normalizeRoute(response.route);
+    await saveRoutesToCache([value]);
+    return value;
+  },
+  async occurrence(id: string, collectionId: string, reason: string) {
+    return api.post(
+      `/routes/${id}/visits/${collectionId}/occurrence`,
+      { reason },
+      true,
+    );
+  },
   async create(payload: CreateRoutePayload): Promise<RouteItem> {
     const response = await api.post<GetRouteByIdResponse>(
       "/routes",
@@ -544,7 +617,19 @@ export const routeService = {
     try {
       const response = await api.get<GetRoutesResponse>("/routes", true);
       const items = Array.isArray(response?.routes) ? response.routes : [];
-      const normalized = items.map(normalizeRoute);
+      const normalized = await Promise.all(
+        items.map(async (item) => {
+          const value = normalizeRoute(item);
+          if (!item.collections) {
+            const cached = await readRouteByIdFromCache(item.id);
+            if (cached) {
+              value.collections = cached.collections;
+              value.activeCollections = cached.activeCollections;
+            }
+          }
+          return value;
+        }),
+      );
 
       await saveRoutesToCache(normalized);
 

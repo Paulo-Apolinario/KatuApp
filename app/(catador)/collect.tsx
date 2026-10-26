@@ -1,7 +1,8 @@
+import { collectionOrigin } from "@/src/utils/collectionOrigin";
 import { NotificationBell } from "@/src/components/NotificationBell";
 import { syncManager } from "@/src/offline/syncManager";
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -87,6 +88,13 @@ function getCollectionStatusColor(status: Collection["status"]) {
 }
 
 function getOriginLabel(item: Collection) {
+  if (item.routePoint)
+    return item.routePoint.kind === "PEV"
+      ? "PEV"
+      : item.routePoint.kind === "ADDRESS"
+        ? "Ponto avulso"
+        : "Gerador";
+  if (item.bin) return "PEV";
   if (item.generatorId) return "Gerador";
   if (
     item.schedule?.requestedBy?.displayName ||
@@ -98,6 +106,7 @@ function getOriginLabel(item: Collection) {
 }
 
 function getSourceName(item: Collection) {
+  if (collectionOrigin(item)?.name) return collectionOrigin(item)!.name;
   if (item.generator?.companyName) return item.generator.companyName;
   if (item.generator?.name) return item.generator.name;
   if (item.schedule?.requestedBy?.displayName) {
@@ -108,7 +117,7 @@ function getSourceName(item: Collection) {
 }
 
 function getAddress(item: Collection) {
-  return item.generator?.address || "-";
+  return collectionOrigin(item)?.address || "-";
 }
 
 function normalizeMaterialsForEditing(item: Collection): CollectionMaterial[] {
@@ -261,6 +270,8 @@ function formatMaterials(materials?: CollectionMaterial[]) {
 }
 
 export default function CollectScreen() {
+  const params = useLocalSearchParams<{ highlightCollectionId?: string }>();
+  const consumed = useRef<string | null>(null);
   const { isOffline } = useConnectivity();
 
   const [loading, setLoading] = useState(true);
@@ -278,6 +289,17 @@ export default function CollectScreen() {
   const [catalogModalVisible, setCatalogModalVisible] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
   const { notifyError, notifySuccess } = useNotification();
+
+  useEffect(() => {
+    const id = params.highlightCollectionId;
+    if (id && consumed.current !== id && collections.some((c) => c.id === id)) {
+      const item = collections.find((c) => c.id === id)!;
+      setSelectedCollectionId(id);
+      setMaterialsDraft(normalizeMaterialsForEditing(item));
+      setNotesDraft(item.notes || "");
+      consumed.current = id;
+    }
+  }, [params.highlightCollectionId, collections]);
 
   const loadCollections = useCallback(
     async (showLoader = true) => {

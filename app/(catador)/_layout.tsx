@@ -8,9 +8,7 @@ export default function CatadorLayout() {
   const bottomTabOptions = useBottomTabOptions();
   return (
     <ProtectedRoute allowedUserTypes={["COLLECTOR"]}>
-      <Tabs
-        screenOptions={{ ...bottomTabOptions, headerShown: false }}
-      >
+      <Tabs screenOptions={{ ...bottomTabOptions, headerShown: false }}>
         <Tabs.Screen
           name="homecat"
           options={{
@@ -87,6 +85,10 @@ export default function CatadorLayout() {
           }}
         />
 
+        <Tabs.Screen
+          name="roteiro"
+          options={{ href: null, title: "Minhas rotas" }}
+        />
         <Tabs.Screen
           name="extra-orders"
           options={{ href: null, title: "Ordens de coleta extras" }}
