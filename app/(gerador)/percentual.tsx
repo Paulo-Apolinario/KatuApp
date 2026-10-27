@@ -31,7 +31,7 @@ export default function PercentualScreen() {
         <View style={{ flex: 1 }}>
           <Text style={s.title}>Impacto das coletas</Text>
           <Text style={s.subtitle}>
-            Seus resultados mensais e histórico de participação ambiental.
+            Resultado acumulado das suas solicitações e coletas concluídas.
           </Text>
         </View>
       </LinearGradient>

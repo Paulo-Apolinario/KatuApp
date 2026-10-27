@@ -29,7 +29,7 @@ const f = JSON.parse(
   ),
   out = path.resolve(
     process.env.KATUA_PEV_UI_OUTPUT ||
-      path.resolve(toolsRoot, "monthly-ui-evidence"),
+      path.resolve(toolsRoot, "impact-summary-ui-evidence"),
   );
 fs.mkdirSync(out, { recursive: true });
 const results = [];
@@ -165,6 +165,7 @@ try {
     headless: true,
   });
   const errors = [],
+    calls = [],
     pc = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   await pc.addInitScript(
     ({ token, user }) => {
@@ -175,176 +176,126 @@ try {
   );
   const panel = await pc.newPage();
   panel.on("pageerror", (e) => errors.push(e.message));
+  panel.on("request", (r) => {
+    if (r.url().includes("/environmental-impact")) calls.push(r.url());
+  });
   await check(
-    "Painel abre o mês atual com impacto geral de todas as origens",
+    "Painel mostra estimativas automáticas e acumulado completo sem configuração",
     async () => {
       await panel.goto("http://127.0.0.1:5179/environmental-impact");
       await panel
-        .getByRole("heading", { name: "Impacto ambiental mensal", exact: true })
+        .getByRole("heading", { name: "Impacto ambiental", exact: true })
         .waitFor();
-      await panel.getByText("52 kg", { exact: true }).waitFor();
-      await panel.getByText("90 kg CO2e", { exact: true }).waitFor();
-      await panel.getByRole("cell", { name: "PEVs", exact: true }).waitFor();
-      await panel
-        .getByRole("cell", {
-          name: "Pessoa física / coletas avulsas",
-          exact: true,
-        })
-        .waitFor();
+      await panel.getByText("81 kg", { exact: true }).waitFor();
+      await panel.getByText("121,5 kg CO2e", { exact: true }).waitFor();
+      await panel.getByText("2.835 L", { exact: true }).waitFor();
       await panel.screenshot({
-        path: out + "/painel-impacto-mensal.png",
+        path: out + "/painel-resumo-automatico.png",
         fullPage: true,
       });
     },
   );
   await check(
-    "Mês anterior conserva valores e solicitações não entram no peso",
+    "Painel remove histórico, datas mensais e configuração obrigatória do resumo",
     async () => {
-      await panel.getByLabel("Mês de referência").fill("2026-09");
-      await panel.getByText("20 kg", { exact: true }).first().waitFor();
-      await panel.getByText("40 kg CO2e", { exact: true }).waitFor();
-      await panel.getByLabel("Mês de referência").fill("2026-10");
-      await panel.getByText("52 kg", { exact: true }).waitFor();
-      await panel
-        .getByText("1 solicitações registradas · 1 pendentes de atendimento.", {
-          exact: true,
-        })
-        .waitFor();
+      assert.equal(await panel.locator('input[type="month"]').count(), 0);
+      assert.equal(await panel.getByText(/Histórico mensal/).count(), 0);
+      assert.equal(
+        await panel.getByText("Não configurado", { exact: true }).count(),
+        0,
+      );
+      assert.equal(
+        await panel.getByRole("button", { name: "Baixar CSV mensal" }).count(),
+        0,
+      );
+      assert.ok(
+        calls.every((c) => !c.includes("year=") && !c.includes("start=")),
+      );
     },
   );
   await check(
-    "Filtro do gerador restringe mês e acumulado sem apagar histórico",
+    "Filtro por gerador mantém referência automática e apenas o vínculo escolhido",
     async () => {
       await panel.getByLabel("Abrangência").selectOption(f.generator.id);
-      await panel.getByText("37 kg", { exact: true }).first().waitFor();
-      await panel.getByText("60 kg CO2e", { exact: true }).waitFor();
+      await panel.getByText("57 kg", { exact: true }).waitFor();
+      await panel.getByText("85,5 kg CO2e", { exact: true }).waitFor();
       await panel.getByLabel("Abrangência").selectOption("");
-      await panel.getByText("52 kg", { exact: true }).waitFor();
+      await panel.getByText("81 kg", { exact: true }).waitFor();
     },
   );
+  await check("Resumo do painel em 390px não transborda a tela", async () => {
+    await panel.setViewportSize({ width: 390, height: 900 });
+    await panel.getByText("81 kg", { exact: true }).waitFor();
+    assert.ok(
+      await panel.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 2,
+      ),
+    );
+    await panel.screenshot({
+      path: out + "/painel-resumo-mobile.png",
+      fullPage: true,
+    });
+  });
   await check(
-    "CSV entrega os doze registros mensais e separa indicadores e solicitações",
-    async () => {
-      const waiting = panel.waitForEvent("download");
-      await panel.getByRole("button", { name: "Baixar CSV mensal" }).click();
-      const d = await waiting;
-      assert.ok(d.suggestedFilename().startsWith("impacto-ambiental-mensal-"));
-      const csv = fs.readFileSync(await d.path(), "utf8");
-      assert.equal(csv.trim().split("\r\n").length, 13);
-      assert.ok(csv.includes('"2026-10";"4";"52"'));
-    },
-  );
-  await check(
-    "Configuração permite fatores de água, energia e árvores junto ao CO2",
-    async () => {
-      await panel.goto("http://127.0.0.1:5179/analytics-dashboard");
-      await panel
-        .getByRole("button", { name: "Configurar metas e metodologia" })
-        .click();
-      await panel
-        .getByLabel("Fator 1 — litros de água por kg de material")
-        .waitFor();
-      await panel.getByLabel("Fator 1 — kWh por kg de material").waitFor();
-      await panel
-        .getByLabel("Fator 1 — árvores equivalentes por kg de material")
-        .waitFor();
-    },
-  );
-  await check(
-    "Painel mensal em celular mantém filtros e conteúdo sem transbordar a página",
-    async () => {
-      await panel.setViewportSize({ width: 390, height: 900 });
-      await panel.goto("http://127.0.0.1:5179/environmental-impact");
-      await panel.getByText("52 kg", { exact: true }).waitFor();
-      assert.ok(
-        await panel.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth + 2,
-        ),
-      );
-      await panel.screenshot({
-        path: out + "/painel-impacto-mobile.png",
-        fullPage: true,
-      });
-    },
-  );
-  await check(
-    "App do gerador mostra o mesmo mês, acumulado e histórico com troca de ano",
+    "Gerador recebe números automáticos e somente solicitações e coletas sem histórico",
     async () => {
       const a = await app("gen");
       a.p.on("pageerror", (e) => errors.push(e.message));
       await a.p.goto("http://127.0.0.1:8089/(gerador)/percentual");
-      await a.p.getByText("37 kg coletados no mês", { exact: true }).waitFor();
-      await a.p.getByText("60 kg CO2e", { exact: true }).waitFor();
+      await a.p.getByText("85,5 kg CO2e", { exact: true }).waitFor();
+      await a.p.getByText("57 kg coletados", { exact: true }).waitFor();
+      await a.p.getByText("Coletas solicitadas", { exact: true }).waitFor();
       await a.p
-        .getByRole("button", { name: "Mês anterior", exact: true })
-        .click();
-      await a.p.getByText("20 kg coletados no mês", { exact: true }).waitFor();
-      await a.p
-        .getByRole("button", { name: "Consultar janeiro de 2026", exact: true })
-        .click();
-      await a.p
-        .getByRole("button", { name: "Mês anterior", exact: true })
-        .click();
-      await a.p.getByText("Acumulado de 2025: 0 kg", { exact: true }).waitFor();
-      await a.p
-        .getByRole("button", { name: "Próximo mês", exact: true })
-        .click();
-      await a.p
-        .getByRole("button", { name: "Consultar outubro de 2026", exact: true })
-        .click();
-      await a.p.getByText("37 kg coletados no mês", { exact: true }).waitFor();
-      await a.p
-        .getByRole("button", { name: "Ocultar histórico mensal", exact: true })
-        .click();
-      await a.p
-        .getByText("Impacto ambiental mensal", { exact: true })
-        .scrollIntoViewIfNeeded();
-      await a.p.screenshot({ path: out + "/gerador-impacto-mensal.png" });
+        .getByText("Coletas concluídas em campo", { exact: true })
+        .waitFor();
+      assert.equal(await a.p.getByText(/Histórico mensal/).count(), 0);
+      assert.equal(
+        await a.p.getByRole("button", { name: "Mês anterior" }).count(),
+        0,
+      );
+      assert.equal(
+        await a.p.getByText("Não configurado", { exact: true }).count(),
+        0,
+      );
+      await a.p.screenshot({ path: out + "/gerador-resumo-automatico.png" });
     },
   );
   await check(
-    "Resumo ambiental do catador permanece preenchido antes da divisão da equipe",
+    "Catador mantém base das coletas em equipe sem depender do rateio ou do dia",
     async () => {
       const a = await app("b");
       a.p.on("pageerror", (e) => errors.push(e.message));
       await a.p.goto("http://127.0.0.1:8089/(catador)/homecat");
-      await a.p.getByText("Resumo ambiental mensal", { exact: true }).waitFor();
-      await a.p.getByText("30 kg coletados no mês", { exact: true }).waitFor();
-      await a.p.getByText("60 kg CO2e", { exact: true }).waitFor();
+      await a.p.getByText("Resumo ambiental", { exact: true }).waitFor();
+      await a.p.getByText("45 kg CO2e", { exact: true }).waitFor();
+      await a.p.getByText("30 kg coletados", { exact: true }).waitFor();
+      assert.equal(await a.p.getByText(/Histórico mensal/).count(), 0);
       assert.equal(
-        await a.p
-          .getByText("Estimativas com base no peso coletado hoje", {
-            exact: true,
-          })
-          .count(),
+        await a.p.getByText("Não configurado", { exact: true }).count(),
         0,
       );
       await a.p
-        .getByRole("button", { name: "Ver histórico mensal", exact: true })
-        .click();
-      await a.p
-        .getByRole("button", {
-          name: "Consultar setembro de 2026",
-          exact: true,
-        })
-        .click();
-      await a.p.getByText("0 kg coletados no mês", { exact: true }).waitFor();
-      await a.p
-        .getByRole("button", { name: "Consultar outubro de 2026", exact: true })
-        .click();
-      await a.p.getByText("30 kg coletados no mês", { exact: true }).waitFor();
-      await a.p
-        .getByRole("button", { name: "Ocultar histórico mensal", exact: true })
-        .click();
-      await a.p
-        .getByText("Resumo ambiental mensal", { exact: true })
+        .getByText("Resumo ambiental", { exact: true })
         .scrollIntoViewIfNeeded();
-      await a.p.screenshot({ path: out + "/catador-impacto-mensal.png" });
+      await a.p.screenshot({ path: out + "/catador-resumo-automatico.png" });
     },
   );
   await check(
-    "Nenhum erro JavaScript nos cenários de impacto mensal",
-    async () => assert.deepEqual(errors, []),
+    "Perfil sem coletas recebe zero calculado sem pedido de configuração",
+    async () => {
+      const a = await app("gen2");
+      a.p.on("pageerror", (e) => errors.push(e.message));
+      await a.p.goto("http://127.0.0.1:8089/(gerador)/percentual");
+      await a.p.getByText("0 kg CO2e", { exact: true }).waitFor();
+      await a.p.getByText("0 kg coletados", { exact: true }).waitFor();
+      assert.equal(
+        await a.p.getByText("Não configurado", { exact: true }).count(),
+        0,
+      );
+    },
+  );
+  await check("Interfaces não geram erros JavaScript nos cenários", async () =>
+    assert.deepEqual(errors, []),
   );
 } finally {
   fs.writeFileSync(

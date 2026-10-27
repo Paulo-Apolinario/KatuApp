@@ -253,24 +253,18 @@ try {
     },
   );
   await check(
-    "Relatórios exibem impacto e cobertura por gerador com fonte",
+    "Relatórios exibem resumo automático sem configuração nem histórico mensal",
     async () => {
       await panel.goto("http://127.0.0.1:5179/environmental-impact");
-      await panel.getByRole("heading", { name: "Impacto ambiental mensal", exact: true }).waitFor();
       await panel
-        .getByRole("cell", { name: "Gerador Teste", exact: true })
+        .getByRole("heading", { name: "Impacto ambiental", exact: true })
         .waitFor();
-      await panel.getByText("80 kg CO2e", { exact: true }).waitFor();
-      await panel.getByText("Metodologia de ensaio", { exact: true }).waitFor();
+      await panel.getByText("118,5 kg CO2e", { exact: true }).waitFor();
+      assert.equal(await panel.getByText(/Histórico mensal/).count(), 0);
       await panel.screenshot({
         path: out + "/impacto-geradores-desktop.png",
         fullPage: true,
       });
-      const download = panel.waitForEvent("download");
-      await panel.getByRole("button", { name: "Baixar CSV mensal" }).click();
-      assert.ok(
-        (await download).suggestedFilename().startsWith("impacto-ambiental-mensal-"),
-      );
     },
   );
   await check(
@@ -313,10 +307,8 @@ try {
       const a = await app("gen");
       a.p.on("pageerror", (e) => errors.push(e.message));
       await a.p.goto("http://127.0.0.1:8089/(gerador)/percentual");
-      await a.p.getByText("80 kg CO2e", { exact: true }).waitFor();
-      await a.p
-        .getByText("Impacto ambiental mensal", { exact: true })
-        .waitFor();
+      await a.p.getByText("118,5 kg CO2e", { exact: true }).waitFor();
+      await a.p.getByText("Resumo ambiental", { exact: true }).waitFor();
       await a.p.screenshot({
         path: out + "/app-impacto-gerador.png",
         fullPage: true,

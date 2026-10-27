@@ -1,3 +1,4 @@
+import { impactOverview, ImpactAccessError } from "./impact-summary.service";
 import { FastifyInstance } from "fastify";
 import { z, ZodError } from "zod";
 import { prisma } from "../../lib/prisma";
@@ -27,6 +28,11 @@ export async function impactRoutes(app: FastifyInstance) {
           return reply
             .code(400)
             .send({ error: "Informe um ano ou um período completo." });
+        if (!input.year && !input.start && !input.end) {
+          const data = await impactOverview(r.user.sub, input.generatorId);
+          reply.header("Cache-Control", "private, no-store");
+          return { data };
+        }
         const year =
           input.year ??
           (input.start
@@ -255,6 +261,8 @@ export async function impactRoutes(app: FastifyInstance) {
         reply.header("Cache-Control", "private, no-store");
         return { data: output };
       } catch (e: any) {
+        if (e instanceof ImpactAccessError)
+          return reply.code(e.statusCode).send({ error: e.message });
         if (e instanceof ZodError)
           return reply.code(400).send({ error: e.issues[0]?.message });
         r.log.error({ code: e.code }, "Falha no impacto mensal");
