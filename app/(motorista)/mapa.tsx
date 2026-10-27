@@ -1,519 +1,371 @@
-import { collectionOrigin } from "@/src/utils/collectionOrigin";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Platform,
   Linking,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
+import { useAuth } from "@/src/contexts/AuthContext";
 import { useForegroundLocation } from "@/src/hooks/useForegroundLocation";
+import { useConnectivity } from "@/src/hooks/useConnectivity";
+import { MotoristaGreenHeader } from "@/src/components/MotoristaGreenHeader";
+import { NotificationBell } from "@/src/components/NotificationBell";
 import { LocationStatus } from "@/src/components/LocationStatus";
-import { Ionicons } from "@expo/vector-icons";
-
-import OperationalMap from "@/src/components/maps/OperationalMap";
 import { OfflineBanner } from "@/src/components/OfflineBanner";
 import { LastSyncBadge } from "@/src/components/LastSyncBadge";
-import { useConnectivity } from "@/src/hooks/useConnectivity";
-import { useAuth } from "@/src/contexts/AuthContext";
+import OperationalMap from "@/src/components/maps/OperationalMap";
+import type { OperationalMapPoint } from "@/src/components/maps/mapMarkers";
+import { Action, Card, Notice } from "@/src/components/ui/Workspace";
 import {
   routeService,
-  type RouteItem,
   translateRouteStatus,
+  type RouteItem,
 } from "@/src/services/routeService";
 import {
-  vehicleService,
-  type Vehicle,
-  translateVehicleStatus,
-} from "@/src/services/vehicleService";
-import {
   collectionService,
-  type Collection,
   translateCollectionStatus,
+  type Collection,
 } from "@/src/services/collectionService";
+import {
+  vehicleService,
+  translateVehicleStatus,
+  type Vehicle,
+} from "@/src/services/vehicleService";
 import {
   driverService,
   type DriverProfile,
 } from "@/src/services/driverService";
-import { MotoristaGreenHeader } from "@/src/components/MotoristaGreenHeader";
-
-type MarkerPoint = {
-  id: string;
-  title: string;
-  description?: string;
-  latitude: number;
-  longitude: number;
-  type: "cooperative" | "collection" | "driver" | "pev";
-};
-
-type Coordinates = {
-  latitude: number;
-  longitude: number;
-};
-
-function InfoCard({
-  title,
-  children,
-  rightAction,
-}: {
-  title: string;
-  children: React.ReactNode;
-  rightAction?: React.ReactNode;
-}) {
-  return (
-    <View
-      style={{
-        backgroundColor: "#FFFFFF",
-        borderRadius: 18,
-        padding: 16,
-        marginBottom: 14,
-        borderWidth: 1,
-        borderColor: "#F1F5F9",
-      }}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 10,
-        }}
-      >
-        <Text style={{ color: "#111827", fontSize: 16, fontWeight: "700" }}>
-          {title}
-        </Text>
-        {rightAction}
-      </View>
-
-      <View>{children}</View>
-    </View>
-  );
-}
-
-function SummaryLine({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <Text style={{ color: "#4B5563", lineHeight: 22 }}>
-      {label}: {value}
-    </Text>
-  );
-}
-
-function openExternalNavigation(params: {
-  latitude: number;
-  longitude: number;
-  originLatitude?: number | null;
-  originLongitude?: number | null;
-}) {
-  const destination = `${params.latitude},${params.longitude}`;
-  const origin =
-    params.originLatitude != null && params.originLongitude != null
-      ? `&origin=${params.originLatitude},${params.originLongitude}`
-      : "";
-
-  const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}${origin}&travelmode=driving`;
-  return Linking.openURL(url);
-}
-
-function isValidCoordinate(latitude?: any, longitude?: any) {
-  return (
-    latitude != null &&
-    longitude != null &&
-    !isNaN(Number(latitude)) &&
-    !isNaN(Number(longitude))
-  );
-}
-
-const getCollectionGenerator = collectionOrigin;
-
+import {
+  collectionOrigin,
+  validCoordinates,
+} from "@/src/utils/collectionOrigin";
+import {
+  driverMapModel,
+  orderedRouteVisits,
+  type DriverMapScope,
+} from "@/src/utils/driverMapModel";
+const GPS_ID = "driver-current-location",
+  SEDE_ID = "driver-cooperative";
 export default function MotoristaMapaScreen() {
-  const gps = useForegroundLocation();
-  const { user } = useAuth();
-  const { isOffline } = useConnectivity();
-  const params = useLocalSearchParams<{
-    routeId?: string;
-    collectionId?: string;
-  }>();
-  const driverId = user?.driver?.id ?? null;
-
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const [routes, setRoutes] = useState<RouteItem[]>([]);
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [profile, setProfile] = useState<DriverProfile | null>(null);
-  const [selectedRoute, setSelectedRoute] = useState<RouteItem | null>(null);
-  const [selectedCollection, setSelectedCollection] =
-    useState<Collection | null>(null);
-  const currentLocation = gps.position?.coords ?? null;
-  const [error, setError] = useState<string | null>(null);
-  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
-
-  const loadMapData = useCallback(
-    async (showRefresh = false) => {
-      if (!driverId) {
-        setError("Motorista não vinculado ao usuário autenticado.");
+  const { user } = useAuth(),
+    driverId = user?.driver?.id,
+    gps = useForegroundLocation(),
+    { isOffline } = useConnectivity(),
+    params = useLocalSearchParams<{
+      routeId?: string;
+      collectionId?: string;
+    }>();
+  const [routes, setRoutes] = useState<RouteItem[]>([]),
+    [route, setRoute] = useState<RouteItem | null>(null),
+    [collections, setCollections] = useState<Collection[]>([]),
+    [profile, setProfile] = useState<DriverProfile | null>(null),
+    [vehicle, setVehicle] = useState<Vehicle | null>(null),
+    [scope, setScope] = useState<DriverMapScope>("ROUTE"),
+    [showFinished, setShowFinished] = useState(false),
+    [selected, setSelected] = useState<string | null>(null),
+    [focus, setFocus] = useState(0),
+    [loading, setLoading] = useState(true),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [lastSync, setLastSync] = useState<string | null>(null);
+  const request = useRef(0),
+    owner = useRef(user?.id),
+    selection = useRef({ routeId: route?.id, point: selected, scope });
+  owner.current = user?.id;
+  selection.current = { routeId: route?.id, point: selected, scope };
+  const load = useCallback(async () => {
+    const seq = ++request.current,
+      uid = user?.id;
+    setBusy(true);
+    setError("");
+    try {
+      if (!driverId)
+        throw Error("Motorista não vinculado ao usuário autenticado.");
+      const [list, all, me, car] = await Promise.all([
+        routeService.listActiveByDriver(driverId),
+        collectionService.listByDriver(driverId),
+        driverService.getMyProfile(),
+        vehicleService.getCurrentByDriver(driverId),
+      ]);
+      const linkedRoute = params.collectionId
+        ? all.find((c) => c.id === params.collectionId)?.routeId
+        : null;
+      const preferred =
+          params.routeId || linkedRoute || selection.current.routeId,
+        chosen =
+          list.find((r) => r.id === preferred) ||
+          list.find((r) => r.status === "IN_PROGRESS") ||
+          list[0] ||
+          null;
+      let detail = chosen;
+      if (params.routeId || linkedRoute)
+        detail = await routeService.getById(
+          String(params.routeId || linkedRoute),
+        );
+      else if (chosen) detail = await routeService.getById(chosen.id);
+      if (seq !== request.current || uid !== owner.current) return;
+      setRoutes(list);
+      setCollections(all);
+      setProfile(me);
+      setVehicle(car);
+      setRoute(detail);
+      setLastSync(collectionService.getLastRemoteSyncAt());
+      const highlight = params.collectionId
+        ? String(params.collectionId)
+        : selection.current.point;
+      const candidates = [...(detail?.collections || []), ...all],
+        point = candidates.find((c) => c.id === highlight);
+      if (point) {
+        setSelected(point.id);
+        setShowFinished(!["PENDING", "IN_PROGRESS"].includes(point.status));
+        if (!point.routeId) setScope("UNASSIGNED");
+        else if (detail?.id !== point.routeId) setScope("ALL");
+      } else setSelected(null);
+      if (!detail && selection.current.scope === "ROUTE")
+        setScope("UNASSIGNED");
+    } catch (e: any) {
+      if (seq === request.current && uid === owner.current)
+        setError(
+          e.message ||
+            "Não foi possível carregar o mapa. Atualize para tentar novamente.",
+        );
+    } finally {
+      if (seq === request.current && uid === owner.current) {
         setLoading(false);
-        setRefreshing(false);
-        return;
+        setBusy(false);
       }
-
-      try {
-        setError(null);
-
-        if (showRefresh) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
-
-        const [activeRoutes, currentVehicle, driverCollections, myProfile] =
-          await Promise.all([
-            routeService.listActiveByDriver(driverId),
-            vehicleService.getCurrentByDriver(driverId),
-            collectionService.listByDriver(driverId),
-            driverService.getMyProfile(),
-          ]);
-
-        setRoutes(activeRoutes);
-        setVehicle(currentVehicle);
-        setCollections(driverCollections);
-        setProfile(myProfile);
-        setLastSyncAt(collectionService.getLastRemoteSyncAt());
-
-        const highlightedRouteId = params.routeId
-          ? String(params.routeId)
-          : null;
-        const highlightedCollectionId = params.collectionId
-          ? String(params.collectionId)
-          : null;
-
-        let nextRoute: RouteItem | null = null;
-        let nextCollection: Collection | null = null;
-
-        if (highlightedRouteId) {
-          try {
-            nextRoute = await routeService.getById(highlightedRouteId);
-            nextCollection =
-              nextRoute.collections?.find(
-                (item) => item.id === highlightedCollectionId,
-              ) ??
-              nextRoute.collections?.[0] ??
-              null;
-          } catch {
-            nextRoute =
-              activeRoutes.find((item) => item.id === highlightedRouteId) ??
-              null;
-          }
-        } else if (activeRoutes.length > 0) {
-          try {
-            nextRoute = await routeService.getById(activeRoutes[0].id);
-            nextCollection = nextRoute.collections?.[0] ?? null;
-          } catch {
-            nextRoute = activeRoutes[0];
-          }
-        }
-
-        setSelectedRoute(nextRoute);
-        setSelectedCollection(nextCollection);
-      } catch (err: any) {
-        setError(err?.message || "Não foi possível carregar os dados do mapa.");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [driverId, params.collectionId, params.routeId],
-  );
-
+    }
+  }, [driverId, user?.id, params.routeId, params.collectionId]);
   useFocusEffect(
     useCallback(() => {
-      void loadMapData();
-    }, [loadMapData]),
+      void load();
+      return () => {
+        request.current++;
+      };
+    }, [load]),
   );
-
-  const cooperativeMarker = useMemo<MarkerPoint | null>(() => {
-    if (
-      !profile?.cooperative ||
-      !isValidCoordinate(
-        profile.cooperative.latitude,
-        profile.cooperative.longitude,
-      )
-    ) {
-      return null;
-    }
-
-    const cooperative = profile.cooperative;
-
-    return {
-      id: cooperative.id,
-      title: cooperative.name,
-      description: cooperative.address || "Cooperativa",
-      latitude: Number(cooperative.latitude),
-      longitude: Number(cooperative.longitude),
-      type: "cooperative",
+  useEffect(() => {
+    const activeRequest = request;
+    setRoutes([]);
+    setRoute(null);
+    setCollections([]);
+    setProfile(null);
+    setVehicle(null);
+    setSelected(null);
+    setLoading(true);
+    return () => {
+      activeRequest.current++;
     };
-  }, [profile]);
-
-  const collectionMarkers = useMemo<MarkerPoint[]>(() => {
-    return collections
-      .map((item) => {
-        const generator = getCollectionGenerator(item);
-
-        return {
-          raw: item,
-          generator,
-        };
-      })
-      .filter(
-        ({ generator }) =>
-          !!generator &&
-          isValidCoordinate(generator.latitude, generator.longitude),
-      )
-      .map(({ raw, generator }) => ({
-        id: raw.id,
-        title:
-          generator?.companyName ||
-          generator?.businessName ||
-          generator?.name ||
-          "Ponto de coleta",
-        description: generator?.address || "Endereço não informado",
-        latitude: Number(generator?.latitude),
-        longitude: Number(generator?.longitude),
-        type: raw.bin ? ("pev" as const) : ("collection" as const),
-      }));
-  }, [collections]);
-
-  const driverMarker = useMemo<MarkerPoint | null>(() => {
-    if (!currentLocation) return null;
-
-    return {
-      id: "driver-current-location",
-      title: "Minha localização",
-      description: "Posição atual do motorista",
-      latitude: currentLocation.latitude,
-      longitude: currentLocation.longitude,
-      type: "driver",
-    };
-  }, [currentLocation]);
-
-  const allMarkers = useMemo(() => {
-    const items: MarkerPoint[] = [];
-
-    if (driverMarker) items.push(driverMarker);
-    if (cooperativeMarker) items.push(cooperativeMarker);
-    items.push(...collectionMarkers);
-
-    return items;
-  }, [driverMarker, cooperativeMarker, collectionMarkers]);
-
-  const selectedRouteCoordinates = useMemo<Coordinates[]>(() => {
-    const coordinates: Coordinates[] = [];
-
-    if (currentLocation) {
-      coordinates.push({
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
+  }, [user?.id]);
+  const model = useMemo(
+    () => driverMapModel(route, collections, scope, showFinished),
+    [route, collections, scope, showFinished],
+  );
+  const nextOrigin = collectionOrigin(model.next),
+    nextIndex =
+      route && model.next
+        ? orderedRouteVisits(route).findIndex((c) => c.id === model.next?.id) +
+          1
+        : null;
+  const points = useMemo<OperationalMapPoint[]>(() => {
+    const list: OperationalMapPoint[] = [];
+    if (gps.position)
+      list.push({
+        id: GPS_ID,
+        title: "Motorista · posição deste aparelho",
+        description: `Precisão aproximada ${gps.position.coords.accuracy == null ? "não informada" : Math.round(gps.position.coords.accuracy) + " m"}`,
+        latitude: gps.position.coords.latitude,
+        longitude: gps.position.coords.longitude,
+        kind: "driver",
+        includeInBounds: true,
       });
-    }
-
-    if (cooperativeMarker) {
-      coordinates.push({
-        latitude: cooperativeMarker.latitude,
-        longitude: cooperativeMarker.longitude,
+    const coop = profile?.cooperative;
+    if (validCoordinates(coop?.latitude, coop?.longitude))
+      list.push({
+        id: SEDE_ID,
+        title: `Sede · ${coop?.name || "Cooperativa"}`,
+        description: coop?.address || "Sede da cooperativa",
+        latitude: Number(coop?.latitude),
+        longitude: Number(coop?.longitude),
+        kind: "cooperative",
+        includeInBounds: false,
       });
-    }
-
-    if (selectedRoute?.collections?.length) {
-      selectedRoute.collections.forEach((item) => {
-        const generator = getCollectionGenerator(item);
-
-        if (isValidCoordinate(generator?.latitude, generator?.longitude)) {
-          coordinates.push({
-            latitude: Number(generator?.latitude),
-            longitude: Number(generator?.longitude),
+    if (scope === "ROUTE" && route) {
+      for (const [key, p] of [
+        ["start", route.startPoint],
+        ["end", route.endPoint],
+      ] as const)
+        if (p && validCoordinates(p.latitude, p.longitude))
+          list.push({
+            id: `route-${key}`,
+            title: `${key === "start" ? "Partida" : "Chegada"} · ${p.name}`,
+            description: p.address,
+            latitude: p.latitude,
+            longitude: p.longitude,
+            kind: key,
           });
-        }
-      });
     }
-
-    return coordinates;
-  }, [currentLocation, cooperativeMarker, selectedRoute]);
-
-  const polylineCoordinates = useMemo(() => {
-    if (selectedCollection) {
-      const generator = getCollectionGenerator(selectedCollection);
-
-      if (isValidCoordinate(generator?.latitude, generator?.longitude)) {
-        const coords: Coordinates[] = [];
-
-        if (currentLocation) {
-          coords.push(currentLocation);
-        }
-
-        coords.push({
-          latitude: Number(generator?.latitude),
-          longitude: Number(generator?.longitude),
+    for (const stop of model.stops)
+      if (stop.located) {
+        const o = stop.origin!;
+        list.push({
+          id: stop.collection.id,
+          title: `${stop.sequence ? `Parada ${stop.sequence} · ` : ""}${o.name}`,
+          description: [
+            translateCollectionStatus(stop.collection.status),
+            o.address,
+            scope === "ALL" ? stop.collection.route?.name || "Sem rota" : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          latitude: Number(o.latitude),
+          longitude: Number(o.longitude),
+          kind: stop.kind,
+          sequence: stop.sequence,
+          color:
+            stop.collection.status === "IN_PROGRESS" ? "#7C3AED" : undefined,
         });
-
-        return coords;
       }
-    }
-
-    if (selectedRouteCoordinates.length >= 2) {
-      return selectedRouteCoordinates;
-    }
-
-    const fallback = allMarkers.map((item) => ({
-      latitude: item.latitude,
-      longitude: item.longitude,
-    }));
-
-    return fallback.length >= 2 ? fallback : [];
-  }, [
-    allMarkers,
-    currentLocation,
-    selectedCollection,
-    selectedRouteCoordinates,
-  ]);
-
-  const handleFocusSelectedRoute = useCallback(() => {
-    if (selectedRoute?.collections?.length) {
-      const firstCollection = selectedRoute.collections[0] ?? null;
-      setSelectedMapPoint(firstCollection?.id ?? null);
-      setSelectedCollection(firstCollection);
-    }
-  }, [selectedRoute]);
-
-  const [focusRequest, setFocusRequest] = useState(0);
-  const [selectedMapPoint, setSelectedMapPoint] = useState<string | null>(null);
-  const handleFocusAll = useCallback(() => {
-    setFocusRequest((n) => n + 1);
-    setSelectedMapPoint(null);
-    setSelectedCollection(null);
-  }, []);
-
-  const handleSelectCollection = useCallback(
-    async (collection: Collection | null) => {
-      setSelectedMapPoint(collection?.id ?? null);
-      setSelectedCollection(collection);
-
-      if (collection?.routeId) {
-        try {
-          const detail = await routeService.getById(collection.routeId);
-          setSelectedRoute(detail);
-        } catch {}
-      }
-    },
-    [],
+    return list;
+  }, [gps.position, profile, model, scope, route]);
+  const visibleSelected = points.some((p) => p.id === selected)
+    ? selected
+    : null;
+  const selectedStop = model.stops.find(
+    (s) => s.collection.id === visibleSelected,
   );
-
-  const handleSelectRoute = useCallback(async (route: RouteItem) => {
+  async function selectRoute(item: RouteItem) {
+    if (busy) return;
+    const seq = ++request.current,
+      uid = owner.current;
+    setBusy(true);
+    setError("");
     try {
-      const detail = await routeService.getById(route.id);
-      setSelectedRoute(detail);
-      setSelectedMapPoint(detail.collections?.[0]?.id ?? null);
-      setSelectedCollection(detail.collections?.[0] ?? null);
-    } catch {
-      setSelectedRoute(route);
+      const detail = await routeService.getById(item.id);
+      if (seq !== request.current || uid !== owner.current) return;
+      setRoute(detail);
+      setScope("ROUTE");
+      setShowFinished(false);
+      setSelected(null);
+      setFocus((n) => n + 1);
+      router.setParams({ routeId: undefined, collectionId: undefined });
+    } catch (e: any) {
+      if (seq === request.current) setError(e.message || "Rota indisponível.");
+    } finally {
+      if (seq === request.current) setBusy(false);
     }
-  }, []);
-
-  const selectedGenerator = useMemo(() => {
-    return getCollectionGenerator(selectedCollection);
-  }, [selectedCollection]);
-
-  if (loading) {
+  }
+  function changeScope(value: DriverMapScope) {
+    setScope(value);
+    setSelected(null);
+    setShowFinished(false);
+    setFocus((n) => n + 1);
+  }
+  function locate(id: string | null) {
+    setSelected(id);
+    setFocus((n) => n + 1);
+  }
+  async function navigate(c: Collection) {
+    const o = collectionOrigin(c);
+    if (!validCoordinates(o?.latitude, o?.longitude)) {
+      setError(
+        "Este ponto está sem localização confirmada. Solicite a correção à cooperativa.",
+      );
+      return;
+    }
+    try {
+      await Linking.openURL(
+        `https://www.google.com/maps/dir/?api=1&destination=${o!.latitude},${o!.longitude}&travelmode=driving`,
+      );
+    } catch {
+      setError("Não foi possível abrir a navegação.");
+    }
+  }
+  if (loading)
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#F8FAFC",
-        }}
-      >
-        <ActivityIndicator size="large" color="#047857" />
-        <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
-          Carregando dados do mapa...
-        </Text>
+      <View style={s.loading}>
+        <ActivityIndicator color="#047857" />
+        <Text>Carregando mapa do motorista…</Text>
       </View>
     );
-  }
-
   return (
-    <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
+    <View style={s.page}>
       <MotoristaGreenHeader
-        title="Mapa"
-        subtitle="Visão geográfica das rotas e pontos operacionais"
+        title="Mapa do motorista"
+        subtitle="Sua rota, próxima parada e localização do aparelho"
         onBack={() => router.back()}
-        rightAction={
-          <TouchableOpacity
-            onPress={() => void loadMapData(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Atualizar mapa"
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 21,
-              backgroundColor: "rgba(255,255,255,0.18)",
-              alignItems: "center",
-              justifyContent: "center",
-              marginLeft: 12,
-            }}
-          >
-            <Ionicons name="refresh" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-        }
+        rightAction={<NotificationBell />}
       />
-
       <ScrollView
-        contentContainerStyle={{
-          padding: 18,
-          paddingBottom: 30,
-        }}
+        contentContainerStyle={s.content}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => void loadMapData(true)}
-            colors={["#047857"]}
-            tintColor="#047857"
-          />
+          <RefreshControl refreshing={busy} onRefresh={() => void load()} />
         }
       >
-        <View style={{ marginBottom: 14 }}>
-          <OfflineBanner visible={isOffline} />
-        </View>
-
-        <View style={{ marginBottom: 14 }}>
-          <LastSyncBadge value={lastSyncAt} />
-        </View>
-
-        {!!error && (
-          <View
-            style={{
-              backgroundColor: "#FEF2F2",
-              borderWidth: 1,
-              borderColor: "#FECACA",
-              borderRadius: 16,
-              padding: 14,
-              marginBottom: 16,
-            }}
-          >
-            <Text style={{ color: "#B91C1C", fontWeight: "700" }}>{error}</Text>
+        <OfflineBanner visible={isOffline} />
+        <LastSyncBadge value={lastSync} />
+        {!!error && <Notice error text={error} />}
+        <Card>
+          <Text style={s.title}>Roteiro em exibição</Text>
+          <Text style={s.body}>
+            {route?.name || "Nenhuma rota programada disponível"}
+            {route ? ` · ${translateRouteStatus(route.status)}` : ""}
+          </Text>
+          <Text style={s.muted}>
+            Veículo:{" "}
+            {vehicle
+              ? `${vehicle.plate} · ${vehicle.model || ""} · ${translateVehicleStatus(vehicle.status)}`
+              : "Não vinculado"}
+          </Text>
+          {route && (
+            <Text style={s.muted}>
+              Rota:{" "}
+              {route.scheduledDate
+                ? new Date(route.scheduledDate).toLocaleString("pt-BR", {
+                    timeZone: "America/Fortaleza",
+                  })
+                : "Data não informada"}{" "}
+              · Veículo da rota: {route.vehicle?.plate || "Não vinculado"}
+            </Text>
+          )}
+          <View style={s.row}>
+            <Action
+              label="Rota selecionada"
+              secondary={scope !== "ROUTE"}
+              disabled={!route || busy}
+              onPress={() => changeScope("ROUTE")}
+            />
+            <Action
+              label="Coletas sem rota"
+              secondary={scope !== "UNASSIGNED"}
+              disabled={busy}
+              onPress={() => changeScope("UNASSIGNED")}
+            />
+            <Action
+              label="Todas as rotas"
+              secondary={scope !== "ALL"}
+              disabled={busy}
+              onPress={() => changeScope("ALL")}
+            />
+            <Action
+              label="Recarregar"
+              secondary
+              busy={busy}
+              onPress={() => void load()}
+            />
           </View>
-        )}
-
+          <Text style={s.muted}>
+            {scope === "ROUTE"
+              ? "Números seguem a ordem definida pela cooperativa, incluindo posições já atendidas. A sede não é adicionada como parada automaticamente."
+              : scope === "UNASSIGNED"
+                ? "Somente coletas atribuídas a você que não possuem rota. Não há sequência otimizada neste modo."
+                : "Visão geral das coletas atribuídas a você. Selecione uma rota para orientar a sequência de visitas."}
+          </Text>
+        </Card>
         <LocationStatus
           position={gps.position}
           error={gps.error}
@@ -521,326 +373,238 @@ export default function MotoristaMapaScreen() {
           retry={gps.retry}
           active={gps.active}
         />
-        <View
-          style={{
-            height: Platform.OS === "web" ? undefined : 340,
-            borderRadius: 22,
-            overflow: "hidden",
-            marginBottom: 14,
-            borderWidth: 1,
-            borderColor: "#E5E7EB",
-            backgroundColor: "#FFFFFF",
-          }}
-        >
-          <OperationalMap
-            baseKind={currentLocation ? "driver" : "cooperative"}
-            focusRequest={focusRequest}
-            baseLabel={
-              currentLocation
-                ? "Minha posição"
-                : cooperativeMarker?.title || null
-            }
-            baseLatitude={
-              currentLocation?.latitude ??
-              cooperativeMarker?.latitude ??
-              -3.7319
-            }
-            baseLongitude={
-              currentLocation?.longitude ??
-              cooperativeMarker?.longitude ??
-              -38.5267
-            }
-            points={allMarkers.map((item) => ({
-              id: item.id,
-              latitude: item.latitude,
-              longitude: item.longitude,
-              title: item.title,
-              description: item.description,
-              kind: item.type,
-              color:
-                item.type === "driver"
-                  ? "#2563EB"
-                  : item.type === "cooperative"
-                    ? "#047857"
-                    : selectedCollection?.id === item.id
-                      ? "#111827"
-                      : "#F59E0B",
-            }))}
-            routeCoordinates={polylineCoordinates}
-            selectedPointId={selectedMapPoint ?? selectedCollection?.id ?? null}
-            onSelectPoint={(pointId: string) => {
-              setSelectedMapPoint(pointId === "__base__" ? null : pointId);
-              if (pointId === "__base__") {
-                setSelectedCollection(null);
-                return;
-              }
-
-              if (
-                pointId === driverMarker?.id ||
-                pointId === cooperativeMarker?.id
-              ) {
-                setSelectedCollection(null);
-                return;
-              }
-
-              const collection =
-                collections.find((c) => c.id === pointId) || null;
-              void handleSelectCollection(collection);
-            }}
-          />
-        </View>
-
-        <View
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            gap: 10,
-            marginBottom: 14,
-          }}
-        >
-          <TouchableOpacity
-            onPress={handleFocusAll}
-            style={{
-              backgroundColor: "#ECFDF5",
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              borderRadius: 12,
-            }}
-          >
-            <Text style={{ color: "#047857", fontWeight: "700" }}>
-              Mostrar todos os pontos
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleFocusSelectedRoute}
-            style={{
-              backgroundColor: "#D1FAE5",
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              borderRadius: 12,
-            }}
-          >
-            <Text style={{ color: "#065F46", fontWeight: "700" }}>
-              Primeira coleta da rota
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <InfoCard title="Resumo geográfico">
-          <SummaryLine label="Rotas ativas" value={routes.length} />
-          <SummaryLine label="Coletas carregadas" value={collections.length} />
-          <SummaryLine
-            label="Pontos com coordenadas"
-            value={collectionMarkers.length}
-          />
-          <SummaryLine
-            label="Veículo atual"
-            value={
-              vehicle
-                ? `${vehicle.plate} • ${translateVehicleStatus(vehicle.status)}`
-                : "Não vinculado"
-            }
-          />
-          <SummaryLine
-            label="Posição atual"
-            value={
-              currentLocation
-                ? `${currentLocation.latitude.toFixed(5)}, ${currentLocation.longitude.toFixed(5)}`
-                : "Não disponível"
-            }
-          />
-        </InfoCard>
-
-        <InfoCard title="Rotas carregadas">
-          {routes.length === 0 ? (
-            <Text style={{ color: "#6B7280", lineHeight: 22 }}>
-              Nenhuma rota ativa encontrada.
-            </Text>
-          ) : (
-            routes.map((route) => {
-              const isSelected = selectedRoute?.id === route.id;
-
-              return (
-                <TouchableOpacity
-                  key={route.id}
-                  onPress={() => void handleSelectRoute(route)}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: isSelected ? "#86EFAC" : "#E5E7EB",
-                    borderRadius: 14,
-                    padding: 12,
-                    marginBottom: 10,
-                    backgroundColor: isSelected ? "#F0FDF4" : "#FFFFFF",
-                  }}
-                >
-                  <Text style={{ color: "#111827", fontWeight: "700" }}>
-                    {route.name}
-                  </Text>
-
-                  <Text style={{ color: "#6B7280", marginTop: 4 }}>
-                    Status: {translateRouteStatus(route.status)}
-                  </Text>
-
-                  <Text style={{ color: "#6B7280", marginTop: 4 }}>
-                    Paradas: {route.stops?.length || 0}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </InfoCard>
-
-        {selectedRoute && (
-          <InfoCard
-            title="Rota selecionada"
-            rightAction={
-              <TouchableOpacity
-                onPress={() =>
-                  router.push({
-                    pathname: "/(motorista)/rotas",
-                    params: { highlightRouteId: selectedRoute.id },
-                  })
-                }
-              >
-                <Text
-                  style={{ color: "#047857", fontWeight: "700", fontSize: 12 }}
-                >
-                  VER TELA
-                </Text>
-              </TouchableOpacity>
-            }
-          >
-            <Text style={{ color: "#111827", fontWeight: "700", fontSize: 15 }}>
-              {selectedRoute.name}
-            </Text>
-
-            <Text style={{ color: "#6B7280", lineHeight: 22, marginTop: 8 }}>
-              Status: {translateRouteStatus(selectedRoute.status)}
-            </Text>
-
-            <Text style={{ color: "#6B7280", lineHeight: 22 }}>
-              Data:{" "}
-              {selectedRoute.scheduledDate
-                ? new Date(selectedRoute.scheduledDate).toLocaleString("pt-BR")
-                : "Não definida"}
-            </Text>
-
-            <Text style={{ color: "#6B7280", lineHeight: 22 }}>
-              Veículo:{" "}
-              {selectedRoute.vehicle?.plate
-                ? `${selectedRoute.vehicle.plate} • ${selectedRoute.vehicle.model || ""}`
-                : "Não vinculado"}
-            </Text>
-
-            <Text style={{ color: "#6B7280", lineHeight: 22 }}>
-              Coletas: {selectedRoute.collections?.length || 0}
-            </Text>
-
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                gap: 10,
-                marginTop: 12,
-              }}
-            >
-              <TouchableOpacity
-                onPress={handleFocusSelectedRoute}
-                style={{
-                  backgroundColor: "#ECFDF5",
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderRadius: 12,
-                }}
-              >
-                <Text style={{ color: "#047857", fontWeight: "700" }}>
-                  FOCAR NO MAPA
-                </Text>
-              </TouchableOpacity>
-
-              {isValidCoordinate(
-                selectedGenerator?.latitude,
-                selectedGenerator?.longitude,
-              ) && (
-                <TouchableOpacity
-                  onPress={() =>
-                    openExternalNavigation({
-                      latitude: Number(selectedGenerator?.latitude),
-                      longitude: Number(selectedGenerator?.longitude),
-                      originLatitude: currentLocation?.latitude,
-                      originLongitude: currentLocation?.longitude,
-                    })
+        <Card>
+          <Text style={s.title}>
+            {scope === "ALL"
+              ? "Orientação de visitas"
+              : "Próxima parada pendente"}
+          </Text>
+          {model.next ? (
+            <>
+              <Text style={s.stop}>
+                {scope === "ROUTE" && nextIndex ? `${nextIndex}. ` : ""}
+                {nextOrigin?.name || "Ponto sem identificação"}
+              </Text>
+              <Text style={s.body}>
+                {nextOrigin?.address || "Endereço não informado"}
+              </Text>
+              <Text style={s.muted}>
+                {translateCollectionStatus(model.next.status)}
+              </Text>
+              <View style={s.row}>
+                <Action
+                  label="Localizar próxima parada"
+                  secondary
+                  disabled={
+                    !validCoordinates(
+                      nextOrigin?.latitude,
+                      nextOrigin?.longitude,
+                    )
                   }
-                  style={{
-                    backgroundColor: "#047857",
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                    borderRadius: 12,
-                  }}
-                >
-                  <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>
-                    TRAÇAR ROTA
-                  </Text>
-                </TouchableOpacity>
+                  onPress={() => locate(model.next!.id)}
+                />
+                <Action
+                  label="Navegar até a próxima parada"
+                  disabled={
+                    !validCoordinates(
+                      nextOrigin?.latitude,
+                      nextOrigin?.longitude,
+                    )
+                  }
+                  onPress={() => void navigate(model.next!)}
+                />
+              </View>
+              {!validCoordinates(
+                nextOrigin?.latitude,
+                nextOrigin?.longitude,
+              ) && (
+                <Notice
+                  error
+                  text="A próxima parada não possui coordenadas confirmadas. A cooperativa precisa ajustar o endereço; ela não foi pulada na sequência."
+                />
+              )}
+            </>
+          ) : (
+            <Notice
+              text={
+                scope === "ALL"
+                  ? "Escolha uma rota ou as coletas sem rota para visualizar a próxima parada."
+                  : "Não há visitas pendentes nesta seleção."
+              }
+            />
+          )}
+        </Card>
+        <View style={s.map}>
+          <OperationalMap
+            baseLabel={null}
+            baseLatitude={gps.position?.coords.latitude ?? -3.7319}
+            baseLongitude={gps.position?.coords.longitude ?? -38.5267}
+            points={points}
+            selectedPointId={visibleSelected}
+            onSelectPoint={(id) => setSelected(id === "__base__" ? null : id)}
+            focusRequest={focus}
+            showPointList
+            accuracyCircle={
+              gps.position &&
+              Number.isFinite(gps.position.coords.accuracy) &&
+              gps.position.coords.accuracy! > 0
+                ? {
+                    latitude: gps.position.coords.latitude,
+                    longitude: gps.position.coords.longitude,
+                    radius: gps.position.coords.accuracy!,
+                  }
+                : undefined
+            }
+          />
+        </View>
+        <View style={s.row}>
+          <Action
+            label="Enquadrar pontos desta visão"
+            secondary
+            onPress={() => locate(null)}
+          />
+          <Action
+            label="Minha posição"
+            secondary
+            disabled={!gps.position}
+            onPress={() => locate(GPS_ID)}
+          />
+          <Action
+            label="Localizar sede"
+            secondary
+            disabled={!points.some((p) => p.id === SEDE_ID)}
+            onPress={() => locate(SEDE_ID)}
+          />
+          <Action
+            label={
+              showFinished
+                ? "Ocultar visitas atendidas"
+                : "Exibir visitas atendidas"
+            }
+            secondary
+            onPress={() => {
+              setShowFinished(!showFinished);
+              setSelected(null);
+            }}
+          />
+        </View>
+        {!!model.missing && (
+          <Notice
+            error
+            text={`${model.missing} ponto(s) desta seleção sem coordenadas confirmadas. Eles continuam na lista de visitas abaixo.`}
+          />
+        )}
+        <Notice text="O mapa apresenta os pontos e a ordem do roteiro. O percurso pelas ruas é aberto em Navegar; não são desenhadas ligações diretas como se fossem trajeto viário." />
+        {route?.fromCache && scope === "ROUTE" && (
+          <Notice text="Roteiro salvo no aparelho. Reconecte e recarregue para conferir alterações da cooperativa." />
+        )}
+        {selectedStop && (
+          <Card>
+            <Text style={s.title}>Visita selecionada</Text>
+            <Text style={s.body}>{selectedStop.origin?.name}</Text>
+            <Text style={s.muted}>{selectedStop.origin?.address}</Text>
+            <Action
+              label="Navegar para o ponto selecionado"
+              disabled={!selectedStop.located}
+              onPress={() => void navigate(selectedStop.collection)}
+            />
+          </Card>
+        )}
+        <Card>
+          <Text style={s.title}>
+            Visitas desta seleção · {model.stops.length}
+          </Text>
+          <Text style={s.muted}>
+            {model.pending.length} pendente(s) · {model.finished} atendida(s)
+          </Text>
+          {model.stops.map((stop) => (
+            <View key={stop.collection.id} style={s.visit}>
+              <Text style={s.body}>
+                {stop.sequence ? `${stop.sequence}. ` : ""}
+                {stop.origin?.name || "Ponto de coleta"}
+                {stop.kind === "pev" ? " · PEV" : ""}
+              </Text>
+              <Text style={s.muted}>
+                {stop.origin?.address || "Endereço não informado"} ·{" "}
+                {translateCollectionStatus(stop.collection.status)}
+              </Text>
+              {!stop.located ? (
+                <Text style={s.warning}>Sem localização confirmada</Text>
+              ) : (
+                <Action
+                  label={`Localizar visita ${stop.sequence || stop.origin?.name || stop.collection.id}`}
+                  secondary
+                  onPress={() => locate(stop.collection.id)}
+                />
               )}
             </View>
-          </InfoCard>
-        )}
-
-        {selectedCollection && (
-          <InfoCard title="Coleta selecionada">
-            <Text style={{ color: "#111827", fontWeight: "700", fontSize: 15 }}>
-              {selectedGenerator?.companyName ||
-                selectedGenerator?.name ||
-                "Ponto de coleta"}
-            </Text>
-
-            <Text style={{ color: "#6B7280", lineHeight: 22, marginTop: 8 }}>
-              Status: {translateCollectionStatus(selectedCollection.status)}
-            </Text>
-
-            <Text style={{ color: "#6B7280", lineHeight: 22 }}>
-              Endereço: {selectedGenerator?.address || "Não informado"}
-            </Text>
-
-            <Text style={{ color: "#6B7280", lineHeight: 22 }}>
-              Rota:{" "}
-              {selectedCollection.route?.name ||
-                selectedRoute?.name ||
-                "Não vinculada"}
-            </Text>
-
-            {isValidCoordinate(
-              selectedGenerator?.latitude,
-              selectedGenerator?.longitude,
-            ) && (
-              <TouchableOpacity
-                onPress={() =>
-                  openExternalNavigation({
-                    latitude: Number(selectedGenerator?.latitude),
-                    longitude: Number(selectedGenerator?.longitude),
-                    originLatitude: currentLocation?.latitude,
-                    originLongitude: currentLocation?.longitude,
-                  })
-                }
-                style={{
-                  marginTop: 12,
-                  alignSelf: "flex-start",
-                  backgroundColor: "#047857",
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderRadius: 12,
-                }}
-              >
-                <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>
-                  ABRIR NAVEGAÇÃO
-                </Text>
-              </TouchableOpacity>
-            )}
-          </InfoCard>
-        )}
+          ))}
+        </Card>
+        <Card>
+          <Text style={s.title}>Escolher rota</Text>
+          {routes.length ? (
+            routes.map((item) => (
+              <Action
+                key={item.id}
+                label={`${item.id === route?.id ? "✓ " : ""}${item.name} · ${translateRouteStatus(item.status)}`}
+                secondary={item.id !== route?.id}
+                disabled={busy}
+                onPress={() => void selectRoute(item)}
+              />
+            ))
+          ) : (
+            <Notice text="Nenhuma rota programada ou em andamento atribuída a você." />
+          )}
+          {route && (
+            <Action
+              label="Abrir execução desta rota"
+              secondary
+              onPress={() =>
+                router.push({
+                  pathname: "/(motorista)/rotas",
+                  params: { highlightRouteId: route.id },
+                })
+              }
+            />
+          )}
+        </Card>
       </ScrollView>
     </View>
   );
 }
+const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: "#F5F8F6" },
+  content: {
+    padding: 16,
+    paddingBottom: 32,
+    width: "100%",
+    maxWidth: 1100,
+    alignSelf: "center",
+  },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  row: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 10,
+  },
+  title: { fontSize: 17, fontWeight: "700", color: "#163F33" },
+  body: { fontSize: 15, lineHeight: 23, color: "#244D3F" },
+  stop: { fontSize: 20, lineHeight: 27, fontWeight: "700", color: "#0D4937" },
+  muted: { fontSize: 13, lineHeight: 21, color: "#63786D" },
+  warning: { fontSize: 13, color: "#9A5A12" },
+  map: {
+    borderWidth: 1,
+    borderColor: "#DCE7DF",
+    borderRadius: 18,
+    overflow: "hidden",
+    backgroundColor: "white",
+    marginBottom: 12,
+  },
+  visit: {
+    borderTopWidth: 1,
+    borderColor: "#E1EAE4",
+    paddingTop: 12,
+    marginTop: 10,
+  },
+});

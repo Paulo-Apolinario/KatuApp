@@ -1,5 +1,12 @@
 export type MapMarkerKind =
-  "collection" | "cooperative" | "driver" | "collector" | "pev" | "location";
+  | "collection"
+  | "cooperative"
+  | "driver"
+  | "collector"
+  | "pev"
+  | "location"
+  | "start"
+  | "end";
 export type OperationalMapPoint = {
   id: string;
   latitude: number;
@@ -8,8 +15,20 @@ export type OperationalMapPoint = {
   description?: string;
   color?: string;
   kind?: MapMarkerKind;
+  sequence?: number | null;
+  includeInBounds?: boolean;
 };
 export const markerSymbols = {
+  start: {
+    icon: "flag-outline",
+    label: "Partida",
+    path: '<path d="M5 22V3m0 1h14l-4 5 4 5H5"/>',
+  },
+  end: {
+    icon: "checkmark-circle-outline",
+    label: "Chegada",
+    path: '<circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/>',
+  },
   driver: {
     icon: "car-outline",
     label: "Motorista",
@@ -65,9 +84,10 @@ export function markerSvg(
   label = "",
   color?: string,
   selected = false,
+  sequence?: number | null,
 ) {
   const symbol = markerSymbols[kind] || markerSymbols.collection,
     fill = markerColor(kind, color, selected),
     number = /^\d{1,3}$/.test(label) ? label : "";
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="46" height="56" viewBox="0 0 46 56" aria-hidden="true"><path d="M23 53 8 35A21 21 0 1 1 38 35Z" fill="${fill}" stroke="white" stroke-width="3"/><g transform="translate(11 9)" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${number ? `<text x="12" y="17" fill="white" stroke="none" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="700">${number}</text>` : symbol.path}</g>${selected ? '<circle cx="36" cy="8" r="5" fill="#FDE68A" stroke="white" stroke-width="2"/>' : ""}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="46" height="56" viewBox="0 0 46 56" aria-hidden="true"><path d="M23 53 8 35A21 21 0 1 1 38 35Z" fill="${fill}" stroke="white" stroke-width="3"/><g transform="translate(11 9)" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${number ? `<text x="12" y="17" fill="white" stroke="none" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="700">${number}</text>` : symbol.path}</g>${kind !== "collection" && Number.isInteger(sequence) && sequence! > 0 && sequence! < 1000 ? `<circle cx="9" cy="9" r="8" fill="white" stroke="${fill}" stroke-width="1.5"/><text x="9" y="12" fill="${fill}" text-anchor="middle" font-size="9" font-family="Arial,sans-serif" font-weight="700">${sequence}</text>` : ""}</svg>`;
 }

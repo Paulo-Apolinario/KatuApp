@@ -20,22 +20,26 @@ export function LocationStatus({
     return () => clearInterval(id);
   }, []);
   const age = position ? Date.now() - position.timestamp : Infinity;
+  const reduced =
+    !!position && ((position.coords.accuracy ?? 0) > 100 || age > 60000);
   return (
     <View
       style={{
-        backgroundColor: error ? "#FFF5E5" : "#F0F8F3",
+        backgroundColor: error || reduced ? "#FFF5E5" : "#F0F8F3",
         padding: 12,
         borderRadius: 12,
         marginVertical: 10,
       }}
     >
       <Text accessibilityLiveRegion="polite" style={{ color: "#203B2D" }}>
-        {!active ? "Localização pausada enquanto esta tela está inativa." : error ||
-          (loading
-            ? "Obtendo posição do aparelho..."
-            : position
-              ? `${age > 60000 ? "Última posição — desatualizada" : "Posição obtida do aparelho"} · precisão aproximada ${position.coords.accuracy == null || !Number.isFinite(position.coords.accuracy) || position.coords.accuracy < 0 ? "não informada" : Math.round(position.coords.accuracy) + " m"}`
-              : "Posição do aparelho ainda não obtida.")}
+        {!active
+          ? "Localização pausada enquanto esta tela está inativa."
+          : error ||
+            (loading
+              ? "Obtendo posição do aparelho..."
+              : position
+                ? `${age > 60000 ? "Última posição — desatualizada" : "Posição obtida do aparelho"} · precisão aproximada ${position.coords.accuracy == null || !Number.isFinite(position.coords.accuracy) || position.coords.accuracy < 0 ? "não informada" : Math.round(position.coords.accuracy) + " m"}`
+                : "Posição do aparelho ainda não obtida.")}
       </Text>
       {position && (
         <Text style={{ fontSize: 12, color: "#526458", marginTop: 4 }}>
@@ -54,9 +58,14 @@ export function LocationStatus({
           {loading ? "Obtendo localização..." : "Atualizar localização"}
         </Text>
       </TouchableOpacity>
-      {position && position.coords.accuracy != null && position.coords.accuracy > 100 && (
-        <Text style={{ color: "#8A4B11", fontSize: 12 }}>Precisão reduzida. Em local fechado, aproxime-se de uma janela ou área aberta e atualize a localização.</Text>
-      )}
+      {position &&
+        position.coords.accuracy != null &&
+        position.coords.accuracy > 100 && (
+          <Text style={{ color: "#8A4B11", fontSize: 12 }}>
+            Precisão reduzida. Em local fechado, aproxime-se de uma janela ou
+            área aberta e atualize a localização.
+          </Text>
+        )}
       {error && Platform.OS !== "web" && (
         <TouchableOpacity
           accessibilityRole="button"

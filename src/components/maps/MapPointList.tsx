@@ -10,6 +10,7 @@ export type MapListPoint = {
   latitude: number;
   longitude: number;
   kind?: MapMarkerKind;
+  sequence?: number | null;
 };
 export function MapPointList({
   points,
@@ -31,21 +32,29 @@ export function MapPointList({
         .includes(search.toLocaleLowerCase("pt-BR")),
     );
   const badge = (p: MapListPoint) =>
-    p.kind === "pev"
-      ? "PEV"
-      : p.kind === "collector"
-        ? "CAT"
-        : p.kind === "location"
-          ? "GPS"
-          : p.kind === "driver"
-            ? "GPS"
-            : p.kind === "cooperative"
-              ? "SE"
-              : String(
-                  points
-                    .filter((x) => !x.kind || x.kind === "collection")
-                    .findIndex((x) => x.id === p.id) + 1,
-                );
+    p.sequence != null
+      ? String(p.sequence)
+      : p.kind === "start"
+        ? "INI"
+        : p.kind === "end"
+          ? "FIM"
+          : p.sequence === null && (!p.kind || p.kind === "collection")
+            ? "COL"
+            : p.kind === "pev"
+              ? "PEV"
+              : p.kind === "collector"
+                ? "CAT"
+                : p.kind === "location"
+                  ? "GPS"
+                  : p.kind === "driver"
+                    ? "GPS"
+                    : p.kind === "cooperative"
+                      ? "SE"
+                      : String(
+                          points
+                            .filter((x) => !x.kind || x.kind === "collection")
+                            .findIndex((x) => x.id === p.id) + 1,
+                        );
   return (
     <View style={s.section}>
       <View style={s.heading}>
@@ -71,15 +80,19 @@ export function MapPointList({
             <View style={s.selectedIcon}>
               <Ionicons
                 name={
-                  selected.kind === "driver"
-                    ? "car-outline"
-                    : selected.kind === "collector"
-                      ? "person-outline"
-                      : selected.kind === "pev"
-                        ? "trash-outline"
-                        : selected.kind === "cooperative"
-                          ? "business-outline"
-                          : "location-outline"
+                  selected.kind === "start"
+                    ? "flag-outline"
+                    : selected.kind === "end"
+                      ? "checkmark-circle-outline"
+                      : selected.kind === "driver"
+                        ? "car-outline"
+                        : selected.kind === "collector"
+                          ? "person-outline"
+                          : selected.kind === "pev"
+                            ? "trash-outline"
+                            : selected.kind === "cooperative"
+                              ? "business-outline"
+                              : "location-outline"
                 }
                 color="#047857"
                 size={20}
@@ -93,20 +106,52 @@ export function MapPointList({
           {!!selected.description && (
             <Text style={s.address}>{selected.description}</Text>
           )}
-          <Pressable
-            accessibilityRole="link"
-            accessibilityLabel={`Abrir navegação para ${selected.title}`}
-            onPress={() =>
-              void Linking.openURL(
-                `https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`,
-              )
-            }
-            style={s.navigate}
-          >
-            <Ionicons name="navigate-outline" size={17} color="white" />
-            <Text style={s.navigateText}>Abrir navegação</Text>
-            <Ionicons name="open-outline" size={15} color="white" />
-          </Pressable>
+          {points.some(
+            (p) =>
+              p.id !== selected.id &&
+              Math.abs(p.latitude - selected.latitude) < 0.00001 &&
+              Math.abs(p.longitude - selected.longitude) < 0.00001,
+          ) && (
+            <View style={{ gap: 6 }}>
+              <Text style={s.caption}>Também neste local:</Text>
+              {points
+                .filter(
+                  (p) =>
+                    p.id !== selected.id &&
+                    Math.abs(p.latitude - selected.latitude) < 0.00001 &&
+                    Math.abs(p.longitude - selected.longitude) < 0.00001,
+                )
+                .map((p) => (
+                  <Pressable
+                    key={p.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={p.title}
+                    onPress={() => onSelect(p.id)}
+                    style={s.all}
+                  >
+                    <Text style={s.allText}>{p.title}</Text>
+                  </Pressable>
+                ))}
+            </View>
+          )}
+          {!["driver", "collector", "location"].includes(
+            selected.kind || "",
+          ) && (
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={`Abrir navegação para ${selected.title}`}
+              onPress={() =>
+                void Linking.openURL(
+                  `https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`,
+                )
+              }
+              style={s.navigate}
+            >
+              <Ionicons name="navigate-outline" size={17} color="white" />
+              <Text style={s.navigateText}>Abrir navegação</Text>
+              <Ionicons name="open-outline" size={15} color="white" />
+            </Pressable>
+          )}
         </View>
       )}
       {points.length > 5 && (

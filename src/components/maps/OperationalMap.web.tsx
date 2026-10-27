@@ -1,3 +1,4 @@
+import { MapLegend } from "./MapLegend";
 import { useEffect, useRef, useState } from "react";
 import { View, Text } from "react-native";
 import "leaflet/dist/leaflet.css";
@@ -19,6 +20,8 @@ type Props = {
   onSelectPoint?: (id: string) => void;
   onPick?: (lat: number, lng: number) => void;
   focusRequest?: number;
+  showPointList?: boolean;
+  accuracyCircle?: { latitude: number; longitude: number; radius: number };
 };
 export default function OperationalMapWeb({
   baseLabel = "Base operacional",
@@ -31,13 +34,17 @@ export default function OperationalMapWeb({
   onSelectPoint,
   onPick,
   focusRequest,
+  showPointList = true,
+  accuracyCircle,
 }: Props) {
   const container = useRef<HTMLDivElement>(null),
     mapRef = useRef<any>(null),
     leaflet = useRef<any>(null),
     layer = useRef<any>(null),
     fitKey = useRef(""),
-    gpsCentered = useRef(false);
+    gpsCentered = useRef(false),
+    lastSelection = useRef<string | null>(null),
+    lastFocus = useRef<number | undefined>(undefined);
   const [localId, setLocalId] = useState<string | null>(null);
   const activeId = localId ?? selectedPointId;
   const [fitRequest, setFitRequest] = useState(0);
@@ -107,7 +114,16 @@ export default function OperationalMapWeb({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const signature = points
-    .map((p) => `${p.id}:${p.latitude}:${p.longitude}`)
+    .filter(
+      (p) =>
+        p.includeInBounds !== false ||
+        !["driver", "collector", "location"].includes(p.kind || ""),
+    )
+    .map((p) =>
+      ["driver", "collector", "location"].includes(p.kind || "")
+        ? p.id
+        : `${p.id}:${p.latitude}:${p.longitude}`,
+    )
     .join("|");
   useEffect(() => {
     if (!ready) return;
@@ -127,10 +143,11 @@ export default function OperationalMapWeb({
       label = "",
       color?: string,
       selected = false,
+      sequence?: number | null,
     ) =>
       L.divIcon({
         className: "katua-map-pin",
-        html: markerSvg(kind, label, color, selected),
+        html: markerSvg(kind, label, color, selected, sequence),
         iconSize: [46, 56],
         iconAnchor: [23, 53],
         popupAnchor: [0, -48],
@@ -155,16 +172,35 @@ export default function OperationalMapWeb({
       })
         .bindTooltip(document.createTextNode(baseLabel))
         .addTo(group);
+    if (
+      accuracyCircle &&
+      Number.isFinite(accuracyCircle.radius) &&
+      accuracyCircle.radius > 0
+    )
+      L.circle([accuracyCircle.latitude, accuracyCircle.longitude], {
+        radius: accuracyCircle.radius,
+        color: accuracyCircle.radius > 100 ? "#B45309" : "#2563EB",
+        fillColor: accuracyCircle.radius > 100 ? "#F59E0B" : "#60A5FA",
+        fillOpacity: 0.12,
+        weight: 1,
+      }).addTo(group);
     let visit = 0;
     valid.forEach((point) => {
       const kind = point.kind || "collection";
-      const label = kind === "collection" ? String(++visit) : "";
-      const content = document.createElement("div");
-      content.textContent = [point.title, point.description]
-        .filter(Boolean)
-        .join(" · ");
+      const label =
+        kind === "collection"
+          ? point.sequence === null
+            ? ""
+            : String(point.sequence ?? ++visit)
+          : "";
       L.marker([point.latitude, point.longitude], {
-        icon: pin(kind, label, point.color, activeId === point.id),
+        icon: pin(
+          kind,
+          label,
+          point.color,
+          activeId === point.id,
+          point.sequence,
+        ),
         title: point.title,
         alt: point.title,
         zIndexOffset: ["driver", "collector", "location"].includes(kind)
@@ -175,7 +211,7 @@ export default function OperationalMapWeb({
               ? 1000
               : 0,
       })
-        .bindPopup(content, { autoPan: false })
+        .bindTooltip(document.createTextNode(point.title))
         .on("click", () => latest.current.onSelectPoint?.(point.id))
         .addTo(group);
     });
@@ -193,15 +229,24 @@ export default function OperationalMapWeb({
       gpsCentered.current = true;
     }
     const selected = valid.find((p) => p.id === activeId);
-    if (selected)
-      map.panTo([selected.latitude, selected.longitude], { animate: false });
-    else if (fitKey.current !== signature && valid.length) {
+    if (selected) {
+      if (
+        lastSelection.current !== activeId ||
+        lastFocus.current !== focusRequest
+      )
+        map.panTo([selected.latitude, selected.longitude], { animate: false });
+    } else if (fitKey.current !== signature && valid.length) {
       map.fitBounds(
-        valid.map((p) => [p.latitude, p.longitude]),
-        { padding: [35, 35], maxZoom: 14, animate: false },
+        (valid.filter((p) => p.includeInBounds !== false).length
+          ? valid.filter((p) => p.includeInBounds !== false)
+          : valid
+        ).map((p) => [p.latitude, p.longitude]),
+        { padding: [60, 65], maxZoom: 14, animate: false },
       );
       fitKey.current = signature;
     }
+    lastSelection.current = activeId ?? null;
+    lastFocus.current = focusRequest;
     const timer = setTimeout(() => map.invalidateSize(), 0);
     return () => clearTimeout(timer);
   }, [
@@ -216,6 +261,8 @@ export default function OperationalMapWeb({
     fitRequest,
     routeCoordinates,
     points,
+    accuracyCircle,
+    focusRequest,
   ]);
   return (
     <View style={{ flexShrink: 0, minHeight: 360, backgroundColor: "#F8FAFC" }}>
@@ -256,40 +303,16 @@ export default function OperationalMapWeb({
           viário.
         </Text>
       )}
-      <View
-        style={{
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 14,
-          paddingHorizontal: 18,
-          paddingVertical: 10,
-          backgroundColor: "#F6F9F6",
-        }}
-      >
-        {[
-          ["#2563EB", "Motorista / GPS"],
-          ["#087F8C", "Catador"],
-          ["#B45309", "PEV"],
-          ["#047857", "Sede"],
-          ["#345D4F", "Coletas numeradas"],
-        ].map(([color, label]) => (
-          <View
-            key={label}
-            style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
-          >
-            <View
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: 4,
-                backgroundColor: color,
-              }}
-            />
-            <Text style={{ fontSize: 10, color: "#5F7366" }}>{label}</Text>
-          </View>
-        ))}
-      </View>
-      {!!points.length && (
+      <MapLegend
+        points={points}
+        baseKind={
+          baseLabel
+            ? baseKind ||
+              (baseLabel === "Minha posição" ? "location" : "cooperative")
+            : undefined
+        }
+      />
+      {showPointList && !!points.length && (
         <MapPointList
           points={points}
           selectedId={activeId}

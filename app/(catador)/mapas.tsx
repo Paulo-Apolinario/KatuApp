@@ -880,6 +880,25 @@ export default function CatadorMapScreen() {
           <OfflineBanner visible={isOffline} />
           <TouchableOpacity
             accessibilityRole="button"
+            onPress={() => router.push("/(catador)/pev-atendimento")}
+            style={{
+              padding: 16,
+              marginHorizontal: 16,
+              marginTop: 12,
+              borderRadius: 12,
+              backgroundColor: "#075E47",
+            }}
+          >
+            <Text style={{ color: "white", fontWeight: "700" }}>
+              Solicitações de PEV
+            </Text>
+            <Text style={{ color: "#E2F4EA", fontSize: 12, marginTop: 5 }}>
+              Ponto cadastrado: informar situação, enviar fotos e abrir
+              retirada, inclusive sem rota.
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => router.push("/(catador)/extra-orders?create=1")}
             style={{
               padding: 16,
@@ -889,7 +908,7 @@ export default function CatadorMapScreen() {
             }}
           >
             <Text style={{ color: "white", fontWeight: "600" }}>
-              Registrar parada extra / O.C.
+              Nova O.C. · coleta extra ou parada não programada
             </Text>
           </TouchableOpacity>
           <LocationStatus
@@ -1003,7 +1022,9 @@ export default function CatadorMapScreen() {
                   id: point.id,
                   latitude: point.latitude,
                   longitude: point.longitude,
-                  kind: point.collection.bin ? "pev" as const : "collection" as const,
+                  kind: point.collection.bin
+                    ? ("pev" as const)
+                    : ("collection" as const),
                   title: point.title,
                   description: `${translateStatus(point.status)} • ${point.address}`,
                   color: getStatusColor(point.status),

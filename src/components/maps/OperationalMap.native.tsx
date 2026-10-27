@@ -1,6 +1,14 @@
+import { View } from "react-native";
+import { MapPointList } from "./MapPointList";
+import { MapLegend } from "./MapLegend";
 import MapMarkerPin from "./MapMarkerPin";
-import { useEffect, useRef } from "react";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { useEffect, useRef, useState } from "react";
+import MapView, {
+  Marker,
+  Polyline,
+  Circle,
+  PROVIDER_GOOGLE,
+} from "react-native-maps";
 import { type OperationalMapPoint, type MapMarkerKind } from "./mapMarkers";
 
 export type { OperationalMapPoint } from "./mapMarkers";
@@ -15,6 +23,8 @@ type Props = {
   onSelectPoint?: (pointId: string) => void;
   onPick?: (latitude: number, longitude: number) => void;
   focusRequest?: number;
+  showPointList?: boolean;
+  accuracyCircle?: { latitude: number; longitude: number; radius: number };
 };
 
 export default function OperationalMapNative({
@@ -28,21 +38,26 @@ export default function OperationalMapNative({
   onSelectPoint,
   onPick,
   focusRequest,
+  showPointList = false,
+  accuracyCircle,
 }: Props) {
   const map = useRef<MapView>(null);
   const centeredGps = useRef(false);
+  const [ready, setReady] = useState(false),
+    [fitRequest, setFitRequest] = useState(0);
   const selected = points.find((p) => p.id === selectedPointId);
   const selectedLat = selected?.latitude,
     selectedLng = selected?.longitude;
   useEffect(() => {
-    if (selectedLat != null && selectedLng != null)
+    if (ready && selectedLat != null && selectedLng != null)
       map.current?.animateCamera(
         { center: { latitude: selectedLat, longitude: selectedLng } },
         { duration: 250 },
       );
-  }, [selectedLat, selectedLng]);
+  }, [selectedLat, selectedLng, selectedPointId, focusRequest, ready]);
   useEffect(() => {
     if (
+      ready &&
       baseLabel === "Minha posição" &&
       !centeredGps.current &&
       !selectedPointId
@@ -56,18 +71,27 @@ export default function OperationalMapNative({
         { duration: 300 },
       );
     }
-  }, [baseLabel, baseLatitude, baseLongitude, selectedPointId]);
-  const fitPoints = useRef(points);
-  fitPoints.current = points;
+  }, [baseLabel, baseLatitude, baseLongitude, selectedPointId, ready]);
+  const fitPoints = useRef(points.filter((p) => p.includeInBounds !== false));
+  fitPoints.current = points.filter((p) => p.includeInBounds !== false);
+  const signature = points
+    .filter((p) => p.includeInBounds !== false)
+    .map((p) =>
+      ["driver", "collector", "location"].includes(p.kind || "")
+        ? p.id
+        : `${p.id}:${p.latitude}:${p.longitude}`,
+    )
+    .join("|");
   useEffect(() => {
-    if (focusRequest !== undefined && fitPoints.current.length)
+    if (ready && !selectedPointId && fitPoints.current.length)
       map.current?.fitToCoordinates(fitPoints.current, {
-        edgePadding: { top: 40, right: 40, bottom: 40, left: 40 },
+        edgePadding: { top: 72, right: 48, bottom: 48, left: 48 },
         animated: true,
       });
-  }, [focusRequest]);
-  return (
+  }, [focusRequest, signature, ready, selectedPointId, fitRequest]);
+  const view = (
     <MapView
+      onMapReady={() => setReady(true)}
       onPress={(event) =>
         onPick?.(
           event.nativeEvent.coordinate.latitude,
@@ -76,7 +100,11 @@ export default function OperationalMapNative({
       }
       ref={map}
       provider={PROVIDER_GOOGLE}
-      style={{ flex: 1, minHeight: 320 }}
+      style={
+        showPointList
+          ? { height: 360, width: "100%" }
+          : { flex: 1, minHeight: 320 }
+      }
       initialRegion={{
         latitude: baseLatitude,
         longitude: baseLongitude,
@@ -87,6 +115,21 @@ export default function OperationalMapNative({
       showsMyLocationButton={false}
       toolbarEnabled={false}
     >
+      {accuracyCircle &&
+        Number.isFinite(accuracyCircle.radius) &&
+        accuracyCircle.radius > 0 && (
+          <Circle
+            center={accuracyCircle}
+            radius={accuracyCircle.radius}
+            strokeColor={accuracyCircle.radius > 100 ? "#B45309" : "#2563EB"}
+            fillColor={
+              accuracyCircle.radius > 100
+                ? "rgba(245,158,11,0.12)"
+                : "rgba(96,165,250,0.12)"
+            }
+            strokeWidth={1}
+          />
+        )}
       {routeCoordinates.length >= 2 ? (
         <Polyline
           coordinates={routeCoordinates}
@@ -150,19 +193,49 @@ export default function OperationalMapNative({
           <MapMarkerPin
             kind={point.kind || "collection"}
             label={
-              !point.kind || point.kind === "collection"
-                ? String(
-                    points
-                      .slice(0, index + 1)
-                      .filter((p) => !p.kind || p.kind === "collection").length,
-                  )
-                : undefined
+              point.sequence === null
+                ? undefined
+                : !point.kind || point.kind === "collection"
+                  ? String(
+                      point.sequence ??
+                        points
+                          .slice(0, index + 1)
+                          .filter((p) => !p.kind || p.kind === "collection")
+                          .length,
+                    )
+                  : undefined
             }
+            sequence={point.sequence}
             color={point.color}
             selected={selectedPointId === point.id}
           />
         </Marker>
       ))}
     </MapView>
+  );
+  return showPointList ? (
+    <View>
+      {view}
+      <MapLegend
+        points={points}
+        baseKind={
+          baseLabel
+            ? baseKind ||
+              (baseLabel === "Minha posição" ? "location" : "cooperative")
+            : undefined
+        }
+      />
+      <MapPointList
+        points={points}
+        selectedId={selectedPointId}
+        onSelect={(id) => onSelectPoint?.(id)}
+        onShowAll={() => {
+          onSelectPoint?.("__base__");
+          setFitRequest((n) => n + 1);
+        }}
+      />
+    </View>
+  ) : (
+    view
   );
 }

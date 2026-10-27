@@ -6,11 +6,13 @@ export default function MapMarkerPin({
   label,
   selected = false,
   color,
+  sequence,
 }: {
   kind?: MapMarkerKind;
   label?: string;
   selected?: boolean;
   color?: string;
+  sequence?: number | null;
 }) {
   const fill = markerColor(kind, color, selected);
   return (
@@ -53,20 +55,27 @@ export default function MapMarkerPin({
           marginTop: -2,
         }}
       />
-      {selected && (
+      {kind !== "collection" && sequence != null && (
         <View
           style={{
             position: "absolute",
             top: 0,
-            right: 0,
-            width: 12,
-            height: 12,
-            borderRadius: 6,
-            backgroundColor: "#FDE68A",
-            borderWidth: 2,
-            borderColor: "white",
+            left: 0,
+            minWidth: 18,
+            height: 18,
+            paddingHorizontal: 3,
+            borderRadius: 9,
+            backgroundColor: "white",
+            borderWidth: 1,
+            borderColor: fill,
+            alignItems: "center",
+            justifyContent: "center",
           }}
-        />
+        >
+          <Text style={{ fontSize: 10, fontWeight: "700", color: fill }}>
+            {sequence}
+          </Text>
+        </View>
       )}
     </View>
   );
