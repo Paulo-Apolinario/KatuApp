@@ -1,3 +1,4 @@
+import { parsePoint } from "@/src/screens/auth-select-location/coordinates";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -284,10 +285,12 @@ export default function RegisterScreen() {
       }
 
       if (
-        (latitude.trim() && Number.isNaN(Number(latitude))) ||
-        (longitude.trim() && Number.isNaN(Number(longitude)))
+        (latitude.trim() || longitude.trim()) &&
+        !parsePoint(latitude, longitude)
       ) {
-        setErrorMessage("Latitude e longitude devem ser números válidos.");
+        setErrorMessage(
+          "Informe latitude entre −90 e 90 e longitude entre −180 e 180, juntas.",
+        );
         return false;
       }
     }
@@ -404,8 +407,8 @@ export default function RegisterScreen() {
           neighborhood: neighborhood.trim() || undefined,
           city: city.trim() || undefined,
           state: stateName.trim() || undefined,
-          latitude: latitude.trim() ? Number(latitude) : undefined,
-          longitude: longitude.trim() ? Number(longitude) : undefined,
+          latitude: parsePoint(latitude, longitude)?.latitude,
+          longitude: parsePoint(latitude, longitude)?.longitude,
         });
       }
 
