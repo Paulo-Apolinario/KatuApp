@@ -371,7 +371,7 @@ export default function RouteExecutionScreen() {
                       label="Navegar até o ponto"
                       onPress={() => void navigate(next)}
                     />
-                    {collectorId === next.collectorId && (
+                    {(collectorId === next.collectorId || next.participants?.some(p => p.collectorId === collectorId)) && (
                       <Button
                         label="Atender este ponto"
                         disabled={detail.status !== "IN_PROGRESS"}

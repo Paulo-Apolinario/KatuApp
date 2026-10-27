@@ -46,6 +46,10 @@ const collectionSelect = {
   completedAt: true,
   createdAt: true,
   totalWeightKg: true,
+  participants: true,
+  allocationVersion: true,
+  allocationQuantityVersion: true,
+  quantityReviewVersion: true,
   generator: { select: { ...pointSelect, companyName: true, type: true } },
   bin: { select: { ...pointSelect, binId: true } },
   collector: { select: { id: true, name: true } },
@@ -102,6 +106,7 @@ function scopeWhere(id: string, q: ReportQuery): Prisma.CollectionWhereInput {
   return {
     cooperativeId: id,
     AND: [
+      ...(q.collectorId ? [{ OR: [{ collectorId: q.collectorId }, { participants: { some: { collectorId: q.collectorId } } }] }] : []),
       ...(q.binId ? [{ binId: q.binId }] : []),
       ...(q.materialId || q.unit
         ? [
@@ -131,7 +136,6 @@ function scopeWhere(id: string, q: ReportQuery): Prisma.CollectionWhereInput {
     ...(q.status ? { status: q.status } : {}),
     ...(q.routeId ? { routeId: q.routeId } : {}),
     ...(q.generatorId ? { generatorId: q.generatorId } : {}),
-    ...(q.collectorId ? { collectorId: q.collectorId } : {}),
     ...(q.driverId ? { driverId: q.driverId } : {}),
     ...(q.vehicleId ? { vehicleId: q.vehicleId } : {}),
     ...(q.origin === "PEV"

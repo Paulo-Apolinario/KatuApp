@@ -55,6 +55,7 @@ model User {
 }
 
 model Cooperative {
+  collectorTeams CollectorTeam[]
   routePlans RoutePlan[]
   ownerDocuments OwnerDocument[]
   extraCollectionOrders ExtraCollectionOrder[]
@@ -306,6 +307,7 @@ model WasteCatalogSuggestion {
 }
 
 model Collector {
+  teamParticipations CollectionParticipant[]
   ownerDocuments OwnerDocument[]
   extraCollectionOrders ExtraCollectionOrder[]
   id            String  @id @default(cuid())
@@ -378,6 +380,13 @@ model CollectorDocument {
 }
 
 model Collection {
+  teamId String?
+  teamNameSnapshot String?
+  teamVersion Int @default(0)
+  allocationVersion Int @default(0)
+  allocationQuantityVersion Int?
+  participants CollectionParticipant[]
+  allocationReviews CollectionAllocationReview[]
   routePoint Json?
   routePointKey String?
   extraOrder ExtraCollectionOrder? @relation("ApprovedExtraCollection")
@@ -689,6 +698,7 @@ model Vehicle {
 }
 
 model Route {
+  teamId String?
   planId String?
   plan RoutePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
   executionDate String?
@@ -1467,6 +1477,7 @@ model InboxNotification {
 }
 
 model RoutePlan {
+  teamId String?
   id String @id @default(cuid())
   cooperativeId String
   cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
@@ -1535,4 +1546,42 @@ model PevRequestUpdate {
   createdAt DateTime @default(now())
   request PevRequest @relation(fields:[requestId], references:[id], onDelete:Restrict)
   @@index([requestId,createdAt])
+}
+
+
+model CollectorTeam {
+  id String @id @default(cuid())
+  cooperativeId String
+  name String
+  active Boolean @default(true)
+  memberIds String[]
+  version Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  @@index([cooperativeId, active])
+}
+model CollectionParticipant {
+  id String @id @default(cuid())
+  collectionId String
+  collectorId String
+  nameSnapshot String
+  allocations Json?
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collector Collector @relation(fields: [collectorId], references: [id], onDelete: Restrict)
+  @@unique([collectionId, collectorId])
+  @@index([collectorId])
+}
+model CollectionAllocationReview {
+  id String @id @default(cuid())
+  collectionId String
+  version Int
+  quantityVersion Int
+  actorUserId String
+  actorName String
+  reason String
+  snapshot Json
+  createdAt DateTime @default(now())
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  @@unique([collectionId, version])
 }

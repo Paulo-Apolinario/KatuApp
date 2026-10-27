@@ -1,3 +1,4 @@
+import { creditedMaterials } from "../collector-teams/team.model";
 export const EXECUTED = new Set([
   "COLLECTED",
   "RECEIVED",
@@ -231,7 +232,7 @@ export function buildCharts(collections: any[], q: any, config: any) {
     })),
     points: [...points.values()],
     environmental: {
-      co2Kg: config.methodology?.factors?.length ? co2 : null,
+      co2Kg: coveredMass > 0 ? co2 : null,
       coveredMassKg: coveredMass,
       totalMassKg: summarize(collections, q).massKg,
       methodology: config.methodology,
@@ -314,9 +315,13 @@ export function assetRows(data: any, q: any, kind: string) {
             : role === "DRIVER"
               ? "driverId"
               : "vehicleId"
-        ] === asset.id,
+        ] === asset.id || (role === "COLLECTOR" && c.participants?.some((p: any) => p.collectorId === asset.id)),
     );
     const sum = summarize(matches, q);
+    if (role === "COLLECTOR") {
+      sum.units = quantities(matches.flatMap((c: any) => c.participants?.length ? creditedMaterials(c, asset.id).filter((m: any) => (!q.unit || m.unit === q.unit) && (!q.materialId || c.collectionMaterials?.some((cm: any) => cm.id === m.materialId && cm.wasteTypeId === q.materialId))) : selectedMaterials(c, q)));
+      sum.massKg = mass(sum.units);
+    }
     const routes = new Set(matches.map((c: any) => c.routeId).filter(Boolean));
     const routeAssigned = data.routes.filter(
       (r: any) =>

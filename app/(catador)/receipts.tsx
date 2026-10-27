@@ -158,7 +158,7 @@ export default function ReceiptsScreen() {
           )
         : undefined,
       totalKg: receiptsOrdenados.reduce(
-        (acc, item) => acc + getCollectionTotalKg(item),
+        (acc, item) => acc + (item.participants?.length ? Number(item.creditedWeightKg || 0) : getCollectionTotalKg(item)),
         0,
       ),
       since:

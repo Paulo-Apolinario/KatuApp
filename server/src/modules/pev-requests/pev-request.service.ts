@@ -60,7 +60,7 @@ function scope(a: Actor): Prisma.PevRequestWhereInput {
   return a.role === "COOPERATIVE"
     ? { cooperativeId: a.coopId || "__none__" }
     : a.role === "COLLECTOR"
-      ? { OR: [{ cooperativeId: a.coopId! }, { requesterUserId: a.id }] }
+      ? { cooperativeId: a.coopId! }
       : { requesterUserId: a.id };
 }
 const publicBin = {
@@ -72,20 +72,15 @@ const publicBin = {
   cooperative: { user: { isActive: true, accountStatus: "ACTIVE" } },
 } satisfies Prisma.BinWhereInput;
 function accessibleBin(a: Actor): Prisma.BinWhereInput {
-  return a.role === "COLLECTOR"
-    ? {
-        OR: [
-          publicBin,
-          {
-            cooperativeId: a.coopId!,
-            status: { not: "INACTIVE" },
-            pointKind: { in: ["PEV", "ECOPONTO"] },
-            cooperative: { user: { isActive: true, accountStatus: "ACTIVE" } },
-          },
-        ],
-      }
-    : publicBin;
+  if (a.role === "PF") return publicBin;
+  return {
+    cooperativeId: a.coopId || "__none__",
+    status: { not: "INACTIVE" },
+    pointKind: { in: ["PEV", "ECOPONTO"] },
+    cooperative: { user: { isActive: true, accountStatus: "ACTIVE" } },
+  };
 }
+
 const address = (b: any) =>
   [b.street, b.number, b.neighborhood, b.city, b.state]
     .filter(Boolean)

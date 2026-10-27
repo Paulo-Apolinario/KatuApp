@@ -12,6 +12,7 @@ export async function notifyCollection(
   const collection = await tx.collection.findUniqueOrThrow({
     where: { id: collectionId },
     select: {
+      participants: { select: { collector: { select: { userId: true } } } },
       pevRequests: { select: { id: true, requesterUserId: true } },
       collector: { select: { userId: true } },
       driver: { select: { userId: true } },
@@ -22,6 +23,7 @@ export async function notifyCollection(
   const recipients = [
     ...new Set(
       [
+        ...collection.participants.map(p => p.collector.userId),
         ...collection.pevRequests.map((r) => r.requesterUserId),
         collection.collector?.userId,
         collection.driver?.userId,

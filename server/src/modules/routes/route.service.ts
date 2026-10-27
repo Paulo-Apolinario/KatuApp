@@ -1,3 +1,4 @@
+import { snapshotRouteTeam } from "../collector-teams/team.service";
 import {
   addPlannedPoints,
   validatePoints,
@@ -65,6 +66,7 @@ const routeInclude = {
 } as const;
 
 const collectionInclude = {
+  participants: true,
   bin: {
     select: {
       id: true,
@@ -399,6 +401,7 @@ export class RouteService {
           data: {
             cooperativeId: cooperative.id,
             collectorIds: data.collectorIds || [],
+            teamId: data.teamId,
             startPoint: data.startPoint,
             endPoint: data.endPoint,
             departureTime: data.departureTime,
@@ -431,6 +434,7 @@ export class RouteService {
           data.visitOrder,
           data.plannedPoints?.map((p, i) => [p.key, ids[i]]) || [],
         );
+        await snapshotRouteTeam(tx, route.id);
         if (data.departureTime) await checkConflict(tx, route);
         await notifyRoute(tx, route.id, "Nova execução atribuída à equipe.");
         return route.id;
@@ -543,6 +547,7 @@ export class RouteService {
           where: { id: route.id },
           data: { collectionOrder: order },
         });
+        await snapshotRouteTeam(transaction, route.id);
         return updated;
       },
       {
@@ -638,10 +643,13 @@ export class RouteService {
         )
           throw Error("Altere a equipe antes de iniciar a execução.");
         const collectorIds = data.collectorIds ?? route.collectorIds;
+        const teamId = data.teamId === undefined ? route.teamId : data.teamId;
+        if (route.status === "IN_PROGRESS" && teamId !== route.teamId) throw Error("Altere a equipe antes de iniciar a execução.");
         await validateTeam(transaction, cooperative.id, {
           driverId: data.driverId ?? route.driverId,
           vehicleId: data.vehicleId ?? route.vehicleId,
           collectorIds,
+          teamId: data.teamId !== undefined || data.collectorIds !== undefined ? teamId : undefined,
         });
         const driverId =
           data.driverId === undefined ? route.driverId : data.driverId;
@@ -810,6 +818,7 @@ export class RouteService {
             driverId: data.driverId,
             vehicleId: data.vehicleId,
             collectorIds: data.collectorIds,
+            teamId: data.teamId,
             startPoint: data.startPoint,
             endPoint: data.endPoint,
             departureTime: data.departureTime,
@@ -836,6 +845,7 @@ export class RouteService {
             status: data.status,
           },
         });
+        await snapshotRouteTeam(transaction, route.id);
         const updated = await transaction.route.findUniqueOrThrow({
           where: { id: route.id },
         });

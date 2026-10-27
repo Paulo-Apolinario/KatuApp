@@ -1,3 +1,5 @@
+import { creditedKg } from "../collector-teams/team.model";
+import { refreshTeamTotals } from "../collector-teams/team.service";
 import { notifyCollection } from "../inbox/inbox.service";
 import type { ReviewQuantitiesInput } from "./collection.schemas";
 import { createHash } from "node:crypto";
@@ -107,6 +109,8 @@ const userSelect = {
 } satisfies Prisma.UserSelect;
 
 const collectionInclude = {
+  participants: true,
+  allocationReviews: { orderBy: { version: "desc" as const } },
   quantityReviews: { orderBy: { version: "desc" as const } },
   extraOrder: {
     select: { id: true, contextRouteId: true, routeNameSnapshot: true },
@@ -236,7 +240,7 @@ export class CollectionService {
     if (role === UserRole.COLLECTOR) {
       const collector = await prisma.collector.findUnique({
         where: { userId: authUserId },
-        select: { id: true, cooperativeId: true },
+        select: { id: true, cooperativeId: true, status: true },
       });
 
       if (!collector) {
@@ -249,6 +253,7 @@ export class CollectionService {
         );
       }
 
+      if (collector.status === "INACTIVE") throw new CollectionDomainError("Catador inativo.", { statusCode: 403, code: "INACTIVE_COLLECTOR" });
       if (!collector.cooperativeId) {
         throw new CollectionDomainError(
           "O catador não está vinculado a uma cooperativa.",
@@ -728,7 +733,11 @@ export class CollectionService {
         data.collectedAt,
       );
       await notifyCollection(transaction, collection.id, `field-collected:${collection.id}`, "COLLECTION_STAGE", "Coleta realizada em campo", "A retirada foi registrada. O material seguirá para recebimento e conferência pela cooperativa.");
+      const participantsToLock = await transaction.collectionParticipant.findMany({ where: { collectionId: collection.id }, select: { collectorId: true } });
+      for (const id of [...new Set([...(collection.collectorId ? [collection.collectorId] : []), ...participantsToLock.map(p => p.collectorId)])].sort()) await transaction.$queryRaw`SELECT id FROM "Collector" WHERE id=${id} FOR UPDATE`;
       await this.applyFieldTotals(transaction, collection, totalWeightKg);
+      const team = await transaction.collectionParticipant.findMany({ where: { collectionId: collection.id }, select: { collectorId: true } });
+      if (team.length) await refreshTeamTotals(transaction, [...team.map(p => p.collectorId), ...(collection.collectorId ? [collection.collectorId] : [])]);
     }
     return collection;
   }
@@ -973,7 +982,7 @@ export class CollectionService {
         where = { cooperativeId: context.cooperativeId };
         break;
       case "COLLECTOR":
-        where = { collectorId: context.collectorId };
+        where = { cooperativeId: context.cooperativeId, OR: [{ collectorId: context.collectorId }, { participants: { some: { collectorId: context.collectorId } } }] };
         break;
       case "DRIVER":
         where = { driverId: context.driverId };
@@ -992,11 +1001,12 @@ export class CollectionService {
         );
     }
 
-    return prisma.collection.findMany({
+    const rows = await prisma.collection.findMany({
       where,
       include: collectionInclude,
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     });
+    return context.role === "COLLECTOR" ? rows.map(c => ({ ...c, creditedWeightKg: creditedKg(c, context.collectorId!), myCollectorId: context.collectorId })) : rows;
   }
 
   /*
@@ -1021,7 +1031,7 @@ export class CollectionService {
       case "COOPERATIVE":
         break;
       case "COLLECTOR":
-        where = { ...where, collectorId: context.collectorId };
+        where = { ...where, OR: [{ collectorId: context.collectorId }, { participants: { some: { collectorId: context.collectorId } } }] };
         break;
       case "DRIVER":
         where = { ...where, driverId: context.driverId };
@@ -1052,7 +1062,7 @@ export class CollectionService {
       });
     }
 
-    return collection;
+    return context.role === "COLLECTOR" ? { ...collection, creditedWeightKg: creditedKg(collection, context.collectorId!), myCollectorId: context.collectorId } : collection;
   }
 
   /*
@@ -1118,7 +1128,7 @@ export class CollectionService {
       const collection = await transaction.collection.findFirst({
         where: {
           id: collectionId,
-          collectorId,
+          OR: [{ collectorId }, { participants: { some: { collectorId } } }],
           cooperativeId: context.cooperativeId,
         },
       });
@@ -1163,10 +1173,12 @@ export class CollectionService {
         collection.vehicleId,
       );
 
-      await transaction.collector.update({
-        where: { id: collectorId },
-        data: { status: CollectorStatus.ON_ROUTE },
-      });
+      const participants = await transaction.collectionParticipant.findMany({ where: { collectionId }, select: { collectorId: true } });
+      const memberIds = [...new Set([collection.collectorId!, ...participants.map(p => p.collectorId)])].filter(Boolean).sort();
+      for (const id of memberIds) await transaction.$queryRaw`SELECT id FROM "Collector" WHERE id=${id} FOR UPDATE`;
+      if (await transaction.collector.count({ where: { id: { in: memberIds }, cooperativeId: context.cooperativeId, status: { not: "INACTIVE" }, user: { isActive: true, accountStatus: "ACTIVE" } } }) !== memberIds.length)
+        throw new CollectionDomainError("Revise os participantes inativos antes de iniciar.", { statusCode: 409, code: "TEAM_INACTIVE" });
+      await transaction.collector.updateMany({ where: { id: { in: memberIds } }, data: { status: CollectorStatus.ON_ROUTE } });
 
       if (collection.scheduleId) {
         await transaction.schedule.update({
@@ -1221,7 +1233,7 @@ export class CollectionService {
       const collection = await transaction.collection.findFirst({
         where: {
           id: collectionId,
-          collectorId,
+          OR: [{ collectorId }, { participants: { some: { collectorId } } }],
           cooperativeId: context.cooperativeId,
         },
         include: {
@@ -1339,7 +1351,11 @@ export class CollectionService {
       }
 
       await notifyCollection(transaction, collection.id, `field-collected:${collection.id}`, "COLLECTION_STAGE", "Coleta realizada em campo", "A retirada foi registrada. O material seguirá para recebimento e conferência pela cooperativa.");
+      const participantsToLock = await transaction.collectionParticipant.findMany({ where: { collectionId: collection.id }, select: { collectorId: true } });
+      for (const id of [...new Set([...(collection.collectorId ? [collection.collectorId] : []), ...participantsToLock.map(p => p.collectorId)])].sort()) await transaction.$queryRaw`SELECT id FROM "Collector" WHERE id=${id} FOR UPDATE`;
       await this.applyFieldTotals(transaction, collection, totalWeightKg);
+      const team = await transaction.collectionParticipant.findMany({ where: { collectionId: collection.id }, select: { collectorId: true } });
+      if (team.length) await refreshTeamTotals(transaction, [...team.map(p => p.collectorId), ...(collection.collectorId ? [collection.collectorId] : [])]);
 
       return updated;
     });
@@ -1640,6 +1656,9 @@ export class CollectionService {
               data: { totalKg: { increment: delta } },
             });
         }
+        if (collection.participants.length) {
+          await refreshTeamTotals(tx, collection.participants.map(p => p.collectorId));
+        }
         const differences = items
           .map(
             (i) =>
@@ -1736,6 +1755,7 @@ export class CollectionService {
           cooperativeId: context.cooperativeId,
         },
         include: {
+          participants: true,
           collectionWasteEntries: {
             select: {
               id: true,
@@ -1760,6 +1780,9 @@ export class CollectionService {
         CollectionStatus.SORTING,
         CollectionStatus.COMPLETED,
       );
+
+      if (collection.participants.length && (!collection.allocationVersion || collection.allocationQuantityVersion !== collection.quantityReviewVersion))
+        throw new CollectionDomainError("Confirme a divisão dos materiais entre os participantes antes de concluir.", { statusCode: 409, code: "ALLOCATION_REQUIRED" });
 
       if (collection.collectionWasteEntries.length === 0) {
         throw new CollectionDomainError(
@@ -1959,6 +1982,8 @@ export class CollectionService {
         "Coleta cancelada",
         "A cooperativa atualizou a etapa da sua coleta. Acesse os detalhes para acompanhar.",
       );
+      const participants = await transaction.collectionParticipant.findMany({ where: { collectionId }, select: { collectorId: true } });
+      if (participants.length) await refreshTeamTotals(transaction, participants.map(p => p.collectorId));
       return updated;
     });
   }
@@ -1988,7 +2013,7 @@ export class CollectionService {
           id: collectionId,
           cooperativeId: context.cooperativeId,
           ...(context.role === "COLLECTOR"
-            ? { collectorId: context.collectorId }
+            ? { OR: [{ collectorId: context.collectorId }, { participants: { some: { collectorId: context.collectorId } } }] }
             : {}),
         },
       });

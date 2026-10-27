@@ -39,6 +39,7 @@ export interface RouteItem {
   cooperativeId?: string | null;
   collectionOrder?: string[];
   collectorIds?: string[];
+  teamId?: string | null;
   startPoint?: {
     name: string;
     address: string;
@@ -96,6 +97,7 @@ export interface RouteItem {
 type BackendRoute = {
   collectionOrder?: string[];
   collectorIds?: string[];
+  teamId?: string | null;
   startPoint?: {
     name: string;
     address: string;

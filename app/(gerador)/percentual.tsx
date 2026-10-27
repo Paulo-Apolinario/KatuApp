@@ -1,3 +1,4 @@
+import GeneratorImpact from "@/src/components/impact/GeneratorImpact";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
@@ -507,12 +508,13 @@ export default function PercentualScreen() {
         }
         contentContainerStyle={styles.scrollContent}
       >
+        <GeneratorImpact />
         <View style={styles.mainImpactCard}>
           <View style={styles.mainImpactIcon}>
             <Ionicons name="leaf-outline" size={30} color="#15803D" />
           </View>
 
-          <Text style={styles.mainImpactLabel}>Total reciclado</Text>
+          <Text style={styles.mainImpactLabel}>Massa consolidada</Text>
 
           <Text style={styles.mainImpactValue}>
             {formatKg(metrics.totalKg)} kg

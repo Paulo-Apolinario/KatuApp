@@ -22,7 +22,8 @@ export const createRouteSchema = z.object({
     )
     .optional(),
   plannedPoints: pointsSchema.optional(),
-  collectorIds: z.array(z.string().min(1)).max(30).optional(),
+  teamId: z.string().min(1).max(100).nullable().optional(),
+    collectorIds: z.array(z.string().min(1)).max(30).optional(),
   startPoint: locationSchema.optional(),
   endPoint: locationSchema.optional(),
   departureTime: z
@@ -77,6 +78,7 @@ export const updateRouteAssignmentsSchema = z
       )
       .optional(),
     plannedPoints: pointsSchema.optional(),
+    teamId: z.string().min(1).max(100).nullable().optional(),
     collectorIds: z.array(z.string().min(1)).max(30).optional(),
     startPoint: locationSchema.optional(),
     endPoint: locationSchema.optional(),

@@ -59,6 +59,7 @@ export const planSchema = z
     estimatedMinutes: z.number().int().min(15).max(1440).default(240),
     driverId: z.string().nullable().optional(),
     vehicleId: z.string().nullable().optional(),
+    teamId: z.string().min(1).max(100).nullable().optional(),
     collectorIds: z.array(z.string().min(1)).min(1).max(30),
     points: pointsSchema.refine(
       (p) => p.length > 0,

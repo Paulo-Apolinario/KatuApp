@@ -85,7 +85,7 @@ export async function routePlanningRoutes(app: FastifyInstance) {
     "/route-planning/sources",
     safe(async (r) => {
       const c = await service.coop(r.user.sub);
-      const [generators, bins, collectors] = await Promise.all([
+      const [generators, bins, teams, collectors] = await Promise.all([
         prisma.generator.findMany({
           where: { cooperativeId: c.id },
           select: {
@@ -122,6 +122,7 @@ export async function routePlanningRoutes(app: FastifyInstance) {
             longitude: true,
           },
         }),
+        prisma.collectorTeam.findMany({ where: { cooperativeId: c.id }, orderBy: { name: "asc" } }),
         prisma.collector.findMany({
           where: { cooperativeId: c.id, status: { not: "INACTIVE" } },
           select: { id: true, name: true },
@@ -131,6 +132,7 @@ export async function routePlanningRoutes(app: FastifyInstance) {
         generators,
         bins,
         collectors,
+        teams,
         base: {
           name: c.name,
           address: c.address || "Sede da cooperativa",

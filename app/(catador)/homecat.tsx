@@ -198,6 +198,7 @@ function getCollectionMaterials(collection: Collection) {
 }
 
 function getCollectionTotalKg(collection: Collection) {
+  if (collection.participants?.length) return Number(collection.creditedWeightKg || 0);
   const explicitWeight = safeNumber(collection.totalWeightKg);
 
   if (explicitWeight > 0) {
@@ -1016,6 +1017,7 @@ export default function HomeCatScreen() {
           />
 
           <View style={sectionCard}>
+            <QuickAction icon="people-outline" title="Minha produção em equipe" subtitle="Consultar materiais e parcelas confirmadas" onPress={() => router.push("/(catador)/producao-equipe")}/>
             <QuickAction icon="trash-outline" title="Solicitações de PEV" subtitle="Relatar situação, fotografar e abrir retirada" onPress={()=>router.push("/(catador)/pev-atendimento")}/>
             <QuickAction
               icon="navigate-outline"

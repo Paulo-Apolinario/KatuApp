@@ -656,7 +656,7 @@ export default function PevRequestsScreen() {
                 setPointPage(1);
               }}
             />
-            <Notice text="Aparecem os PEVs que a cooperativa habilitou como públicos no painel. Catadores também veem os pontos de sua cooperativa. O mapa mostra a página atual." />
+            <Notice text="Pessoas físicas veem os pontos publicados. Catadores e cooperativas acessam somente PEVs da própria cooperativa, mesmo quando públicos. O mapa mostra a página atual." />
             {points.some(
               (p) =>
                 typeof p.latitude === "number" &&

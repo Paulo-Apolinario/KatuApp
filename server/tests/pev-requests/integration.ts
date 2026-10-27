@@ -286,29 +286,10 @@ async function main() {
   ok(
     "Novos relatos se vinculam à retirada já ativa sem gerar coleta duplicada",
   );
-  const ownForeign = (
-    await call(
-      "otherCat",
-      "POST",
-      "/pev-requests",
-      {
-        ...payload,
-        id: randomUUID(),
-        notes: "Catador de outra área informa a situação",
-      },
-      201,
-    )
-  ).request;
-  await call(
-    "otherCat",
-    "POST",
-    `/pev-requests/${ownForeign.id}/collect`,
-    {},
-    403,
-  );
-  ok(
-    "Catador pode informar PEV público de outra cooperativa, mas não assumir sua coleta",
-  );
+  await call("otherCat", "POST", "/pev-requests", { ...payload, id: randomUUID(), notes: "Tentativa de acessar ponto alheio" }, 404);
+  assert.ok(!(await call("otherCat", "GET", "/pev-points")).bins.some((b: any) => b.id === bin.id));
+  assert.ok(!(await call("otherOwner", "GET", "/pev-points")).bins.some((b: any) => b.id === bin.id));
+  ok("PEV público permanece oculto para outra cooperativa e seus catadores, inclusive por ID direto");
   let current = (await call("pf", "GET", `/pev-requests/${report.id}`)).request;
   await call("cat", "POST", `/pev-requests/${report.id}/updates`, {
     operationId: randomUUID(),

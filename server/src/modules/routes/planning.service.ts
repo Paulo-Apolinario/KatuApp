@@ -1,3 +1,4 @@
+import { teamMembers, snapshotCollectionTeam, snapshotRouteTeam } from "../collector-teams/team.service";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { notifyCollection } from "../inbox/inbox.service";
@@ -51,8 +52,10 @@ export async function validateTeam(
     driverId?: string | null;
     vehicleId?: string | null;
     collectorIds: string[];
+    teamId?: string | null;
   },
 ) {
+  if (data.teamId) await teamMembers(tx, coopId, data.teamId, data.collectorIds);
   if (new Set(data.collectorIds).size !== data.collectorIds.length)
     throw Error("Não repita catadores na equipe.");
   const collectors = await tx.collector.count({
@@ -121,6 +124,7 @@ export async function addPlannedPoints(
     vehicleId: string | null;
     scheduledDate: Date | null;
     collectorIds: string[];
+    teamId?: string | null;
   },
   points: RoutePoint[],
   ownerId: string,
@@ -180,6 +184,7 @@ export async function addPlannedPoints(
         notes: point.notes,
       },
     });
+    if (route.teamId) await snapshotCollectionTeam(tx, c.id, route.cooperativeId, route.teamId, route.collectorIds);
     ids.push(c.id);
   }
   return ids;
@@ -228,6 +233,7 @@ async function checkConflict(
     driverId: string | null;
     vehicleId: string | null;
     collectorIds: string[];
+    teamId?: string | null;
     scheduledDate: Date | null;
     estimatedMinutes: number | null;
   },
@@ -382,6 +388,7 @@ export class RoutePlanningService {
                 name: plan.name,
                 description: plan.description,
                 collectorIds: plan.collectorIds,
+                teamId: plan.teamId,
                 driverId: plan.driverId,
                 vehicleId: plan.vehicleId,
                 scheduledDate: dayDate(r.executionDate!, plan.departureTime),
@@ -392,6 +399,7 @@ export class RoutePlanningService {
                 revision: { increment: 1 },
               },
             });
+            await snapshotRouteTeam(tx, next.id);
             await checkConflict(tx, next);
             const ids = await addPlannedPoints(
               tx,
@@ -477,6 +485,7 @@ export class RoutePlanningService {
                 driverId: plan.driverId,
                 vehicleId: plan.vehicleId,
                 collectorIds: plan.collectorIds,
+                teamId: plan.teamId,
                 stops: [],
                 startPoint: plan.startPoint as Prisma.InputJsonValue,
                 endPoint: plan.endPoint as Prisma.InputJsonValue,

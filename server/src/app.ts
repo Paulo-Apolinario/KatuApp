@@ -1,3 +1,5 @@
+import { impactRoutes } from "./modules/impact/impact.routes";
+import { collectorTeamRoutes } from "./modules/collector-teams/team.routes";
 import { pevRequestRoutes } from "./modules/pev-requests/pev-request.routes";
 import { routePlanningRoutes } from "./modules/routes/planning.routes";
 import { inboxRoutes } from "./modules/inbox/inbox.routes";
@@ -222,6 +224,8 @@ export async function buildApp() {
   await app.register(feedbackRoutes);
   await app.register(binsRoutes);
   await app.register(pevRequestRoutes);
+  await app.register(collectorTeamRoutes);
+  await app.register(impactRoutes);
   await app.register(environmentalRoutes);
   await app.register(reportsRoutes);
   await app.register(settingsRoutes);

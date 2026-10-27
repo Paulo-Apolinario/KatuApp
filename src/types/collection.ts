@@ -274,6 +274,14 @@ export interface CollectionQuantityReview {
   }[];
 }
 export interface Collection {
+  teamId?: string | null;
+  teamNameSnapshot?: string | null;
+  participants?: { id: string; collectorId: string; nameSnapshot: string; allocations?: { materialId: string; name: string; unit: WasteUnit; quantity: number }[] | null }[];
+  allocationVersion?: number;
+  allocationQuantityVersion?: number | null;
+  creditedWeightKg?: number;
+  myCollectorId?: string;
+
   routePoint?: {
     key: string;
     kind: "GENERATOR" | "PEV" | "ADDRESS";

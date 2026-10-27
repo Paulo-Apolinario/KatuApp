@@ -1,3 +1,4 @@
+import { personalMaterialParcels } from "@/src/utils/collectionParticipation";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -233,6 +234,7 @@ function getCollectionMaterials(collection: Collection) {
 }
 
 function getCollectionTotalKg(collection: Collection) {
+  if (collection.participants?.length) return Number(collection.creditedWeightKg || 0);
   const explicitWeight = safeNumber(collection.totalWeightKg);
 
   if (explicitWeight > 0) {
@@ -616,7 +618,7 @@ export default function CollectorDashboardScreen() {
     const materialsMap: Record<string, number> = {};
 
     periodCollections.forEach((collection) => {
-      getCollectionMaterials(collection).forEach((material) => {
+      (collection.participants?.length ? personalMaterialParcels(collection) : getCollectionMaterials(collection)).forEach((material) => {
         const materialName =
           material.name?.trim() || material.type?.trim() || "Não informado";
 

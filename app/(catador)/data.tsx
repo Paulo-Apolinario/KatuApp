@@ -1,3 +1,4 @@
+import { personalMaterialParcels } from "@/src/utils/collectionParticipation";
 import { NotificationBell } from "@/src/components/NotificationBell";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -146,6 +147,7 @@ function getCollectionMaterials(collection: Collection) {
 }
 
 function getCollectionTotalKg(collection: Collection) {
+  if (collection.participants?.length) return Number(collection.creditedWeightKg || 0);
   const explicit = safeNumber(collection.totalWeightKg);
   if (explicit > 0) return explicit;
 
@@ -332,7 +334,7 @@ export default function DataScreen() {
 
     const materialMap: Record<string, number> = {};
     realizedCollections.forEach((collection) => {
-      getCollectionMaterials(collection).forEach((material) => {
+      (collection.participants?.length ? personalMaterialParcels(collection) : getCollectionMaterials(collection)).forEach((material) => {
         const name =
           material.name?.trim() || material.type?.trim() || "Não informado";
         const quantityKg =
