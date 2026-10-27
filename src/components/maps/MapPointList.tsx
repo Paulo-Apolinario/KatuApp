@@ -1,3 +1,4 @@
+import type { MapMarkerKind } from "./mapMarkers";
 import { useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,7 +9,7 @@ export type MapListPoint = {
   description?: string;
   latitude: number;
   longitude: number;
-  kind?: "collection" | "cooperative" | "driver";
+  kind?: MapMarkerKind;
 };
 export function MapPointList({
   points,
@@ -30,15 +31,21 @@ export function MapPointList({
         .includes(search.toLocaleLowerCase("pt-BR")),
     );
   const badge = (p: MapListPoint) =>
-    p.kind === "driver"
-      ? "GPS"
-      : p.kind === "cooperative"
-        ? "SE"
-        : String(
-            points
-              .filter((x) => x.kind !== "driver" && x.kind !== "cooperative")
-              .findIndex((x) => x.id === p.id) + 1,
-          );
+    p.kind === "pev"
+      ? "PEV"
+      : p.kind === "collector"
+        ? "CAT"
+        : p.kind === "location"
+          ? "GPS"
+          : p.kind === "driver"
+            ? "GPS"
+            : p.kind === "cooperative"
+              ? "SE"
+              : String(
+                  points
+                    .filter((x) => !x.kind || x.kind === "collection")
+                    .findIndex((x) => x.id === p.id) + 1,
+                );
   return (
     <View style={s.section}>
       <View style={s.heading}>
@@ -65,10 +72,14 @@ export function MapPointList({
               <Ionicons
                 name={
                   selected.kind === "driver"
-                    ? "navigate-outline"
-                    : selected.kind === "cooperative"
-                      ? "business-outline"
-                      : "location-outline"
+                    ? "car-outline"
+                    : selected.kind === "collector"
+                      ? "person-outline"
+                      : selected.kind === "pev"
+                        ? "trash-outline"
+                        : selected.kind === "cooperative"
+                          ? "business-outline"
+                          : "location-outline"
                 }
                 color="#047857"
                 size={20}
@@ -128,11 +139,17 @@ export function MapPointList({
                 s.badge,
                 {
                   backgroundColor:
-                    p.kind === "driver"
-                      ? "#EFF6FF"
-                      : p.kind === "cooperative"
-                        ? "#EAF5EE"
-                        : "#F1F5F9",
+                    p.kind === "pev"
+                      ? "PEV"
+                      : p.kind === "collector"
+                        ? "CAT"
+                        : p.kind === "location"
+                          ? "GPS"
+                          : p.kind === "driver"
+                            ? "#EFF6FF"
+                            : p.kind === "cooperative"
+                              ? "#EAF5EE"
+                              : "#F1F5F9",
                 },
               ]}
             >

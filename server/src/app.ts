@@ -1,3 +1,4 @@
+import { pevRequestRoutes } from "./modules/pev-requests/pev-request.routes";
 import { routePlanningRoutes } from "./modules/routes/planning.routes";
 import { inboxRoutes } from "./modules/inbox/inbox.routes";
 import { ownerDocumentsRoutes } from "./modules/owner-documents/owner-documents.routes";
@@ -220,6 +221,7 @@ export async function buildApp() {
   await app.register(cooperativesRoutes);
   await app.register(feedbackRoutes);
   await app.register(binsRoutes);
+  await app.register(pevRequestRoutes);
   await app.register(environmentalRoutes);
   await app.register(reportsRoutes);
   await app.register(settingsRoutes);

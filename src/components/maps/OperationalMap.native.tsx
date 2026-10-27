@@ -1,19 +1,12 @@
+import MapMarkerPin from "./MapMarkerPin";
 import { useEffect, useRef } from "react";
-import { Text, View } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { type OperationalMapPoint, type MapMarkerKind } from "./mapMarkers";
 
-export type OperationalMapPoint = {
-  id: string;
-  latitude: number;
-  longitude: number;
-  title: string;
-  description?: string;
-  color?: string;
-  kind?: "collection" | "cooperative" | "driver";
-};
-
+export type { OperationalMapPoint } from "./mapMarkers";
 type Props = {
   baseLabel?: string | null;
+  baseKind?: MapMarkerKind;
   baseLatitude: number;
   baseLongitude: number;
   points: OperationalMapPoint[];
@@ -26,6 +19,7 @@ type Props = {
 
 export default function OperationalMapNative({
   baseLabel = "Base operacional",
+  baseKind,
   baseLatitude,
   baseLongitude,
   points,
@@ -89,8 +83,8 @@ export default function OperationalMapNative({
         latitudeDelta: 0.08,
         longitudeDelta: 0.08,
       }}
-      showsUserLocation
-      showsMyLocationButton
+      showsUserLocation={false}
+      showsMyLocationButton={false}
       toolbarEnabled={false}
     >
       {routeCoordinates.length >= 2 ? (
@@ -101,17 +95,33 @@ export default function OperationalMapNative({
         />
       ) : null}
 
-      {baseLabel && (
-        <Marker
-          coordinate={{
-            latitude: baseLatitude,
-            longitude: baseLongitude,
-          }}
-          title={baseLabel}
-          description={baseLabel}
-          pinColor="#047857"
-        />
-      )}
+      {baseLabel &&
+        !points.some(
+          (p) =>
+            p.kind ===
+              (baseKind ||
+                (baseLabel === "Minha posição" ? "location" : "cooperative")) &&
+            Math.abs(p.latitude - baseLatitude) < 0.000001 &&
+            Math.abs(p.longitude - baseLongitude) < 0.000001,
+        ) && (
+          <Marker
+            coordinate={{
+              latitude: baseLatitude,
+              longitude: baseLongitude,
+            }}
+            zIndex={5000}
+            title={baseLabel}
+            description={baseLabel}
+            anchor={{ x: 0.5, y: 1 }}
+          >
+            <MapMarkerPin
+              kind={
+                baseKind ||
+                (baseLabel === "Minha posição" ? "location" : "cooperative")
+              }
+            />
+          </Marker>
+        )}
 
       {points.map((point, index) => (
         <Marker
@@ -120,6 +130,15 @@ export default function OperationalMapNative({
             latitude: point.latitude,
             longitude: point.longitude,
           }}
+          zIndex={
+            ["driver", "collector", "location"].includes(point.kind || "")
+              ? 5000
+              : selectedPointId === point.id
+                ? 4000
+                : point.kind === "cooperative"
+                  ? 1000
+                  : 0
+          }
           title={point.title}
           description={point.description}
           pinColor={
@@ -128,47 +147,20 @@ export default function OperationalMapNative({
           onPress={() => onSelectPoint?.(point.id)}
           anchor={{ x: 0.5, y: 1 }}
         >
-          <View style={{ alignItems: "center" }}>
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor:
-                  selectedPointId === point.id
-                    ? "#111827"
-                    : point.color || "#2563EB",
-                borderWidth: 3,
-                borderColor: "white",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ color: "white", fontWeight: "700" }}>
-                {point.kind === "driver"
-                  ? "GPS"
-                  : point.kind === "cooperative"
-                    ? "SE"
-                    : index + 1}
-              </Text>
-            </View>
-            <View
-              style={{
-                width: 0,
-                height: 0,
-                borderLeftWidth: 6,
-                borderRightWidth: 6,
-                borderTopWidth: 8,
-                borderLeftColor: "transparent",
-                borderRightColor: "transparent",
-                borderTopColor:
-                  selectedPointId === point.id
-                    ? "#111827"
-                    : point.color || "#2563EB",
-                marginTop: -1,
-              }}
-            />
-          </View>
+          <MapMarkerPin
+            kind={point.kind || "collection"}
+            label={
+              !point.kind || point.kind === "collection"
+                ? String(
+                    points
+                      .slice(0, index + 1)
+                      .filter((p) => !p.kind || p.kind === "collection").length,
+                  )
+                : undefined
+            }
+            color={point.color}
+            selected={selectedPointId === point.id}
+          />
         </Marker>
       ))}
     </MapView>

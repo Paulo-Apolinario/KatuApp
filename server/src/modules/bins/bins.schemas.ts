@@ -43,6 +43,7 @@ const hours = z
 const shape = {
   bin_id: z.string().trim().min(1, "Informe o código do PEV.").max(100),
   name: text(150),
+  publicAccess: z.boolean().optional(),
   pointKind: z.enum(["PEV", "ECOPONTO", "PARTNER", "COOPERATIVE"]).optional(),
   bin_type: text(50),
   location: text(500),

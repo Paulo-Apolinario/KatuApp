@@ -153,6 +153,7 @@ export default function PFHomeScreen() {
         <SectionHeader title="Ações rápidas" />
 
         <View style={sectionCard}>
+          <QuickAction icon="trash-outline" title="PEVs da cidade" subtitle="Informar ponto cheio e enviar fotos" onPress={()=>router.push("/(pf-tabs)/pevs-publicos")}/>
           <QuickAction
             icon="calendar-outline"
             title="Agendar coleta"

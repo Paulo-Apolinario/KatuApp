@@ -727,6 +727,7 @@ export class CollectionService {
         data.reporterName,
         data.collectedAt,
       );
+      await notifyCollection(transaction, collection.id, `field-collected:${collection.id}`, "COLLECTION_STAGE", "Coleta realizada em campo", "A retirada foi registrada. O material seguirá para recebimento e conferência pela cooperativa.");
       await this.applyFieldTotals(transaction, collection, totalWeightKg);
     }
     return collection;
@@ -1337,6 +1338,7 @@ export class CollectionService {
         });
       }
 
+      await notifyCollection(transaction, collection.id, `field-collected:${collection.id}`, "COLLECTION_STAGE", "Coleta realizada em campo", "A retirada foi registrada. O material seguirá para recebimento e conferência pela cooperativa.");
       await this.applyFieldTotals(transaction, collection, totalWeightKg);
 
       return updated;

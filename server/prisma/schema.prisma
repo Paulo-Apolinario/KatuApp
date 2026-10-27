@@ -24,6 +24,7 @@ model User {
   updatedAt              DateTime      @updatedAt
 
   authVersion Int @default(0)
+  pevRequests PevRequest[]
   inboxNotifications InboxNotification[]
   emailTokens        AuthEmailToken[]
 
@@ -431,6 +432,7 @@ model Collection {
   quantityReviewVersion Int @default(0)
   quantitiesReviewedAt DateTime?
   quantityReviews CollectionQuantityReview[]
+  pevRequests PevRequest[]
   inboxNotifications InboxNotification[]
   totalWeightKg Float    @default(0)
   materials     Json?
@@ -844,6 +846,8 @@ model WasteStockLot {
 }
 
 model Bin {
+  publicAccess Boolean @default(false)
+  requests PevRequest[]
   id                 String       @id @default(cuid())
   cooperativeId      String
   vehicleId          String?
@@ -1489,4 +1493,46 @@ model RoutePlan {
   updatedAt DateTime @updatedAt
   routes Route[]
   @@index([cooperativeId, active])
+}
+
+
+model PevRequest {
+  id String @id
+  binId String
+  cooperativeId String
+  requesterUserId String
+  requesterRole String
+  requesterName String
+  binName String
+  address String
+  condition String
+  notes String
+  photos Json
+  status String @default("OPEN")
+  version Int @default(1)
+  response String?
+  collectionId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  bin Bin @relation(fields:[binId], references:[id], onDelete:Restrict)
+  requester User @relation(fields:[requesterUserId], references:[id], onDelete:Restrict)
+  collection Collection? @relation(fields:[collectionId], references:[id], onDelete:SetNull)
+  updates PevRequestUpdate[]
+  @@index([cooperativeId,status,createdAt])
+  @@index([requesterUserId,createdAt])
+  @@index([binId,createdAt])
+  @@index([collectionId])
+}
+model PevRequestUpdate {
+  id String @id @default(cuid())
+  requestId String
+  operationId String @unique
+  actorUserId String
+  actorName String
+  kind String
+  notes String
+  photos Json
+  createdAt DateTime @default(now())
+  request PevRequest @relation(fields:[requestId], references:[id], onDelete:Restrict)
+  @@index([requestId,createdAt])
 }

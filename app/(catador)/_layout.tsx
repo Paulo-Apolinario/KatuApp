@@ -103,6 +103,7 @@ export default function CatadorLayout() {
             href: null,
           }}
         />
+        <Tabs.Screen name="pev-atendimento" options={{href:null,title:"Solicitações de PEV"}} />
       </Tabs>
     </ProtectedRoute>
   );

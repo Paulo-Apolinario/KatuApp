@@ -650,6 +650,7 @@ export default function CooperativeHomeScreen() {
       </LinearGradient>
 
       <View style={{ paddingHorizontal: 20, paddingTop: 18 }}>
+        <Action label="Solicitações de PEV · relatos e fotos" onPress={()=>router.push("/(cooperativa)/pev-pedidos")} />
         <Action
           secondary
           label="Analisar ordens de coleta extras"

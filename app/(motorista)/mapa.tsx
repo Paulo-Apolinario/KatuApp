@@ -47,7 +47,7 @@ type MarkerPoint = {
   description?: string;
   latitude: number;
   longitude: number;
-  type: "cooperative" | "collection" | "driver";
+  type: "cooperative" | "collection" | "driver" | "pev";
 };
 
 type Coordinates = {
@@ -290,7 +290,7 @@ export default function MotoristaMapaScreen() {
         description: generator?.address || "Endereço não informado",
         latitude: Number(generator?.latitude),
         longitude: Number(generator?.longitude),
-        type: "collection" as const,
+        type: raw.bin ? ("pev" as const) : ("collection" as const),
       }));
   }, [collections]);
 
@@ -519,7 +519,7 @@ export default function MotoristaMapaScreen() {
           error={gps.error}
           loading={gps.loading}
           retry={gps.retry}
-            active={gps.active}
+          active={gps.active}
         />
         <View
           style={{
@@ -533,6 +533,7 @@ export default function MotoristaMapaScreen() {
           }}
         >
           <OperationalMap
+            baseKind={currentLocation ? "driver" : "cooperative"}
             focusRequest={focusRequest}
             baseLabel={
               currentLocation

@@ -12,6 +12,7 @@ export async function notifyCollection(
   const collection = await tx.collection.findUniqueOrThrow({
     where: { id: collectionId },
     select: {
+      pevRequests: { select: { id: true, requesterUserId: true } },
       collector: { select: { userId: true } },
       driver: { select: { userId: true } },
       generator: { select: { userId: true } },
@@ -21,6 +22,7 @@ export async function notifyCollection(
   const recipients = [
     ...new Set(
       [
+        ...collection.pevRequests.map((r) => r.requesterUserId),
         collection.collector?.userId,
         collection.driver?.userId,
         collection.generator?.userId,
@@ -40,15 +42,28 @@ export async function notifyCollection(
     select: { id: true },
   });
   await tx.inboxNotification.createMany({
-    data: users.map((user) => ({
-      userId: user.id,
-      collectionId,
-      eventKey,
-      kind,
-      title,
-      message,
-      ...(data ? { data } : {}),
-    })),
+    data: users.map((user) => {
+      const request = collection.pevRequests.find(
+        (r) => r.requesterUserId === user.id,
+      );
+      const payload = request
+        ? {
+            ...(data && typeof data === "object" && !Array.isArray(data)
+              ? data
+              : {}),
+            pevRequestId: request.id,
+          }
+        : data;
+      return {
+        userId: user.id,
+        collectionId,
+        eventKey,
+        kind,
+        title,
+        message,
+        ...(payload ? { data: payload } : {}),
+      };
+    }),
     skipDuplicates: true,
   });
 }

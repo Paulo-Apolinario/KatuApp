@@ -111,6 +111,7 @@ export default function PFLayout() {
             href: null,
           }}
         />
+        <Tabs.Screen name="pevs-publicos" options={{href:null,title:"Solicitações de PEV"}} />
       </Tabs>
     </ProtectedRoute>
   );

@@ -10,6 +10,7 @@ export type InboxNotice = {
   createdAt: string;
   data?: {
     routeId?: string;
+    pevRequestId?: string;
     items?: {
       name: string;
       unit: string;

@@ -1016,6 +1016,7 @@ export default function HomeCatScreen() {
           />
 
           <View style={sectionCard}>
+            <QuickAction icon="trash-outline" title="Solicitações de PEV" subtitle="Relatar situação, fotografar e abrir retirada" onPress={()=>router.push("/(catador)/pev-atendimento")}/>
             <QuickAction
               icon="navigate-outline"
               title="Minhas rotas"

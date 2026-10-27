@@ -150,6 +150,23 @@ function capacity(data: any, current?: any) {
     data.capacityUnit = data.capacityKg == null ? null : "KG";
   }
 }
+function validatePublicPoint(data: any, current: any = {}) {
+  const b = { ...current, ...data };
+  if (!b.publicAccess) return;
+  if (!["PEV", "ECOPONTO"].includes(b.pointKind || "PEV"))
+    throw new BinError(
+      "Somente PEVs e ecopontos podem ser publicados para solicitações pelo App.",
+    );
+  if (
+    b.latitude == null ||
+    b.longitude == null ||
+    !Number.isFinite(b.latitude) ||
+    !Number.isFinite(b.longitude)
+  )
+    throw new BinError(
+      "Confirme a localização no mapa antes de publicar o PEV no App.",
+    );
+}
 export const binsService = {
   async list(userId: string) {
     const { cooperativeId } = await context(userId);
@@ -246,6 +263,7 @@ export const binsService = {
     const ctx = await context(userId);
     const data = toData(input);
     capacity(data);
+    validatePublicPoint(data);
     return prisma.$transaction(async (tx) => {
       await validateVehicle(tx, ctx.cooperativeId, input.vehicle_id);
       const bin = await tx.bin.create({
@@ -278,6 +296,7 @@ export const binsService = {
       );
       const data = toData(input);
       capacity(data, current);
+      validatePublicPoint(data, current);
       const bin = await tx.bin.update({ where: { id }, data });
       const fields = Object.keys(data).filter(
         (key) => JSON.stringify(data[key]) !== JSON.stringify(current[key]),
@@ -386,18 +405,55 @@ export const binsService = {
       collectorId: string;
       routeId?: string | null;
       notes?: string | null;
+      requestId?: string;
     },
+    actorUserId?: string,
   ) {
     const ctx = await context(userId);
+    if (actorUserId) {
+      const actor = await prisma.user.findUniqueOrThrow({
+        where: { id: actorUserId },
+        select: { displayName: true },
+      });
+      ctx.actorUserId = actorUserId;
+      ctx.actorName = actor.displayName;
+    }
     return prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Bin" WHERE id = ${id} AND "cooperativeId" = ${ctx.cooperativeId} FOR UPDATE`;
       const bin = await owned(tx, ctx.cooperativeId, id);
       if (bin.status !== "ACTIVE" && bin.status !== "FULL")
         throw new BinError("Ative o PEV antes de solicitar uma retirada.", 409);
+      const report = input.requestId
+        ? await tx.pevRequest.findFirst({
+            where: {
+              id: input.requestId,
+              binId: id,
+              cooperativeId: ctx.cooperativeId,
+            },
+          })
+        : null;
+      if (
+        input.requestId &&
+        (!report || !["OPEN", "ASSIGNED"].includes(report.status))
+      )
+        throw new BinError("Solicitação indisponível. Atualize a lista.", 409);
+      if (report?.collectionId) {
+        const linked = await tx.collection.findUnique({
+          where: { id: report.collectionId },
+        });
+        if (linked && linked.status !== "CANCELLED") {
+          if (linked.collectorId !== input.collectorId)
+            throw new BinError(
+              "Solicitação já atribuída a outro catador.",
+              409,
+            );
+          return linked;
+        }
+      }
       const pending = await tx.collection.findFirst({
         where: { binId: id, status: { in: ["PENDING", "IN_PROGRESS"] } },
       });
-      if (pending)
+      if (pending && (!report || pending.collectorId !== input.collectorId))
         throw new BinError(
           "Já existe uma retirada pendente ou em andamento para este PEV.",
           409,
@@ -406,7 +462,7 @@ export const binsService = {
         where: {
           id: input.collectorId,
           cooperativeId: ctx.cooperativeId,
-          status: "AVAILABLE",
+          status: { not: "INACTIVE" },
         },
       });
       if (!collector)
@@ -414,66 +470,152 @@ export const binsService = {
           "O catador não está disponível nesta cooperativa.",
           409,
         );
+      if (
+        collector.status === "ON_ROUTE" &&
+        !pending &&
+        collector.userId !== actorUserId
+      )
+        throw new BinError(
+          "Catador em rota. Vincule à rota ou aguarde disponibilidade.",
+          409,
+        );
+      if (
+        collector.userId &&
+        !(await tx.user.findFirst({
+          where: {
+            id: collector.userId,
+            isActive: true,
+            accountStatus: "ACTIVE",
+          },
+        }))
+      )
+        throw new BinError("Acesso do catador está inativo.", 409);
       let vehicleId = bin.vehicleId,
         driverId: string | null = null,
         routeId: string | null = null;
-      if (input.routeId) {
-        const route = await tx.route.findFirst({
-          where: {
-            id: input.routeId,
-            cooperativeId: ctx.cooperativeId,
-            status: { in: ["SCHEDULED", "IN_PROGRESS"] },
-          },
-        });
-        if (!route)
-          throw new BinError("Rota indisponível nesta cooperativa.", 409);
-        routeId = route.id;
-        vehicleId = route.vehicleId;
-        driverId = route.driverId;
+      if (!pending) {
+        if (input.routeId) {
+          const route = await tx.route.findFirst({
+            where: {
+              id: input.routeId,
+              cooperativeId: ctx.cooperativeId,
+              status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+            },
+          });
+          if (!route)
+            throw new BinError("Rota indisponível nesta cooperativa.", 409);
+          routeId = route.id;
+          vehicleId = route.vehicleId;
+          driverId = route.driverId;
+        }
+        if (vehicleId) {
+          const v = await tx.vehicle.findFirst({
+            where: {
+              id: vehicleId,
+              cooperativeId: ctx.cooperativeId,
+              status: "ACTIVE",
+            },
+          });
+          if (!v)
+            throw new BinError(
+              "Veículo inativo ou em manutenção. Atualize o vínculo ou a rota.",
+              409,
+            );
+          if (driverId && v.driverId && v.driverId !== driverId)
+            throw new BinError(
+              "Motorista incompatível com o veículo da rota.",
+              409,
+            );
+          driverId = driverId || v.driverId;
+        }
+        if (driverId) {
+          const driver = await tx.driver.findFirst({
+            where: {
+              id: driverId,
+              cooperativeId: ctx.cooperativeId,
+              status: { not: "INACTIVE" },
+            },
+          });
+          if (!driver || (driver.status === "ON_ROUTE" && !routeId))
+            throw new BinError(
+              "Motorista indisponível para esta retirada.",
+              409,
+            );
+        }
       }
-      if (vehicleId) {
-        const v = await tx.vehicle.findFirst({
-          where: {
-            id: vehicleId,
+      const collection =
+        pending ||
+        (await tx.collection.create({
+          data: {
             cooperativeId: ctx.cooperativeId,
-            status: "ACTIVE",
+            binId: id,
+            collectorId: collector.id,
+            routeId,
+            vehicleId,
+            driverId,
+            status: "PENDING",
+            notes: input.notes || null,
           },
-        });
-        if (!v)
-          throw new BinError(
-            "Veículo inativo ou em manutenção. Atualize o vínculo ou a rota.",
-            409,
-          );
-        if (driverId && v.driverId && v.driverId !== driverId)
-          throw new BinError(
-            "Motorista incompatível com o veículo da rota.",
-            409,
-          );
-        driverId = driverId || v.driverId;
-      }
-      if (driverId) {
-        const driver = await tx.driver.findFirst({
-          where: {
-            id: driverId,
-            cooperativeId: ctx.cooperativeId,
-            status: { not: "INACTIVE" },
-          },
-        });
-        if (!driver || (driver.status === "ON_ROUTE" && !routeId))
-          throw new BinError("Motorista indisponível para esta retirada.", 409);
-      }
-      const collection = await tx.collection.create({
-        data: {
-          cooperativeId: ctx.cooperativeId,
+        }));
+      const affectedReports = await tx.pevRequest.findMany({
+        where: {
           binId: id,
-          collectorId: collector.id,
-          routeId,
-          vehicleId,
-          driverId,
-          status: "PENDING",
-          notes: input.notes || null,
+          cooperativeId: ctx.cooperativeId,
+          status: { in: ["OPEN", "ASSIGNED"] },
+          OR: [{ collectionId: null }, { collection: { status: "CANCELLED" } }],
         },
       });
+      for (const report of affectedReports) {
+        const changed = await tx.pevRequest.updateMany({
+          where: {
+            id: report.id,
+            version: report.version,
+            status: { in: ["OPEN", "ASSIGNED"] },
+          },
+          data: {
+            collectionId: collection.id,
+            status: "ASSIGNED",
+            version: { increment: 1 },
+          },
+        });
+        if (!changed.count)
+          throw new BinError(
+            "Solicitação alterada por outro usuário. Atualize.",
+            409,
+          );
+        await tx.pevRequestUpdate.create({
+          data: {
+            requestId: report.id,
+            operationId: `assign:${report.id}:${collection.id}`,
+            actorUserId: ctx.actorUserId,
+            actorName: ctx.actorName || "Cooperativa",
+            kind: "ASSIGNED",
+            notes: "Retirada vinculada ao fluxo operacional.",
+            photos: [],
+          },
+        });
+        await tx.inboxNotification.createMany({
+          data: [
+            ...[
+              ...new Set(
+                [report.requesterUserId, collector.userId].filter(
+                  (u): u is string => !!u,
+                ),
+              ),
+            ].map((userId) => ({
+              userId,
+              collectionId: collection.id,
+              eventKey: `pev-assigned:${report.id}:${collection.id}`,
+              kind: "PEV_REQUEST",
+              title: "Retirada do PEV encaminhada",
+              message:
+                "A cooperativa tem uma coleta vinculada à sua solicitação.",
+              data: { pevRequestId: report.id },
+            })),
+          ],
+          skipDuplicates: true,
+        });
+      }
       await tx.bin.update({ where: { id }, data: { needsPickup: true } });
       await tx.binEvent.create({
         data: {

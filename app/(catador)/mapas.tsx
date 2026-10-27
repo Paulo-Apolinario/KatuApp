@@ -993,6 +993,7 @@ export default function CatadorMapScreen() {
             </View>
           ) : (
             <OperationalMap
+              baseKind="collector"
               baseLabel={gps.position ? "Minha posição" : null}
               baseLatitude={region.latitude}
               baseLongitude={region.longitude}
@@ -1002,6 +1003,7 @@ export default function CatadorMapScreen() {
                   id: point.id,
                   latitude: point.latitude,
                   longitude: point.longitude,
+                  kind: point.collection.bin ? "pev" as const : "collection" as const,
                   title: point.title,
                   description: `${translateStatus(point.status)} • ${point.address}`,
                   color: getStatusColor(point.status),

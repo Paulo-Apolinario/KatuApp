@@ -122,6 +122,19 @@ function InboxContent({ userId }: { userId: string }) {
       );
       if (!item.readAt) setUnread((n) => Math.max(0, n - 1));
       if (
+        item.data?.pevRequestId &&
+        ["PF", "COLLECTOR", "COOPERATIVE"].includes(user?.role || "")
+      ) {
+        router.push({
+          pathname:
+            user?.role === "PF"
+              ? "/(pf-tabs)/pevs-publicos"
+              : user?.role === "COLLECTOR"
+                ? "/(catador)/pev-atendimento"
+                : "/(cooperativa)/pev-pedidos",
+          params: { requestId: item.data.pevRequestId },
+        });
+      } else if (
         item.data?.routeId &&
         (user?.role === "COLLECTOR" || user?.role === "DRIVER")
       ) {
@@ -579,12 +592,14 @@ function NoticeCard({
       ) : (
         <Text style={styles.message}>{item.message}</Text>
       )}
-      {(item.collectionId || item.data?.routeId) && (
+      {(item.collectionId || item.data?.routeId || item.data?.pevRequestId) && (
         <View style={styles.cardFooter}>
           <Text style={styles.link}>
-            {item.data?.routeId
-              ? "Consultar rota e sequência"
-              : "Consultar etapa da coleta"}
+            {item.data?.pevRequestId
+              ? "Consultar pedido do PEV"
+              : item.data?.routeId
+                ? "Consultar rota e sequência"
+                : "Consultar etapa da coleta"}
           </Text>
           <Ionicons name="arrow-forward" size={18} color="#17694F" />
         </View>

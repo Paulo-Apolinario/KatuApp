@@ -2,17 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { View, Text } from "react-native";
 import "leaflet/dist/leaflet.css";
 import { MapPointList } from "./MapPointList";
-export type OperationalMapPoint = {
-  id: string;
-  latitude: number;
-  longitude: number;
-  title: string;
-  description?: string;
-  color?: string;
-  kind?: "collection" | "cooperative" | "driver";
-};
+import {
+  markerSvg,
+  type OperationalMapPoint,
+  type MapMarkerKind,
+} from "./mapMarkers";
+export type { OperationalMapPoint } from "./mapMarkers";
 type Props = {
   baseLabel?: string | null;
+  baseKind?: MapMarkerKind;
   baseLatitude: number;
   baseLongitude: number;
   points: OperationalMapPoint[];
@@ -24,6 +22,7 @@ type Props = {
 };
 export default function OperationalMapWeb({
   baseLabel = "Base operacional",
+  baseKind,
   baseLatitude,
   baseLongitude,
   points,
@@ -71,6 +70,9 @@ export default function OperationalMapWeb({
         leaflet.current = L;
         const map = L.map(container.current, {
           scrollWheelZoom: false,
+          zoomAnimation: false,
+          fadeAnimation: false,
+          markerZoomAnimation: false,
         }).setView([baseLatitude, baseLongitude], 12);
         mapRef.current = map;
         const tile = L.tileLayer(
@@ -97,6 +99,7 @@ export default function OperationalMapWeb({
       );
     return () => {
       alive = false;
+      mapRef.current?.stop();
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -119,51 +122,60 @@ export default function OperationalMapWeb({
         Math.abs(p.latitude) <= 90 &&
         Math.abs(p.longitude) <= 180,
     );
-    const pin = (label: string, color: string) =>
+    const pin = (
+      kind: MapMarkerKind,
+      label = "",
+      color?: string,
+      selected = false,
+    ) =>
       L.divIcon({
         className: "katua-map-pin",
-        html: `<span style="display:flex;align-items:center;justify-content:center;width:30px;height:38px;border-radius:16px 16px 16px 2px;background:${color};border:2px solid white;box-shadow:0 2px 8px #0004;transform:rotate(-45deg)"><b style="transform:rotate(45deg);color:white;font-size:12px">${label}</b></span>`,
-        iconSize: [34, 42],
-        iconAnchor: [17, 40],
+        html: markerSvg(kind, label, color, selected),
+        iconSize: [46, 56],
+        iconAnchor: [23, 53],
+        popupAnchor: [0, -48],
       });
     if (
       baseLabel &&
       !valid.some(
         (p) =>
+          p.kind ===
+            (baseKind ||
+              (baseLabel === "Minha posição" ? "location" : "cooperative")) &&
           Math.abs(p.latitude - baseLatitude) < 0.000001 &&
           Math.abs(p.longitude - baseLongitude) < 0.000001,
       )
     )
       L.marker([baseLatitude, baseLongitude], {
-        icon: pin(baseLabel === "Minha posição" ? "GPS" : "SE", "#065F46"),
+        zIndexOffset: 5000,
+        icon: pin(
+          baseKind ||
+            (baseLabel === "Minha posição" ? "location" : "cooperative"),
+        ),
       })
         .bindTooltip(document.createTextNode(baseLabel))
         .addTo(group);
     let visit = 0;
     valid.forEach((point) => {
-      const label =
-        point.kind === "driver"
-          ? "GPS"
-          : point.kind === "cooperative"
-            ? "SE"
-            : String(++visit);
+      const kind = point.kind || "collection";
+      const label = kind === "collection" ? String(++visit) : "";
       const content = document.createElement("div");
       content.textContent = [point.title, point.description]
         .filter(Boolean)
         .join(" · ");
       L.marker([point.latitude, point.longitude], {
-        icon: pin(
-          label,
-          activeId === point.id
-            ? "#173E32"
-            : point.kind === "driver"
-              ? "#2563EB"
-              : point.kind === "cooperative"
-                ? "#047857"
-                : "#345D4F",
-        ),
+        icon: pin(kind, label, point.color, activeId === point.id),
+        title: point.title,
+        alt: point.title,
+        zIndexOffset: ["driver", "collector", "location"].includes(kind)
+          ? 5000
+          : activeId === point.id
+            ? 4000
+            : kind === "cooperative"
+              ? 1000
+              : 0,
       })
-        .bindPopup(content)
+        .bindPopup(content, { autoPan: false })
         .on("click", () => latest.current.onSelectPoint?.(point.id))
         .addTo(group);
     });
@@ -177,15 +189,16 @@ export default function OperationalMapWeb({
       !gpsCentered.current &&
       !selectedPointId
     ) {
-      map.setView([baseLatitude, baseLongitude], 14);
+      map.setView([baseLatitude, baseLongitude], 14, { animate: false });
       gpsCentered.current = true;
     }
     const selected = valid.find((p) => p.id === activeId);
-    if (selected) map.panTo([selected.latitude, selected.longitude]);
+    if (selected)
+      map.panTo([selected.latitude, selected.longitude], { animate: false });
     else if (fitKey.current !== signature && valid.length) {
       map.fitBounds(
         valid.map((p) => [p.latitude, p.longitude]),
-        { padding: [35, 35], maxZoom: 14 },
+        { padding: [35, 35], maxZoom: 14, animate: false },
       );
       fitKey.current = signature;
     }
@@ -197,6 +210,7 @@ export default function OperationalMapWeb({
     baseLatitude,
     baseLongitude,
     baseLabel,
+    baseKind,
     activeId,
     selectedPointId,
     fitRequest,
@@ -253,7 +267,9 @@ export default function OperationalMapWeb({
         }}
       >
         {[
-          ["#2563EB", "GPS do aparelho"],
+          ["#2563EB", "Motorista / GPS"],
+          ["#087F8C", "Catador"],
+          ["#B45309", "PEV"],
           ["#047857", "Sede"],
           ["#345D4F", "Coletas numeradas"],
         ].map(([color, label]) => (
