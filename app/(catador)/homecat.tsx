@@ -1,3 +1,4 @@
+import GeneratorImpact from "@/src/components/impact/GeneratorImpact";
 import { NotificationBell } from "@/src/components/NotificationBell";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -25,13 +26,6 @@ import {
 } from "@/src/services/collectionService";
 
 type CollectionStatus = Collection["status"];
-
-type EnvironmentalMetrics = {
-  co2AvoidedKg: number;
-  treesEquivalent: number;
-  waterSavedLiters: number;
-  energySavedKwh: number;
-};
 
 const COLLECTED_STATUSES: CollectionStatus[] = [
   "COLLECTED",
@@ -318,15 +312,6 @@ function isToday(dateString?: string | null) {
   );
 }
 
-function calculateEnvironmentalMetrics(totalKg: number): EnvironmentalMetrics {
-  return {
-    co2AvoidedKg: totalKg * 1.5,
-    treesEquivalent: totalKg / 100,
-    waterSavedLiters: totalKg * 35,
-    energySavedKwh: totalKg * 2.3,
-  };
-}
-
 export default function HomeCatScreen() {
   const { signOut } = useAuth();
   const { isOffline } = useConnectivity();
@@ -438,7 +423,6 @@ export default function HomeCatScreen() {
       })
       .slice(0, 4);
 
-    const environmental = calculateEnvironmentalMetrics(totalCollectedTodayKg);
 
     const totalCollectedAllTimeKg = collectedCollections.reduce(
       (sum, item) => sum + getCollectionTotalKg(item),
@@ -464,7 +448,6 @@ export default function HomeCatScreen() {
       activeOperation,
       nextCollections,
       recentCollections,
-      environmental,
       totalCollectedAllTimeKg,
       uniqueWorkDays,
       dailyAverageKg,
@@ -917,42 +900,7 @@ export default function HomeCatScreen() {
             )}
           </View>
 
-          <SectionHeader
-            title="Resumo ambiental"
-            subtitle="Estimativas com base no peso coletado hoje"
-          />
-
-          <View
-            style={{
-              flexDirection: "row",
-              flexWrap: "wrap",
-              justifyContent: "space-between",
-            }}
-          >
-            <EnvironmentalCard
-              icon="leaf-outline"
-              title="CO₂ evitado"
-              value={`${metrics.environmental.co2AvoidedKg.toFixed(1)} kg`}
-            />
-
-            <EnvironmentalCard
-              icon="water-outline"
-              title="Água economizada"
-              value={`${metrics.environmental.waterSavedLiters.toFixed(0)} L`}
-            />
-
-            <EnvironmentalCard
-              icon="flash-outline"
-              title="Energia economizada"
-              value={`${metrics.environmental.energySavedKwh.toFixed(1)} kWh`}
-            />
-
-            <EnvironmentalCard
-              icon="leaf-outline"
-              title="Árvores equivalentes"
-              value={metrics.environmental.treesEquivalent.toFixed(2)}
-            />
-          </View>
+          <GeneratorImpact collector />
 
           <SectionHeader
             title="Meu desempenho"
@@ -1257,63 +1205,6 @@ function MetricCard({
   );
 }
 
-function EnvironmentalCard({
-  icon,
-  title,
-  value,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  value: string;
-}) {
-  return (
-    <View
-      style={{
-        width: "48.5%",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 18,
-        padding: 15,
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-        marginBottom: 12,
-      }}
-    >
-      <View
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: "#DCFCE7",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Ionicons name={icon} size={20} color="#15803D" />
-      </View>
-
-      <Text
-        style={{
-          color: "#6B7280",
-          fontSize: 12,
-          marginTop: 10,
-        }}
-      >
-        {title}
-      </Text>
-
-      <Text
-        style={{
-          color: "#111827",
-          fontSize: 17,
-          fontWeight: "700",
-          marginTop: 3,
-        }}
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}
 
 function InfoRow({
   label,

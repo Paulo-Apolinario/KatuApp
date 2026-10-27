@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-27",
+  "status": "PASS",
+  "passed": 41,
+  "monthlyApi": {
+    "passed": 6,
+    "checks": [
+      "Painel mensal inclui geradores, PEVs, PF e equipe uma única vez; exclui canceladas e peso previsto",
+      "Catador mantém impacto das coletas em equipe mesmo antes do rateio; gerador vê somente seu histórico",
+      "Filtros mensais permanecem isolados por vínculo e perfil",
+      "Os quatro indicadores usam os mesmos fatores no painel, gerador e catador com cobertura explícita",
+      "Conferência recalcula o mês original, preservando entrada única e produção separada",
+      "Histórico permite anos anteriores e rejeita períodos inválidos"
+    ]
+  },
+  "monthlyRules": {
+    "passed": 7,
+    "file": "server/tests/impact-monthly/model.test.ts"
+  },
+  "teamRulesRegression": {
+    "passed": 8,
+    "file": "server/tests/teams/model.test.ts"
+  },
+  "teamApiRegression": {
+    "passed": 11,
+    "checks": [
+      "Cadastro de equipe exige 2 a 30 catadores ativos e isola as cooperativas",
+      "Rota da equipe cria uma coleta única com três participantes e acesso compartilhado",
+      "Etapa de campo não multiplica material nem credita o peso completo a cada catador",
+      "Pesagem 50→40 preserva original; divisão exata com três casas atualiza parcelas e notifica todos",
+      "Alterar pesagem invalida parcelas; versões antigas são recusadas e histórico é preservado",
+      "Editar cadastro de equipe não altera participantes nem créditos de uma coleta já registrada",
+      "Impacto inclui etapas realizadas do vínculo; fatores ausentes não viram zero ou reciclagem comprovada",
+      "Coleta avulsa aceita e remove equipe antes da saída, com controle de versão",
+      "Rota fixa gera execuções com equipe e participantes registrados em cada coleta",
+      "Relatório de catadores incorpora parcelas sem multiplicar a produção",
+      "Publicação da PEV não concede acesso operacional a cooperativas e catadores alheios"
+    ]
+  },
+  "browser": {
+    "passed": 9,
+    "failed": 0,
+    "results": [
+      {
+        "name": "Painel abre o mês atual com impacto geral de todas as origens",
+        "status": "PASS"
+      },
+      {
+        "name": "Mês anterior conserva valores e solicitações não entram no peso",
+        "status": "PASS"
+      },
+      {
+        "name": "Filtro do gerador restringe mês e acumulado sem apagar histórico",
+        "status": "PASS"
+      },
+      {
+        "name": "CSV entrega os doze registros mensais e separa indicadores e solicitações",
+        "status": "PASS"
+      },
+      {
+        "name": "Configuração permite fatores de água, energia e árvores junto ao CO2",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel mensal em celular mantém filtros e conteúdo sem transbordar a página",
+        "status": "PASS"
+      },
+      {
+        "name": "App do gerador mostra o mesmo mês, acumulado e histórico com troca de ano",
+        "status": "PASS"
+      },
+      {
+        "name": "Resumo ambiental do catador permanece preenchido antes da divisão da equipe",
+        "status": "PASS"
+      },
+      {
+        "name": "Nenhum erro JavaScript nos cenários de impacto mensal",
+        "status": "PASS"
+      }
+    ]
+  },
+  "builds": {
+    "api": "PASS",
+    "expoWeb": "PASS",
+    "panel": "PASS",
+    "apiAndAppTypeScript": "PASS",
+    "targetedLint": "PASS"
+  },
+  "boundaries": [
+    "API e PostgreSQL descartáveis locais; nenhuma operação na VPS.",
+    "Playwright com interfaces reais, API local e dispositivos de 390 px / desktop; GPS e tiles controlados.",
+    "Fatores sintéticos somente em fixtures de teste; nenhum coeficiente de produção criado.",
+    "Sem teste em Android/iOS físicos.",
+    "Sem migração nova: histórico mensal calculado sobre registros persistidos existentes."
+  ]
+}

@@ -111,7 +111,34 @@ export const configSchema = z
             z
               .object({
                 materialId: z.string().min(1).max(100),
-                co2PerKg: z.number().finite().nonnegative().max(1e6),
+                co2PerKg: z
+                  .number()
+                  .finite()
+                  .nonnegative()
+                  .max(1e6)
+                  .nullable()
+                  .optional(),
+                waterPerKg: z
+                  .number()
+                  .finite()
+                  .nonnegative()
+                  .max(1e9)
+                  .nullable()
+                  .optional(),
+                energyPerKg: z
+                  .number()
+                  .finite()
+                  .nonnegative()
+                  .max(1e9)
+                  .nullable()
+                  .optional(),
+                treesPerKg: z
+                  .number()
+                  .finite()
+                  .nonnegative()
+                  .max(1e6)
+                  .nullable()
+                  .optional(),
               })
               .strict(),
           )

@@ -196,7 +196,7 @@ export function buildCharts(collections: any[], q: any, config: any) {
       const factor = config.methodology?.factors?.find(
         (f: any) => f.materialId === m.materialId,
       );
-      if (factor && ["KG", "TON"].includes(m.unit) && m.quantity != null) {
+      if (typeof factor?.co2PerKg === "number" && ["KG", "TON"].includes(m.unit) && m.quantity != null) {
         const kg = m.quantity * (m.unit === "TON" ? 1000 : 1);
         coveredMass += kg;
         co2 += kg * factor.co2PerKg;

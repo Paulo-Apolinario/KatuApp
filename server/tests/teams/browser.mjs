@@ -256,7 +256,7 @@ try {
     "Relatórios exibem impacto e cobertura por gerador com fonte",
     async () => {
       await panel.goto("http://127.0.0.1:5179/environmental-impact");
-      await panel.getByRole("button", { name: "Consultar impacto" }).click();
+      await panel.getByRole("heading", { name: "Impacto ambiental mensal", exact: true }).waitFor();
       await panel
         .getByRole("cell", { name: "Gerador Teste", exact: true })
         .waitFor();
@@ -267,9 +267,9 @@ try {
         fullPage: true,
       });
       const download = panel.waitForEvent("download");
-      await panel.getByRole("button", { name: "Baixar CSV" }).click();
+      await panel.getByRole("button", { name: "Baixar CSV mensal" }).click();
       assert.ok(
-        (await download).suggestedFilename().startsWith("impacto-geradores-"),
+        (await download).suggestedFilename().startsWith("impacto-ambiental-mensal-"),
       );
     },
   );
@@ -315,7 +315,7 @@ try {
       await a.p.goto("http://127.0.0.1:8089/(gerador)/percentual");
       await a.p.getByText("80 kg CO2e", { exact: true }).waitFor();
       await a.p
-        .getByText("Impacto ambiental estimado", { exact: true })
+        .getByText("Impacto ambiental mensal", { exact: true })
         .waitFor();
       await a.p.screenshot({
         path: out + "/app-impacto-gerador.png",

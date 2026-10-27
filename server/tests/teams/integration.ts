@@ -429,7 +429,7 @@ async function main() {
   });
   const query = "/environmental-impact?start=2026-10-01&end=2026-10-31";
   let impact = (await call("gen", "GET", query)).data;
-  assert.equal(impact.totalMassKg, 40);
+  assert.equal(impact.totalMassKg, 79);
   assert.equal(impact.co2Kg, null);
   await p.reportConfiguration.create({
     data: {
@@ -448,7 +448,7 @@ async function main() {
   });
   impact = (await call("gen", "GET", query)).data;
   assert.equal(impact.co2Kg, 80);
-  assert.equal(impact.coveragePercent, 100);
+  assert.equal(impact.coveragePercent, 40 / 79 * 100);
   assert.equal(impact.generators.length, 1);
   assert.equal((await call("gen2", "GET", query)).data.totalMassKg, 0);
   await call(
@@ -465,7 +465,7 @@ async function main() {
     undefined,
     404,
   );
-  await call("a", "GET", query, undefined, 403);
+  assert.equal((await call("a", "GET", query)).data.totalMassKg, 79);
   await call(
     "owner",
     "GET",
@@ -476,7 +476,7 @@ async function main() {
   assert.equal((await call("owner", "GET", query)).data.co2Kg, 80);
   assert.equal(completed.totalWeightKg, 40);
   ok(
-    "Impacto usa apenas geradores e coletas concluídas do vínculo; fatores ausentes não viram zero ou reciclagem comprovada",
+    "Impacto inclui etapas realizadas do vínculo; fatores ausentes não viram zero ou reciclagem comprovada",
   );
   const avulsa = await p.collection.create({
     data: { cooperativeId: coop.id, collectorId: ids[0] },
