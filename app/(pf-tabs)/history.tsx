@@ -1,5 +1,7 @@
+import { useHistoryPages } from "@/src/hooks/useHistoryPages";
+import { HistoryStatus } from "@/src/components/HistoryStatus";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -11,7 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { scheduleService, Schedule } from "@/src/services/scheduleService";
+import { scheduleService } from "@/src/services/scheduleService";
 
 function formatDate(dateString?: string | null) {
   if (!dateString) return "-";
@@ -64,35 +66,11 @@ function getStatusColor(status: string) {
 }
 
 export default function HistoryScreen() {
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-
-  const loadData = useCallback(async (showLoader = true) => {
-    try {
-      if (showLoader) setLoading(true);
-
-      const data = await scheduleService.list();
-      setSchedules(data);
-    } catch (error) {
-      console.error("Erro ao carregar histórico:", error);
-      setSchedules([]);
-    } finally {
-      if (showLoader) setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadData(true);
-    }, [loadData]),
-  );
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadData(false);
-  }, [loadData]);
+  const history = useHistoryPages(scheduleService.history);
+  const { items: schedules, loading, busy: refreshing } = history;
+  const loadRef = useRef(history.load); loadRef.current = history.load;
+  useFocusEffect(useCallback(() => { void loadRef.current(); }, []));
+  const onRefresh = () => history.load();
 
   const totalColetas = useMemo(() => schedules.length, [schedules]);
 
@@ -136,6 +114,7 @@ export default function HistoryScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
+          <HistoryStatus count={schedules.length} total={history.meta.total} error={history.error} busy={history.busy} hasMore={history.meta.hasMore} updatedAt={history.updatedAt} onRefresh={() => void history.load()} onMore={() => void history.load(true)} />
           {/* Total */}
           <View
             style={{
@@ -147,7 +126,7 @@ export default function HistoryScreen() {
             }}
           >
             <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 5 }}>
-              Total de Solicitações
+              Solicitações carregadas
             </Text>
 
             <Text
@@ -198,7 +177,7 @@ export default function HistoryScreen() {
             <View style={{ alignItems: "center", marginTop: 40 }}>
               <Ionicons name="time-outline" size={40} color="#9CA3AF" />
               <Text style={{ marginTop: 10, color: "#6B7280" }}>
-                Nenhum histórico encontrado
+                {history.error ? "Histórico indisponível no momento" : "Nenhum histórico encontrado"}
               </Text>
             </View>
           )}

@@ -501,6 +501,10 @@ async function main() {
     400,
   );
   pass("Paginação, etapa e período inválidos são rejeitados");
+  if (process.env.APP_RELIABILITY === "1") {
+    const { checkHistory } = await import("../app-reliability/api");
+    await checkHistory(app, p, users, coop, cat, driver, pass);
+  }
   const tools = process.env.KATUA_VALIDATION_TOOLS || "/tmp";
   fs.writeFileSync(
     path.join(tools, "field-operations-api-results.json"),

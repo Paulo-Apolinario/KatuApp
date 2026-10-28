@@ -2,11 +2,11 @@ import { syncEngine } from "./syncEngine";
 type SyncResult = { success: boolean; message: string; processed: number };
 let activeSync: Promise<SyncResult> | null = null;
 /** Chamadas simultâneas aguardam a mesma confirmação, sem abrir dois envios. */
-export function runSyncNow(): Promise<SyncResult> {
+export function runSyncNow(options?: { entityId?: string; manual?: boolean }): Promise<SyncResult> {
   if (activeSync) return activeSync;
   activeSync = (async () => {
     try {
-      return await syncEngine.syncPendingOperations();
+      return await syncEngine.syncPendingOperations(options);
     } catch (error: any) {
       return {
         success: false,

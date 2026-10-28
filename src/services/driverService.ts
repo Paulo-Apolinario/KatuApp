@@ -1,3 +1,4 @@
+import { historyQuery, type HistoryPage } from "./historyPage";
 import { api, isApiNetworkError } from "./api";
 import { vehicleService, type Vehicle } from "./vehicleService";
 import { routeService } from "./routeService";
@@ -379,6 +380,11 @@ export const driverService = {
     return normalizeDriver(response.driver);
   },
 
+  async history(page: number, until: string): Promise<HistoryPage<DriverReport>> {
+    const response = await api.get<{ reports: DriverReport[]; pagination: HistoryPage<DriverReport>["pagination"] }>(`/drivers/me/reports?${historyQuery(page, until)}`, true);
+    if (!Array.isArray(response?.reports) || !response.pagination) throw new Error("Não foi possível confirmar a página do histórico.");
+    return { items: response.reports.map(normalizeReport), pagination: response.pagination };
+  },
   async listMyReports(): Promise<DriverReport[]> {
     const response = await api.get<DriverEnvelope>("/drivers/me/reports", true);
     const items = Array.isArray(response?.reports) ? response.reports : [];

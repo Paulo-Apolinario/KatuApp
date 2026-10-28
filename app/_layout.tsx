@@ -2,7 +2,7 @@ import { InboxProvider } from "../src/contexts/InboxContext";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Platform, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Platform, Text, View } from "react-native";
 import { AuthProvider } from "../src/contexts/AuthContext";
 import { NotificationProvider } from "../src/contexts/NotificationContext";
 import { runMigrations } from "../src/database/migrations";
@@ -52,11 +52,15 @@ export default function RootLayout() {
       }
     });
 
+    const resume = AppState.addEventListener("change", state => {
+      if (state === "active") void syncManager.runSyncNow();
+    });
     const timer = setInterval(() => {
-      void syncManager.runSyncNow();
+      if (AppState.currentState === "active") void syncManager.runSyncNow();
     }, 30000);
     return () => {
       clearInterval(timer);
+      resume.remove();
       unsubscribe();
     };
   }, [ready]);

@@ -1,3 +1,4 @@
+import { DataReadNotice } from "@/src/components/DataReadNotice";
 import { collectionOrigin } from "@/src/utils/collectionOrigin";
 import { NotificationBell } from "@/src/components/NotificationBell";
 import { syncManager } from "@/src/offline/syncManager";
@@ -330,7 +331,7 @@ export default function CollectScreen() {
           message: "Não foi possível carregar as coletas delegadas.",
           title: "Erro",
         });
-        setCollections([]);
+        // Mantém os dados visíveis quando a atualização falha.
       } finally {
         if (showLoader) setLoading(false);
         setRefreshing(false);
@@ -840,6 +841,7 @@ export default function CollectScreen() {
 
       <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
         <OfflineBanner visible={isOffline} />
+          <DataReadNotice resource="collections" onRetry={() => void loadCollections(false)} />
       </View>
 
       <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>

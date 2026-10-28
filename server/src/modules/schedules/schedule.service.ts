@@ -1,3 +1,4 @@
+import { type HistoryPage, pageResult } from "../../shared/history-page";
 import {
   AccountStatus,
   CollectionStatus,
@@ -676,7 +677,15 @@ export class ScheduleService {
    * ============================================================
    */
 
-  async listMine(authUserId: string, authUserRole: string) {
+  async listMine(authUserId: string, authUserRole: string): Promise<Prisma.ScheduleGetPayload<{ include: typeof scheduleInclude }>[]>;
+  async listMine(authUserId: string, authUserRole: string, page: HistoryPage): Promise<{ schedules: Prisma.ScheduleGetPayload<{ include: typeof scheduleInclude }>[]; pagination: ReturnType<typeof pageResult> }>;
+  async listMine(authUserId: string, authUserRole: string, page?: HistoryPage) {
+    const find = async (args: { where: Prisma.ScheduleWhereInput; include: typeof scheduleInclude; orderBy: Prisma.ScheduleOrderByWithRelationInput[] }) => {
+      if (!page) return prisma.schedule.findMany(args);
+      const where = { AND: [args.where || {}, ...(page.until ? [{ createdAt: { lte: new Date(page.until) } }] : [])] };
+      const schedules = await prisma.schedule.findMany({ ...args, where, skip: (page.page - 1) * page.limit, take: page.limit, orderBy: [{ createdAt: "desc" }, { id: "desc" }] });
+      return { schedules, pagination: pageResult(await prisma.schedule.count({ where }), page) };
+    };
     const role = normalizeRole(authUserRole);
 
     if (role === UserRole.COOPERATIVE) {
@@ -694,7 +703,7 @@ export class ScheduleService {
         throw new Error("Cooperativa do usuário autenticado não encontrada.");
       }
 
-      return prisma.schedule.findMany({
+      return find({
         where: {
           cooperativeId: cooperative.id,
         },
@@ -736,7 +745,7 @@ export class ScheduleService {
         throw new Error("Gerador do usuário autenticado não encontrado.");
       }
 
-      return prisma.schedule.findMany({
+      return find({
         where: {
           generatorId: generator.id,
         },
@@ -764,7 +773,7 @@ export class ScheduleService {
     }
 
     if (role === UserRole.PF) {
-      return prisma.schedule.findMany({
+      return find({
         where: {
           requestedByUserId: authUserId,
         },

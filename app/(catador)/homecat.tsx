@@ -1,3 +1,4 @@
+import { DataReadNotice } from "@/src/components/DataReadNotice";
 import GeneratorImpact from "@/src/components/impact/GeneratorImpact";
 import { NotificationBell } from "@/src/components/NotificationBell";
 import { router, useFocusEffect } from "expo-router";
@@ -332,14 +333,14 @@ export default function HomeCatScreen() {
         const data = await collectionService.list();
 
         setCollections(Array.isArray(data) ? data : []);
-        setLastSyncAt(new Date().toISOString());
+        setLastSyncAt(collectionService.getLastRemoteSyncAt());
       } catch (error) {
         console.error("Erro ao carregar painel do catador:", error);
         notifyError({
           message: "Não foi possível carregar o painel do catador.",
           title: "Erro",
         });
-        setCollections([]);
+        // Mantém os dados visíveis quando a atualização falha.
       } finally {
         if (showLoader) {
           setLoading(false);
@@ -675,6 +676,7 @@ export default function HomeCatScreen() {
           }}
         >
           <OfflineBanner visible={isOffline} />
+          <DataReadNotice resource="collections" onRetry={() => void loadCollections(false)} />
         </View>
 
         <View

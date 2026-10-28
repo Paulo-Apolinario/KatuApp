@@ -16,6 +16,7 @@ const root = path.resolve(
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "katua-field-"));
 const schema = fs
   .readFileSync(root + "/prisma/schema.prisma", "utf8")
+  .replace(/^  @@index\(\[(?:requestedByUserId, createdAt, id|generatorId, createdAt, id|cooperativeId, status, createdAt, id|driverId, status, createdAt, id|driverId, createdAt, id)\]\)\n/gm, "")
   .replace(/model Route \{[\s\S]*?\n\}/, (block) =>
     block
       .split("\n")
@@ -54,6 +55,7 @@ await db.exec(
     "utf8",
   ),
 );
+await db.exec(fs.readFileSync(root + "/prisma/migrations/20261028040000_app_history_pagination/migration.sql", "utf8"));
 const server = new PGLiteSocketServer({ db, port: 54329, host: "127.0.0.1" });
 await server.start();
 try {

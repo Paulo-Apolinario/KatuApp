@@ -23,7 +23,7 @@ export function useSyncStatus() {
     };
   }, [refresh]);
   const sync = async () => {
-    const result = await syncManager.runSyncNow();
+    const result = await syncManager.runSyncNow({ manual: true });
     setMessage(result.message);
     await refresh();
     return result;

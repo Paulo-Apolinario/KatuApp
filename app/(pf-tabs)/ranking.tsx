@@ -1,3 +1,4 @@
+import { DataReadNotice } from "@/src/components/DataReadNotice";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -48,7 +49,7 @@ export default function RankingScreen() {
       setSchedules(data);
     } catch (error) {
       console.error("Erro ao carregar ranking:", error);
-      setSchedules([]);
+      // O aviso persistente distingue erro e dados salvos sem apagar os indicadores.
     } finally {
       if (showLoader) setLoading(false);
       setRefreshing(false);
@@ -133,6 +134,7 @@ export default function RankingScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
       showsVerticalScrollIndicator={false}
     >
+      <DataReadNotice resource="schedules" onRetry={() => void loadData(false)} />
       <LinearGradient
         colors={["#123C35", "#17694F"]}
         style={{

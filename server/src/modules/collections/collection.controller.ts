@@ -1,3 +1,4 @@
+import { pageQuery } from "../../shared/history-page";
 import { reviewQuantitiesSchema } from "./collection.schemas";
 import { FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
@@ -109,6 +110,11 @@ export class CollectionController {
   async listMine(request: FastifyRequest, reply: FastifyReply) {
     try {
       const authUser = getAuthenticatedUser(request);
+      const historyPage = pageQuery(request.query);
+      if (historyPage) {
+        const result = await collectionService.listMine(authUser.sub, authUser.role, historyPage);
+        return reply.send({ success: true, ...result });
+      }
       const collections = await collectionService.listMine(
         authUser.sub,
         authUser.role,

@@ -235,7 +235,7 @@ async function processSyncItem(item: PendingSyncItem) {
   }
 }
 
-export async function syncPendingOperations() {
+export async function syncPendingOperations(options?: { entityId?: string; manual?: boolean }) {
   const connectivity = await getCurrentConnectivity();
 
   if (connectivity.isOffline) {
@@ -246,7 +246,9 @@ export async function syncPendingOperations() {
     };
   }
 
-  const pendingItems = (await getPendingSyncItems()) as PendingSyncItem[];
+  const allItems = (await getPendingSyncItems()) as PendingSyncItem[];
+  // Reenvia a sequência da entidade, nunca apenas sua conclusão isolada.
+  const pendingItems = options?.entityId ? allItems.filter(item => item.entityId === options.entityId) : allItems;
 
   if (!pendingItems.length) {
     return {
@@ -258,11 +260,19 @@ export async function syncPendingOperations() {
 
   let synced = 0;
   let failed = 0;
+  let deferred = 0;
   const blockedEntities = new Set<string>();
   for (const item of pendingItems) {
     // Nunca confirmar a conclusão antes de sincronizar o início da mesma coleta.
     if (blockedEntities.has(item.entityId)) {
-      failed += 1;
+      deferred += 1;
+      continue;
+    }
+    // Evita martelar uma falha a cada timer. A tentativa manual ignora a espera.
+    const backoff = Math.min(300000, 15000 * 2 ** Math.min(item.retryCount, 5));
+    if (!options?.manual && item.status === "ERROR" && Date.now() - Date.parse(item.updatedAt) < backoff) {
+      deferred += 1;
+      blockedEntities.add(item.entityId);
       continue;
     }
     if (await processSyncItem(item)) synced += 1;
@@ -275,12 +285,13 @@ export async function syncPendingOperations() {
   await clearSyncedSyncItems();
 
   return {
-    success: failed === 0,
+    success: failed === 0 && deferred === 0,
     message:
-      failed > 0
-        ? `${synced} operação(ões) sincronizada(s); ${failed} com erro. As operações com erro permanecem na fila para revisão ou nova tentativa.`
+      failed > 0 || deferred > 0
+        ? `${synced} operação(ões) sincronizada(s); ${failed + deferred} aguardando nova tentativa. As operações com erro permanecem na fila para revisão ou nova tentativa.`
         : "Sincronização concluída.",
-    processed: pendingItems.length,
+    processed: synced + failed,
+    deferred,
     synced,
     failed,
   };

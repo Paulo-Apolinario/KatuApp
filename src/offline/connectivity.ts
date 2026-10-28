@@ -7,8 +7,9 @@ export type ConnectivityStatus = {
 };
 
 function mapStateToConnectivity(state: NetInfoState): ConnectivityStatus {
-  const isConnected = Boolean(state.isConnected);
-  const isInternetReachable = Boolean(state.isInternetReachable);
+  // NetInfo pode retornar null enquanto verifica a rede. Isso não confirma ausência de internet.
+  const isConnected = state.isConnected !== false;
+  const isInternetReachable = state.isInternetReachable !== false;
   const isOffline = !isConnected || !isInternetReachable;
 
   return {

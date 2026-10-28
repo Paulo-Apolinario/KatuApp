@@ -1,3 +1,4 @@
+import { type HistoryPage, pageResult } from "../../shared/history-page";
 import { creditedKg } from "../collector-teams/team.model";
 import { refreshTeamTotals } from "../collector-teams/team.service";
 import { notifyCollection } from "../inbox/inbox.service";
@@ -1001,7 +1002,9 @@ export class CollectionService {
    * ============================================================
    */
 
-  async listMine(authUserId: string, authUserRole: string) {
+  async listMine(authUserId: string, authUserRole: string): Promise<(Prisma.CollectionGetPayload<{ include: typeof collectionInclude }> & { creditedWeightKg?: number; myCollectorId?: string })[]>;
+  async listMine(authUserId: string, authUserRole: string, page: HistoryPage): Promise<{ collections: (Prisma.CollectionGetPayload<{ include: typeof collectionInclude }> & { creditedWeightKg?: number; myCollectorId?: string })[]; pagination: ReturnType<typeof pageResult> }>;
+  async listMine(authUserId: string, authUserRole: string, page?: HistoryPage) {
     const context = await this.getAccessContext(authUserId, authUserRole);
     let where: Prisma.CollectionWhereInput;
 
@@ -1035,18 +1038,21 @@ export class CollectionService {
         );
     }
 
+    if (page) where = { AND: [where, { status: "COMPLETED" }, ...(page.until ? [{ createdAt: { lte: new Date(page.until) } }] : [])] };
     const rows = await prisma.collection.findMany({
       where,
       include: collectionInclude,
-      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+      ...(page ? { skip: (page.page - 1) * page.limit, take: page.limit } : {}),
+      orderBy: page ? [{ createdAt: "desc" }, { id: "desc" }] : [{ status: "asc" }, { createdAt: "desc" }],
     });
-    return context.role === "COLLECTOR"
+    const collections = context.role === "COLLECTOR"
       ? rows.map((c) => ({
           ...c,
           creditedWeightKg: creditedKg(c, context.collectorId!),
           myCollectorId: context.collectorId,
         }))
       : rows;
+    return page ? { collections, pagination: pageResult(await prisma.collection.count({ where }), page) } : collections;
   }
 
   /*

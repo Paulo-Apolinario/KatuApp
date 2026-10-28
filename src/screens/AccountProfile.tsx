@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useState } from "react";
 import { Text } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
@@ -109,6 +110,7 @@ export default function AccountProfile() {
         />
         <Notice text="Sincronize antes de limpar os dados do aplicativo ou trocar de dispositivo. Sair da conta preserva as pendências associadas ao titular." />
       </Card>
+      {(user?.role === "COLLECTOR" || user?.role === "DRIVER") && <Action secondary label="Central de sincronização" onPress={() => router.push("/sync")} />}
       <Action secondary label="Sair da conta" onPress={() => void signOut()} />
     </Workspace>
   );

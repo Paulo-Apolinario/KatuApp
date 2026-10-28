@@ -131,6 +131,7 @@ model DriverReport {
   @@index([vehicleId])
   @@index([collectionId])
   @@index([createdAt])
+  @@index([driverId, createdAt, id])
 }
 
 model PersonProfile {
@@ -218,6 +219,8 @@ model Schedule {
   @@index([generatorId])
   @@index([requestedByUserId])
   @@index([status])
+  @@index([requestedByUserId, createdAt, id])
+  @@index([generatorId, createdAt, id])
 }
 
 /**
@@ -493,6 +496,8 @@ model Collection {
   @@index([sortingStartedByUserId])
   @@index([completedByUserId])
   @@index([cancelledByUserId])
+  @@index([cooperativeId, status, createdAt, id])
+  @@index([driverId, status, createdAt, id])
 }
 
 model CollectionMaterial {

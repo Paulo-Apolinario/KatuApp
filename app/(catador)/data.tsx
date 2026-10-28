@@ -1,3 +1,4 @@
+import { DataReadNotice } from "@/src/components/DataReadNotice";
 import { personalMaterialParcels } from "@/src/utils/collectionParticipation";
 import { NotificationBell } from "@/src/components/NotificationBell";
 import { router, useFocusEffect } from "expo-router";
@@ -277,14 +278,14 @@ export default function DataScreen() {
         if (showLoader) setLoading(true);
         const response = await collectionService.list();
         setCollections(Array.isArray(response) ? response : []);
-        setLastSyncAt(new Date().toISOString());
+        setLastSyncAt(collectionService.getLastRemoteSyncAt());
       } catch (error) {
         console.error("Erro ao carregar dados do catador:", error);
         notifyError({
           message: "Não foi possível carregar os dados do catador.",
           title: "Erro",
         });
-        setCollections([]);
+        // Preserva os indicadores anteriores quando a atualização falha.
       } finally {
         if (showLoader) setLoading(false);
         setRefreshing(false);
@@ -463,6 +464,7 @@ export default function DataScreen() {
           <OfflineBanner visible={isOffline} />
           <View style={{ marginTop: 12 }}>
             <LastSyncBadge value={lastSyncAt} />
+          <DataReadNotice resource="collections" onRetry={() => void loadCollections(false)} />
           </View>
 
           <SectionHeader

@@ -1,3 +1,4 @@
+import { Action } from "@/src/components/ui/Workspace";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -257,6 +258,7 @@ export default function MotoristaProfileScreen() {
             value={translateVehicleStatus(profile?.currentVehicle?.status)}
           />
         </View>
+        <Action secondary label="Central de sincronização" onPress={() => router.push("/sync")} />
       </ScrollView>
     </View>
   );

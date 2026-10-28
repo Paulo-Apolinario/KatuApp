@@ -1,3 +1,5 @@
+import { View } from "react-native";
+import { SyncSummary } from "@/src/components/SyncSummary";
 import { useBottomTabOptions } from "@/src/hooks/useBottomTabOptions";
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
@@ -8,6 +10,7 @@ export default function CatadorLayout() {
   const bottomTabOptions = useBottomTabOptions();
   return (
     <ProtectedRoute allowedUserTypes={["COLLECTOR"]}>
+      <View style={{ flex: 1 }}><SyncSummary />
       <Tabs screenOptions={{ ...bottomTabOptions, headerShown: false }}>
         <Tabs.Screen
           name="homecat"
@@ -105,7 +108,7 @@ export default function CatadorLayout() {
         />
         <Tabs.Screen name="producao-equipe" options={{ href: null, title: "Minha produção em equipe" }} />
         <Tabs.Screen name="pev-atendimento" options={{href:null,title:"Solicitações de PEV"}} />
-      </Tabs>
+      </Tabs></View>
     </ProtectedRoute>
   );
 }

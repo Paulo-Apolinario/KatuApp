@@ -1,3 +1,5 @@
+import { setReadState } from "./readState";
+import { historyQuery, type HistoryPage } from "./historyPage";
 import { api, isApiNetworkError } from "./api";
 
 import {
@@ -456,12 +458,17 @@ async function list(): Promise<Schedule[]> {
 
     await saveSchedulesToCache(normalized);
 
+    setReadState("schedules", { cached: false, error: "" });
     return normalized;
   } catch (error) {
     if (isApiNetworkError(error)) {
-      return readSchedulesFromCache();
+      const cached = await readSchedulesFromCache();
+      setReadState("schedules", { cached: cached.length > 0, error: error.message });
+      if (cached.length) return cached;
+      throw error;
     }
 
+    setReadState("schedules", { cached: false, error: error instanceof Error ? error.message : "Não foi possível atualizar." });
     throw error;
   }
 }
@@ -577,6 +584,11 @@ async function updateStatus(
 }
 
 export const scheduleService = {
+  async history(page: number, until: string): Promise<HistoryPage<Schedule>> {
+    const response = await api.get<{ schedules: Schedule[]; pagination: HistoryPage<Schedule>["pagination"] }>(`/schedules?${historyQuery(page, until)}`, true);
+    if (!Array.isArray(response?.schedules) || !response.pagination) throw new Error("Não foi possível confirmar a página do histórico.");
+    return { items: response.schedules.map(normalizeSchedule), pagination: response.pagination };
+  },
   list,
   getById,
   create,

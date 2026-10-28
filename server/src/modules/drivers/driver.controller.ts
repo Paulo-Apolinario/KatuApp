@@ -1,3 +1,4 @@
+import { pageQuery } from "../../shared/history-page";
 import { FastifyReply, FastifyRequest } from "fastify";
 import {
   createDriverReportSchema,
@@ -209,6 +210,11 @@ export class DriverController {
         });
       }
 
+      const historyPage = pageQuery(request.query);
+      if (historyPage) {
+        const result = await driverService.listMyReports(authUser.sub, historyPage);
+        return reply.send({ success: true, ...result });
+      }
       const reports = await driverService.listMyReports(authUser.sub);
 
       return reply.send({

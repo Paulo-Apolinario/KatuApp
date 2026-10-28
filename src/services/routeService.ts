@@ -1,3 +1,4 @@
+import { setReadState } from "./readState";
 import { normalizeMaterials } from "../utils/materials";
 import { api, isApiNetworkError } from "./api";
 import {
@@ -638,10 +639,14 @@ export const routeService = {
 
       await saveRoutesToCache(normalized);
 
+      setReadState("routes", { cached: false, error: "" });
       return normalized;
     } catch (error) {
       if (isApiNetworkError(error)) {
-        return readRoutesFromCache();
+        const cached = await readRoutesFromCache();
+        setReadState("routes", { cached: cached.length > 0, error: error.message });
+        if (cached.length) return cached;
+        throw error;
       }
 
       throw error;
@@ -708,7 +713,10 @@ export const routeService = {
       if (isApiNetworkError(error)) {
         const cached = await readRouteByIdFromCache(id);
 
-        if (cached) return cached;
+        if (cached) {
+          setReadState("routes", { cached: true, error: error.message });
+          return cached;
+        }
       }
 
       throw error;

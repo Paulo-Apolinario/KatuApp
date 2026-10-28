@@ -1,12 +1,15 @@
+import { sortCollectionHistory } from "@/src/utils/collectionDates";
+import { loadCompleteHistory } from "@/src/services/historyPage";
+import { useHistoryPages } from "@/src/hooks/useHistoryPages";
+import { HistoryStatus } from "@/src/components/HistoryStatus";
 import { collectionOrigin } from "@/src/utils/collectionOrigin";
 import { NotificationBell } from "@/src/components/NotificationBell";
 import {
   groupMaterials,
   materialQuantity,
-  normalizeMaterials as normalizeCollectionMaterials,
 } from "@/src/utils/materials";
-import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useRef, useMemo, useState } from "react";
 import {
   Image,
   Text,
@@ -48,7 +51,6 @@ function formatDate(value?: string | null) {
   return parsed.toLocaleDateString("pt-BR");
 }
 
-const normalizeMaterials = normalizeCollectionMaterials;
 
 function getCollectionTotalKg(collection: Collection) {
   const materialsKg = (collection.materials ?? []).reduce(
@@ -69,68 +71,7 @@ function getMaterialsSummary(materials?: CollectionMaterial[]) {
     .join(", ");
 }
 
-export default function ReceiptsScreen() {
-  const { user } = useAuth();
-  const currentUser = user as AuthUser | null;
-  const { notifyError, notifySuccess } = useNotification();
-
-  const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingReceipt, setLoadingReceipt] = useState<string | null>(null);
-  const [receipts, setReceipts] = useState<Collection[]>([]);
-
-  const isWeb = Platform.OS === "web";
-
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      const response = await collectionService.list();
-
-      const normalized = Array.isArray(response)
-        ? response.map((item) => ({
-            ...item,
-            materials: normalizeMaterials(item.materials),
-            totalWeightKg: Number(item.totalWeightKg ?? 0),
-          }))
-        : [];
-
-      const completed = normalized.filter(
-        (item) => item.status === "COMPLETED",
-      );
-
-      setReceipts(completed);
-    } catch (error) {
-      console.error("Erro ao carregar comprovantes:", error);
-      notifyError("Não foi possível carregar os comprovantes.");
-    } finally {
-      setLoading(false);
-    }
-  }, [notifyError]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const receiptsOrdenados = useMemo(() => {
-    return [...receipts].sort((a, b) => {
-      const aTime = a.collectedAt
-        ? new Date(a.collectedAt).getTime()
-        : a.createdAt
-          ? new Date(a.createdAt).getTime()
-          : 0;
-
-      const bTime = b.collectedAt
-        ? new Date(b.collectedAt).getTime()
-        : b.createdAt
-          ? new Date(b.createdAt).getTime()
-          : 0;
-
-      return bTime - aTime;
-    });
-  }, [receipts]);
-
-  const userData = useMemo(() => {
+function buildReceiptUserData(currentUser: AuthUser | null, receiptsOrdenados: Collection[]) {
     const topMaterials = groupMaterials(
       receiptsOrdenados.flatMap((item) => item.materials || []),
     );
@@ -170,7 +111,26 @@ export default function ReceiptsScreen() {
           : "-",
       topMaterials,
     };
-  }, [currentUser, receiptsOrdenados]);
+
+}
+
+export default function ReceiptsScreen() {
+  const { user } = useAuth();
+  const currentUser = user as AuthUser | null;
+  const { notifyError, notifySuccess } = useNotification();
+
+  const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
+
+  const [loadingReceipt, setLoadingReceipt] = useState<string | null>(null);
+  const history = useHistoryPages(collectionService.history);
+  const { items: receipts, loading } = history;
+  const isWeb = Platform.OS === "web";
+  const loadRef = useRef(history.load); loadRef.current = history.load;
+  useFocusEffect(useCallback(() => { void loadRef.current(); }, []));
+
+  const receiptsOrdenados = useMemo(() => sortCollectionHistory(receipts), [receipts]);
+
+  const userData = useMemo(() => buildReceiptUserData(currentUser, receiptsOrdenados), [currentUser, receiptsOrdenados]);
 
   const getSuccessMessage = (mode?: "share" | "print", label?: string) => {
     if (mode === "print" && isWeb) {
@@ -184,7 +144,8 @@ export default function ReceiptsScreen() {
     setLoadingReceipt("full");
 
     try {
-      const result = await generateReceiptPDF(userData);
+      const all = await loadCompleteHistory(collectionService.history);
+      const result = await generateReceiptPDF(buildReceiptUserData(currentUser, sortCollectionHistory(all)));
 
       if (result.success) {
         notifySuccess(
@@ -293,6 +254,7 @@ export default function ReceiptsScreen() {
         showsVerticalScrollIndicator={false}
         style={{ flex: 1, padding: 20 }}
       >
+        <HistoryStatus count={receipts.length} total={history.meta.total} error={history.error} busy={history.busy} hasMore={history.meta.hasMore} updatedAt={history.updatedAt} onRefresh={() => void history.load()} onMore={() => void history.load(true)} />
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 40 }}>
             <ActivityIndicator size="large" color="#047857" />
@@ -380,7 +342,7 @@ export default function ReceiptsScreen() {
               </View>
 
               <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
-                Gerar comprovante consolidado com o histórico real das coletas
+                Gerar comprovante consolidado com todas as coletas concluídas. O histórico completo será consultado ao gerar.
               </Text>
 
               <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
@@ -619,7 +581,7 @@ export default function ReceiptsScreen() {
                     textAlign: "center",
                   }}
                 >
-                  Nenhuma coleta concluída ainda.
+                  {history.error ? "Comprovantes indisponíveis no momento." : "Nenhuma coleta concluída ainda."}
                 </Text>
               </View>
             )}

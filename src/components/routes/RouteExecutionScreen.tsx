@@ -1,3 +1,4 @@
+import { DataReadNotice } from "@/src/components/DataReadNotice";
 import { initialRouteId, routeStartIssues } from "@/src/utils/routeReadiness";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -67,12 +68,8 @@ export default function RouteExecutionScreen() {
       const id = selected.current || initialRouteId(rows);
       if (id && rows.some((r) => r.id === id)) {
         const r = await routeService.getById(id);
-        const mine = await collectionService.list();
-        const known = new Map(mine.map((c) => [c.id, c]));
-        // A fila offline pode conter conclusão mais recente que a última consulta da rota.
-        r.collections = (r.collections || []).map((c) =>
-          known.get(c.id)?.syncStatus === "PENDING" ? known.get(c.id)! : c,
-        );
+        // Só projeta pendências destes pontos; não baixa todo o histórico para abrir uma rota.
+        r.collections = await collectionService.withPending(r.collections || []);
         if (mounted.current) {
           selected.current = id;
           setDetail(r);
@@ -98,12 +95,14 @@ export default function RouteExecutionScreen() {
       mounted.current = true;
       if (params.highlightRouteId) selected.current = params.highlightRouteId;
       void load();
+      const resume = AppState.addEventListener("change", state => { if (state === "active") void load(); });
       const timer = setInterval(() => {
         if (AppState.currentState === "active") void load();
       }, 30000);
       return () => {
         mounted.current = false;
         clearInterval(timer);
+        resume.remove();
       };
     }, [load, params.highlightRouteId]),
   );
@@ -222,6 +221,7 @@ export default function RouteExecutionScreen() {
         </Text>
       </LinearGradient>
       <OfflineBanner visible={isOffline} />
+          <DataReadNotice resource="routes" onRetry={() => void load(true)} />
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -243,7 +243,7 @@ export default function RouteExecutionScreen() {
           <ActivityIndicator color="#047857" />
         ) : (
           <>
-            {!routes.length && (
+            {!routes.length && !error && (
               <View style={styles.card}>
                 <Ionicons name="map-outline" size={40} color="#047857" />
                 <Text style={styles.title}>Nenhuma rota atribuída</Text>

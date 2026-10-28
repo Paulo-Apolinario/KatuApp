@@ -1,3 +1,4 @@
+import { pageQuery } from "../../shared/history-page";
 import {
   FastifyReply,
   FastifyRequest,
@@ -268,6 +269,11 @@ export class ScheduleController {
           request
         );
 
+      const historyPage = pageQuery(request.query);
+      if (historyPage) {
+        const result = await scheduleService.listMine(authUser.userId, authUser.role, historyPage);
+        return reply.send({ success: true, ...result });
+      }
       const schedules =
         await scheduleService.listMine(
           authUser.userId,
