@@ -159,6 +159,7 @@ type BackendRoute = {
 };
 
 type BackendCollection = {
+  participants?: Collection["participants"];
   routePoint?: Collection["routePoint"];
   routePointKey?: string | null;
   bin?: Collection["bin"];
@@ -304,6 +305,7 @@ function normalizeCollectionStatus(status?: string): CollectionStatus {
 function normalizeCollection(collection: BackendCollection): Collection {
   return {
     id: collection.id,
+    participants: Array.isArray(collection.participants) ? collection.participants : [],
     bin: collection.bin,
     routePoint: collection.routePoint,
     routePointKey: collection.routePointKey,
@@ -421,6 +423,7 @@ function normalizeRoute(route: BackendRoute): RouteItem {
     id: route.id,
     collectionOrder: route.collectionOrder,
     collectorIds: route.collectorIds,
+    teamId: route.teamId,
     startPoint: route.startPoint,
     endPoint: route.endPoint,
     departureTime: route.departureTime,

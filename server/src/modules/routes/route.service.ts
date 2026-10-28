@@ -771,7 +771,9 @@ export class RouteService {
           });
           if (!driverId || !vehicleId || !scheduledDate || !count)
             throw new Error(
-              "Para iniciar, defina data, motorista, veículo e ao menos uma coleta pendente/em andamento.",
+              actor
+                ? "A rota aguarda preparação pela cooperativa. Solicite a definição da data, do motorista e do veículo, com ao menos uma coleta pendente ou em andamento. Atualize a rota após a liberação."
+                : "Para iniciar, defina data, motorista, veículo e ao menos uma coleta pendente/em andamento.",
             );
         }
         if (

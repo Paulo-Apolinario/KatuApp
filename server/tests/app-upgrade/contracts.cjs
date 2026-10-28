@@ -289,12 +289,14 @@ async function check(name, fn) {
               return {
                 route: {
                   id: "r",
+                  teamId: "team-qa",
                   name: body.name,
                   status: "SCHEDULED",
                   collectionOrder: body.collectionIds,
                   collections: [
                     {
                       id: "c",
+                      participants: [{id:"member",collectorId:"member-qa",nameSnapshot:"Integrante QA"}],
                       status: "PENDING",
                       materials: [],
                       bin: { name: "PEV QA", latitude: -3.7, longitude: -38.5 },
@@ -320,8 +322,25 @@ async function check(name, fn) {
       assert.deepEqual(sent.collectionIds, ["c"]);
       assert.equal(route.collections[0].bin.name, "PEV QA");
       assert.deepEqual(route.collectionOrder, ["c"]);
+      assert.equal(route.teamId,"team-qa");
+      assert.equal(route.collections[0].participants[0].collectorId,"member-qa");
     },
   );
+  await check("Saída aguarda preparação da cooperativa e distingue veículo em manutenção", async () => {
+    const {routeStartIssues} = load("src/utils/routeReadiness.ts");
+    const route={scheduledDate:"2026-10-28T11:00:00Z",collections:[{status:"PENDING"}]};
+    assert.deepEqual(routeStartIssues(route),["Designar o motorista","Designar o veículo"]);
+    assert.equal(routeStartIssues({...route,driverId:"d",vehicleId:"v",vehicle:{status:"ACTIVE"}}).length,0);
+    assert.equal(routeStartIssues({...route,driverId:"d",vehicleId:"v",vehicle:{status:"MAINTENANCE"}}).length,1);
+    assert(routeStartIssues({...route,collections:[{status:"COLLECTED"}]}).some(s=>s.includes("não há coleta")));
+  });
+  await check("Seleção inicial prioriza execução em andamento e programação atual do Ceará", async () => {
+    const {initialRouteId} = load("src/utils/routeReadiness.ts");
+    const routes=[{id:"old",status:"SCHEDULED",scheduledDate:"2026-10-27T11:00:00Z"},{id:"today",status:"SCHEDULED",scheduledDate:"2026-10-28T11:00:00Z"}];
+    assert.equal(initialRouteId(routes,new Date("2026-10-28T12:00:00Z")),"today");
+    assert.equal(initialRouteId([...routes,{id:"active",status:"IN_PROGRESS"}],new Date("2026-10-28T12:00:00Z")),"active");
+    assert.equal(initialRouteId([{id:"cancelled",status:"CANCELLED"}]),undefined);
+  });
   console.log(
     JSON.stringify(
       {

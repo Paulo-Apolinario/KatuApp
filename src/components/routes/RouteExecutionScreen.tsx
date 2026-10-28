@@ -1,3 +1,4 @@
+import { initialRouteId, routeStartIssues } from "@/src/utils/routeReadiness";
 import { useCallback, useRef, useState } from "react";
 import {
   AppState,
@@ -63,10 +64,7 @@ export default function RouteExecutionScreen() {
       const rows = await routeService.list();
       if (!mounted.current) return;
       setRoutes(rows);
-      const id =
-        selected.current ||
-        rows.find((r) => r.status === "IN_PROGRESS")?.id ||
-        rows.find((r) => r.status === "SCHEDULED")?.id;
+      const id = selected.current || initialRouteId(rows);
       if (id && rows.some((r) => r.id === id)) {
         const r = await routeService.getById(id);
         const mine = await collectionService.list();
@@ -111,6 +109,12 @@ export default function RouteExecutionScreen() {
   );
   async function action(status: "IN_PROGRESS" | "COMPLETED") {
     if (!detail || busy) return;
+    if (status === "IN_PROGRESS" && routeStartIssues(detail).length) {
+      setError(
+        "Aguardando preparação da rota pela cooperativa. Atualize os dados após a liberação.",
+      );
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -331,10 +335,42 @@ export default function RouteExecutionScreen() {
                       ocorrências exigem conexão.
                     </Text>
                   )}
+                  {detail.status === "SCHEDULED" &&
+                    routeStartIssues(detail).length > 0 && (
+                      <View
+                        accessibilityRole="alert"
+                        style={{
+                          backgroundColor: "#FFF7ED",
+                          borderRadius: 12,
+                          padding: 14,
+                          gap: 6,
+                        }}
+                      >
+                        <Text style={[styles.title, { fontSize: 16 }]}>
+                          Aguardando preparação pela cooperativa
+                        </Text>
+                        <Text style={styles.text}>
+                          A definição da data, do motorista e do veículo é feita
+                          pela cooperativa. Pendências desta execução:
+                        </Text>
+                        {routeStartIssues(detail).map((issue) => (
+                          <Text key={issue} style={styles.text}>
+                            • {issue}
+                          </Text>
+                        ))}
+                        <Text style={styles.text}>
+                          Após a cooperativa ajustar a execução, toque em
+                          atualizar. Você poderá confirmar a saída quando os
+                          dados estiverem completos.
+                        </Text>
+                      </View>
+                    )}
                   {detail.status === "SCHEDULED" && (
                     <Button
                       label="Confirmar saída e iniciar rota"
-                      disabled={busy || isOffline}
+                      disabled={
+                        busy || isOffline || routeStartIssues(detail).length > 0
+                      }
                       onPress={() => void action("IN_PROGRESS")}
                     />
                   )}
@@ -371,7 +407,10 @@ export default function RouteExecutionScreen() {
                       label="Navegar até o ponto"
                       onPress={() => void navigate(next)}
                     />
-                    {(collectorId === next.collectorId || next.participants?.some(p => p.collectorId === collectorId)) && (
+                    {(collectorId === next.collectorId ||
+                      next.participants?.some(
+                        (p) => p.collectorId === collectorId,
+                      )) && (
                       <Button
                         label="Atender este ponto"
                         disabled={detail.status !== "IN_PROGRESS"}
