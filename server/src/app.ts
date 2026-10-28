@@ -1,3 +1,4 @@
+import { wasteWorkspaceRoutes } from "./modules/waste-workspace/waste-workspace.routes";
 import { impactRoutes } from "./modules/impact/impact.routes";
 import { collectorTeamRoutes } from "./modules/collector-teams/team.routes";
 import { pevRequestRoutes } from "./modules/pev-requests/pev-request.routes";
@@ -230,6 +231,7 @@ export async function buildApp() {
   await app.register(reportsRoutes);
   await app.register(settingsRoutes);
   await app.register(dashboardRoutes);
+  await app.register(wasteWorkspaceRoutes);
   await app.register(vehicleDocumentsRoutes);
   await app.register(ownerDocumentsRoutes);
   await app.register(maintenanceLogsRoutes);

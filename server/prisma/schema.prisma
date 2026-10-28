@@ -586,6 +586,11 @@ model CollectionWasteEntry {
 }
 
 model CollectionWasteDestination {
+  operationId String? @unique
+  operationHash String?
+  version Int @default(1)
+  lastOperationId String? @unique
+  lastOperationHash String?
   auditEvents CollectionWasteDestinationEvent[]
   id String @id @default(cuid())
 
@@ -764,6 +769,8 @@ model Feedback {
 }
 
 model WasteStockItem {
+  normalizedName String?
+  @@unique([cooperativeId, normalizedName])
   id            String @id @default(cuid())
   cooperativeId String
 

@@ -1,3 +1,4 @@
+import { catalogNameKey } from "../waste-workspace/waste-workspace.model";
 import {
   AccountStatus,
   Prisma,
@@ -59,17 +60,13 @@ function normalizeSearchText(value: string | null | undefined) {
 function normalizeInternalCode(value?: string | null) {
   const normalized = normalizeText(value);
 
-  return normalized
-    ? normalized.toUpperCase()
-    : null;
+  return normalized ? normalized.toUpperCase() : null;
 }
 
 function normalizeNcm(value?: string | null) {
   if (!value) return null;
 
-  const normalized = String(value)
-    .replace(/\D/g, "")
-    .trim();
+  const normalized = String(value).replace(/\D/g, "").trim();
 
   return normalized || null;
 }
@@ -78,24 +75,17 @@ function normalizeQuantity(value: unknown) {
   const quantity = Number(value);
 
   if (!Number.isFinite(quantity) || quantity <= 0) {
-    throw new Error(
-      "A quantidade deve ser um número maior que zero."
-    );
+    throw new Error("A quantidade deve ser um número maior que zero.");
   }
 
   return quantity;
 }
 
-function normalizeUnit(
-  value?: WasteUnit | null
-): WasteUnit {
+function normalizeUnit(value?: WasteUnit | null): WasteUnit {
   return value || WasteUnit.KG;
 }
 
-function quantityToKgCompatibility(
-  quantity: number,
-  unit: WasteUnit
-) {
+function quantityToKgCompatibility(quantity: number, unit: WasteUnit) {
   if (unit === WasteUnit.KG) {
     return quantity;
   }
@@ -175,41 +165,32 @@ function mapWasteStockItem(item: any) {
 }
 
 export class WasteStockService {
-  private async getAuthenticatedCooperative(
-    user: AuthUser
-  ) {
+  private async getAuthenticatedCooperative(user: AuthUser) {
     const userId = getAuthUserId(user);
 
     if (!userId) {
+      throw new Error("Usuário autenticado não identificado.");
+    }
+
+    if (normalizeRole(user.role) !== "COOPERATIVE") {
       throw new Error(
-        "Usuário autenticado não identificado."
+        "Apenas cooperativas podem administrar tipos e estoques de resíduos.",
       );
     }
 
-    if (
-      normalizeRole(user.role) !== "COOPERATIVE"
-    ) {
-      throw new Error(
-        "Apenas cooperativas podem administrar tipos e estoques de resíduos."
-      );
-    }
-
-    const cooperative =
-      await prisma.cooperative.findUnique({
-        where: {
-          userId,
-        },
-        select: {
-          id: true,
-          name: true,
-          userId: true,
-        },
-      });
+    const cooperative = await prisma.cooperative.findUnique({
+      where: {
+        userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        userId: true,
+      },
+    });
 
     if (!cooperative) {
-      throw new Error(
-        "Cooperativa do usuário autenticado não encontrada."
-      );
+      throw new Error("Cooperativa do usuário autenticado não encontrada.");
     }
 
     return cooperative;
@@ -233,33 +214,28 @@ export class WasteStockService {
 
   private async resolveCatalogCooperativeId(
     user: AuthUser,
-    requestedCooperativeId?: string | null
+    requestedCooperativeId?: string | null,
   ) {
     const userId = getAuthUserId(user);
 
     if (!userId) {
-      throw new Error(
-        "Usuário autenticado não identificado."
-      );
+      throw new Error("Usuário autenticado não identificado.");
     }
 
     const role = normalizeRole(user.role);
 
     if (role === UserRole.COOPERATIVE) {
-      const cooperative =
-        await prisma.cooperative.findUnique({
-          where: {
-            userId,
-          },
-          select: {
-            id: true,
-          },
-        });
+      const cooperative = await prisma.cooperative.findUnique({
+        where: {
+          userId,
+        },
+        select: {
+          id: true,
+        },
+      });
 
       if (!cooperative) {
-        throw new Error(
-          "Cooperativa do usuário autenticado não encontrada."
-        );
+        throw new Error("Cooperativa do usuário autenticado não encontrada.");
       }
 
       return cooperative.id;
@@ -269,19 +245,18 @@ export class WasteStockService {
       role === UserRole.GENERATOR_SMALL ||
       role === UserRole.GENERATOR_LARGE
     ) {
-      const generator =
-        await prisma.generator.findUnique({
-          where: {
-            userId,
-          },
-          select: {
-            cooperativeId: true,
-          },
-        });
+      const generator = await prisma.generator.findUnique({
+        where: {
+          userId,
+        },
+        select: {
+          cooperativeId: true,
+        },
+      });
 
       if (!generator?.cooperativeId) {
         throw new Error(
-          "O gerador autenticado não está vinculado a uma cooperativa."
+          "O gerador autenticado não está vinculado a uma cooperativa.",
         );
       }
 
@@ -289,41 +264,37 @@ export class WasteStockService {
     }
 
     if (role === UserRole.PF) {
-      const cooperativeId =
-        normalizeText(requestedCooperativeId);
+      const cooperativeId = normalizeText(requestedCooperativeId);
 
       if (!cooperativeId) {
         throw new Error(
-          "Informe a cooperativa para consultar o catálogo de resíduos."
+          "Informe a cooperativa para consultar o catálogo de resíduos.",
         );
       }
 
-      const cooperative =
-        await prisma.cooperative.findFirst({
-          where: {
-            id: cooperativeId,
-            user: {
-              role: UserRole.COOPERATIVE,
-              isActive: true,
-              accountStatus: AccountStatus.ACTIVE,
-            },
+      const cooperative = await prisma.cooperative.findFirst({
+        where: {
+          id: cooperativeId,
+          user: {
+            role: UserRole.COOPERATIVE,
+            isActive: true,
+            accountStatus: AccountStatus.ACTIVE,
           },
-          select: {
-            id: true,
-          },
-        });
+        },
+        select: {
+          id: true,
+        },
+      });
 
       if (!cooperative) {
-        throw new Error(
-          "Cooperativa não encontrada ou inativa."
-        );
+        throw new Error("Cooperativa não encontrada ou inativa.");
       }
 
       return cooperative.id;
     }
 
     throw new Error(
-      "Usuário sem permissão para consultar o catálogo de resíduos."
+      "Usuário sem permissão para consultar o catálogo de resíduos.",
     );
   }
 
@@ -495,100 +466,93 @@ export class WasteStockService {
       cooperativeId?: string | null;
       category?: string;
       search?: string;
-    }
+    },
   ) {
-    const cooperativeId =
-      await this.resolveCatalogCooperativeId(
-        user,
-        options?.cooperativeId
-      );
+    const cooperativeId = await this.resolveCatalogCooperativeId(
+      user,
+      options?.cooperativeId,
+    );
 
-    const items =
-      await prisma.wasteStockItem.findMany({
-        where: {
-          cooperativeId,
-          isActive: true,
-          status: WasteStockStatus.ACTIVE,
+    const items = await prisma.wasteStockItem.findMany({
+      where: {
+        cooperativeId,
+        isActive: true,
+        status: WasteStockStatus.ACTIVE,
 
-          ...(options?.category?.trim()
-            ? {
-                category: {
-                  equals: options.category.trim(),
-                  mode: "insensitive",
+        ...(options?.category?.trim()
+          ? {
+              category: {
+                equals: options.category.trim(),
+                mode: "insensitive",
+              },
+            }
+          : {}),
+
+        ...(options?.search?.trim()
+          ? {
+              OR: [
+                {
+                  name: {
+                    contains: options.search.trim(),
+                    mode: "insensitive",
+                  },
                 },
-              }
-            : {}),
+                {
+                  category: {
+                    contains: options.search.trim(),
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  subcategory: {
+                    contains: options.search.trim(),
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  internalCode: {
+                    contains: options.search.trim(),
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  ncm: {
+                    contains: options.search.trim(),
+                    mode: "insensitive",
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
 
-          ...(options?.search?.trim()
-            ? {
-                OR: [
-                  {
-                    name: {
-                      contains:
-                        options.search.trim(),
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    category: {
-                      contains:
-                        options.search.trim(),
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    subcategory: {
-                      contains:
-                        options.search.trim(),
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    internalCode: {
-                      contains:
-                        options.search.trim(),
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    ncm: {
-                      contains:
-                        options.search.trim(),
-                      mode: "insensitive",
-                    },
-                  },
-                ],
-              }
-            : {}),
+      select: {
+        id: true,
+        cooperativeId: true,
+        name: true,
+        category: true,
+        subcategory: true,
+        defaultUnit: true,
+        unit: true,
+        internalCode: true,
+        ncm: true,
+        wasteClass: true,
+        description: true,
+        isActive: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+
+      orderBy: [
+        {
+          category: "asc",
         },
-
-        select: {
-          id: true,
-          cooperativeId: true,
-          name: true,
-          category: true,
-          subcategory: true,
-          defaultUnit: true,
-          unit: true,
-          internalCode: true,
-          ncm: true,
-          wasteClass: true,
-          description: true,
-          isActive: true,
-          status: true,
-          createdAt: true,
-          updatedAt: true,
+        {
+          name: "asc",
         },
-
-        orderBy: [
-          {
-            category: "asc",
-          },
-          {
-            name: "asc",
-          },
-        ],
-      });
+      ],
+    });
 
     return {
       success: true,
@@ -604,94 +568,86 @@ export class WasteStockService {
       status?: WasteStockStatus;
       category?: string;
       search?: string;
-    }
+    },
   ) {
-    const cooperative =
-      await this.getAuthenticatedCooperative(user);
+    const cooperative = await this.getAuthenticatedCooperative(user);
 
-    const items =
-      await prisma.wasteStockItem.findMany({
-        where: {
-          cooperativeId: cooperative.id,
+    const items = await prisma.wasteStockItem.findMany({
+      where: {
+        cooperativeId: cooperative.id,
 
-          ...(filters?.status
-            ? {
-                status: filters.status,
-              }
-            : {}),
+        ...(filters?.status
+          ? {
+              status: filters.status,
+            }
+          : {}),
 
-          ...(filters?.category
-            ? {
-                category: {
-                  equals: filters.category.trim(),
-                  mode: "insensitive",
+        ...(filters?.category
+          ? {
+              category: {
+                equals: filters.category.trim(),
+                mode: "insensitive",
+              },
+            }
+          : {}),
+
+        ...(filters?.search?.trim()
+          ? {
+              OR: [
+                {
+                  name: {
+                    contains: filters.search.trim(),
+                    mode: "insensitive",
+                  },
                 },
-              }
-            : {}),
+                {
+                  category: {
+                    contains: filters.search.trim(),
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  subcategory: {
+                    contains: filters.search.trim(),
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  internalCode: {
+                    contains: filters.search.trim(),
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  ncm: {
+                    contains: filters.search.trim(),
+                    mode: "insensitive",
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
 
-          ...(filters?.search?.trim()
-            ? {
-                OR: [
-                  {
-                    name: {
-                      contains:
-                        filters.search.trim(),
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    category: {
-                      contains:
-                        filters.search.trim(),
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    subcategory: {
-                      contains:
-                        filters.search.trim(),
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    internalCode: {
-                      contains:
-                        filters.search.trim(),
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    ncm: {
-                      contains:
-                        filters.search.trim(),
-                      mode: "insensitive",
-                    },
-                  },
-                ],
-              }
-            : {}),
-        },
-
-        include: {
-          lots: {
-            orderBy: {
-              createdAt: "desc",
-            },
+      include: {
+        lots: {
+          orderBy: {
+            createdAt: "desc",
           },
         },
+      },
 
-        orderBy: [
-          {
-            status: "asc",
-          },
-          {
-            name: "asc",
-          },
-        ],
-      });
+      orderBy: [
+        {
+          status: "asc",
+        },
+        {
+          name: "asc",
+        },
+      ],
+    });
 
-    const mappedItems =
-      items.map(mapWasteStockItem);
+    const mappedItems = items.map(mapWasteStockItem);
 
     return {
       success: true,
@@ -701,33 +657,26 @@ export class WasteStockService {
     };
   }
 
-  async findItemById(
-    user: AuthUser,
-    itemId: string
-  ) {
-    const cooperative =
-      await this.getAuthenticatedCooperative(user);
+  async findItemById(user: AuthUser, itemId: string) {
+    const cooperative = await this.getAuthenticatedCooperative(user);
 
-    const item =
-      await prisma.wasteStockItem.findFirst({
-        where: {
-          id: itemId,
-          cooperativeId: cooperative.id,
-        },
+    const item = await prisma.wasteStockItem.findFirst({
+      where: {
+        id: itemId,
+        cooperativeId: cooperative.id,
+      },
 
-        include: {
-          lots: {
-            orderBy: {
-              createdAt: "desc",
-            },
+      include: {
+        lots: {
+          orderBy: {
+            createdAt: "desc",
           },
         },
-      });
+      },
+    });
 
     if (!item) {
-      throw new Error(
-        "Tipo de resíduo não encontrado."
-      );
+      throw new Error("Tipo de resíduo não encontrado.");
     }
 
     return {
@@ -736,73 +685,48 @@ export class WasteStockService {
     };
   }
 
-  async createItem(
-    user: AuthUser,
-    data: CreateWasteStockItemInput
-  ) {
-    const cooperative =
-      await this.getAuthenticatedCooperative(user);
+  async createItem(user: AuthUser, data: CreateWasteStockItemInput) {
+    const cooperative = await this.getAuthenticatedCooperative(user);
 
-    const name =
-      normalizeRequiredText(data.name);
+    const name = normalizeRequiredText(data.name);
 
-    await this.ensureUniqueItemName(
-      cooperative.id,
-      name
-    );
+    await this.ensureUniqueItemName(cooperative.id, name);
 
-    await this.ensureUniqueInternalCode(
-      cooperative.id,
-      data.internalCode
-    );
+    await this.ensureUniqueInternalCode(cooperative.id, data.internalCode);
 
-    const item =
-      await prisma.wasteStockItem.create({
-        data: {
-          cooperativeId: cooperative.id,
+    const item = await prisma.wasteStockItem.create({
+      data: {
+        cooperativeId: cooperative.id,
 
-          name,
-          category: normalizeRequiredText(
-            data.category
-          ),
+        name,
+        normalizedName: catalogNameKey(name),
+        category: normalizeRequiredText(data.category),
 
-          subcategory: normalizeText(
-            data.subcategory
-          ),
+        subcategory: normalizeText(data.subcategory),
 
-          unit: normalizeUnit(data.unit),
-          defaultUnit: normalizeUnit(data.unit),
-          isActive: data.status !== WasteStockStatus.INACTIVE,
+        unit: normalizeUnit(data.unit),
+        defaultUnit: normalizeUnit(data.unit),
+        isActive: data.status !== WasteStockStatus.INACTIVE,
 
-          ncm: normalizeNcm(data.ncm),
+        ncm: normalizeNcm(data.ncm),
 
-          internalCode:
-            normalizeInternalCode(
-              data.internalCode
-            ),
+        internalCode: normalizeInternalCode(data.internalCode),
 
-          wasteClass:
-            data.wasteClass ||
-            WasteClass.NOT_INFORMED,
+        wasteClass: data.wasteClass || WasteClass.NOT_INFORMED,
 
-          description: normalizeText(
-            data.description
-          ),
+        description: normalizeText(data.description),
 
-          status:
-            data.status ||
-            WasteStockStatus.ACTIVE,
-        },
+        status: data.status || WasteStockStatus.ACTIVE,
+      },
 
-        include: {
-          lots: true,
-        },
-      });
+      include: {
+        lots: true,
+      },
+    });
 
     return {
       success: true,
-      message:
-        "Tipo de resíduo cadastrado com sucesso.",
+      message: "Tipo de resíduo cadastrado com sucesso.",
       item: mapWasteStockItem(item),
     };
   }
@@ -825,7 +749,15 @@ export class WasteStockService {
       if (
         data.unit &&
         data.unit !== currentItem.unit &&
-        ((await transaction.wasteStockLot.count({ where: { stockItemId: itemId } })) || (await transaction.collectionMaterial.count({ where: { wasteTypeId: itemId } })) || (await transaction.scheduleRequestedMaterial.count({ where: { wasteTypeId: itemId } })))
+        ((await transaction.wasteStockLot.count({
+          where: { stockItemId: itemId },
+        })) ||
+          (await transaction.collectionMaterial.count({
+            where: { wasteTypeId: itemId },
+          })) ||
+          (await transaction.scheduleRequestedMaterial.count({
+            where: { wasteTypeId: itemId },
+          })))
       )
         throw new Error(
           "A unidade de um catálogo já utilizado em solicitações, coletas ou lotes não pode ser alterada. Cadastre outro material.",
@@ -858,6 +790,7 @@ export class WasteStockService {
           ...(data.name !== undefined
             ? {
                 name: normalizeRequiredText(data.name),
+                normalizedName: catalogNameKey(data.name),
               }
             : {}),
 
@@ -929,56 +862,44 @@ export class WasteStockService {
     });
   }
 
-  async deactivateItem(
-    user: AuthUser,
-    itemId: string
-  ) {
-    const cooperative =
-      await this.getAuthenticatedCooperative(user);
+  async deactivateItem(user: AuthUser, itemId: string) {
+    const cooperative = await this.getAuthenticatedCooperative(user);
 
-    const currentItem =
-      await this.ensureItemBelongsToCooperative(
-        cooperative.id,
-        itemId
-      );
+    const currentItem = await this.ensureItemBelongsToCooperative(
+      cooperative.id,
+      itemId,
+    );
 
-    if (
-      currentItem.status ===
-      WasteStockStatus.INACTIVE
-    ) {
+    if (currentItem.status === WasteStockStatus.INACTIVE) {
       return {
         success: true,
-        message:
-          "O tipo de resíduo já está inativo.",
+        message: "O tipo de resíduo já está inativo.",
         item: currentItem,
       };
     }
 
-    const item =
-      await prisma.wasteStockItem.update({
-        where: {
-          id: currentItem.id,
-        },
+    const item = await prisma.wasteStockItem.update({
+      where: {
+        id: currentItem.id,
+      },
 
-        data: {
-          isActive: false,
-          status:
-            WasteStockStatus.INACTIVE,
-        },
+      data: {
+        isActive: false,
+        status: WasteStockStatus.INACTIVE,
+      },
 
-        include: {
-          lots: {
-            orderBy: {
-              createdAt: "desc",
-            },
+      include: {
+        lots: {
+          orderBy: {
+            createdAt: "desc",
           },
         },
-      });
+      },
+    });
 
     return {
       success: true,
-      message:
-        "Tipo de resíduo inativado com sucesso.",
+      message: "Tipo de resíduo inativado com sucesso.",
       item: mapWasteStockItem(item),
     };
   }
@@ -989,30 +910,24 @@ export class WasteStockService {
    * ============================================================
    */
 
-  async listLots(
-    user: AuthUser,
-    stockItemId: string
-  ) {
-    const cooperative =
-      await this.getAuthenticatedCooperative(user);
+  async listLots(user: AuthUser, stockItemId: string) {
+    const cooperative = await this.getAuthenticatedCooperative(user);
 
-    const item =
-      await this.ensureItemBelongsToCooperative(
-        cooperative.id,
-        stockItemId
-      );
+    const item = await this.ensureItemBelongsToCooperative(
+      cooperative.id,
+      stockItemId,
+    );
 
-    const lots =
-      await prisma.wasteStockLot.findMany({
-        where: {
-          cooperativeId: cooperative.id,
-          stockItemId: item.id,
-        },
+    const lots = await prisma.wasteStockLot.findMany({
+      where: {
+        cooperativeId: cooperative.id,
+        stockItemId: item.id,
+      },
 
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
     return {
       success: true,
@@ -1068,7 +983,12 @@ export class WasteStockService {
           lotCode,
 
           quantity,
-          availableQuantity: [WasteLotStatus.AVAILABLE, WasteLotStatus.RESERVED].includes((data.status || WasteLotStatus.AVAILABLE) as any) ? quantity : 0,
+          availableQuantity: [
+            WasteLotStatus.AVAILABLE,
+            WasteLotStatus.RESERVED,
+          ].includes((data.status || WasteLotStatus.AVAILABLE) as any)
+            ? quantity
+            : 0,
           createdByUserId: getAuthUserId(user),
 
           quantityKg: quantityToKgCompatibility(quantity, unit),
@@ -1165,7 +1085,10 @@ export class WasteStockService {
           ? normalizeQuantity(data.quantity)
           : getEffectiveLotQuantity(currentLot);
 
-      if (data.unit && data.unit !== currentLot.stockItem.unit) throw new Error("A unidade do lote deve ser igual à unidade do catálogo.");
+      if (data.unit && data.unit !== currentLot.stockItem.unit)
+        throw new Error(
+          "A unidade do lote deve ser igual à unidade do catálogo.",
+        );
       const nextUnit =
         data.unit ||
         currentLot.unit ||
@@ -1317,169 +1240,106 @@ export class WasteStockService {
     return this.listItems(user);
   }
 
-  async findById(
-    user: AuthUser,
-    id: string
-  ) {
+  async findById(user: AuthUser, id: string) {
     return this.findItemById(user, id);
   }
 
-  async create(
-    user: AuthUser,
-    payload: CreateLegacyWasteStockInput
-  ) {
-    const cooperative =
-      await this.getAuthenticatedCooperative(user);
+  async create(user: AuthUser, payload: CreateLegacyWasteStockInput) {
+    const cooperative = await this.getAuthenticatedCooperative(user);
 
     const itemData = payload.item;
     const lotData = payload.lot;
 
-    const name =
-      normalizeRequiredText(itemData.name);
+    const name = normalizeRequiredText(itemData.name);
 
-    await this.ensureUniqueItemName(
-      cooperative.id,
-      name
-    );
+    await this.ensureUniqueItemName(cooperative.id, name);
 
-    await this.ensureUniqueInternalCode(
-      cooperative.id,
-      itemData.internalCode
-    );
+    await this.ensureUniqueInternalCode(cooperative.id, itemData.internalCode);
 
-    const lotCode =
-      normalizeRequiredText(
-        lotData.lotCode
+    const lotCode = normalizeRequiredText(lotData.lotCode);
+
+    await this.ensureUniqueLotCode(cooperative.id, lotCode);
+
+    const quantity = normalizeQuantity(lotData.quantity ?? lotData.quantityKg);
+
+    const unit = normalizeUnit(lotData.unit || itemData.unit || WasteUnit.KG);
+
+    if (unit !== normalizeUnit(itemData.unit))
+      throw new Error(
+        "A unidade do lote deve ser igual à unidade do catálogo.",
       );
 
-    await this.ensureUniqueLotCode(
-      cooperative.id,
-      lotCode
-    );
+    const result = await prisma.$transaction(async (transaction) => {
+      const item = await transaction.wasteStockItem.create({
+        data: {
+          cooperativeId: cooperative.id,
 
-    const quantity =
-      normalizeQuantity(
-        lotData.quantity ??
-          lotData.quantityKg
-      );
+          name,
+          normalizedName: catalogNameKey(name),
 
-    const unit =
-      normalizeUnit(
-        lotData.unit ||
-          itemData.unit ||
-          WasteUnit.KG
-      );
+          category: normalizeRequiredText(itemData.category),
 
-    if (unit !== normalizeUnit(itemData.unit)) throw new Error("A unidade do lote deve ser igual à unidade do catálogo.");
+          subcategory: normalizeText(itemData.subcategory),
 
-    const result =
-      await prisma.$transaction(
-        async (transaction) => {
-          const item =
-            await transaction.wasteStockItem.create({
-              data: {
-                cooperativeId:
-                  cooperative.id,
+          unit,
+          defaultUnit: unit,
+          isActive: itemData.status !== WasteStockStatus.INACTIVE,
 
-                name,
+          ncm: normalizeNcm(itemData.ncm),
 
-                category:
-                  normalizeRequiredText(
-                    itemData.category
-                  ),
+          internalCode: normalizeInternalCode(itemData.internalCode),
 
-                subcategory:
-                  normalizeText(
-                    itemData.subcategory
-                  ),
+          wasteClass: itemData.wasteClass || WasteClass.NOT_INFORMED,
 
-                unit,
-                defaultUnit: unit,
-                isActive: itemData.status !== WasteStockStatus.INACTIVE,
+          description: normalizeText(itemData.description),
 
-                ncm:
-                  normalizeNcm(
-                    itemData.ncm
-                  ),
+          status: itemData.status || WasteStockStatus.ACTIVE,
+        },
+      });
 
-                internalCode:
-                  normalizeInternalCode(
-                    itemData.internalCode
-                  ),
+      const lot = await transaction.wasteStockLot.create({
+        data: {
+          cooperativeId: cooperative.id,
 
-                wasteClass:
-                  itemData.wasteClass ||
-                  WasteClass.NOT_INFORMED,
+          stockItemId: item.id,
 
-                description:
-                  normalizeText(
-                    itemData.description
-                  ),
+          lotCode,
 
-                status:
-                  itemData.status ||
-                  WasteStockStatus.ACTIVE,
-              },
-            });
+          quantity,
+          availableQuantity: [
+            WasteLotStatus.AVAILABLE,
+            WasteLotStatus.RESERVED,
+          ].includes((lotData.status || WasteLotStatus.AVAILABLE) as any)
+            ? quantity
+            : 0,
+          createdByUserId: getAuthUserId(user),
 
-          const lot =
-            await transaction.wasteStockLot.create({
-              data: {
-                cooperativeId:
-                  cooperative.id,
+          quantityKg: quantityToKgCompatibility(quantity, unit),
 
-                stockItemId: item.id,
+          unit,
 
-                lotCode,
+          storageLocation: normalizeText(lotData.storageLocation),
 
-                quantity,
-                availableQuantity: [WasteLotStatus.AVAILABLE, WasteLotStatus.RESERVED].includes((lotData.status || WasteLotStatus.AVAILABLE) as any) ? quantity : 0,
-                createdByUserId: getAuthUserId(user),
+          processingStage:
+            lotData.processingStage || WasteProcessingStage.TRIADO,
 
-                quantityKg:
-                  quantityToKgCompatibility(
-                    quantity,
-                    unit
-                  ),
+          origin: normalizeText(lotData.origin),
 
-                unit,
+          notes: normalizeText(lotData.notes),
 
-                storageLocation:
-                  normalizeText(
-                    lotData.storageLocation
-                  ),
+          status: lotData.status || WasteLotStatus.AVAILABLE,
+        },
+      });
 
-                processingStage:
-                  lotData.processingStage ||
-                  WasteProcessingStage.TRIADO,
-
-                origin:
-                  normalizeText(
-                    lotData.origin
-                  ),
-
-                notes:
-                  normalizeText(
-                    lotData.notes
-                  ),
-
-                status:
-                  lotData.status ||
-                  WasteLotStatus.AVAILABLE,
-              },
-            });
-
-          return {
-            item,
-            lot,
-          };
-        }
-      );
+      return {
+        item,
+        lot,
+      };
+    });
 
     return {
       success: true,
-      message:
-        "Material e lote cadastrados no estoque com sucesso.",
+      message: "Material e lote cadastrados no estoque com sucesso.",
       ...result,
     };
   }
@@ -1491,37 +1351,21 @@ export class WasteStockService {
       | UpdateWasteStockItemInput
       | {
           item?: UpdateWasteStockItemInput;
-        }
+        },
   ) {
     const itemPayload =
       "item" in payload && payload.item
         ? payload.item
         : (payload as UpdateWasteStockItemInput);
 
-    return this.updateItem(
-      user,
-      id,
-      itemPayload
-    );
+    return this.updateItem(user, id, itemPayload);
   }
 
-  async delete(
-    user: AuthUser,
-    id: string
-  ) {
-    return this.deactivateItem(
-      user,
-      id
-    );
+  async delete(user: AuthUser, id: string) {
+    return this.deactivateItem(user, id);
   }
 
-  async deleteLot(
-    user: AuthUser,
-    lotId: string
-  ) {
-    return this.discardLot(
-      user,
-      lotId
-    );
+  async deleteLot(user: AuthUser, lotId: string) {
+    return this.discardLot(user, lotId);
   }
 }

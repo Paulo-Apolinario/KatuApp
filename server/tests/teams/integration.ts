@@ -220,9 +220,6 @@ async function main() {
     "Etapa de campo não multiplica material nem credita o peso completo a cada catador",
   );
   await call("owner", "POST", `/collections/${c.id}/receive`, {});
-  await call('owner','POST',`/collections/${c.id}/start-sorting`,{});
-  const blocked = await call('owner','POST',`/collections/${c.id}/complete`,{},409);
-  assert.equal(blocked.code, 'ALLOCATION_REQUIRED');
   const alloc = {
     expectedVersion: 0,
     quantityVersion: 0,
@@ -259,6 +256,15 @@ async function main() {
     reason: "Pesagem confirmou quarenta kg",
     items: [{ materialId, quantity: 40 }],
   });
+  await call("owner", "POST", `/collections/${c.id}/start-sorting`, {});
+  const blocked = await call(
+    "owner",
+    "POST",
+    `/collections/${c.id}/complete`,
+    {},
+    409,
+  );
+  assert.equal(blocked.code, "ALLOCATION_REQUIRED");
   c = (await call("owner", "GET", `/collections/${c.id}`)).collection;
   assert.equal(c.totalWeightKg, 40);
   assert.equal(Number(c.collectionMaterials[0].reportedQuantity), 50);
@@ -448,7 +454,7 @@ async function main() {
   });
   impact = (await call("gen", "GET", query)).data;
   assert.equal(impact.co2Kg, 80);
-  assert.equal(impact.coveragePercent, 40 / 79 * 100);
+  assert.equal(impact.coveragePercent, (40 / 79) * 100);
   assert.equal(impact.generators.length, 1);
   assert.equal((await call("gen2", "GET", query)).data.totalMassKg, 0);
   await call(
@@ -499,12 +505,13 @@ async function main() {
   ok(
     "Coleta avulsa aceita e remove equipe antes da saída, com controle de versão",
   );
+  const futureDay = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const plan = (
     await call("owner", "POST", "/route-plans", {
       name: "Equipe fixa",
       active: true,
-      startsOn: "2026-10-27",
-      weekdays: [2],
+      startsOn: futureDay,
+      weekdays: [new Date(futureDay + "T12:00:00Z").getUTCDay()],
       intervalWeeks: 1,
       departureTime: "08:00",
       estimatedMinutes: 60,

@@ -22,10 +22,14 @@ type AuthUser = {
   role?: string;
 };
 
-function getErrorMessage(
-  error: unknown,
-  fallbackMessage: string
-) {
+function getErrorMessage(error: unknown, fallbackMessage: string) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "P2002"
+  )
+    return "Material ou código já cadastrado nesta cooperativa. Atualize a lista.";
   if (error instanceof ZodError) {
     return error.issues[0]?.message || fallbackMessage;
   }
@@ -46,6 +50,13 @@ function getValidationErrors(error: unknown) {
 }
 
 function getStatusCode(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "P2002"
+  )
+    return 409;
   const message = getErrorMessage(error, "");
 
   const notFoundMessages = [
@@ -77,10 +88,7 @@ export class WasteStockController {
    * ============================================================
    */
 
-  async listCatalog(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async listCatalog(request: FastifyRequest, reply: FastifyReply) {
     try {
       const query = request.query as {
         cooperativeId?: string;
@@ -88,44 +96,34 @@ export class WasteStockController {
         search?: string;
       };
 
-      const result =
-        await wasteStockService.listCatalog(
-          request.user as AuthUser,
-          {
-            cooperativeId:
-              query?.cooperativeId,
-            category:
-              query?.category,
-            search:
-              query?.search,
-          }
-        );
+      const result = await wasteStockService.listCatalog(
+        request.user as AuthUser,
+        {
+          cooperativeId: query?.cooperativeId,
+          category: query?.category,
+          search: query?.search,
+        },
+      );
 
       return reply.send(result);
     } catch (error: unknown) {
       console.warn(
         "Não foi possível consultar o catálogo de resíduos:",
-        getErrorMessage(
-          error,
-          "Erro ao consultar o catálogo de resíduos."
-        )
+        getErrorMessage(error, "Erro ao consultar o catálogo de resíduos."),
       );
 
       return reply.status(getStatusCode(error)).send({
         success: false,
         error: getErrorMessage(
           error,
-          "Erro ao consultar o catálogo de resíduos."
+          "Erro ao consultar o catálogo de resíduos.",
         ),
         errors: getValidationErrors(error),
       });
     }
   }
 
-  async listItems(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async listItems(request: FastifyRequest, reply: FastifyReply) {
     try {
       const query = request.query as {
         status?: string;
@@ -137,170 +135,108 @@ export class WasteStockController {
         request.user as AuthUser,
         {
           status:
-            query?.status === "ACTIVE" ||
-            query?.status === "INACTIVE"
+            query?.status === "ACTIVE" || query?.status === "INACTIVE"
               ? query.status
               : undefined,
           category: query?.category,
           search: query?.search,
-        }
+        },
       );
 
       return reply.send(result);
     } catch (error: unknown) {
-      console.error(
-        "Erro ao listar tipos de resíduos:",
-        error
-      );
+      console.error("Erro ao listar tipos de resíduos:", error);
 
       return reply.status(getStatusCode(error)).send({
         success: false,
-        error: getErrorMessage(
-          error,
-          "Erro ao listar tipos de resíduos."
-        ),
+        error: getErrorMessage(error, "Erro ao listar tipos de resíduos."),
         errors: getValidationErrors(error),
       });
     }
   }
 
-  async findItemById(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async findItemById(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const params =
-        wasteStockItemIdParamsSchema.parse(
-          request.params
-        );
+      const params = wasteStockItemIdParamsSchema.parse(request.params);
 
-      const result =
-        await wasteStockService.findItemById(
-          request.user as AuthUser,
-          params.id
-        );
+      const result = await wasteStockService.findItemById(
+        request.user as AuthUser,
+        params.id,
+      );
 
       return reply.send(result);
     } catch (error: unknown) {
-      console.error(
-        "Erro ao buscar tipo de resíduo:",
-        error
-      );
+      console.error("Erro ao buscar tipo de resíduo:", error);
 
       return reply.status(getStatusCode(error)).send({
         success: false,
-        error: getErrorMessage(
-          error,
-          "Erro ao buscar tipo de resíduo."
-        ),
+        error: getErrorMessage(error, "Erro ao buscar tipo de resíduo."),
         errors: getValidationErrors(error),
       });
     }
   }
 
-  async createItem(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async createItem(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const body =
-        createWasteStockItemSchema.parse(
-          request.body
-        );
+      const body = createWasteStockItemSchema.parse(request.body);
 
-      const result =
-        await wasteStockService.createItem(
-          request.user as AuthUser,
-          body
-        );
+      const result = await wasteStockService.createItem(
+        request.user as AuthUser,
+        body,
+      );
 
       return reply.status(201).send(result);
     } catch (error: unknown) {
-      console.error(
-        "Erro ao cadastrar tipo de resíduo:",
-        error
-      );
+      console.error("Erro ao cadastrar tipo de resíduo:", error);
 
       return reply.status(getStatusCode(error)).send({
         success: false,
-        error: getErrorMessage(
-          error,
-          "Erro ao cadastrar tipo de resíduo."
-        ),
+        error: getErrorMessage(error, "Erro ao cadastrar tipo de resíduo."),
         errors: getValidationErrors(error),
       });
     }
   }
 
-  async updateItem(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async updateItem(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const params =
-        wasteStockItemIdParamsSchema.parse(
-          request.params
-        );
+      const params = wasteStockItemIdParamsSchema.parse(request.params);
 
-      const body =
-        updateWasteStockItemSchema.parse(
-          request.body
-        );
+      const body = updateWasteStockItemSchema.parse(request.body);
 
-      const result =
-        await wasteStockService.updateItem(
-          request.user as AuthUser,
-          params.id,
-          body
-        );
+      const result = await wasteStockService.updateItem(
+        request.user as AuthUser,
+        params.id,
+        body,
+      );
 
       return reply.send(result);
     } catch (error: unknown) {
-      console.error(
-        "Erro ao atualizar tipo de resíduo:",
-        error
-      );
+      console.error("Erro ao atualizar tipo de resíduo:", error);
 
       return reply.status(getStatusCode(error)).send({
         success: false,
-        error: getErrorMessage(
-          error,
-          "Erro ao atualizar tipo de resíduo."
-        ),
+        error: getErrorMessage(error, "Erro ao atualizar tipo de resíduo."),
         errors: getValidationErrors(error),
       });
     }
   }
 
-  async deactivateItem(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async deactivateItem(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const params =
-        wasteStockItemIdParamsSchema.parse(
-          request.params
-        );
+      const params = wasteStockItemIdParamsSchema.parse(request.params);
 
-      const result =
-        await wasteStockService.deactivateItem(
-          request.user as AuthUser,
-          params.id
-        );
+      const result = await wasteStockService.deactivateItem(
+        request.user as AuthUser,
+        params.id,
+      );
 
       return reply.send(result);
     } catch (error: unknown) {
-      console.error(
-        "Erro ao inativar tipo de resíduo:",
-        error
-      );
+      console.error("Erro ao inativar tipo de resíduo:", error);
 
       return reply.status(getStatusCode(error)).send({
         success: false,
-        error: getErrorMessage(
-          error,
-          "Erro ao inativar tipo de resíduo."
-        ),
+        error: getErrorMessage(error, "Erro ao inativar tipo de resíduo."),
         errors: getValidationErrors(error),
       });
     }
@@ -312,149 +248,91 @@ export class WasteStockController {
    * ============================================================
    */
 
-  async listLots(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async listLots(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const params =
-        wasteStockItemIdParamsSchema.parse(
-          request.params
-        );
+      const params = wasteStockItemIdParamsSchema.parse(request.params);
 
-      const result =
-        await wasteStockService.listLots(
-          request.user as AuthUser,
-          params.id
-        );
+      const result = await wasteStockService.listLots(
+        request.user as AuthUser,
+        params.id,
+      );
 
       return reply.send(result);
     } catch (error: unknown) {
-      console.error(
-        "Erro ao listar lotes:",
-        error
-      );
+      console.error("Erro ao listar lotes:", error);
 
       return reply.status(getStatusCode(error)).send({
         success: false,
-        error: getErrorMessage(
-          error,
-          "Erro ao listar lotes."
-        ),
+        error: getErrorMessage(error, "Erro ao listar lotes."),
         errors: getValidationErrors(error),
       });
     }
   }
 
-  async createLot(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async createLot(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const params =
-        wasteStockItemIdParamsSchema.parse(
-          request.params
-        );
+      const params = wasteStockItemIdParamsSchema.parse(request.params);
 
-      const body =
-        createWasteStockLotSchema.parse(
-          request.body
-        );
+      const body = createWasteStockLotSchema.parse(request.body);
 
-      const result =
-        await wasteStockService.createLot(
-          request.user as AuthUser,
-          params.id,
-          body
-        );
+      const result = await wasteStockService.createLot(
+        request.user as AuthUser,
+        params.id,
+        body,
+      );
 
       return reply.status(201).send(result);
     } catch (error: unknown) {
-      console.error(
-        "Erro ao cadastrar lote:",
-        error
-      );
+      console.error("Erro ao cadastrar lote:", error);
 
       return reply.status(getStatusCode(error)).send({
         success: false,
-        error: getErrorMessage(
-          error,
-          "Erro ao cadastrar lote."
-        ),
+        error: getErrorMessage(error, "Erro ao cadastrar lote."),
         errors: getValidationErrors(error),
       });
     }
   }
 
-  async updateLot(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async updateLot(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const params =
-        wasteStockLotIdParamsSchema.parse(
-          request.params
-        );
+      const params = wasteStockLotIdParamsSchema.parse(request.params);
 
-      const body =
-        updateWasteStockLotSchema.parse(
-          request.body
-        );
+      const body = updateWasteStockLotSchema.parse(request.body);
 
-      const result =
-        await wasteStockService.updateLot(
-          request.user as AuthUser,
-          params.lotId,
-          body
-        );
+      const result = await wasteStockService.updateLot(
+        request.user as AuthUser,
+        params.lotId,
+        body,
+      );
 
       return reply.send(result);
     } catch (error: unknown) {
-      console.error(
-        "Erro ao atualizar lote:",
-        error
-      );
+      console.error("Erro ao atualizar lote:", error);
 
       return reply.status(getStatusCode(error)).send({
         success: false,
-        error: getErrorMessage(
-          error,
-          "Erro ao atualizar lote."
-        ),
+        error: getErrorMessage(error, "Erro ao atualizar lote."),
         errors: getValidationErrors(error),
       });
     }
   }
 
-  async discardLot(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async discardLot(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const params =
-        wasteStockLotIdParamsSchema.parse(
-          request.params
-        );
+      const params = wasteStockLotIdParamsSchema.parse(request.params);
 
-      const result =
-        await wasteStockService.discardLot(
-          request.user as AuthUser,
-          params.lotId
-        );
+      const result = await wasteStockService.discardLot(
+        request.user as AuthUser,
+        params.lotId,
+      );
 
       return reply.send(result);
     } catch (error: unknown) {
-      console.error(
-        "Erro ao descartar lote:",
-        error
-      );
+      console.error("Erro ao descartar lote:", error);
 
       return reply.status(getStatusCode(error)).send({
         success: false,
-        error: getErrorMessage(
-          error,
-          "Erro ao descartar lote."
-        ),
+        error: getErrorMessage(error, "Erro ao descartar lote."),
         errors: getValidationErrors(error),
       });
     }
@@ -466,117 +344,73 @@ export class WasteStockController {
    * ============================================================
    */
 
-  async listMine(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async listMine(request: FastifyRequest, reply: FastifyReply) {
     return this.listItems(request, reply);
   }
 
-  async findById(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async findById(request: FastifyRequest, reply: FastifyReply) {
     return this.findItemById(request, reply);
   }
 
-  async create(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async create(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const body =
-        createLegacyWasteStockSchema.parse(
-          request.body
-        );
+      const body = createLegacyWasteStockSchema.parse(request.body);
 
-      const result =
-        await wasteStockService.create(
-          request.user as AuthUser,
-          body
-        );
+      const result = await wasteStockService.create(
+        request.user as AuthUser,
+        body,
+      );
 
       return reply.status(201).send(result);
     } catch (error: unknown) {
-      console.error(
-        "Erro ao cadastrar material e lote:",
-        error
-      );
+      console.error("Erro ao cadastrar material e lote:", error);
 
       return reply.status(getStatusCode(error)).send({
         success: false,
-        error: getErrorMessage(
-          error,
-          "Erro ao cadastrar estoque de resíduos."
-        ),
+        error: getErrorMessage(error, "Erro ao cadastrar estoque de resíduos."),
         errors: getValidationErrors(error),
       });
     }
   }
 
-  async update(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async update(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const params =
-        wasteStockItemIdParamsSchema.parse(
-          request.params
-        );
+      const params = wasteStockItemIdParamsSchema.parse(request.params);
 
-      const rawBody =
-        request.body as {
-          item?: unknown;
-        };
+      const rawBody = request.body as {
+        item?: unknown;
+      };
 
       const payload =
-        rawBody &&
-        typeof rawBody === "object" &&
-        "item" in rawBody
+        rawBody && typeof rawBody === "object" && "item" in rawBody
           ? rawBody.item
           : rawBody;
 
-      const body =
-        updateWasteStockItemSchema.parse(
-          payload
-        );
+      const body = updateWasteStockItemSchema.parse(payload);
 
-      const result =
-        await wasteStockService.updateItem(
-          request.user as AuthUser,
-          params.id,
-          body
-        );
+      const result = await wasteStockService.updateItem(
+        request.user as AuthUser,
+        params.id,
+        body,
+      );
 
       return reply.send(result);
     } catch (error: unknown) {
-      console.error(
-        "Erro ao atualizar material de estoque:",
-        error
-      );
+      console.error("Erro ao atualizar material de estoque:", error);
 
       return reply.status(getStatusCode(error)).send({
         success: false,
-        error: getErrorMessage(
-          error,
-          "Erro ao atualizar material de estoque."
-        ),
+        error: getErrorMessage(error, "Erro ao atualizar material de estoque."),
         errors: getValidationErrors(error),
       });
     }
   }
 
-  async delete(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async delete(request: FastifyRequest, reply: FastifyReply) {
     return this.deactivateItem(request, reply);
   }
 
-  async deleteLot(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async deleteLot(request: FastifyRequest, reply: FastifyReply) {
     return this.discardLot(request, reply);
   }
 }

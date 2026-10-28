@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   CollectionEntryStatus,
   Prisma,
@@ -23,7 +24,6 @@ import {
   WasteDestinationDomainError,
   type WasteDestinationAccessContext,
   type WasteDestinationPagination,
-  type WasteDestinationTotalsByUnit,
   type WasteEntryRecalculationResult,
 } from "./collection-waste-destinations.types";
 
@@ -33,10 +33,28 @@ import {
  * ============================================================
  */
 
-type DestinationQuantityRecord = {
-  unit: WasteUnit;
-  quantity: Prisma.Decimal | number;
-};
+function mutationHash(data: object, kind: string) {
+  const value = { ...data } as Record<string, unknown>;
+  delete value.operationId;
+  return createHash("sha256")
+    .update(
+      kind +
+        JSON.stringify(value, (_key, item) =>
+          item && typeof item === "object" && !Array.isArray(item)
+            ? Object.fromEntries(
+                Object.entries(item).sort(([a], [b]) => a.localeCompare(b)),
+              )
+            : item,
+        ),
+    )
+    .digest("hex");
+}
+function mutationConflict(message: string) {
+  return new WasteDestinationDomainError(message, {
+    statusCode: 409,
+    code: "DESTINATION_VERSION_CONFLICT",
+  });
+}
 
 type DestinationCreateTransactionResult = {
   destination: unknown;
@@ -142,6 +160,7 @@ const destinationInclude = {
           bin: { select: { id: true, binId: true, name: true } },
           id: true,
           status: true,
+          quantityReviewVersion: true,
           totalWeightKg: true,
           collectedAt: true,
           notes: true,
@@ -250,7 +269,7 @@ function quantitiesAreEqual(first: number, second: number) {
 function calculatePagination(
   page: number,
   limit: number,
-  total: number
+  total: number,
 ): WasteDestinationPagination {
   const safePage = Math.max(1, page || 1);
   const safeLimit = Math.max(1, limit || 10);
@@ -264,31 +283,6 @@ function calculatePagination(
     hasNextPage: totalPages > 0 && safePage < totalPages,
     hasPreviousPage: totalPages > 0 && safePage > 1,
   };
-}
-
-function calculateTotalsByUnit(
-  destinations: DestinationQuantityRecord[]
-): WasteDestinationTotalsByUnit {
-  const totals: WasteDestinationTotalsByUnit = {};
-
-  for (const destination of destinations) {
-    const unit = destination.unit;
-
-    if (!totals[unit]) {
-      totals[unit] = {
-        totalQuantity: 0,
-        destinationsCount: 0,
-      };
-    }
-
-    const unitTotals = totals[unit];
-    if (!unitTotals) continue;
-
-    unitTotals.totalQuantity += normalizeNumber(destination.quantity);
-    unitTotals.destinationsCount += 1;
-  }
-
-  return totals;
 }
 
 function generateLotCode() {
@@ -324,14 +318,14 @@ export class CollectionWasteDestinationsService {
 
   private async getAccessContext(
     authUserId: string,
-    authUserRole: string
+    authUserRole: string,
   ): Promise<WasteDestinationAccessContext> {
     const role = normalizeRole(authUserRole);
 
     if (!authUserId) {
       throw new WasteDestinationDomainError(
         "Usuário autenticado não identificado.",
-        { statusCode: 401, code: "AUTH_USER_NOT_IDENTIFIED" }
+        { statusCode: 401, code: "AUTH_USER_NOT_IDENTIFIED" },
       );
     }
 
@@ -348,7 +342,7 @@ export class CollectionWasteDestinationsService {
       if (!cooperative) {
         throw new WasteDestinationDomainError(
           "Cooperativa do usuário autenticado não encontrada.",
-          { statusCode: 404, code: "COOPERATIVE_NOT_FOUND" }
+          { statusCode: 404, code: "COOPERATIVE_NOT_FOUND" },
         );
       }
 
@@ -364,14 +358,14 @@ export class CollectionWasteDestinationsService {
       if (!collector) {
         throw new WasteDestinationDomainError(
           "Catador do usuário autenticado não encontrado.",
-          { statusCode: 404, code: "COLLECTOR_NOT_FOUND" }
+          { statusCode: 404, code: "COLLECTOR_NOT_FOUND" },
         );
       }
 
       if (!collector.cooperativeId) {
         throw new WasteDestinationDomainError(
           "O catador não está vinculado a uma cooperativa.",
-          { statusCode: 403, code: "COLLECTOR_WITHOUT_COOPERATIVE" }
+          { statusCode: 403, code: "COLLECTOR_WITHOUT_COOPERATIVE" },
         );
       }
 
@@ -392,14 +386,14 @@ export class CollectionWasteDestinationsService {
       if (!driver) {
         throw new WasteDestinationDomainError(
           "Motorista do usuário autenticado não encontrado.",
-          { statusCode: 404, code: "DRIVER_NOT_FOUND" }
+          { statusCode: 404, code: "DRIVER_NOT_FOUND" },
         );
       }
 
       if (!driver.cooperativeId) {
         throw new WasteDestinationDomainError(
           "O motorista não está vinculado a uma cooperativa.",
-          { statusCode: 403, code: "DRIVER_WITHOUT_COOPERATIVE" }
+          { statusCode: 403, code: "DRIVER_WITHOUT_COOPERATIVE" },
         );
       }
 
@@ -411,7 +405,10 @@ export class CollectionWasteDestinationsService {
       };
     }
 
-    if (role === UserRole.GENERATOR_SMALL || role === UserRole.GENERATOR_LARGE) {
+    if (
+      role === UserRole.GENERATOR_SMALL ||
+      role === UserRole.GENERATOR_LARGE
+    ) {
       const generator = await prisma.generator.findUnique({
         where: { userId: authUserId },
         select: { id: true, cooperativeId: true },
@@ -420,14 +417,14 @@ export class CollectionWasteDestinationsService {
       if (!generator) {
         throw new WasteDestinationDomainError(
           "Gerador do usuário autenticado não encontrado.",
-          { statusCode: 404, code: "GENERATOR_NOT_FOUND" }
+          { statusCode: 404, code: "GENERATOR_NOT_FOUND" },
         );
       }
 
       if (!generator.cooperativeId) {
         throw new WasteDestinationDomainError(
           "O gerador não está vinculado a uma cooperativa.",
-          { statusCode: 403, code: "GENERATOR_WITHOUT_COOPERATIVE" }
+          { statusCode: 403, code: "GENERATOR_WITHOUT_COOPERATIVE" },
         );
       }
 
@@ -441,7 +438,7 @@ export class CollectionWasteDestinationsService {
 
     throw new WasteDestinationDomainError(
       "Usuário sem permissão para acessar as destinações de resíduos.",
-      { statusCode: 403, code: "WASTE_DESTINATION_ACCESS_DENIED" }
+      { statusCode: 403, code: "WASTE_DESTINATION_ACCESS_DENIED" },
     );
   }
 
@@ -458,7 +455,7 @@ export class CollectionWasteDestinationsService {
     if (!canManage) {
       throw new WasteDestinationDomainError(
         "Somente administradores e cooperativas podem gerenciar destinações.",
-        { statusCode: 403, code: "WASTE_DESTINATION_MANAGEMENT_DENIED" }
+        { statusCode: 403, code: "WASTE_DESTINATION_MANAGEMENT_DENIED" },
       );
     }
   }
@@ -470,7 +467,7 @@ export class CollectionWasteDestinationsService {
    */
 
   private buildAccessWhere(
-    context: WasteDestinationAccessContext
+    context: WasteDestinationAccessContext,
   ): Prisma.CollectionWasteDestinationWhereInput {
     const role = normalizeRole(context.role);
 
@@ -504,7 +501,10 @@ export class CollectionWasteDestinationsService {
       };
     }
 
-    if (role === UserRole.GENERATOR_SMALL || role === UserRole.GENERATOR_LARGE) {
+    if (
+      role === UserRole.GENERATOR_SMALL ||
+      role === UserRole.GENERATOR_LARGE
+    ) {
       return {
         ...baseWhere,
         collectionWasteEntry: {
@@ -515,7 +515,7 @@ export class CollectionWasteDestinationsService {
 
     throw new WasteDestinationDomainError(
       "Usuário sem permissão para consultar destinações.",
-      { statusCode: 403, code: "WASTE_DESTINATION_ACCESS_DENIED" }
+      { statusCode: 403, code: "WASTE_DESTINATION_ACCESS_DENIED" },
     );
   }
 
@@ -526,9 +526,10 @@ export class CollectionWasteDestinationsService {
    */
 
   private buildFiltersWhere(
-    filters: WasteDestinationListQuery | EntryWasteDestinationListQuery
+    filters: WasteDestinationListQuery | EntryWasteDestinationListQuery,
   ): Prisma.CollectionWasteDestinationWhereInput {
-    const search = "search" in filters ? normalizeText(filters.search) : undefined;
+    const search =
+      "search" in filters ? normalizeText(filters.search) : undefined;
     const dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : undefined;
     const dateTo = filters.dateTo ? new Date(filters.dateTo) : undefined;
 
@@ -554,7 +555,13 @@ export class CollectionWasteDestinationsService {
           }
         : {}),
 
-      ...(filters.type ? { type: filters.type } : {}),
+      ...(filters.type
+        ? { type: filters.type }
+        : filters.flow === "intermediate"
+          ? { type: { in: ["TRIAGE", "RESERVATION"] } }
+          : filters.flow === "final"
+            ? { type: { notIn: ["TRIAGE", "RESERVATION"] } }
+            : {}),
       ...(filters.unit ? { unit: filters.unit } : {}),
 
       ...("stockItemId" in filters && filters.stockItemId
@@ -617,12 +624,52 @@ export class CollectionWasteDestinationsService {
       ...(search
         ? {
             OR: [
+              {
+                collectionWasteEntry: {
+                  is: {
+                    OR: [
+                      {
+                        materialNameSnapshot: {
+                          contains: search,
+                          mode: "insensitive",
+                        },
+                      },
+                      { id: { contains: search, mode: "insensitive" } },
+                      {
+                        generator: {
+                          is: {
+                            name: { contains: search, mode: "insensitive" },
+                          },
+                        },
+                      },
+                      {
+                        collection: {
+                          is: {
+                            bin: {
+                              is: {
+                                name: { contains: search, mode: "insensitive" },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
               { destinationName: { contains: search, mode: "insensitive" } },
-              { destinationDocument: { contains: search, mode: "insensitive" } },
+              {
+                destinationDocument: { contains: search, mode: "insensitive" },
+              },
               { destinationAddress: { contains: search, mode: "insensitive" } },
               { destinationContact: { contains: search, mode: "insensitive" } },
               { transportDocument: { contains: search, mode: "insensitive" } },
-              { environmentalDocument: { contains: search, mode: "insensitive" } },
+              {
+                environmentalDocument: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
               { notes: { contains: search, mode: "insensitive" } },
               {
                 stockItem: {
@@ -649,17 +696,21 @@ export class CollectionWasteDestinationsService {
   private calculateEntryState(
     collectedQuantity: number,
     destinedQuantity: number,
-    lastDestinationType?: WasteDestinationType
+    lastDestinationType?: WasteDestinationType,
   ): WasteEntryRecalculationResult {
     const normalizedCollected = Math.max(0, normalizeNumber(collectedQuantity));
     const normalizedDestined = Math.max(
       0,
-      Math.min(normalizedCollected, normalizeNumber(destinedQuantity))
+      Math.min(normalizedCollected, normalizeNumber(destinedQuantity)),
     );
 
-    const remainingQuantity = Math.max(0, normalizedCollected - normalizedDestined);
+    const remainingQuantity = Math.max(
+      0,
+      normalizedCollected - normalizedDestined,
+    );
 
-    let status: CollectionEntryStatus = CollectionEntryStatus.PENDING_DESTINATION;
+    let status: CollectionEntryStatus =
+      CollectionEntryStatus.PENDING_DESTINATION;
 
     if (normalizedDestined <= QUANTITY_EPSILON) {
       status = CollectionEntryStatus.PENDING_DESTINATION;
@@ -729,7 +780,11 @@ export class CollectionWasteDestinationsService {
   }
 
   private assertCollectionEditable(
-    collection: { status: string; receivedAt: Date | null },
+    collection: {
+      status: string;
+      receivedAt: Date | null;
+      quantityReviewVersion?: number;
+    },
     type?: string,
   ) {
     if (["COMPLETED", "CANCELLED"].includes(collection.status))
@@ -738,13 +793,23 @@ export class CollectionWasteDestinationsService {
         { statusCode: 409, code: "COLLECTION_ALREADY_CLOSED" },
       );
     if (
-      type === "STOCK" &&
+      type !== undefined &&
       (!collection.receivedAt ||
         !["RECEIVED", "SORTING"].includes(collection.status))
     )
       throw new WasteDestinationDomainError(
-        "Confirme o recebimento físico da coleta antes de enviar ao estoque.",
+        "Confirme o recebimento físico antes de movimentar o material.",
         { statusCode: 409, code: "COLLECTION_NOT_RECEIVED" },
+      );
+    if (
+      type !== undefined &&
+      !(
+        collection.quantityReviewVersion && collection.quantityReviewVersion > 0
+      )
+    )
+      throw new WasteDestinationDomainError(
+        "Registre a conferência das quantidades antes de movimentar o material.",
+        { statusCode: 409, code: "QUANTITY_REVIEW_REQUIRED" },
       );
   }
 
@@ -765,7 +830,12 @@ export class CollectionWasteDestinationsService {
           where: { id: data.collectionWasteEntryId },
           include: {
             collection: {
-              select: { id: true, status: true, receivedAt: true },
+              select: {
+                id: true,
+                status: true,
+                receivedAt: true,
+                quantityReviewVersion: true,
+              },
             },
             collectionMaterial: { select: { id: true } },
           },
@@ -795,6 +865,28 @@ export class CollectionWasteDestinationsService {
           );
         }
 
+        const hash = mutationHash(data, "CREATE");
+        const previous =
+          await transaction.collectionWasteDestination.findUnique({
+            where: { operationId: data.operationId },
+            include: destinationInclude,
+          });
+        if (previous) {
+          if (
+            (context.role !== UserRole.ADMIN &&
+              previous.cooperativeId !== context.cooperativeId) ||
+            previous.createdByUserId !== context.userId ||
+            previous.operationHash !== hash
+          )
+            throw mutationConflict(
+              "Identificador já utilizado em outra operação. Atualize a entrada.",
+            );
+          return {
+            destination: previous,
+            entry,
+            stockLot: previous.stockLot || null,
+          };
+        }
         this.assertCollectionEditable(entry.collection, data.type);
 
         const entryUnit = entry.unit;
@@ -908,6 +1000,8 @@ export class CollectionWasteDestinationsService {
 
         let destination = await transaction.collectionWasteDestination.create({
           data: {
+            operationId: data.operationId,
+            operationHash: hash,
             cooperativeId: entry.cooperativeId,
             collectionWasteEntryId: entry.id,
             type: data.type,
@@ -1045,7 +1139,11 @@ export class CollectionWasteDestinationsService {
    * ============================================================
    */
 
-  async list(authUserId: string, authUserRole: string, filters: WasteDestinationListQuery) {
+  async list(
+    authUserId: string,
+    authUserRole: string,
+    filters: WasteDestinationListQuery,
+  ) {
     const context = await this.getAccessContext(authUserId, authUserRole);
 
     const where: Prisma.CollectionWasteDestinationWhereInput = {
@@ -1059,15 +1157,34 @@ export class CollectionWasteDestinationsService {
     const [destinations, total, quantityRecords] = await prisma.$transaction([
       prisma.collectionWasteDestination.findMany({
         where,
-        include: destinationInclude,
+        include: {
+          stockItem: true,
+          stockLot: true,
+          createdBy: { select: userSelect },
+          cancelledBy: { select: userSelect },
+          collectionWasteEntry: {
+            include: {
+              collection: {
+                select: {
+                  id: true,
+                  status: true,
+                  bin: { select: { id: true, name: true, binId: true } },
+                },
+              },
+            },
+          },
+        },
         orderBy: [{ destinationDate: "desc" }, { createdAt: "desc" }],
         skip,
         take: limit,
       }),
       prisma.collectionWasteDestination.count({ where }),
-      prisma.collectionWasteDestination.findMany({
+      prisma.collectionWasteDestination.groupBy({
+        by: ["unit"],
+        orderBy: { unit: "asc" },
         where,
-        select: { unit: true, quantity: true },
+        _sum: { quantity: true },
+        _count: true,
       }),
     ]);
 
@@ -1075,7 +1192,15 @@ export class CollectionWasteDestinationsService {
       success: true,
       destinations,
       pagination: calculatePagination(page, limit, total),
-      totalsByUnit: calculateTotalsByUnit(quantityRecords),
+      totalsByUnit: Object.fromEntries(
+        quantityRecords.map((r) => [
+          r.unit,
+          {
+            totalQuantity: Number(r._sum?.quantity || 0),
+            destinationsCount: r._count,
+          },
+        ]),
+      ),
     };
   }
 
@@ -1089,7 +1214,7 @@ export class CollectionWasteDestinationsService {
     authUserId: string,
     authUserRole: string,
     entryId: string,
-    filters: EntryWasteDestinationListQuery
+    filters: EntryWasteDestinationListQuery,
   ) {
     const context = await this.getAccessContext(authUserId, authUserRole);
 
@@ -1108,7 +1233,7 @@ export class CollectionWasteDestinationsService {
     if (!entry) {
       throw new WasteDestinationDomainError(
         "Entrada de resíduo coletado não encontrada.",
-        { statusCode: 404, code: "COLLECTION_WASTE_ENTRY_NOT_FOUND" }
+        { statusCode: 404, code: "COLLECTION_WASTE_ENTRY_NOT_FOUND" },
       );
     }
 
@@ -1127,15 +1252,34 @@ export class CollectionWasteDestinationsService {
     const [destinations, total, quantityRecords] = await prisma.$transaction([
       prisma.collectionWasteDestination.findMany({
         where,
-        include: destinationInclude,
+        include: {
+          stockItem: true,
+          stockLot: true,
+          createdBy: { select: userSelect },
+          cancelledBy: { select: userSelect },
+          collectionWasteEntry: {
+            include: {
+              collection: {
+                select: {
+                  id: true,
+                  status: true,
+                  bin: { select: { id: true, name: true, binId: true } },
+                },
+              },
+            },
+          },
+        },
         orderBy: [{ destinationDate: "desc" }, { createdAt: "desc" }],
         skip,
         take: limit,
       }),
       prisma.collectionWasteDestination.count({ where }),
-      prisma.collectionWasteDestination.findMany({
+      prisma.collectionWasteDestination.groupBy({
+        by: ["unit"],
+        orderBy: { unit: "asc" },
         where,
-        select: { unit: true, quantity: true },
+        _sum: { quantity: true },
+        _count: true,
       }),
     ]);
 
@@ -1144,7 +1288,15 @@ export class CollectionWasteDestinationsService {
       entryId,
       destinations,
       pagination: calculatePagination(page, limit, total),
-      totalsByUnit: calculateTotalsByUnit(quantityRecords),
+      totalsByUnit: Object.fromEntries(
+        quantityRecords.map((r) => [
+          r.unit,
+          {
+            totalQuantity: Number(r._sum?.quantity || 0),
+            destinationsCount: r._count,
+          },
+        ]),
+      ),
     };
   }
 
@@ -1154,7 +1306,11 @@ export class CollectionWasteDestinationsService {
    * ============================================================
    */
 
-  async findById(authUserId: string, authUserRole: string, destinationId: string) {
+  async findById(
+    authUserId: string,
+    authUserRole: string,
+    destinationId: string,
+  ) {
     const context = await this.getAccessContext(authUserId, authUserRole);
 
     const destination = await prisma.collectionWasteDestination.findFirst({
@@ -1165,10 +1321,13 @@ export class CollectionWasteDestinationsService {
     });
 
     if (!destination) {
-      throw new WasteDestinationDomainError("Destinação de resíduo não encontrada.", {
-        statusCode: 404,
-        code: "WASTE_DESTINATION_NOT_FOUND",
-      });
+      throw new WasteDestinationDomainError(
+        "Destinação de resíduo não encontrada.",
+        {
+          statusCode: 404,
+          code: "WASTE_DESTINATION_NOT_FOUND",
+        },
+      );
     }
 
     return {
@@ -1212,6 +1371,24 @@ export class CollectionWasteDestinationsService {
         );
       }
 
+      const hash = mutationHash(data, "UPDATE:" + destinationId);
+      if (data.operationId && existing.lastOperationId === data.operationId) {
+        if (existing.lastOperationHash !== hash)
+          throw mutationConflict(
+            "Identificador reutilizado com dados diferentes.",
+          );
+        return transaction.collectionWasteDestination.findUniqueOrThrow({
+          where: { id: destinationId },
+          include: destinationInclude,
+        });
+      }
+      if (
+        data.expectedVersion !== undefined &&
+        data.expectedVersion !== existing.version
+      )
+        throw mutationConflict(
+          "A destinação foi alterada por outra pessoa. Atualize antes de salvar.",
+        );
       const parent = await transaction.collection.findUniqueOrThrow({
         where: { id: existing.collectionWasteEntry.collectionId },
       });
@@ -1363,6 +1540,9 @@ export class CollectionWasteDestinationsService {
         await transaction.collectionWasteDestination.update({
           where: { id: destinationId },
           data: {
+            version: { increment: 1 },
+            lastOperationId: data.operationId,
+            lastOperationHash: data.operationId ? hash : undefined,
             type: newType,
             stockItemId:
               newType === WasteDestinationType.STOCK
@@ -1510,6 +1690,32 @@ export class CollectionWasteDestinationsService {
         );
       }
 
+      const hash = mutationHash(data, "CANCEL:" + destinationId);
+      if (
+        data.operationId &&
+        destination.lastOperationId === data.operationId
+      ) {
+        if (destination.lastOperationHash !== hash)
+          throw mutationConflict(
+            "Identificador reutilizado com dados diferentes.",
+          );
+        return {
+          destination:
+            await transaction.collectionWasteDestination.findUniqueOrThrow({
+              where: { id: destinationId },
+              include: destinationInclude,
+            }),
+          entry: destination.collectionWasteEntry,
+          stockLot: destination.stockLot,
+        };
+      }
+      if (
+        data.expectedVersion !== undefined &&
+        data.expectedVersion !== destination.version
+      )
+        throw mutationConflict(
+          "A destinação foi alterada. Atualize antes de cancelar.",
+        );
       const parent = await transaction.collection.findUniqueOrThrow({
         where: { id: destination.collectionWasteEntry.collectionId },
       });
@@ -1609,6 +1815,9 @@ export class CollectionWasteDestinationsService {
         await transaction.collectionWasteDestination.update({
           where: { id: destination.id },
           data: {
+            version: { increment: 1 },
+            lastOperationId: data.operationId,
+            lastOperationHash: data.operationId ? hash : undefined,
             status: CANCELLED_DESTINATION_STATUS,
             cancelledAt,
             cancelledReason: data.reason,

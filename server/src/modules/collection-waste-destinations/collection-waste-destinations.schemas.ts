@@ -1,7 +1,4 @@
-import {
-  WasteDestinationType,
-  WasteUnit,
-} from "@prisma/client";
+import { WasteDestinationType, WasteUnit } from "@prisma/client";
 
 import { z } from "zod";
 
@@ -11,21 +8,17 @@ import { z } from "zod";
  * ============================================================
  */
 
-export const wasteDestinationTypeSchema =
-  z.nativeEnum(WasteDestinationType, {
-    errorMap: () => ({
-      message:
-        "Tipo de destinação inválido.",
-    }),
-  });
+export const wasteDestinationTypeSchema = z.nativeEnum(WasteDestinationType, {
+  errorMap: () => ({
+    message: "Tipo de destinação inválido.",
+  }),
+});
 
-export const wasteDestinationUnitSchema =
-  z.nativeEnum(WasteUnit, {
-    errorMap: () => ({
-      message:
-        "Unidade de medida inválida.",
-    }),
-  });
+export const wasteDestinationUnitSchema = z.nativeEnum(WasteUnit, {
+  errorMap: () => ({
+    message: "Unidade de medida inválida.",
+  }),
+});
 
 /*
  * ============================================================
@@ -36,56 +29,43 @@ export const wasteDestinationUnitSchema =
 function requiredTrimmedString(
   fieldName: string,
   minLength = 1,
-  maxLength = 255
+  maxLength = 255,
 ) {
   return z
     .string({
-      required_error:
-        `${fieldName} é obrigatório.`,
-      invalid_type_error:
-        `${fieldName} deve ser um texto.`,
+      required_error: `${fieldName} é obrigatório.`,
+      invalid_type_error: `${fieldName} deve ser um texto.`,
     })
     .trim()
-    .min(
-      minLength,
-      `${fieldName} é obrigatório.`
-    )
+    .min(minLength, `${fieldName} é obrigatório.`)
     .max(
       maxLength,
-      `${fieldName} deve possuir no máximo ${maxLength} caracteres.`
+      `${fieldName} deve possuir no máximo ${maxLength} caracteres.`,
     );
 }
 
-function optionalTrimmedString(
-  fieldName: string,
-  maxLength = 255
-) {
+function optionalTrimmedString(fieldName: string, maxLength = 255) {
   return z
     .string({
-      invalid_type_error:
-        `${fieldName} deve ser um texto.`,
+      invalid_type_error: `${fieldName} deve ser um texto.`,
     })
     .trim()
     .max(
       maxLength,
-      `${fieldName} deve possuir no máximo ${maxLength} caracteres.`
+      `${fieldName} deve possuir no máximo ${maxLength} caracteres.`,
     )
     .optional();
 }
 
-function nullableOptionalTrimmedString(
-  fieldName: string,
-  maxLength = 255
-) {
+function nullableOptionalTrimmedString(fieldName: string, maxLength = 255) {
   return z
     .string({
-      invalid_type_error:
-        `${fieldName} deve ser um texto.`,
+      invalid_type_error: `${fieldName} deve ser um texto.`,
     })
     .trim()
     .max(
       maxLength,
-      `${fieldName} deve possuir no máximo ${maxLength} caracteres.`
+      `${fieldName} deve possuir no máximo ${maxLength} caracteres.`,
     )
     .nullable()
     .optional();
@@ -94,30 +74,22 @@ function nullableOptionalTrimmedString(
 function positiveQuantitySchema() {
   return z.coerce
     .number({
-      required_error:
-        "A quantidade é obrigatória.",
-      invalid_type_error:
-        "A quantidade deve ser numérica.",
+      required_error: "A quantidade é obrigatória.",
+      invalid_type_error: "A quantidade deve ser numérica.",
     })
-    .finite(
-      "A quantidade deve ser um número válido."
-    )
-    .positive(
-      "A quantidade deve ser maior que zero."
+    .finite("A quantidade deve ser um número válido.")
+    .positive("A quantidade deve ser maior que zero.")
+    .max(1000000000)
+    .refine(
+      (value) => Math.abs(value * 1000 - Math.round(value * 1000)) < 0.000001,
+      "Use no máximo três casas decimais.",
     );
 }
 
-function positiveIntegerWithDefault(
-  defaultValue: number,
-  maximum: number
-) {
+function positiveIntegerWithDefault(defaultValue: number, maximum: number) {
   return z.preprocess(
     (value) => {
-      if (
-        value === undefined ||
-        value === null ||
-        value === ""
-      ) {
+      if (value === undefined || value === null || value === "") {
         return defaultValue;
       }
 
@@ -125,52 +97,36 @@ function positiveIntegerWithDefault(
     },
     z.coerce
       .number()
-      .int(
-        "O valor deve ser um número inteiro."
-      )
-      .positive(
-        "O valor deve ser maior que zero."
-      )
-      .max(
-        maximum,
-        `O valor máximo permitido é ${maximum}.`
-      )
+      .int("O valor deve ser um número inteiro.")
+      .positive("O valor deve ser maior que zero.")
+      .max(maximum, `O valor máximo permitido é ${maximum}.`),
   );
 }
 
 const optionalIsoDate = z
   .string({
-    invalid_type_error:
-      "A data deve ser informada em formato textual.",
+    invalid_type_error: "A data deve ser informada em formato textual.",
   })
   .datetime({
     offset: true,
-    message:
-      "A data deve estar em formato ISO 8601 válido.",
+    message: "A data deve estar em formato ISO 8601 válido.",
   })
   .optional();
 
 const nullableOptionalIsoDate = z
   .string({
-    invalid_type_error:
-      "A data deve ser informada em formato textual.",
+    invalid_type_error: "A data deve ser informada em formato textual.",
   })
   .datetime({
     offset: true,
-    message:
-      "A data deve estar em formato ISO 8601 válido.",
+    message: "A data deve estar em formato ISO 8601 válido.",
   })
   .nullable()
   .optional();
 
-const metadataSchema = z
-  .record(z.unknown())
-  .optional();
+const metadataSchema = z.record(z.unknown()).optional();
 
-const nullableMetadataSchema = z
-  .record(z.unknown())
-  .nullable()
-  .optional();
+const nullableMetadataSchema = z.record(z.unknown()).nullable().optional();
 
 /*
  * ============================================================
@@ -178,23 +134,13 @@ const nullableMetadataSchema = z
  * ============================================================
  */
 
-export const wasteDestinationIdParamsSchema =
-  z.object({
-    id: requiredTrimmedString(
-      "ID da destinação",
-      1,
-      100
-    ),
-  });
+export const wasteDestinationIdParamsSchema = z.object({
+  id: requiredTrimmedString("ID da destinação", 1, 100),
+});
 
-export const collectionWasteEntryIdParamsSchema =
-  z.object({
-    entryId: requiredTrimmedString(
-      "ID da entrada de resíduo",
-      1,
-      100
-    ),
-  });
+export const collectionWasteEntryIdParamsSchema = z.object({
+  entryId: requiredTrimmedString("ID da entrada de resíduo", 1, 100),
+});
 
 /*
  * ============================================================
@@ -202,14 +148,18 @@ export const collectionWasteEntryIdParamsSchema =
  * ============================================================
  */
 
-const createWasteDestinationBaseSchema =
-  z.object({
-    collectionWasteEntryId:
-      requiredTrimmedString(
-        "Entrada de resíduo coletado",
-        1,
-        100
-      ),
+const createWasteDestinationBaseSchema = z
+  .object({
+    operationId: z
+      .string({
+        required_error: "Atualize o painel para identificar esta operação.",
+      })
+      .uuid(),
+    collectionWasteEntryId: requiredTrimmedString(
+      "Entrada de resíduo coletado",
+      1,
+      100,
+    ),
 
     type: wasteDestinationTypeSchema,
 
@@ -217,56 +167,23 @@ const createWasteDestinationBaseSchema =
 
     unit: wasteDestinationUnitSchema,
 
-    stockItemId: optionalTrimmedString(
-      "Item de estoque",
-      100
-    ),
+    stockItemId: optionalTrimmedString("Item de estoque", 100),
 
-    stockLotCode: optionalTrimmedString(
-      "Código do lote",
-      100
-    ),
+    stockLotCode: optionalTrimmedString("Código do lote", 100),
 
-    destinationName:
-      optionalTrimmedString(
-        "Nome do destino",
-        255
-      ),
+    destinationName: optionalTrimmedString("Nome do destino", 255),
 
-    destinationDocument:
-      optionalTrimmedString(
-        "Documento do destino",
-        100
-      ),
+    destinationDocument: optionalTrimmedString("Documento do destino", 100),
 
-    destinationAddress:
-      optionalTrimmedString(
-        "Endereço do destino",
-        500
-      ),
+    destinationAddress: optionalTrimmedString("Endereço do destino", 500),
 
-    destinationContact:
-      optionalTrimmedString(
-        "Contato do destino",
-        255
-      ),
+    destinationContact: optionalTrimmedString("Contato do destino", 255),
 
-    transportDocument:
-      optionalTrimmedString(
-        "Documento de transporte",
-        255
-      ),
+    transportDocument: optionalTrimmedString("Documento de transporte", 255),
 
-    environmentalDocument:
-      optionalTrimmedString(
-        "Documento ambiental",
-        255
-      ),
+    environmentalDocument: optionalTrimmedString("Documento ambiental", 255),
 
-    notes: optionalTrimmedString(
-      "Observações",
-      2000
-    ),
+    notes: optionalTrimmedString("Observações", 2000),
 
     destinationDate: optionalIsoDate,
 
@@ -280,215 +197,162 @@ const createWasteDestinationBaseSchema =
  * ============================================================
  */
 
-export const createWasteDestinationBodySchema =
-  createWasteDestinationBaseSchema
-    .superRefine((data, context) => {
-      /*
-       * ========================================================
-       * DESTINAÇÃO PARA ESTOQUE
-       * ========================================================
-       */
+export const createWasteDestinationBodySchema = createWasteDestinationBaseSchema
+  .superRefine((data, context) => {
+    /*
+     * ========================================================
+     * DESTINAÇÃO PARA ESTOQUE
+     * ========================================================
+     */
 
-      if (
-        data.type ===
-        WasteDestinationType.STOCK
-      ) {
-        if (!data.stockItemId) {
-          context.addIssue({
-            code:
-              z.ZodIssueCode.custom,
-
-            path: ["stockItemId"],
-
-            message:
-              "O item de estoque é obrigatório para destinação do tipo STOCK.",
-          });
-        }
-      }
-
-      /*
-       * ========================================================
-       * TRIAGEM
-       * ========================================================
-       */
-
-      if (
-        data.type ===
-        WasteDestinationType.TRIAGE
-      ) {
-        if (!data.destinationName) {
-          context.addIssue({
-            code:
-              z.ZodIssueCode.custom,
-
-            path: [
-              "destinationName",
-            ],
-
-            message:
-              "O nome do local de triagem é obrigatório.",
-          });
-        }
-      }
-
-      /*
-       * ========================================================
-       * REJEITO
-       * ========================================================
-       */
-
-      if (
-        data.type ===
-        WasteDestinationType.REJECT
-      ) {
-        if (!data.notes) {
-          context.addIssue({
-            code:
-              z.ZodIssueCode.custom,
-
-            path: ["notes"],
-
-            message:
-              "Informe o motivo ou a descrição do rejeito.",
-          });
-        }
-      }
-
-      /*
-       * ========================================================
-       * DESCARTE
-       * ========================================================
-       */
-
-      if (
-        data.type ===
-        WasteDestinationType.DISPOSAL
-      ) {
-        if (!data.destinationName) {
-          context.addIssue({
-            code:
-              z.ZodIssueCode.custom,
-
-            path: [
-              "destinationName",
-            ],
-
-            message:
-              "O local de descarte é obrigatório.",
-          });
-        }
-
-        if (!data.notes) {
-          context.addIssue({
-            code:
-              z.ZodIssueCode.custom,
-
-            path: ["notes"],
-
-            message:
-              "Informe o motivo ou a descrição do descarte.",
-          });
-        }
-      }
-
-      /*
-       * ========================================================
-       * DESTINAÇÃO DIRETA
-       * ========================================================
-       */
-
-      if (
-        data.type ===
-        WasteDestinationType.DIRECT_DESTINATION
-      ) {
-        if (!data.destinationName) {
-          context.addIssue({
-            code:
-              z.ZodIssueCode.custom,
-
-            path: [
-              "destinationName",
-            ],
-
-            message:
-              "O destinatário é obrigatório para destinação direta.",
-          });
-        }
-      }
-
-      /*
-       * ========================================================
-       * RESERVA
-       * ========================================================
-       */
-
-      if (
-        data.type ===
-        WasteDestinationType.RESERVATION
-      ) {
-        if (!data.destinationName) {
-          context.addIssue({
-            code:
-              z.ZodIssueCode.custom,
-
-            path: [
-              "destinationName",
-            ],
-
-            message:
-              "O responsável ou finalidade da reserva é obrigatório.",
-          });
-        }
-      }
-
-      /*
-       * ========================================================
-       * CAMPOS INCOMPATÍVEIS
-       * ========================================================
-       */
-
-      if (
-        data.type !==
-          WasteDestinationType.STOCK &&
-        data.stockItemId
-      ) {
+    if (data.type === WasteDestinationType.STOCK) {
+      if (!data.stockItemId) {
         context.addIssue({
-          code:
-            z.ZodIssueCode.custom,
+          code: z.ZodIssueCode.custom,
 
           path: ["stockItemId"],
 
           message:
-            "O item de estoque só pode ser informado em destinações do tipo STOCK.",
+            "O item de estoque é obrigatório para destinação do tipo STOCK.",
         });
       }
+    }
 
-      if (
-        data.type !==
-          WasteDestinationType.STOCK &&
-        data.stockLotCode
-      ) {
+    /*
+     * ========================================================
+     * TRIAGEM
+     * ========================================================
+     */
+
+    if (data.type === WasteDestinationType.TRIAGE) {
+      if (!data.destinationName) {
         context.addIssue({
-          code:
-            z.ZodIssueCode.custom,
+          code: z.ZodIssueCode.custom,
 
-          path: ["stockLotCode"],
+          path: ["destinationName"],
 
-          message:
-            "O código do lote só pode ser informado em destinações do tipo STOCK.",
+          message: "O nome do local de triagem é obrigatório.",
         });
       }
-    })
-    .transform((data) => ({
-      ...data,
+    }
 
-      destinationDate:
-        data.destinationDate
-          ? new Date(
-              data.destinationDate
-            )
-          : undefined,
-    }));
+    /*
+     * ========================================================
+     * REJEITO
+     * ========================================================
+     */
+
+    if (data.type === WasteDestinationType.REJECT) {
+      if (!data.notes) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+
+          path: ["notes"],
+
+          message: "Informe o motivo ou a descrição do rejeito.",
+        });
+      }
+    }
+
+    /*
+     * ========================================================
+     * DESCARTE
+     * ========================================================
+     */
+
+    if (data.type === WasteDestinationType.DISPOSAL) {
+      if (!data.destinationName) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+
+          path: ["destinationName"],
+
+          message: "O local de descarte é obrigatório.",
+        });
+      }
+
+      if (!data.notes) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+
+          path: ["notes"],
+
+          message: "Informe o motivo ou a descrição do descarte.",
+        });
+      }
+    }
+
+    /*
+     * ========================================================
+     * DESTINAÇÃO DIRETA
+     * ========================================================
+     */
+
+    if (data.type === WasteDestinationType.DIRECT_DESTINATION) {
+      if (!data.destinationName) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+
+          path: ["destinationName"],
+
+          message: "O destinatário é obrigatório para destinação direta.",
+        });
+      }
+    }
+
+    /*
+     * ========================================================
+     * RESERVA
+     * ========================================================
+     */
+
+    if (data.type === WasteDestinationType.RESERVATION) {
+      if (!data.destinationName) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+
+          path: ["destinationName"],
+
+          message: "O responsável ou finalidade da reserva é obrigatório.",
+        });
+      }
+    }
+
+    /*
+     * ========================================================
+     * CAMPOS INCOMPATÍVEIS
+     * ========================================================
+     */
+
+    if (data.type !== WasteDestinationType.STOCK && data.stockItemId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+
+        path: ["stockItemId"],
+
+        message:
+          "O item de estoque só pode ser informado em destinações do tipo STOCK.",
+      });
+    }
+
+    if (data.type !== WasteDestinationType.STOCK && data.stockLotCode) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+
+        path: ["stockLotCode"],
+
+        message:
+          "O código do lote só pode ser informado em destinações do tipo STOCK.",
+      });
+    }
+  })
+  .transform((data) => ({
+    ...data,
+
+    destinationDate: data.destinationDate
+      ? new Date(data.destinationDate)
+      : undefined,
+  }));
 
 /*
  * ============================================================
@@ -496,86 +360,61 @@ export const createWasteDestinationBodySchema =
  * ============================================================
  */
 
-export const updateWasteDestinationBodySchema =
-  z
-    .object({
-      type: wasteDestinationTypeSchema.optional(),
+export const updateWasteDestinationBodySchema = z
+  .object({
+    operationId: z.string().uuid().optional(),
+    expectedVersion: z.number().int().positive().optional(),
+    type: wasteDestinationTypeSchema.optional(),
 
-      stockItemId:
-        nullableOptionalTrimmedString(
-          "Item de estoque",
-          100
-        ),
+    stockItemId: nullableOptionalTrimmedString("Item de estoque", 100),
 
-      destinationName:
-        nullableOptionalTrimmedString(
-          "Nome do destino",
-          255
-        ),
+    destinationName: nullableOptionalTrimmedString("Nome do destino", 255),
 
-      destinationDocument:
-        nullableOptionalTrimmedString(
-          "Documento do destino",
-          100
-        ),
+    destinationDocument: nullableOptionalTrimmedString(
+      "Documento do destino",
+      100,
+    ),
 
-      destinationAddress:
-        nullableOptionalTrimmedString(
-          "Endereço do destino",
-          500
-        ),
+    destinationAddress: nullableOptionalTrimmedString(
+      "Endereço do destino",
+      500,
+    ),
 
-      destinationContact:
-        nullableOptionalTrimmedString(
-          "Contato do destino",
-          255
-        ),
+    destinationContact: nullableOptionalTrimmedString(
+      "Contato do destino",
+      255,
+    ),
 
-      transportDocument:
-        nullableOptionalTrimmedString(
-          "Documento de transporte",
-          255
-        ),
+    transportDocument: nullableOptionalTrimmedString(
+      "Documento de transporte",
+      255,
+    ),
 
-      environmentalDocument:
-        nullableOptionalTrimmedString(
-          "Documento ambiental",
-          255
-        ),
+    environmentalDocument: nullableOptionalTrimmedString(
+      "Documento ambiental",
+      255,
+    ),
 
-      notes:
-        nullableOptionalTrimmedString(
-          "Observações",
-          2000
-        ),
+    notes: nullableOptionalTrimmedString("Observações", 2000),
 
-      destinationDate:
-        nullableOptionalIsoDate,
+    destinationDate: nullableOptionalIsoDate,
 
-      metadata:
-        nullableMetadataSchema,
-    })
-    .strict()
-    .refine(
-      (data) =>
-        Object.keys(data).length > 0,
-      {
-        message:
-          "Informe ao menos um campo para atualização.",
-      }
-    )
-    .transform((data) => ({
-      ...data,
+    metadata: nullableMetadataSchema,
+  })
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "Informe ao menos um campo para atualização.",
+  })
+  .transform((data) => ({
+    ...data,
 
-      destinationDate:
-        data.destinationDate === null
-          ? null
-          : data.destinationDate
-            ? new Date(
-                data.destinationDate
-              )
-            : undefined,
-    }));
+    destinationDate:
+      data.destinationDate === null
+        ? null
+        : data.destinationDate
+          ? new Date(data.destinationDate)
+          : undefined,
+  }));
 
 /*
  * ============================================================
@@ -583,28 +422,20 @@ export const updateWasteDestinationBodySchema =
  * ============================================================
  */
 
-export const cancelWasteDestinationBodySchema =
-  z
-    .object({
-      reason: requiredTrimmedString(
-        "Motivo do cancelamento",
-        3,
-        1000
-      ),
+export const cancelWasteDestinationBodySchema = z
+  .object({
+    operationId: z.string().uuid().optional(),
+    expectedVersion: z.number().int().positive().optional(),
+    reason: requiredTrimmedString("Motivo do cancelamento", 3, 1000),
 
-      cancelledAt: optionalIsoDate,
-    })
-    .strict()
-    .transform((data) => ({
-      ...data,
+    cancelledAt: optionalIsoDate,
+  })
+  .strict()
+  .transform((data) => ({
+    ...data,
 
-      cancelledAt:
-        data.cancelledAt
-          ? new Date(
-              data.cancelledAt
-            )
-          : undefined,
-    }));
+    cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : undefined,
+  }));
 
 /*
  * ============================================================
@@ -612,126 +443,65 @@ export const cancelWasteDestinationBodySchema =
  * ============================================================
  */
 
-export const wasteDestinationListQuerySchema =
-  z.object({
+export const wasteDestinationListQuerySchema = z
+  .object({
     status: z.enum(["ACTIVE", "CANCELLED"]).optional(),
-    collectionWasteEntryId:
-      optionalTrimmedString(
-        "Entrada de resíduo coletado",
-        100
-      ),
+    flow: z.enum(["all", "intermediate", "final"]).optional(),
+    collectionWasteEntryId: optionalTrimmedString(
+      "Entrada de resíduo coletado",
+      100,
+    ),
 
-    collectionId:
-      optionalTrimmedString(
-        "Coleta",
-        100
-      ),
+    collectionId: optionalTrimmedString("Coleta", 100),
 
-    collectionMaterialId:
-      optionalTrimmedString(
-        "Material da coleta",
-        100
-      ),
+    collectionMaterialId: optionalTrimmedString("Material da coleta", 100),
 
-    type:
-      wasteDestinationTypeSchema
-        .optional(),
+    type: wasteDestinationTypeSchema.optional(),
 
-    unit:
-      wasteDestinationUnitSchema
-        .optional(),
+    unit: wasteDestinationUnitSchema.optional(),
 
-    stockItemId:
-      optionalTrimmedString(
-        "Item de estoque",
-        100
-      ),
+    stockItemId: optionalTrimmedString("Item de estoque", 100),
 
-    stockLotId:
-      optionalTrimmedString(
-        "Lote de estoque",
-        100
-      ),
+    stockLotId: optionalTrimmedString("Lote de estoque", 100),
 
-    generatorId:
-      optionalTrimmedString(
-        "Gerador",
-        100
-      ),
+    generatorId: optionalTrimmedString("Gerador", 100),
 
-    collectorId:
-      optionalTrimmedString(
-        "Catador",
-        100
-      ),
+    collectorId: optionalTrimmedString("Catador", 100),
 
-    driverId:
-      optionalTrimmedString(
-        "Motorista",
-        100
-      ),
+    driverId: optionalTrimmedString("Motorista", 100),
 
-    vehicleId:
-      optionalTrimmedString(
-        "Veículo",
-        100
-      ),
+    vehicleId: optionalTrimmedString("Veículo", 100),
 
-    routeId:
-      optionalTrimmedString(
-        "Rota",
-        100
-      ),
+    routeId: optionalTrimmedString("Rota", 100),
 
-    search:
-      optionalTrimmedString(
-        "Busca",
-        255
-      ),
+    search: optionalTrimmedString("Busca", 255),
 
     dateFrom: optionalIsoDate,
 
     dateTo: optionalIsoDate,
 
-    page:
-      positiveIntegerWithDefault(
-        1,
-        1_000_000
-      ),
+    page: positiveIntegerWithDefault(1, 1_000_000),
 
-    limit:
-      positiveIntegerWithDefault(
-        50,
-        200
-      ),
+    limit: positiveIntegerWithDefault(50, 200),
   })
   .strict()
-  .superRefine(
-    (data, context) => {
-      if (
-        data.dateFrom &&
-        data.dateTo
-      ) {
-        const dateFrom =
-          new Date(data.dateFrom);
+  .superRefine((data, context) => {
+    if (data.dateFrom && data.dateTo) {
+      const dateFrom = new Date(data.dateFrom);
 
-        const dateTo =
-          new Date(data.dateTo);
+      const dateTo = new Date(data.dateTo);
 
-        if (dateFrom > dateTo) {
-          context.addIssue({
-            code:
-              z.ZodIssueCode.custom,
+      if (dateFrom > dateTo) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
 
-            path: ["dateTo"],
+          path: ["dateTo"],
 
-            message:
-              "A data final deve ser igual ou posterior à data inicial.",
-          });
-        }
+          message: "A data final deve ser igual ou posterior à data inicial.",
+        });
       }
     }
-  );
+  });
 
 /*
  * ============================================================
@@ -739,54 +509,38 @@ export const wasteDestinationListQuerySchema =
  * ============================================================
  */
 
-export const entryWasteDestinationListQuerySchema =
-  z.object({
+export const entryWasteDestinationListQuerySchema = z
+  .object({
     status: z.enum(["ACTIVE", "CANCELLED"]).optional(),
-    type:
-      wasteDestinationTypeSchema
-        .optional(),
+    flow: z.enum(["all", "intermediate", "final"]).optional(),
+    type: wasteDestinationTypeSchema.optional(),
 
-    unit:
-      wasteDestinationUnitSchema
-        .optional(),
+    unit: wasteDestinationUnitSchema.optional(),
 
     dateFrom: optionalIsoDate,
 
     dateTo: optionalIsoDate,
 
-    page:
-      positiveIntegerWithDefault(
-        1,
-        1_000_000
-      ),
+    page: positiveIntegerWithDefault(1, 1_000_000),
 
-    limit:
-      positiveIntegerWithDefault(
-        50,
-        200
-      ),
+    limit: positiveIntegerWithDefault(50, 200),
   })
   .strict()
-  .superRefine(
-    (data, context) => {
-      if (
-        data.dateFrom &&
-        data.dateTo &&
-        new Date(data.dateFrom) >
-          new Date(data.dateTo)
-      ) {
-        context.addIssue({
-          code:
-            z.ZodIssueCode.custom,
+  .superRefine((data, context) => {
+    if (
+      data.dateFrom &&
+      data.dateTo &&
+      new Date(data.dateFrom) > new Date(data.dateTo)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
 
-          path: ["dateTo"],
+        path: ["dateTo"],
 
-          message:
-            "A data final deve ser igual ou posterior à data inicial.",
-        });
-      }
+        message: "A data final deve ser igual ou posterior à data inicial.",
+      });
     }
-  );
+  });
 
 /*
  * ============================================================
@@ -794,47 +548,38 @@ export const entryWasteDestinationListQuerySchema =
  * ============================================================
  */
 
-export type WasteDestinationTypeInput =
-  z.infer<
-    typeof wasteDestinationTypeSchema
-  >;
+export type WasteDestinationTypeInput = z.infer<
+  typeof wasteDestinationTypeSchema
+>;
 
-export type WasteDestinationUnitInput =
-  z.infer<
-    typeof wasteDestinationUnitSchema
-  >;
+export type WasteDestinationUnitInput = z.infer<
+  typeof wasteDestinationUnitSchema
+>;
 
-export type WasteDestinationIdParams =
-  z.infer<
-    typeof wasteDestinationIdParamsSchema
-  >;
+export type WasteDestinationIdParams = z.infer<
+  typeof wasteDestinationIdParamsSchema
+>;
 
-export type CollectionWasteEntryIdParams =
-  z.infer<
-    typeof collectionWasteEntryIdParamsSchema
-  >;
+export type CollectionWasteEntryIdParams = z.infer<
+  typeof collectionWasteEntryIdParamsSchema
+>;
 
-export type CreateWasteDestinationBody =
-  z.infer<
-    typeof createWasteDestinationBodySchema
-  >;
+export type CreateWasteDestinationBody = z.infer<
+  typeof createWasteDestinationBodySchema
+>;
 
-export type UpdateWasteDestinationBody =
-  z.infer<
-    typeof updateWasteDestinationBodySchema
-  >;
+export type UpdateWasteDestinationBody = z.infer<
+  typeof updateWasteDestinationBodySchema
+>;
 
-export type CancelWasteDestinationBody =
-  z.infer<
-    typeof cancelWasteDestinationBodySchema
-  >;
+export type CancelWasteDestinationBody = z.infer<
+  typeof cancelWasteDestinationBodySchema
+>;
 
-export type WasteDestinationListQuery =
-  z.infer<
-    typeof wasteDestinationListQuerySchema
-  >;
+export type WasteDestinationListQuery = z.infer<
+  typeof wasteDestinationListQuerySchema
+>;
 
-export type EntryWasteDestinationListQuery =
-  z.infer<
-    typeof entryWasteDestinationListQuerySchema
-  >;
+export type EntryWasteDestinationListQuery = z.infer<
+  typeof entryWasteDestinationListQuerySchema
+>;

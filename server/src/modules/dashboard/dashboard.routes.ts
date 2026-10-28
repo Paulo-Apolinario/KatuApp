@@ -1,3 +1,5 @@
+import { operationalOverview } from "./dashboard-operations";
+import { wasteCooperativeScope } from "../waste-workspace/waste-workspace.routes";
 import type { FastifyInstance } from "fastify";
 import { ZodError, z } from "zod";
 import { prisma } from "../../lib/prisma";
@@ -9,6 +11,28 @@ import {
 import { querySchema, period } from "../reports/reports.schemas";
 import { collectionRow } from "../reports/reports.model";
 export async function dashboardRoutes(app: FastifyInstance) {
+  app.get(
+    "/dashboard/operations",
+    { preHandler: [app.authenticate] },
+    async (r, p) => {
+      try {
+        p.header("Cache-Control", "private, no-store");
+        return {
+          data: await operationalOverview(
+            await wasteCooperativeScope(r.user.sub),
+          ),
+        };
+      } catch (e: any) {
+        return p
+          .code(e.statusCode || 500)
+          .send({
+            error: e.statusCode
+              ? e.message
+              : "Não foi possível atualizar as pendências operacionais.",
+          });
+      }
+    },
+  );
   app.get(
     "/dashboard/overview",
     { preHandler: [app.authenticate] },
