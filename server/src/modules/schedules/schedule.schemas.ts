@@ -398,6 +398,7 @@ export const requestedMaterialsSchema = z
 
 export const createScheduleSchema = z
   .object({
+    operationId: z.string().uuid().optional(),
     pickupAddress: z.string().trim().min(5).max(500).optional(),
     pickupLatitude: z.number().finite().min(-90).max(90).optional(),
     pickupLongitude: z.number().finite().min(-180).max(180).optional(),

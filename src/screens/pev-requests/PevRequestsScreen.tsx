@@ -1,6 +1,8 @@
+import { ResidentialPage } from "../../components/residential/ResidentialPage";
+import { residentialDate } from "../../utils/residential";
 import { NotificationBell } from "../../components/NotificationBell";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Image, Platform, Text, View, StyleSheet } from "react-native";
+import { Image, Linking, Platform, Text, View, StyleSheet } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
@@ -38,16 +40,18 @@ const fresh = (): Draft => ({
   notes: "",
   photos: [],
 });
-const date = (v: string) => new Date(v).toLocaleString("pt-BR");
+
 export default function PevRequestsScreen() {
   const { user } = useAuth(),
     { isOffline } = useConnectivity(),
     isOnline = !isOffline,
     params = useLocalSearchParams<{ requestId?: string }>();
+  const Shell = user?.role === "PF" ? ResidentialPage : Workspace;
+  const date = (v: string) => user?.role === "PF" ? residentialDate(v) : new Date(v).toLocaleString("pt-BR");
   const coop = user?.role === "COOPERATIVE",
     collector = user?.role === "COLLECTOR";
   const [tab, setTab] = useState<"POINTS" | "REQUESTS">(
-      coop ? "REQUESTS" : "POINTS",
+      coop || user?.role === "PF" ? "REQUESTS" : "POINTS",
     ),
     [points, setPoints] = useState<PevPoint[]>([]),
     [pointPage, setPointPage] = useState(1),
@@ -383,7 +387,7 @@ export default function PevRequestsScreen() {
     </View>
   );
   return (
-    <Workspace
+    <Shell
       key={`${tab}:${form ? "new" : detail?.id || "list"}`}
       title="PEVs · cuidado compartilhado"
       subtitle="Sinalize um ponto cheio, acompanhe o atendimento e ajude a cooperativa a manter a cidade limpa."
@@ -656,7 +660,7 @@ export default function PevRequestsScreen() {
                 setPointPage(1);
               }}
             />
-            <Notice text="Pessoas físicas veem os pontos publicados. Catadores e cooperativas acessam somente PEVs da própria cooperativa, mesmo quando públicos. O mapa mostra a página atual." />
+            <Notice text={user?.role === "PF" ? "Encontre pontos públicos por nome, bairro ou município. Confira os materiais aceitos e as restrições antes de levar seus recicláveis. O mapa mostra a página atual." : "Pessoas físicas veem os pontos publicados. Catadores e cooperativas acessam somente PEVs da própria cooperativa, mesmo quando públicos. O mapa mostra a página atual."} />
             {points.some(
               (p) =>
                 typeof p.latitude === "number" &&
@@ -704,6 +708,7 @@ export default function PevRequestsScreen() {
                   "Confirme os materiais aceitos com a cooperativa."}
               </Text>
               {!!p.restrictions && <Notice text={p.restrictions} />}
+              {user?.role === "PF" && p.latitude != null && p.longitude != null && <Action secondary label="Abrir trajeto até este PEV" onPress={() => void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}`).catch(() => setError("Não foi possível abrir o mapa neste aparelho."))} />}
               <Action
                 label="Solicitar coleta / informar situação"
                 disabled={busy || !loadedDraft}
@@ -742,7 +747,7 @@ export default function PevRequestsScreen() {
           {pageButtons(requestPage, requestTotal, setRequestPage)}
         </>
       )}
-    </Workspace>
+    </Shell>
   );
 }
 const s = StyleSheet.create({

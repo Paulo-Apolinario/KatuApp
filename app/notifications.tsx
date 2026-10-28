@@ -128,7 +128,7 @@ function InboxContent({ userId }: { userId: string }) {
         router.push({
           pathname:
             user?.role === "PF"
-              ? "/(pf-tabs)/pevs-publicos"
+              ? "/(pf-tabs)/residential-pevs"
               : user?.role === "COLLECTOR"
                 ? "/(catador)/pev-atendimento"
                 : "/(cooperativa)/pev-pedidos",

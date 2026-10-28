@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { type HistoryPage, pageResult } from "../../shared/history-page";
 import {
   AccountStatus,
@@ -534,6 +535,21 @@ export class ScheduleService {
     }
 
     return prisma.$transaction(async (transaction) => {
+      // Serializa envio residencial e repetição, inclusive após perda de resposta.
+      let requestOperationHash: string | undefined;
+      if (role === UserRole.PF) {
+        await transaction.$queryRaw`SELECT id FROM "User" WHERE id=${authUserId} FOR UPDATE`;
+        if (data.operationId) {
+          const { operationId, ...payload } = data;
+          requestOperationHash = createHash("sha256").update(JSON.stringify({ userId: authUserId, ...payload })).digest("hex");
+          const previous = await transaction.schedule.findUnique({ where: { requestOperationId: operationId }, include: scheduleInclude });
+          if (previous) {
+            if (previous.requestedByUserId !== authUserId || previous.requestOperationHash !== requestOperationHash) throw new Error("Esta solicitação já foi enviada com outros dados. Confira seu histórico.");
+            return previous;
+          }
+        }
+        if (!data.pickupAddress || !data.preferredDate || new Date(data.preferredDate).getTime() <= Date.now() || data.scheduledDate) throw new Error("Informe endereço e data preferencial futura. A confirmação é feita pela cooperativa.");
+      }
       let cooperativeId: string;
       let generatorId: string | null = null;
 
@@ -644,6 +660,8 @@ export class ScheduleService {
           generatorId,
 
           requestedByUserId: authUserId,
+          requestOperationId: role === UserRole.PF ? data.operationId : undefined,
+          requestOperationHash,
 
           preferredDate: normalizeDate(data.preferredDate),
 
@@ -922,7 +940,9 @@ export class ScheduleService {
       throw new Error("Cooperativa do usuário autenticado não encontrada.");
     }
 
-    const existingSchedule = await prisma.schedule.findFirst({
+    return prisma.$transaction(async transaction => {
+    await transaction.$queryRaw`SELECT id FROM "Schedule" WHERE id=${scheduleId} AND "cooperativeId"=${cooperative.id} FOR UPDATE`;
+    const existingSchedule = await transaction.schedule.findFirst({
       where: {
         id: scheduleId,
 
@@ -988,7 +1008,7 @@ export class ScheduleService {
         );
       }
 
-      return prisma.schedule.update({
+      return transaction.schedule.update({
         where: {
           id: existingSchedule.id,
         },
@@ -1020,7 +1040,7 @@ export class ScheduleService {
       );
     }
 
-    return prisma.schedule.update({
+    return transaction.schedule.update({
       where: {
         id: existingSchedule.id,
       },
@@ -1030,6 +1050,7 @@ export class ScheduleService {
       },
 
       include: scheduleInclude,
+    });
     });
   }
 }

@@ -8,6 +8,7 @@ export type UserRole =
   | "ADMIN";
 
 export interface PersonProfile {
+  savedAddresses?: import("../services/residentialService").SavedAddress[];
   id: string;
   cpf: string;
   address?: string | null;

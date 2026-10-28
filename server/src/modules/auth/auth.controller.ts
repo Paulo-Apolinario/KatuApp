@@ -110,7 +110,7 @@ export class AuthController {
     } catch (error: any) {
       return reply.status(400).send({
         success: false,
-        error: error.message || "Erro ao registrar pessoa física.",
+        error: error.message || "Erro ao registrar gerador residencial.",
       });
     }
   }

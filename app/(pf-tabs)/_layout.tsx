@@ -12,7 +12,7 @@ export default function PFLayout() {
       <Tabs
         screenOptions={{
           ...bottomTabOptions,
-          headerShown: true,
+          headerShown: false,
           headerStyle: {
             backgroundColor: "#047857",
           },
@@ -28,7 +28,7 @@ export default function PFLayout() {
         }}
       >
         <Tabs.Screen
-          name="home"
+          name="residential-home"
           options={{
             title: "Início",
             tabBarIcon: ({ color }) => (
@@ -38,9 +38,9 @@ export default function PFLayout() {
         />
 
         <Tabs.Screen
-          name="schedule"
+          name="residential-request"
           options={{
-            title: "Agendar",
+            title: "Solicitar",
             tabBarIcon: ({ color }) => (
               <Ionicons name="calendar-outline" size={24} color={color} />
             ),
@@ -48,9 +48,10 @@ export default function PFLayout() {
         />
 
         <Tabs.Screen
-          name="history"
+          name="residential-history"
           options={{
-            title: "Histórico",
+            title: "Minhas coletas",
+            tabBarLabel: "Coletas",
             tabBarIcon: ({ color }) => (
               <Ionicons name="time-outline" size={24} color={color} />
             ),
@@ -58,9 +59,10 @@ export default function PFLayout() {
         />
 
         <Tabs.Screen
-          name="ranking"
+          name="residential-participation"
           options={{
             title: "Participação",
+            tabBarLabel: "Evolução",
             tabBarIcon: ({ color }) => (
               <Ionicons name="trophy-outline" size={24} color={color} />
             ),
@@ -68,7 +70,7 @@ export default function PFLayout() {
         />
 
         <Tabs.Screen
-          name="profile"
+          name="residential-profile"
           options={{
             title: "Perfil",
             tabBarIcon: ({ color }) => (
@@ -85,7 +87,7 @@ export default function PFLayout() {
         />
 
         <Tabs.Screen
-          name="calculator"
+          name="residential-planner"
           options={{
             href: null,
           }}
@@ -111,7 +113,15 @@ export default function PFLayout() {
             href: null,
           }}
         />
-        <Tabs.Screen name="pevs-publicos" options={{href:null,title:"Solicitações de PEV"}} />
+        <Tabs.Screen name="request-details" options={{href:null,title:"Acompanhar coleta"}} />
+        <Tabs.Screen name="residential-pevs" options={{href:null,title:"Solicitações de PEV"}} />
+        <Tabs.Screen name="home" options={{ href: null }} />
+        <Tabs.Screen name="schedule" options={{ href: null }} />
+        <Tabs.Screen name="history" options={{ href: null }} />
+        <Tabs.Screen name="ranking" options={{ href: null }} />
+        <Tabs.Screen name="profile" options={{ href: null }} />
+        <Tabs.Screen name="calculator" options={{ href: null }} />
+        <Tabs.Screen name="pevs-publicos" options={{ href: null }} />
       </Tabs>
     </ProtectedRoute>
   );

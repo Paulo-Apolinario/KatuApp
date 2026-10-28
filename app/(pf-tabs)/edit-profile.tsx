@@ -1,1 +1,1 @@
-export { default } from "@/src/screens/AccountProfile";
+export { default } from "./profile";

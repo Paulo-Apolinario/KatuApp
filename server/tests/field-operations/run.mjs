@@ -17,6 +17,7 @@ const root = path.resolve(
 const schema = fs
   .readFileSync(root + "/prisma/schema.prisma", "utf8")
   .replace(/^  @@index\(\[(?:requestedByUserId, createdAt, id|generatorId, createdAt, id|cooperativeId, status, createdAt, id|driverId, status, createdAt, id|driverId, createdAt, id)\]\)\n/gm, "")
+  .replace(/^  (?:savedAddresses Json @default\("\[\]"\)|requestOperationId String\? @unique|requestOperationHash String\?)\n/gm, "")
   .replace(/model Route \{[\s\S]*?\n\}/, (block) =>
     block
       .split("\n")
@@ -56,6 +57,8 @@ await db.exec(
   ),
 );
 await db.exec(fs.readFileSync(root + "/prisma/migrations/20261028040000_app_history_pagination/migration.sql", "utf8"));
+await db.exec(`INSERT INTO "User" (id,email,"passwordHash","displayName",role,"updatedAt") VALUES ('residential-before-migration','res-old@test.invalid','unused','Residencial antiga','PF',now()); INSERT INTO "PersonProfile" (id,"userId",cpf,address,"updatedAt") VALUES ('residential-profile-before-migration','residential-before-migration','11111111111','Endereço preservado',now());`);
+await db.exec(fs.readFileSync(root + "/prisma/migrations/20261028050000_residential_workspace/migration.sql", "utf8"));
 const server = new PGLiteSocketServer({ db, port: 54329, host: "127.0.0.1" });
 await server.start();
 try {
@@ -77,14 +80,14 @@ try {
   child.stdout.on("data", (b) => {
     process.stdout.write(b);
     if (
-      process.env.FIELD_UI === "1" &&
+      (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1") &&
       !uiPromise &&
       b.toString().includes("FIELD_UI_READY")
     )
       uiPromise = new Promise((resolve) => {
         const ui = spawn(
           process.execPath,
-          ["tests/field-operations/browser.mjs"],
+          [process.env.RESIDENTIAL_UI === "1" ? "tests/residential/browser.mjs" : "tests/field-operations/browser.mjs"],
           { cwd: root, env: process.env, stdio: "inherit" },
         );
         ui.on("exit", (code) => {

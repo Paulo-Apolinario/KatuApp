@@ -505,12 +505,17 @@ async function main() {
     const { checkHistory } = await import("../app-reliability/api");
     await checkHistory(app, p, users, coop, cat, driver, pass);
   }
+  if (process.env.RESIDENTIAL === "1") {
+    const { checkResidential } = await import("../residential/api");
+    await checkResidential(app, p, coop, cat, driver, vehicle, pass);
+  }
   const tools = process.env.KATUA_VALIDATION_TOOLS || "/tmp";
   fs.writeFileSync(
     path.join(tools, "field-operations-api-results.json"),
     JSON.stringify({ passed: checks.length, checks }, null, 2),
   );
-  if (process.env.FIELD_UI === "1") {
+  if (process.env.RESIDENTIAL === "1") fs.writeFileSync(path.join(tools, "residential-api-results.json"), JSON.stringify({ passed: checks.length, checks }, null, 2));
+  if (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1") {
     fs.writeFileSync(
       path.join(tools, "field-operations-fixture.json"),
       JSON.stringify({

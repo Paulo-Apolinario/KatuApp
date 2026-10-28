@@ -194,7 +194,7 @@ class AuthService {
         error:
           error instanceof Error
             ? error.message
-            : "Erro ao registrar pessoa física.",
+            : "Erro ao registrar gerador residencial.",
       };
     }
   }

@@ -301,7 +301,7 @@ export default function RegisterScreen() {
   const getProfileTitle = () => {
     switch (profile) {
       case "pf":
-        return "Pessoa Física";
+        return "Gerador residencial";
       case "comercial":
         return "Pequeno Gerador Comercial";
       case "grande":

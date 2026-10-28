@@ -135,6 +135,7 @@ model DriverReport {
 }
 
 model PersonProfile {
+  savedAddresses Json @default("[]")
   id          String   @id @default(cuid())
   userId      String   @unique
   cpf         String   @unique
@@ -192,6 +193,8 @@ model Generator {
 }
 
 model Schedule {
+  requestOperationId String? @unique
+  requestOperationHash String?
   extraCollectionOrders ExtraCollectionOrder[]
   pickupAddress String?
   pickupLatitude Float?

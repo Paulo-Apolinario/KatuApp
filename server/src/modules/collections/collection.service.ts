@@ -802,6 +802,7 @@ export class CollectionService {
     }
 
     return prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Schedule" WHERE id=${data.scheduleId} FOR UPDATE`;
       const schedule = await transaction.schedule.findFirst({
         where: {
           id: data.scheduleId,

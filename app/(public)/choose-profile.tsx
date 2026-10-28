@@ -13,7 +13,7 @@ export default function ChooseProfile() {
       onBack={() => router.replace("/(public)/access-type")}
     >
       <ProfileChoice
-        title="Pessoa física"
+        title="Gerador residencial"
         description="Coletas de materiais recicláveis da sua residência."
         icon="person-outline"
         onPress={() => router.push("/(auth)/login?profile=pf")}

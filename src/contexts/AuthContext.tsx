@@ -60,7 +60,7 @@ function getRouteByRole(role?: string | null): Href {
 
   switch (normalized) {
     case "PF":
-      return "/(pf-tabs)/home";
+      return "/(pf-tabs)/residential-home";
     case "GENERATOR_SMALL":
     case "GENERATOR_LARGE":
       return "/(gerador)/dashboard";
