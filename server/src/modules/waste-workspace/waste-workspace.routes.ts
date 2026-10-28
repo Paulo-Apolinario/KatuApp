@@ -1,3 +1,8 @@
+import {
+  listFieldPoints,
+  listFieldRoutes,
+  routeFieldPoints,
+} from "./field-operations.service";
 import type { FastifyInstance } from "fastify";
 import { Prisma, WasteUnit } from "@prisma/client";
 import { z } from "zod";
@@ -174,12 +179,10 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
             .code(400)
             .send({ error: e.issues.map((x) => x.message).join(" ") });
         if (e.code === "P2002")
-          return p
-            .code(409)
-            .send({
-              error:
-                "Material já cadastrado. Atualize o catálogo e selecione o existente.",
-            });
+          return p.code(409).send({
+            error:
+              "Material já cadastrado. Atualize o catálogo e selecione o existente.",
+          });
         if (e.statusCode)
           return p.code(e.statusCode).send({ error: e.message });
         r.log.error({ code: e.code }, "Falha na gestão de resíduos");
@@ -224,183 +227,21 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
   );
   app.get(
     "/waste-workspace/field-collections",
-    handle(async (id, r) => {
-      const input = z
-        .object({
-          page: z.coerce.number().int().min(1).default(1),
-          limit: z.coerce.number().int().min(1).max(50).default(20),
-          q: z.string().trim().max(150).default(""),
-          status: z
-            .enum([
-              "",
-              "PENDING",
-              "IN_PROGRESS",
-              "COLLECTED",
-              "RECEIVED",
-              "SORTING",
-              "COMPLETED",
-              "CANCELLED",
-            ])
-            .default(""),
-          generator: z.string().max(100).default(""),
-          collector: z.string().max(100).default(""),
-          driver: z.string().max(100).default(""),
-          vehicle: z.string().max(100).default(""),
-          route: z.string().max(100).default(""),
-          dateField: z
-            .enum(["scheduled", "collected", "created"])
-            .default("scheduled"),
-          start: z.string().default(""),
-          end: z.string().default(""),
-        })
-        .strict()
-        .parse(r.query);
-      const conditions: Prisma.CollectionWhereInput[] = [{ cooperativeId: id }];
-      if (input.status) conditions.push({ status: input.status });
-      for (const key of [
-        "generator",
-        "collector",
-        "driver",
-        "vehicle",
-        "route",
-      ] as const)
-        if (input[key]) conditions.push({ [key + "Id"]: input[key] });
-      const period = dates(
-        query.parse({
-          dateFrom: input.start || undefined,
-          dateTo: input.end || undefined,
-        }),
-      );
-      if (period)
-        conditions.push(
-          input.dateField === "scheduled"
-            ? {
-                OR: [
-                  { schedule: { scheduledDate: period } },
-                  { scheduleId: null, route: { scheduledDate: period } },
-                ],
-              }
-            : input.dateField === "collected"
-              ? { collectedAt: period }
-              : { createdAt: period },
-        );
-      if (input.q)
-        conditions.push({
-          OR: [
-            { id: { contains: input.q, mode: "insensitive" } },
-            { generator: { name: { contains: input.q, mode: "insensitive" } } },
-            { bin: { name: { contains: input.q, mode: "insensitive" } } },
-            { collector: { name: { contains: input.q, mode: "insensitive" } } },
-            { driver: { name: { contains: input.q, mode: "insensitive" } } },
-            { vehicle: { plate: { contains: input.q, mode: "insensitive" } } },
-            { route: { name: { contains: input.q, mode: "insensitive" } } },
-            {
-              incidents: {
-                some: {
-                  description: { contains: input.q, mode: "insensitive" },
-                },
-              },
-            },
-            {
-              collectionMaterials: {
-                some: {
-                  nameSnapshot: { contains: input.q, mode: "insensitive" },
-                },
-              },
-            },
-          ],
-        });
-      const where: Prisma.CollectionWhereInput = { AND: conditions };
-      const [collections, total, statuses, units, incidents] =
-        await prisma.$transaction([
-          prisma.collection.findMany({
-            where,
-            skip: (input.page - 1) * input.limit,
-            take: input.limit,
-            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-            select: {
-              id: true,
-              status: true,
-              createdAt: true,
-              collectedAt: true,
-              receivedAt: true,
-              generatorId: true,
-              collectorId: true,
-              driverId: true,
-              vehicleId: true,
-              routeId: true,
-              bin: {
-                select: {
-                  id: true,
-                  name: true,
-                  binId: true,
-                  street: true,
-                  number: true,
-                  neighborhood: true,
-                  city: true,
-                  state: true,
-                },
-              },
-              generator: {
-                select: {
-                  id: true,
-                  name: true,
-                  address: true,
-                  street: true,
-                  number: true,
-                  neighborhood: true,
-                  city: true,
-                  state: true,
-                },
-              },
-              collector: { select: { id: true, name: true } },
-              driver: { select: { id: true, name: true } },
-              vehicle: { select: { id: true, plate: true } },
-              route: { select: { id: true, name: true, scheduledDate: true } },
-              schedule: {
-                select: { id: true, scheduledDate: true, preferredDate: true },
-              },
-            },
-          }),
-          prisma.collection.count({ where }),
-          prisma.collection.groupBy({
-            by: ["status"],
-            where,
-            orderBy: { status: "asc" },
-            _count: { _all: true },
-          }),
-          prisma.collectionMaterial.groupBy({
-            by: ["unit"],
-            where: {
-              collection: { AND: [where, { status: { not: "CANCELLED" } }] },
-            },
-            orderBy: { unit: "asc" },
-            _sum: { quantity: true },
-          }),
-          prisma.collectionIncident.count({
-            where: { collection: where, status: "OPEN" },
-          }),
-        ]);
-      const counts = Object.fromEntries(
-        statuses.map((x) => [
-          x.status,
-          typeof x._count === "object" ? x._count?._all || 0 : 0,
-        ]),
-      );
-      return {
-        collections,
-        pagination: pagination(input.page, input.limit, total),
-        stats: {
-          active: (counts.PENDING || 0) + (counts.IN_PROGRESS || 0),
-          awaitingReceipt: counts.COLLECTED || 0,
-          incidents,
-          units: units.map((x) => ({
-            unit: x.unit,
-            quantity: Number(x._sum?.quantity || 0),
-          })),
-        },
-      };
-    }),
+    handle(async (id, r) => listFieldPoints(id, r.query)),
+  );
+  app.get(
+    "/waste-workspace/field-routes",
+    handle(async (id, r) => listFieldRoutes(id, r.query)),
+  );
+  app.get(
+    "/waste-workspace/field-routes/:id/collections",
+    handle(async (id, r) =>
+      routeFieldPoints(
+        id,
+        z.object({ id: z.string().min(1).max(100) }).parse(r.params).id,
+        r.query,
+      ),
+    ),
   );
   app.get(
     "/waste-workspace/collections",

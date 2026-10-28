@@ -644,12 +644,16 @@ export class RouteService {
           throw Error("Altere a equipe antes de iniciar a execução.");
         const collectorIds = data.collectorIds ?? route.collectorIds;
         const teamId = data.teamId === undefined ? route.teamId : data.teamId;
-        if (route.status === "IN_PROGRESS" && teamId !== route.teamId) throw Error("Altere a equipe antes de iniciar a execução.");
+        if (route.status === "IN_PROGRESS" && teamId !== route.teamId)
+          throw Error("Altere a equipe antes de iniciar a execução.");
         await validateTeam(transaction, cooperative.id, {
           driverId: data.driverId ?? route.driverId,
           vehicleId: data.vehicleId ?? route.vehicleId,
           collectorIds,
-          teamId: data.teamId !== undefined || data.collectorIds !== undefined ? teamId : undefined,
+          teamId:
+            data.teamId !== undefined || data.collectorIds !== undefined
+              ? teamId
+              : undefined,
         });
         const driverId =
           data.driverId === undefined ? route.driverId : data.driverId;
@@ -845,6 +849,9 @@ export class RouteService {
                   : normalizeDate(data.scheduledDate),
             stops: data.stops?.map((stop) => stop.trim()).filter(Boolean),
             status: data.status,
+            ...(data.status === "IN_PROGRESS" && route.status !== "IN_PROGRESS"
+              ? { startedAt: route.startedAt ?? new Date() }
+              : {}),
           },
         });
         await snapshotRouteTeam(transaction, route.id);

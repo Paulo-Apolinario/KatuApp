@@ -705,6 +705,9 @@ model Vehicle {
 }
 
 model Route {
+  startedAt DateTime?
+  @@index([cooperativeId, status, startedAt])
+  @@index([cooperativeId, planId, scheduledDate])
   teamId String?
   planId String?
   plan RoutePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)

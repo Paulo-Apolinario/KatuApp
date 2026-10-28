@@ -23,13 +23,11 @@ export async function dashboardRoutes(app: FastifyInstance) {
           ),
         };
       } catch (e: any) {
-        return p
-          .code(e.statusCode || 500)
-          .send({
-            error: e.statusCode
-              ? e.message
-              : "Não foi possível atualizar as pendências operacionais.",
-          });
+        return p.code(e.statusCode || 500).send({
+          error: e.statusCode
+            ? e.message
+            : "Não foi possível atualizar as pendências operacionais.",
+        });
       }
     },
   );
@@ -77,7 +75,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
           collector: { select: { name: true } },
           driver: { select: { name: true } },
           vehicle: { select: { plate: true } },
-          route: { select: { name: true, scheduledDate: true } },
+          route: { select: { name: true, scheduledDate: true, status: true } },
           schedule: { select: { scheduledDate: true } },
           collectionMaterials: {
             select: {
@@ -235,12 +233,24 @@ export async function dashboardRoutes(app: FastifyInstance) {
             },
             todayRows: todayRows.slice(0, 50).map((c) => ({
               ...collectionRow(c, { dateBasis: "scheduledDate" }),
+              operationLabel:
+                c.status === "PENDING" && c.route?.status === "IN_PROGRESS"
+                  ? "Em campo · Aguardando atendimento"
+                  : c.status === "IN_PROGRESS"
+                    ? "Em atendimento"
+                    : null,
               date: c.schedule?.scheduledDate || c.route?.scheduledDate || null,
             })),
             todayTruncated: todayRows.length > 50,
-            recent: recent.map((c) =>
-              collectionRow(c, { dateBasis: "createdAt" }),
-            ),
+            recent: recent.map((c) => ({
+              ...collectionRow(c, { dateBasis: "createdAt" }),
+              operationLabel:
+                c.status === "PENDING" && c.route?.status === "IN_PROGRESS"
+                  ? "Em campo · Aguardando atendimento"
+                  : c.status === "IN_PROGRESS"
+                    ? "Em atendimento"
+                    : null,
+            })),
           },
         };
       } catch (e: any) {

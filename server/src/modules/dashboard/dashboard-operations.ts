@@ -1,3 +1,8 @@
+import {
+  fieldOperations,
+  independentFieldCollection,
+  waitingForDeparture,
+} from "./field-operations";
 import { prisma } from "../../lib/prisma";
 import type { Prisma } from "@prisma/client";
 function countGroup(value: unknown): number {
@@ -41,7 +46,6 @@ export async function operationalOverview(id: string) {
     extras,
     pevs,
     scheduled,
-    inProgress,
     awaitingReceipt,
     reviewPending,
     pendingEntries,
@@ -64,10 +68,7 @@ export async function operationalOverview(id: string) {
       _count: { _all: true },
     }),
     prisma.collection.count({
-      where: { cooperativeId: id, status: "PENDING" },
-    }),
-    prisma.collection.count({
-      where: { cooperativeId: id, status: "IN_PROGRESS" },
+      where: { cooperativeId: id, ...waitingForDeparture },
     }),
     prisma.collection.count({
       where: { cooperativeId: id, status: "COLLECTED" },
@@ -133,7 +134,7 @@ export async function operationalOverview(id: string) {
       take: 5,
     }),
     prisma.collection.findMany({
-      where: { cooperativeId: id, status: "IN_PROGRESS" },
+      where: { cooperativeId: id, ...independentFieldCollection },
       take: 5,
       orderBy: [{ startedAt: "asc" }, { id: "asc" }],
       select: {
@@ -159,6 +160,7 @@ export async function operationalOverview(id: string) {
       },
     }),
   ]);
+  const fieldOverview = await fieldOperations(id);
   const bins = await prisma.bin.findMany({
     where: { cooperativeId: id, id: { in: pevRows.map((x) => x.binId) } },
     select: { id: true, name: true, binId: true },
@@ -202,7 +204,8 @@ export async function operationalOverview(id: string) {
       pevReports: pevs.reduce((n, p) => n + countGroup(p._count), 0),
     },
     scheduled,
-    inProgress,
+    inProgress: fieldOverview.count,
+    fieldSources: fieldOverview.sources,
     awaitingReceipt,
     reviewPending,
     pendingDestination: distinctPending,
@@ -215,6 +218,15 @@ export async function operationalOverview(id: string) {
     openAlerts,
     criticalAlerts,
     pending,
-    field: fieldRows,
+    field: [
+      ...fieldOverview.routes,
+      ...fieldRows.map((c) => ({
+        ...c,
+        kind: "COLLECTION",
+        href: `/waste-list?tipo=normal&coleta=${encodeURIComponent(c.id)}`,
+      })),
+    ]
+      .sort((a, b) => +(a.startedAt || 0) - +(b.startedAt || 0))
+      .slice(0, 8),
   };
 }
