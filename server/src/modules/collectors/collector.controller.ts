@@ -30,6 +30,7 @@ import {
   collectorIdParamsSchema,
   createCollectorSchema,
   updateCollectorStatusSchema,
+  updateCollectorSchema,
 } from "./collector.schemas";
 
 import {
@@ -735,6 +736,20 @@ export class CollectorController {
               error
             ),
         });
+    }
+  }
+
+  async update(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const user = request.user as AuthenticatedUser;
+      if (!isCooperativeUser(user)) return reply.status(403).send({ success: false, error: "Apenas cooperativas podem editar catadores." });
+      const { id } = collectorIdParamsSchema.parse(request.params);
+      const body = updateCollectorSchema.parse(request.body);
+      const collector = await collectorService.update(user.sub, id, body);
+      return reply.send({ success: true, message: "Cadastro do catador atualizado com sucesso.", collector });
+    } catch (error: unknown) {
+      const message = (error as { code?: string })?.code === "P2002" ? "Este e-mail já está em uso por outro cadastro." : getErrorMessage(error, "Não foi possível atualizar o catador.");
+      return reply.status(message === "Catador não encontrado." ? 404 : 400).send({ success: false, error: message, errors: getValidationErrors(error) });
     }
   }
 

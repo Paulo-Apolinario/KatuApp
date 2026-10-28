@@ -10,6 +10,7 @@ import { prisma } from "../../lib/prisma";
 import {
   CreateCollectorInput,
   UpdateCollectorStatusInput,
+  UpdateCollectorInput,
 } from "./collector.schemas";
 
 export type CollectorDocumentCreateData = {
@@ -237,7 +238,7 @@ export class CollectorService {
 
     const associationDate = parseOptionalDate(
       data.associationDate,
-      "Data de associação"
+      "Data de filiação"
     );
 
     return prisma.$transaction(async (transaction) => {
@@ -261,6 +262,8 @@ export class CollectorService {
           address: normalizeOptionalText(data.address),
 
           associationDate,
+          registrationNumber: normalizeOptionalText(data.registrationNumber),
+          membershipCategory: data.membershipCategory ?? null,
           isAutonomous: data.isAutonomous ?? false,
 
           incomeRange: normalizeOptionalText(data.incomeRange),
@@ -335,6 +338,50 @@ export class CollectorService {
     }
 
     return collector;
+  }
+
+  async update(cooperativeUserId: string, collectorId: string, data: UpdateCollectorInput) {
+    const cooperative = await this.findAuthenticatedCooperative(cooperativeUserId);
+    return prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Collector" WHERE id = ${collectorId} AND "cooperativeId" = ${cooperative.id} FOR UPDATE`;
+      const current = await tx.collector.findFirst({ where: { id: collectorId, cooperativeId: cooperative.id } });
+      if (!current) throw new Error("Catador não encontrado.");
+      const changes: Prisma.CollectorUpdateInput = {};
+      const provided = (key: keyof UpdateCollectorInput) => Object.prototype.hasOwnProperty.call(data, key);
+      if (provided("name")) changes.name = data.name!.trim();
+      if (provided("email")) {
+        const email = normalizeEmail(data.email!);
+        const [otherCollector, otherUser] = await Promise.all([
+          tx.collector.findFirst({ where: { email, id: { not: current.id } }, select: { id: true } }),
+          tx.user.findFirst({ where: { email, ...(current.userId ? { id: { not: current.userId } } : {}) }, select: { id: true } }),
+        ]);
+        if (otherCollector || otherUser) throw new Error("Este e-mail já está em uso por outro cadastro.");
+        changes.email = email;
+      }
+      if (provided("cpf")) {
+        const cpf = normalizeCpf(data.cpf);
+        if (cpf && await tx.collector.findFirst({ where: { cpf, id: { not: current.id } }, select: { id: true } })) throw new Error("Já existe um catador com este CPF.");
+        changes.cpf = cpf;
+      }
+      for (const key of ["socialName", "phone", "rg", "birthDate", "address", "registrationNumber", "incomeRange", "socialBenefits", "occupationalDiseases", "socioeconomicNotes"] as const) {
+        if (provided(key)) changes[key] = normalizeOptionalText(data[key]);
+      }
+      if (provided("associationDate")) changes.associationDate = parseOptionalDate(data.associationDate, "Data de filiação");
+      if (provided("membershipCategory")) changes.membershipCategory = data.membershipCategory ?? null;
+      if (provided("sex")) changes.sex = normalizeCollectorSex(data.sex);
+      if (provided("gender")) changes.gender = normalizeCollectorGender(data.gender);
+      if (provided("isAutonomous")) changes.isAutonomous = data.isAutonomous ?? false;
+      // Ativo também abrange um catador que já esteja em rota: editar o cadastro não encerra sua operação.
+      if (provided("status")) changes.status = data.status === "AVAILABLE" && current.status === "ON_ROUTE" ? "ON_ROUTE" : normalizeCollectorStatus(data.status);
+      if (current.userId && (provided("email") || provided("name") || provided("phone"))) {
+        await tx.user.update({ where: { id: current.userId }, data: {
+          ...(provided("email") ? { email: changes.email as string } : {}),
+          ...(provided("name") ? { displayName: changes.name as string } : {}),
+          ...(provided("phone") ? { phone: normalizeOptionalText(data.phone) } : {}),
+        } });
+      }
+      return tx.collector.update({ where: { id: current.id }, data: changes, include: collectorInclude });
+    });
   }
 
   async updateStatus(

@@ -36,6 +36,8 @@ export async function collectorRoutes(app: FastifyInstance) {
     collectorController.findById(request, reply)
   );
 
+  app.patch("/:id", (request, reply) => collectorController.update(request, reply));
+
   app.patch("/:id/status", (request, reply) =>
     collectorController.updateStatus(request, reply)
   );

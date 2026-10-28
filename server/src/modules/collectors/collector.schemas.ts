@@ -198,7 +198,7 @@ const optionalDateStringSchema = z.preprocess(
         `${value}T00:00:00.000Z`
       );
 
-      return !Number.isNaN(parsedDate.getTime());
+      return !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === value;
     }, "Data inválida.")
     .optional()
 );
@@ -389,6 +389,8 @@ export const createCollectorSchema = z.object({
   address: optionalTrimmedString(500),
 
   associationDate: optionalDateStringSchema,
+  registrationNumber: optionalTrimmedString(50),
+  membershipCategory: z.preprocess(value => value === "" || value === null ? undefined : value, z.enum(["FOUNDER", "EFFECTIVE", "BENEFICIARY", "CONTRIBUTOR"]).optional()),
 
   isAutonomous:
     optionalBooleanSchema.default(false),
@@ -490,3 +492,5 @@ export type UpdateCollectorStatusInput = z.infer<
 export type CollectorDocumentMetadataInput = z.infer<
   typeof collectorDocumentMetadataSchema
 >;
+export const updateCollectorSchema = createCollectorSchema.partial().strict().refine(value => Object.keys(value).length > 0, "Informe os dados que deseja atualizar.");
+export type UpdateCollectorInput = z.infer<typeof updateCollectorSchema>;

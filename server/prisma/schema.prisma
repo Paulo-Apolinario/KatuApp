@@ -325,6 +325,8 @@ model Collector {
   gender     CollectorGender?
   address    String?
 
+  registrationNumber String?
+  membershipCategory CollectorCategory?
   associationDate DateTime?
   isAutonomous    Boolean   @default(false)
 
@@ -990,6 +992,13 @@ enum GeneratorAccessStatus {
   ACTIVE
   INACTIVE
   BLOCKED
+}
+
+enum CollectorCategory {
+  FOUNDER
+  EFFECTIVE
+  BENEFICIARY
+  CONTRIBUTOR
 }
 
 enum CollectorStatus {

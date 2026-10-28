@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-28",
+  "environment": "Local, PostgreSQL descartável em memória; sem acesso à VPS",
+  "api_and_migration": {
+    "passed": 11,
+    "checks": [
+      "Migração preserva data de filiação e status anteriores, com novos campos inicialmente vazios",
+      "Cadastro aceita e persiste as quatro categorias, inscrição com zeros e opção autônomo",
+      "Cadastro multipart também recebe inscrição e categoria",
+      "Editar cadastro existente mantém identificador, vínculo, documentos, produção e estado em rota",
+      "Consulta e listagem devolvem os novos dados de filiação",
+      "Edição sincroniza nome, e-mail e telefone do acesso vinculado sem alterar senha",
+      "Conflito de e-mail não deixa atualização parcial no cadastro",
+      "Campos opcionais podem ser limpos na edição sem serem silenciosamente mantidos",
+      "Validação rejeita categoria inválida, inscrição longa, data inexistente e campos não autorizados",
+      "Outra cooperativa e o perfil de catador não podem editar o cadastro",
+      "Ativação e inativação cadastral são persistidas sem recriar o catador"
+    ]
+  },
+  "interface": {
+    "passed": 6,
+    "failed": 0,
+    "checks": [
+      {
+        "name": "Cadastro apresenta filiação, inscrição, quatro categorias e somente status Ativo/Inativo",
+        "status": "PASS"
+      },
+      {
+        "name": "Editar cadastro carrega e salva os dados existentes e atualiza a lista",
+        "status": "PASS"
+      },
+      {
+        "name": "Catador anterior à atualização pode receber os novos dados sem recriação",
+        "status": "PASS"
+      },
+      {
+        "name": "Formulário mantém campos acessíveis e sem corte horizontal no celular",
+        "status": "PASS"
+      },
+      {
+        "name": "Falha ao carregar cadastro não oferece formulário vazio para salvar",
+        "status": "PASS"
+      },
+      {
+        "name": "Navegação cadastral sem erros JavaScript",
+        "status": "PASS"
+      }
+    ]
+  },
+  "checks": {
+    "typescript": "passed",
+    "api_build": "passed",
+    "panel_eslint": "passed",
+    "panel_build": "passed"
+  },
+  "limits": [
+    "Sem teste em aparelho físico; interface validada em navegador desktop e largura de 390 px",
+    "Build do painel mantém aviso preexistente de bundle maior que 500 kB"
+  ]
+}
