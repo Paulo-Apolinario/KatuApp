@@ -148,7 +148,8 @@ try {
     await go("/edit-collector/" + f.id);
     await p.locator("#registrationNumber").waitFor();
     assert.equal(await p.locator("#name").inputValue(), "Nome corrigido");
-    await p.getByRole("link", { name: "Gerenciar documentos", exact: true }).waitFor();
+    assert.equal(await p.getByRole("link", { name: "Gerenciar documentos", exact: true }).count(), 0);
+    assert.equal(await p.getByRole("heading", { name: "Documentos do catador", exact: true }).count(), 0);
     assert.equal(await p.locator("input[type=file]").count(), 0);
     await p.locator("#registrationNumber").fill("007/LEG");
     await p.locator("#membershipCategory").selectOption("FOUNDER");
