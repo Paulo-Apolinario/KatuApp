@@ -1,3 +1,4 @@
+import { notifyCooperative } from "../inbox/inbox.service";
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
@@ -330,6 +331,7 @@ export class ExtraOrderService {
           data: json(snapshot),
         },
       });
+      await notifyCooperative(tx, c.cooperativeId, `extra-submitted:${order.id}`, "Nova O.C. para análise", "Confira o protocolo e os materiais informados.", { extraOrderId: order.id });
       return tx.extraCollectionOrder.findUniqueOrThrow({
         where: { id: order.id },
         include,
@@ -423,6 +425,7 @@ export class ExtraOrderService {
           data: json(snapshot),
         },
       });
+      await notifyCooperative(tx, c.cooperativeId, `extra-revised:${id}:${data.operationId || "initial"}`, "O.C. complementada", "Confira o protocolo e os materiais informados.", { extraOrderId: id });
       return tx.extraCollectionOrder.findUniqueOrThrow({
         where: { id },
         include,
@@ -560,6 +563,9 @@ export class ExtraOrderService {
           data: json({ ...data, collectionId }),
         },
       });
+      const title = data.decision === "ACCEPT" ? "O.C. aceita pela cooperativa" : data.decision === "REJECT" ? "O.C. recusada pela cooperativa" : "Complementação de O.C. solicitada";
+      await tx.inboxNotification.createMany({ data: [{ userId: o.reporterUserId, eventKey: `extra-review:${data.operationId}`, kind: "EXTRA_ORDER_REVIEW",
+        title, message: data.notes, data: { extraOrderId: id, decision: data.decision } }], skipDuplicates: true });
       return tx.extraCollectionOrder.findUniqueOrThrow({
         where: { id },
         include,

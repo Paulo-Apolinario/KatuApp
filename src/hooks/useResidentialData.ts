@@ -1,8 +1,9 @@
+import { useActiveReadRefresh } from "./useActiveReadRefresh";
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../contexts/AuthContext";
-export function useResidentialData<T>(resource: string, fetchData: () => Promise<T>) {
+export function useResidentialData<T>(resource: string, fetchData: () => Promise<T>, options: { live?: boolean } = {}) {
   const { user } = useAuth();
   const [data, setData] = useState<T | null>(null), [busy, setBusy] = useState(true), [error, setError] = useState(""), [cached, setCached] = useState(false);
   const fetchRef = useRef(fetchData); fetchRef.current = fetchData;
@@ -24,5 +25,6 @@ export function useResidentialData<T>(resource: string, fetchData: () => Promise
     } finally { if (request === version.current && owner.current === userId) setBusy(false); }
   }, [user?.id, resource]);
   useFocusEffect(useCallback(() => { setData(null); void load(); return () => { version.current++; }; }, [load]));
+  useActiveReadRefresh(load, busy || options.live === false);
   return { data, busy, error, cached, load };
 }

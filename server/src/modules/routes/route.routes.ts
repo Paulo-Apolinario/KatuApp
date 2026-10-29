@@ -1,3 +1,4 @@
+import { fieldWorkspaceRoute } from "./field-workspace";
 import { FastifyInstance } from "fastify";
 import { RouteController } from "./route.controller";
 
@@ -13,6 +14,7 @@ export async function routeRoutes(app: FastifyInstance) {
     };
   });
 
+  fieldWorkspaceRoute(app);
   app.post("/", routeController.create);
   app.get("/", routeController.listMine);
   app.get("/available-collections", routeController.listAvailableCollections);

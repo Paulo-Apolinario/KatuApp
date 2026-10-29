@@ -9,7 +9,7 @@ import { ResidentialPage, ResidentialLoad } from "@/src/components/residential/R
 import { Card, Field, Action, Notice } from "@/src/components/ui/Workspace";
 export default function ResidentialProfile() {
   const { user, refreshUser, signOut } = useAuth();
-  const state = useResidentialData("overview", residentialService.overview);
+  const state = useResidentialData("overview", residentialService.overview, { live: false });
   const initialized = useRef("");
   const [name, setName] = useState(user?.displayName || ""), [phone, setPhone] = useState(user?.phone || ""), [address, setAddress] = useState(user?.personProfile?.address || "");
   const [saved, setSaved] = useState<SavedAddress[]>([]), [label, setLabel] = useState(""), [newAddress, setNewAddress] = useState("");

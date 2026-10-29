@@ -134,6 +134,8 @@ function InboxContent({ userId }: { userId: string }) {
                 : "/(cooperativa)/pev-pedidos",
           params: { requestId: item.data.pevRequestId },
         });
+      } else if (item.data?.extraOrderId && user?.role === "COLLECTOR") {
+        router.push({ pathname: "/(catador)/extra-orders", params: { orderId: item.data.extraOrderId } });
       } else if (
         item.data?.routeId &&
         (user?.role === "COLLECTOR" || user?.role === "DRIVER")

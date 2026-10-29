@@ -1,3 +1,4 @@
+import { useActiveReadRefresh } from "@/src/hooks/useActiveReadRefresh";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
@@ -374,6 +375,7 @@ export default function GeneratorCollectionsScreen() {
     [notifyError],
   );
 
+  useActiveReadRefresh(() => loadCollections(false), loading || refreshing);
   useFocusEffect(
     useCallback(() => {
       void loadCollections(true);

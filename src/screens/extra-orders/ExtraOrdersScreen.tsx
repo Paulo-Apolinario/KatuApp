@@ -1,3 +1,4 @@
+import { useActiveReadRefresh } from "@/src/hooks/useActiveReadRefresh";
 import { useCallback, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Image, Text, View } from "react-native";
@@ -30,7 +31,7 @@ export default function ExtraOrdersScreen() {
   const { user } = useAuth(),
     cooperative = user?.role === "COOPERATIVE",
     { isOffline } = useConnectivity(),
-    params = useLocalSearchParams<{ routeId?: string; create?: string }>();
+    params = useLocalSearchParams<{ routeId?: string; create?: string; orderId?: string }>();
   const [orders, setOrders] = useState<ExtraOrder[]>([]),
     [context, setContext] = useState<ExtraContext | null>(null),
     [selected, setSelected] = useState<ExtraOrder | null>(null),
@@ -121,10 +122,16 @@ export default function ExtraOrdersScreen() {
     },
     [user?.collector?.cooperativeId, user?.collector?.id],
   );
+  useActiveReadRefresh(load, loading || busy || !!selected || form);
+  const linkedOrder = useRef<string | null>(null);
   useFocusEffect(
     useCallback(() => {
       void load();
-    }, [load]),
+      if (user?.role === "COLLECTOR" && params.orderId && linkedOrder.current !== params.orderId) {
+        linkedOrder.current = params.orderId;
+        void extraOrderService.get(params.orderId).then(setSelected).catch((e: Error) => setError(e.message));
+      }
+    }, [load, params.orderId, user?.role]),
   );
   async function open(o: ExtraOrder) {
     setError("");
@@ -286,7 +293,7 @@ export default function ExtraOrdersScreen() {
         label="Atualizar ordens e sincronização"
         onPress={() =>
           void extraOrderService
-            .sync()
+            .sync(user?.role === "COOPERATIVE" ? undefined : { manual: true })
             .then(() => load())
             .then(async () => {
               if (selected) {

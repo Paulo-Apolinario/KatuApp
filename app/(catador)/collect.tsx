@@ -1,3 +1,4 @@
+import { useActiveReadRefresh } from "@/src/hooks/useActiveReadRefresh";
 import { DataReadNotice } from "@/src/components/DataReadNotice";
 import { collectionOrigin } from "@/src/utils/collectionOrigin";
 import { NotificationBell } from "@/src/components/NotificationBell";
@@ -340,6 +341,7 @@ export default function CollectScreen() {
     [notifyError],
   );
 
+  useActiveReadRefresh(() => loadCollections(false), loading || refreshing || !!selectedCollectionId || catalogModalVisible);
   useFocusEffect(
     useCallback(() => {
       void loadCollections(true);

@@ -18,7 +18,7 @@ import type { RequestedScheduleMaterialInput } from "@/src/types/schedule";
 type Cooperative = { id: string; name: string; city?: string; state?: string; address?: string };
 export default function ResidentialSchedule() {
   const params = useLocalSearchParams<{ cooperativeId?: string; repeatId?: string }>(), { user } = useAuth();
-  const overview = useResidentialData("overview", residentialService.overview);
+  const overview = useResidentialData("overview", residentialService.overview, { live: false });
   const [repeatRevision, setRepeatRevision] = useState(0), [repeatMaterials, setRepeatMaterials] = useState<ResidentialRequest["requestedMaterials"]>([]);
   const [step, setStep] = useState(1), [coops, setCoops] = useState<Cooperative[]>([]), [coopId, setCoopId] = useState(params.cooperativeId || ""), [coopSearch, setCoopSearch] = useState("");
   const [catalog, setCatalog] = useState<WasteCatalogItem[]>([]), [selection, setSelection] = useState<Record<string, string>>({}), [search, setSearch] = useState(""), [category, setCategory] = useState(""), [visible, setVisible] = useState(30);

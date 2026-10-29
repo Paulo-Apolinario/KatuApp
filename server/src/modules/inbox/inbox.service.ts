@@ -69,3 +69,9 @@ export async function notifyCollection(
     skipDuplicates: true,
   });
 }
+
+/** One durable notice per event and recipient, committed with the domain operation. */
+export async function notifyCooperative(tx: Prisma.TransactionClient, cooperativeId: string, eventKey: string, title: string, message: string, data: Prisma.InputJsonValue) {
+  const cooperative = await tx.cooperative.findUniqueOrThrow({ where: { id: cooperativeId }, select: { userId: true } });
+  await tx.inboxNotification.createMany({ data: [{ userId: cooperative.userId, eventKey, kind: "OPERATION_PENDING", title, message, data }], skipDuplicates: true });
+}

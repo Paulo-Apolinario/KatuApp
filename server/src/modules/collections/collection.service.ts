@@ -1,7 +1,7 @@
 import { type HistoryPage, pageResult } from "../../shared/history-page";
 import { creditedKg } from "../collector-teams/team.model";
 import { refreshTeamTotals } from "../collector-teams/team.service";
-import { notifyCollection } from "../inbox/inbox.service";
+import { notifyCooperative, notifyCollection } from "../inbox/inbox.service";
 import type { ReviewQuantitiesInput } from "./collection.schemas";
 import { createHash } from "node:crypto";
 import {
@@ -745,6 +745,8 @@ export class CollectionService {
         "Coleta realizada em campo",
         "A retirada foi registrada. O material seguirá para recebimento e conferência pela cooperativa.",
       );
+      await notifyCooperative(transaction, collection.cooperativeId!, `awaiting-receipt:${collection.id}`,
+        "Coleta aguardando recebimento", "A equipe finalizou uma retirada em campo. Confira o recebimento dos materiais.", { collectionId: collection.id });
       const participantsToLock =
         await transaction.collectionParticipant.findMany({
           where: { collectionId: collection.id },
@@ -990,6 +992,8 @@ export class CollectionService {
         },
       });
 
+      await notifyCollection(transaction, collection.id, `assigned:${collection.id}`, "COLLECTION_ASSIGNED",
+        "Atendimento atribuído", "A cooperativa atribuiu a equipe responsável pela coleta. Consulte os detalhes do atendimento.");
       return transaction.collection.findUniqueOrThrow({
         where: { id: collection.id },
         include: collectionInclude,
@@ -1272,7 +1276,7 @@ export class CollectionService {
         });
       }
 
-      return transaction.collection.update({
+      const started = await transaction.collection.update({
         where: { id: collection.id },
         data: {
           status: CollectionStatus.IN_PROGRESS,
@@ -1287,6 +1291,9 @@ export class CollectionService {
         },
         include: collectionInclude,
       });
+      await notifyCollection(transaction, collection.id, `started:${collection.id}`, "COLLECTION_STAGE",
+        "Atendimento iniciado", "A equipe iniciou o atendimento desta coleta.");
+      return started;
     });
   }
 

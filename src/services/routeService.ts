@@ -579,6 +579,24 @@ async function saveRouteStatusOffline(
 }
 
 export const routeService = {
+  async fieldPage(view: "active" | "history" = "active", page = 1) {
+    try {
+      const result = await api.get<{ routes: RouteItem[]; pagination: { page: number; total: number; hasMore: boolean } }>(`/routes/field-workspace?view=${view}&page=${page}&limit=20`, true);
+      // Preserve full details already opened; a summary must not erase the offline itinerary.
+      await saveRoutesToCache(await Promise.all(result.routes.map(async row => {
+        const cached = await readRouteByIdFromCache(row.id);
+        return normalizeRoute({ ...cached, ...row });
+      })));
+      setReadState("routes", { cached: false, error: "" });
+      return { ...result, routes: result.routes.map(normalizeRoute) };
+    } catch (error) {
+      if (!isApiNetworkError(error)) throw error;
+      const cached = (await readRoutesFromCache()).filter(r => view === "active" ? ["SCHEDULED", "IN_PROGRESS"].includes(r.status) : ["COMPLETED", "CANCELLED"].includes(r.status));
+      setReadState("routes", { cached: true, error: "Sem conexão. Exibindo somente as rotas já consultadas neste dispositivo." });
+      return { routes: cached.slice((page - 1) * 20, page * 20), pagination: { page, total: cached.length, hasMore: page * 20 < cached.length } };
+    }
+  },
+
   async fieldStatus(
     id: string,
     status: "IN_PROGRESS" | "COMPLETED",

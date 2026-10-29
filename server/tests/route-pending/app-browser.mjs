@@ -95,6 +95,7 @@ await context.route("https://vps.katua.com.br/**", async (r) => {
   let body = {};
   if (url.pathname === "/auth/me") body = { user };
   else if (url.pathname === "/routes") body = { routes: [route()] };
+  else if (url.pathname === "/routes/field-workspace") body = { routes: ((url.searchParams.get("view") === "history") === ["COMPLETED", "CANCELLED"].includes(status)) ? [{ id: "route-qa", name: "Diária QA", status, scheduledDate: route().scheduledDate }] : [], pagination: { page: 1, total: 1, hasMore: false } };
   else if (url.pathname === "/routes/route-qa") body = { route: route() };
   else if (url.pathname.includes('/occurrence') || url.pathname.endsWith('/request-closure')) {
     const input=r.request().postDataJSON();submissions.push({url:url.pathname,...input});
@@ -125,7 +126,7 @@ try {
  await p.getByText('Encerramento com pendências solicitado. Aguarde a decisão da cooperativa.',{exact:true}).waitFor();
  assert.equal(status,'IN_PROGRESS');assert.equal(events.filter(e=>e.kind==='NOT_SERVED').length,2);assert.equal(events.filter(e=>e.kind==='CLOSURE_REQUEST').length,1);assert.equal(points.filter(p=>p.status==='COLLECTED').length,3);
  await p.screenshot({path:out+'/catador-relatos-mobile.png',fullPage:true});
- status='COMPLETED';points[3].status='CANCELLED';points[4].status='CANCELLED';await p.reload();await p.getByRole('button',{name:/Diária QA/}).click();await p.getByText('Encerrada com pendências. As coletas realizadas foram preservadas.',{exact:true}).waitFor();
+ status='COMPLETED';points[3].status='CANCELLED';points[4].status='CANCELLED';await p.reload();await p.getByRole('button',{name:/Histórico de rotas/}).click();await p.getByRole('button',{name:/Diária QA/}).click();await p.getByText('Encerrada com pendências. As coletas realizadas foram preservadas.',{exact:true}).waitFor();
  assert.equal(await p.getByRole('button',{name:'Visita não realizada',exact:true}).count(),0);assert.deepEqual(errors,[]);
  fs.writeFileSync(out+'/results.json',JSON.stringify({passed:5,checks:['Relato envia ponto e motivo com identificador','Relato não cancela atendimento','Solicitação após dois pontos relatados','Três coletas realizadas preservadas','Encerramento parcial é somente leitura, sem erros JavaScript'],errors},null,2));console.log('PASS catador route pending UI (5)');
 } finally {await context.unrouteAll({behavior:'ignoreErrors'});await browser.close();await new Promise(r=>server.close(r));}

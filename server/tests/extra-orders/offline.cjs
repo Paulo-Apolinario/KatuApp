@@ -206,11 +206,11 @@ const payload = {
     async () => {
       failNetwork = false;
       loseResponse = true;
-      await r.service.sync();
+      await r.service.sync({ manual: true });
       assert.equal(commits, 1);
       assert.equal((await r.queue.getPendingSyncItems()).length, 1);
       r = runtime();
-      await r.service.sync();
+      await r.service.sync({ manual: true });
       assert.equal(commits, 1);
       assert.equal((await r.queue.getPendingSyncItems()).length, 0);
       assert.equal((await r.service.get(id)).status, "PENDING_REVIEW");
@@ -256,7 +256,7 @@ const payload = {
       await r.service.submit(b, "coop-a", payload);
       failNetwork = false;
       failValidation = true;
-      await r.service.sync();
+      await r.service.sync({ manual: true });
       assert.equal((await r.queue.getPendingSyncItems()).length, 2);
       const draft = await r.service.recoverFailed(a);
       assert.equal(draft.status, "DRAFT");
@@ -264,7 +264,7 @@ const payload = {
       assert.equal((await r.queue.getPendingSyncItems()).length, 1);
       assert.equal((await r.queue.getPendingSyncItems())[0].entityId, b);
       failValidation = false;
-      await r.service.sync();
+      await r.service.sync({ manual: true });
       await r.service.submit(a, "coop-a", {
         ...payload,
         reasonNotes: "Referência corrigida sem alterar o protocolo",

@@ -1,3 +1,4 @@
+import { useActiveReadRefresh } from "@/src/hooks/useActiveReadRefresh";
 import { NotificationBell } from "@/src/components/NotificationBell";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -380,6 +381,7 @@ export default function GeneratorDashboardScreen() {
     [notifyError],
   );
 
+  useActiveReadRefresh(() => loadDashboard(false), loading || refreshing);
   useFocusEffect(
     useCallback(() => {
       void loadDashboard(true);

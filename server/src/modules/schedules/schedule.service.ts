@@ -1,3 +1,4 @@
+import { notifyCooperative } from "../inbox/inbox.service";
 import { createHash } from "node:crypto";
 import { type HistoryPage, pageResult } from "../../shared/history-page";
 import {
@@ -650,7 +651,7 @@ export class ScheduleService {
         data.requestedMaterials,
       );
 
-      return transaction.schedule.create({
+      const schedule = await transaction.schedule.create({
         data: {
           pickupAddress: data.pickupAddress,
           pickupLatitude: data.pickupLatitude,
@@ -686,6 +687,9 @@ export class ScheduleService {
 
         include: scheduleInclude,
       });
+      if (role !== UserRole.COOPERATIVE) await notifyCooperative(transaction, cooperativeId, `schedule-request:${schedule.id}`,
+        "Nova solicitação de coleta", "Uma solicitação aguarda análise da cooperativa.", { scheduleId: schedule.id });
+      return schedule;
     });
   }
 

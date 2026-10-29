@@ -36,7 +36,7 @@ function project(q: any, old: any) {
 const prefix = "/extra-collection-orders";
 export const newExtraId = () => Crypto.randomUUID();
 export const extraOrderService = {
-  sync: () => syncManager.runSyncNow(),
+  sync: (options?: { manual?: boolean }) => syncManager.runSyncNow(options),
   async context(): Promise<ExtraContext | null> {
     const owner = await extraOwner();
     try {

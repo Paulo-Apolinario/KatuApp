@@ -54,26 +54,33 @@ export default function RouteExecutionScreen() {
     [occurrence, setOccurrence] = useState<Collection | null>(null),
     [reason, setReason] = useState(""),
     [requestingClosure, setRequestingClosure] = useState(false);
+  const [view, setView] = useState<"active" | "history">("active"), [page, setPage] = useState(1), [hasMore, setHasMore] = useState(false);
+  const loadVersion = useRef(0);
+  const highlightSeen = useRef<string | null>(null);
   const reportOperation = useRef<{ signature: string; id: string } | null>(null);
   const selected = useRef<string | null>(params.highlightRouteId || null),
     working = useRef(false),
     mounted = useRef(false);
+  const pauseRefresh = useRef(false);
+  pauseRefresh.current = busy || !!occurrence || requestingClosure;
   const collectorId =
     user?.role === "COLLECTOR" ? user.collector?.id : undefined;
   const load = useCallback(async (show = false) => {
-    if (working.current) return;
+    const version = ++loadVersion.current;
     working.current = true;
     if (show) setRefreshing(true);
     try {
-      const rows = await routeService.list();
-      if (!mounted.current) return;
+      const result = await routeService.fieldPage(view, page);
+      const rows = result.routes;
+      if (!mounted.current || version !== loadVersion.current) return;
+      setHasMore(result.pagination.hasMore);
       setRoutes(rows);
-      const id = selected.current || initialRouteId(rows);
-      if (id && rows.some((r) => r.id === id)) {
+      const id = selected.current || (view === "history" ? rows[0]?.id : initialRouteId(rows));
+      if (id) {
         const r = await routeService.getById(id);
         // Só projeta pendências destes pontos; não baixa todo o histórico para abrir uma rota.
         r.collections = await collectionService.withPending(r.collections || []);
-        if (mounted.current) {
+        if (mounted.current && version === loadVersion.current) {
           selected.current = id;
           setDetail(r);
         }
@@ -81,29 +88,30 @@ export default function RouteExecutionScreen() {
         selected.current = null;
         setDetail(null);
       }
-      if (mounted.current) setError("");
+      if (mounted.current && version === loadVersion.current) setError("");
     } catch (e: any) {
-      if (mounted.current)
+      if (mounted.current && version === loadVersion.current)
         setError(e.message || "Não foi possível carregar a rota.");
     } finally {
       working.current = false;
-      if (mounted.current) {
+      if (mounted.current && version === loadVersion.current) {
         setLoading(false);
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [view, page]);
   useFocusEffect(
     useCallback(() => {
       mounted.current = true;
-      if (params.highlightRouteId) selected.current = params.highlightRouteId;
+      if (params.highlightRouteId && highlightSeen.current !== params.highlightRouteId) { selected.current = params.highlightRouteId; highlightSeen.current = params.highlightRouteId; }
       void load();
-      const resume = AppState.addEventListener("change", state => { if (state === "active") void load(); });
+      const resume = AppState.addEventListener("change", state => { if (state === "active" && !pauseRefresh.current && !working.current) void load(); });
       const timer = setInterval(() => {
-        if (AppState.currentState === "active") void load();
+        if (AppState.currentState === "active" && !working.current && !pauseRefresh.current) void load();
       }, 30000);
       return () => {
         mounted.current = false;
+        loadVersion.current++;
         clearInterval(timer);
         resume.remove();
       };
@@ -122,7 +130,8 @@ export default function RouteExecutionScreen() {
     try {
       const value = await routeService.fieldStatus(detail.id, status);
       setDetail(value);
-      await load();
+      if (status === "COMPLETED") { setPage(1); setView("history"); }
+      else await load();
     } catch (e: any) {
       setError(
         e.message ||
@@ -247,6 +256,12 @@ export default function RouteExecutionScreen() {
             {error}
           </Text>
         ) : null}
+        <View style={{ flexDirection: "row", gap: 12, flexWrap: "wrap", marginVertical: 12 }}>
+          {(["active", "history"] as const).map(value => <Pressable key={value} accessibilityRole="button" disabled={busy || !!occurrence || requestingClosure} onPress={() => { selected.current = null; setDetail(null); setPage(1); setView(value); }} style={styles.chip}><Text style={styles.chipText}>{value === "active" ? "Rotas ativas" : "Histórico de rotas"}{view === value ? " · selecionado" : ""}</Text></Pressable>)}
+          <Text>Página {page}</Text>
+          {page > 1 && <Pressable accessibilityRole="button" disabled={busy} onPress={() => { selected.current = null; setPage(p => p - 1); }}><Text>Anterior</Text></Pressable>}
+          {hasMore && <Pressable accessibilityRole="button" disabled={busy} onPress={() => { selected.current = null; setPage(p => p + 1); }}><Text>Próxima</Text></Pressable>}
+        </View>
         {loading ? (
           <ActivityIndicator color="#047857" />
         ) : (
