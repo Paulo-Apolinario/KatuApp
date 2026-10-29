@@ -59,6 +59,8 @@ Terminando com `active`, atualize o App web:
 cd /var/www/katua/app && npm ci && EXPO_PUBLIC_API_BASE_URL=https://vps.katua.com.br npx expo export --platform web --output-dir dist
 ```
 
+**Conferência de publicação (29/10/2026):** o export acima gera `/var/www/katua/app/dist`. Ele só atualiza o domínio diretamente se o Nginx já servir essa pasta. O destino real não foi verificado na VPS; confira `root`/`alias` antes de copiar arquivos. O diagnóstico está em `ajuste-analisar-publicacao-app-2026-10-29.md`.
+
 Atualize a aba com `Ctrl+Shift+R`. Não é necessário novo build do painel por esta entrega. Uma instalação nativa precisa receber a versão correspondente pelo fluxo de distribuição adotado; o export web não atualiza o binário instalado.
 
 ## Validação
