@@ -298,20 +298,19 @@ async function main() {
   pass("Repetir confirmação não modifica a primeira saída");
   const group = await call("GET", "/waste-workspace/field-routes?limit=1");
   assert.equal(group.pagination.total, 3);
-  assert.equal(group.routes[0].id, r1.id);
-  assert.equal(group.routes[0].points, 3);
-  assert.equal(group.routes[0].pointStatuses.PENDING, 3);
+  assert.equal(group.routes[0].id, historical.id);
+  assert.equal(group.routes[0].points, 1);
+  assert.equal(group.routes[0].pointStatuses.COLLECTED, 1);
   assert.equal(group.routes[0].collections, undefined);
   assert.equal(group.stats.totalPoints, 5);
-  pass(
-    "Execuções são paginadas inteiras; ativa vem primeiro e a lista não transfere todos os detalhes",
-  );
-  const page2 = await call(
-    "GET",
-    "/waste-workspace/field-routes?limit=1&page=2",
-  );
-  assert.equal(page2.routes[0].id, r2.id);
-  pass("Duas datas do mesmo plano permanecem em tópicos separados");
+  pass("Execuções são paginadas inteiras por data crescente, sem transferir todos os detalhes");
+  const page2 = await call("GET", "/waste-workspace/field-routes?limit=1&page=2");
+  assert.equal(page2.routes[0].id, r1.id);
+  assert.equal(page2.routes[0].points, 3);
+  assert.equal(page2.routes[0].pointStatuses.PENDING, 3);
+  const page3 = await call("GET", "/waste-workspace/field-routes?limit=1&page=3");
+  assert.equal(page3.routes[0].id, r2.id);
+  pass("Datas de execução permanecem em tópicos separados e em ordem entre páginas");
   const one = await call(
       "GET",
       `/waste-workspace/field-routes/${r1.id}/collections?limit=1`,
@@ -501,6 +500,28 @@ async function main() {
     400,
   );
   pass("Paginação, etapa e período inválidos são rejeitados");
+  const orderIds: string[] = [];
+  for (const [suffix, date, status] of [
+    ["nov", "2026-11-02T11:00:00Z", "SCHEDULED"],
+    ["oct30", "2026-10-30T11:00:00Z", "IN_PROGRESS"],
+    ["oct27", "2026-10-27T11:00:00Z", "SCHEDULED"],
+    ["tie-b", "2026-10-28T11:00:00Z", "SCHEDULED"],
+    ["tie-a", "2026-10-28T11:00:00Z", "IN_PROGRESS"],
+    ["undated", null, "SCHEDULED"],
+  ]) {
+    const r = await p.route.create({ data: { id: `date-order-${suffix}`, cooperativeId: coop.id, name: "Ordenação cronológica QA", executionDate: suffix!, scheduledDate: date ? new Date(date) : null, status: status as any, stops: [] } });
+    orderIds.push(r.id);
+    await p.collection.create({ data: { cooperativeId: coop.id, routeId: r.id } });
+  }
+  const actual: string[] = [];
+  for(let page=1;page<=3;page++) {
+    const res = await call("GET", `/waste-workspace/field-routes?q=${encodeURIComponent("Ordenação cronológica QA")}&limit=2&page=${page}`);
+    assert.equal(res.pagination.total,6);actual.push(...res.routes.map((r:any)=>r.id));
+  }
+  assert.deepEqual(actual,["date-order-oct27","date-order-tie-a","date-order-tie-b","date-order-oct30","date-order-nov","date-order-undated"]);
+  pass("Ordenação global cruza meses e páginas, ignora prioridade por status, desempata por ID e coloca sem data ao final");
+  await p.collection.deleteMany({where:{routeId:{in:orderIds}}});
+  await p.route.deleteMany({where:{id:{in:orderIds}}});
   if (process.env.APP_RELIABILITY === "1") {
     const { checkHistory } = await import("../app-reliability/api");
     await checkHistory(app, p, users, coop, cat, driver, pass);

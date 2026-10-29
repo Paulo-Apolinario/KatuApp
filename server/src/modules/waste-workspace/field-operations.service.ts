@@ -289,9 +289,8 @@ export async function listFieldRoutes(id: string, raw: unknown) {
     cooperativeId: id,
     route: { is: where },
   };
-  const [total, activeTotal, ...stats] = await prisma.$transaction([
+  const [total, ...stats] = await prisma.$transaction([
     prisma.route.count({ where }),
-    prisma.route.count({ where: { AND: [where, { status: "IN_PROGRESS" }] } }),
     ...statsQueries(allPoints),
   ]);
   const skip = (q.page - 1) * q.limit;
@@ -308,27 +307,13 @@ export async function listFieldRoutes(id: string, raw: unknown) {
     driver: { select: { id: true, name: true } },
     vehicle: { select: { id: true, plate: true } },
   } as const;
-  const active =
-    skip < activeTotal
-      ? await prisma.route.findMany({
-          where: { AND: [where, { status: "IN_PROGRESS" }] },
-          skip,
-          take: Math.min(q.limit, activeTotal - skip),
-          orderBy: [{ startedAt: "asc" }, { id: "asc" }],
-          select,
-        })
-      : [];
-  const other =
-    active.length < q.limit
-      ? await prisma.route.findMany({
-          where: { AND: [where, { status: { not: "IN_PROGRESS" } }] },
-          skip: Math.max(0, skip - activeTotal),
-          take: q.limit - active.length,
-          orderBy: [{ scheduledDate: "desc" }, { id: "desc" }],
-          select,
-        })
-      : [];
-  const routes = [...active, ...other];
+  const routes = await prisma.route.findMany({
+    where,
+    skip,
+    take: q.limit,
+    orderBy: [{ scheduledDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+    select,
+  });
   const groups = await prisma.collection.groupBy({
     by: ["routeId", "status"],
     where: { cooperativeId: id, routeId: { in: routes.map((r) => r.id) } },
