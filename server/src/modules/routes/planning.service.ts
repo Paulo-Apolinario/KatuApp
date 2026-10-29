@@ -1,7 +1,7 @@
+import { RouteLifecycleService } from "./lifecycle.service";
 import { teamMembers, snapshotCollectionTeam, snapshotRouteTeam } from "../collector-teams/team.service";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
-import { notifyCollection } from "../inbox/inbox.service";
 import { PlanInput, RoutePoint } from "./planning.schemas";
 export const localDay = (now = new Date()) =>
   new Intl.DateTimeFormat("en-CA", {
@@ -538,72 +538,6 @@ export class RoutePlanningService {
     collectionId: string,
     reason: string,
   ) {
-    return prisma.$transaction(
-      async (tx) => {
-        await tx.$queryRaw`SELECT id FROM "Route" WHERE id=${routeId} FOR UPDATE`;
-        const r = await tx.route.findUniqueOrThrow({
-          where: { id: routeId },
-          include: { cooperative: true },
-        });
-        const collector = await tx.collector.findUnique({ where: { userId } });
-        const driver = await tx.driver.findUnique({ where: { userId } });
-        const owner = role === "COOPERATIVE" && r.cooperative.userId === userId;
-        if (
-          !owner &&
-          !(
-            role === "COLLECTOR" &&
-            collector?.status !== "INACTIVE" &&
-            collector?.cooperativeId === r.cooperativeId &&
-            (r.collectorIds.includes(collector.id) ||
-              (await tx.collection.count({
-                where: { routeId: r.id, collectorId: collector.id },
-              })) > 0)
-          ) &&
-          !(
-            role === "DRIVER" &&
-            driver?.status !== "INACTIVE" &&
-            r.driverId === driver?.id
-          )
-        )
-          throw Error("Sem permissão para esta rota.");
-        if (r.status !== "IN_PROGRESS")
-          throw Error(
-            "Inicie a execução antes de registrar uma visita não realizada.",
-          );
-        const c = await tx.collection.findFirst({
-          where: { id: collectionId, routeId: r.id, status: "PENDING" },
-        });
-        if (!c)
-          throw Error(
-            "A coleta já foi iniciada ou encerrada. Atualize a rota.",
-          );
-        const changed = await tx.collection.updateMany({
-          where: { id: c.id, status: "PENDING" },
-          data: {
-            status: "CANCELLED",
-            cancellationReason: reason,
-            cancelledAt: new Date(),
-            cancelledByUserId: userId,
-          },
-        });
-        if (changed.count !== 1)
-          throw Error("Coleta alterada simultaneamente.");
-        if (c.scheduleId)
-          await tx.schedule.update({
-            where: { id: c.scheduleId },
-            data: { status: "CANCELLED" },
-          });
-        await notifyCollection(
-          tx,
-          c.id,
-          `visit:${c.id}`,
-          "VISIT_NOT_COMPLETED",
-          "Visita não realizada",
-          reason,
-        );
-        return { ok: true };
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+    return new RouteLifecycleService().report(userId, role, routeId, collectionId, { reason });
   }
 }

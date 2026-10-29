@@ -23,7 +23,7 @@ const schema = fs
       .split("\n")
       .filter(
         (line) =>
-          !/^\s*startedAt\s/.test(line) &&
+          !/^\s*(startedAt|operationalEvents|closureOutcome|closedAt)\s/.test(line) &&
           !line.includes("@@index([cooperativeId, status, startedAt])") &&
           !line.includes("@@index([cooperativeId, planId, scheduledDate])"),
       )
@@ -59,6 +59,7 @@ await db.exec(
 await db.exec(fs.readFileSync(root + "/prisma/migrations/20261028040000_app_history_pagination/migration.sql", "utf8"));
 await db.exec(`INSERT INTO "User" (id,email,"passwordHash","displayName",role,"updatedAt") VALUES ('residential-before-migration','res-old@test.invalid','unused','Residencial antiga','PF',now()); INSERT INTO "PersonProfile" (id,"userId",cpf,address,"updatedAt") VALUES ('residential-profile-before-migration','residential-before-migration','11111111111','Endereço preservado',now());`);
 await db.exec(fs.readFileSync(root + "/prisma/migrations/20261028050000_residential_workspace/migration.sql", "utf8"));
+await db.exec(fs.readFileSync(root + "/prisma/migrations/20261029010000_route_pending_outcomes/migration.sql", "utf8"));
 const server = new PGLiteSocketServer({ db, port: 54329, host: "127.0.0.1" });
 await server.start();
 try {

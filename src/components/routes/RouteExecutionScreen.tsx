@@ -1,3 +1,4 @@
+import * as Crypto from "expo-crypto";
 import { DataReadNotice } from "@/src/components/DataReadNotice";
 import { initialRouteId, routeStartIssues } from "@/src/utils/routeReadiness";
 import { useCallback, useRef, useState } from "react";
@@ -51,7 +52,9 @@ export default function RouteExecutionScreen() {
     [error, setError] = useState(""),
     [skip, setSkip] = useState<string[]>([]),
     [occurrence, setOccurrence] = useState<Collection | null>(null),
-    [reason, setReason] = useState("");
+    [reason, setReason] = useState(""),
+    [requestingClosure, setRequestingClosure] = useState(false);
+  const reportOperation = useRef<{ signature: string; id: string } | null>(null);
   const selected = useRef<string | null>(params.highlightRouteId || null),
     working = useRef(false),
     mounted = useRef(false);
@@ -144,12 +147,17 @@ export default function RouteExecutionScreen() {
     }
   }
   async function saveOccurrence() {
-    if (!detail || !occurrence || busy) return;
+    if (!detail || (!occurrence && !requestingClosure) || busy) return;
     if (reason.trim().length < 5)
       return setError("Informe o motivo com ao menos 5 caracteres.");
     setBusy(true);
     try {
-      await routeService.occurrence(detail.id, occurrence.id, reason.trim());
+      const signature = JSON.stringify([detail.id, occurrence?.id, requestingClosure, reason.trim()]);
+      if (reportOperation.current?.signature !== signature) reportOperation.current = { signature, id: Crypto.randomUUID() };
+      if (requestingClosure) await routeService.requestClosure(detail.id, reason.trim(), reportOperation.current.id);
+      else if (occurrence) await routeService.occurrence(detail.id, occurrence.id, reason.trim(), reportOperation.current.id);
+      reportOperation.current = null;
+      setRequestingClosure(false);
       setOccurrence(null);
       setReason("");
       await load();
@@ -172,7 +180,7 @@ export default function RouteExecutionScreen() {
         (c) => c.status !== "IN_PROGRESS" && skip.includes(c.id),
       ),
     ],
-    next = ordered[0],
+    next = ordered.find(c => !(detail?.operationalEvents || []).some(e => e.kind === "NOT_SERVED" && e.collectionId === c.id)),
     completed = points.filter((c) => !pending(c)).length;
   const Button = ({
     label,
@@ -280,7 +288,7 @@ export default function RouteExecutionScreen() {
                           timeZone: "America/Fortaleza",
                         })
                       : "Data a definir"}{" "}
-                    · {translateRouteStatus(r.status)}
+                    · {r.closureOutcome === "PARTIAL" ? "Encerrada com pendências" : translateRouteStatus(r.status)}
                   </Text>
                 </Pressable>
               ))}
@@ -329,6 +337,10 @@ export default function RouteExecutionScreen() {
                     {completed} de {points.length} pontos encerrados ·{" "}
                     {active.length} pendentes
                   </Text>
+                  <Text style={styles.text}>{points.filter(c => ["COLLECTED", "RECEIVED", "SORTING", "COMPLETED"].includes(c.status)).length} ponto(s) coletado(s) · {active.filter(c => (detail.operationalEvents || []).some(e => e.kind === "NOT_SERVED" && e.collectionId === c.id)).length} relato(s) de ponto não atendido aguardando decisão.</Text>
+                  {detail.closureOutcome === "PARTIAL" && <Text style={styles.chipText}>Encerrada com pendências. As coletas realizadas foram preservadas.</Text>}
+                  {(detail.operationalEvents || []).some(e => e.kind === "CLOSURE_REQUEST") && <Text style={styles.text}>Encerramento com pendências solicitado. Aguarde a decisão da cooperativa.</Text>}
+                  {detail.status === "IN_PROGRESS" && active.length > 0 && active.every(c => (detail.operationalEvents || []).some(e => e.kind === "NOT_SERVED" && e.collectionId === c.id)) && !(detail.operationalEvents || []).some(e => e.kind === "CLOSURE_REQUEST") && <Button label="Solicitar encerramento com pendências" disabled={busy || isOffline || !!detail.fromCache} onPress={() => {setReason("");setRequestingClosure(true);}} />}
                   {(isOffline || detail.fromCache) && (
                     <Text style={styles.text}>
                       Sequência salva no aparelho. Atualizações da cooperativa e
@@ -453,6 +465,7 @@ export default function RouteExecutionScreen() {
                     <Text style={styles.chipText}>
                       {translateCollectionStatus(c.status)}
                     </Text>
+                    {(detail.operationalEvents || []).filter(e => e.kind === "NOT_SERVED" && e.collectionId === c.id).map((e, n) => <Text key={e.id || n} style={styles.text}>Relato de ponto não atendido: {e.reason} · {e.actorName || "Equipe"}{e.at ? ` · ${new Date(e.at).toLocaleString("pt-BR", {timeZone:"America/Fortaleza"})}` : ""}{pending(c) ? " · Aguardando decisão da cooperativa" : ""}</Text>)}
                     {c.cancellationReason ? (
                       <Text style={styles.text}>{c.cancellationReason}</Text>
                     ) : null}
@@ -463,7 +476,7 @@ export default function RouteExecutionScreen() {
                           onPress={() => void navigate(c)}
                         />
                         {detail.status === "IN_PROGRESS" &&
-                          c.status === "PENDING" && (
+                          pending(c) && (
                             <View style={styles.row}>
                               <Pressable
                                 accessibilityRole="button"
@@ -481,7 +494,7 @@ export default function RouteExecutionScreen() {
                               </Pressable>
                               <Pressable
                                 accessibilityRole="button"
-                                disabled={isOffline}
+                                disabled={isOffline || !!detail.fromCache}
                                 onPress={() => {
                                   setReason("");
                                   setOccurrence(c);
@@ -511,17 +524,16 @@ export default function RouteExecutionScreen() {
         )}
       </ScrollView>
       <Modal
-        visible={!!occurrence}
+        visible={!!occurrence || requestingClosure}
         transparent
         animationType="fade"
-        onRequestClose={() => !busy && setOccurrence(null)}
+        onRequestClose={() => { if (!busy) {setOccurrence(null);setRequestingClosure(false);} }}
       >
         <View style={styles.overlay}>
           <View style={styles.card}>
-            <Text style={styles.title}>Registrar visita não realizada</Text>
+            <Text style={styles.title}>{requestingClosure ? "Solicitar encerramento com pendências" : "Relatar ponto não atendido"}</Text>
             <Text style={styles.text}>
-              Informe local fechado, ausência de material ou impedimento. O
-              atendimento será encerrado sem peso ou entrada em estoque.
+              Informe o impedimento ou o motivo do encerramento. O relato ficará registrado. A cooperativa decidirá se reagenda ou cancela os pontos não atendidos; coletas realizadas permanecem preservadas.
             </Text>
             <TextInput
               accessibilityLabel="Motivo da visita não realizada"
@@ -541,7 +553,7 @@ export default function RouteExecutionScreen() {
             <Button
               label="Voltar"
               disabled={busy}
-              onPress={() => setOccurrence(null)}
+              onPress={() => {setOccurrence(null);setRequestingClosure(false);}}
             />
           </View>
         </View>

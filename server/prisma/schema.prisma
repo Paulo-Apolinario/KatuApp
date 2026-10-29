@@ -713,6 +713,9 @@ model Vehicle {
 }
 
 model Route {
+  operationalEvents Json @default("[]")
+  closureOutcome String?
+  closedAt DateTime?
   startedAt DateTime?
   @@index([cooperativeId, status, startedAt])
   @@index([cooperativeId, planId, scheduledDate])

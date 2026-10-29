@@ -5,6 +5,8 @@ import { planSchema, optimizeSchema } from "./planning.schemas";
 import { RoutePlanningService } from "./planning.service";
 import { optimizeRoad } from "./road-routing";
 import { RouteService } from "./route.service";
+import { RouteLifecycleService, resolutionSchema, reportSchema } from "./lifecycle.service";
+const lifecycle = new RouteLifecycleService();
 const service = new RoutePlanningService();
 export async function routePlanningRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
@@ -146,20 +148,13 @@ export async function routePlanningRoutes(app: FastifyInstance) {
     "/routes/:id/visits/:collectionId/occurrence",
     safe(
       async (r) => {
-        const { reason } = z
-          .object({ reason: z.string().trim().min(5).max(1000) })
-          .parse(r.body);
-        return service.occurrence(
-          r.user.sub,
-          r.user.role,
-          r.params.id,
-          r.params.collectionId,
-          reason,
-        );
+        return lifecycle.report(r.user.sub, r.user.role, r.params.id, r.params.collectionId, reportSchema.parse(r.body));
       },
       ["COOPERATIVE", "COLLECTOR", "DRIVER"],
     ),
   );
+  app.post("/routes/:id/request-closure", safe(async r => lifecycle.report(r.user.sub, r.user.role, r.params.id, null, reportSchema.parse(r.body)), ["COLLECTOR", "DRIVER"]));
+  app.post("/routes/:id/resolve-pending", safe(async r => lifecycle.resolve(r.user.sub, r.params.id, resolutionSchema.parse(r.body))));
   app.post(
     "/routes/:id/field-status",
     safe(

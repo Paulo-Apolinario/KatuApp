@@ -818,6 +818,10 @@ export class RouteService {
               "Não é possível cancelar uma rota com coletas operacionais ativas.",
             );
         }
+        if (data.status === "COMPLETED" && route.status !== "COMPLETED") {
+          const cancelled = await transaction.collection.count({ where: { routeId: route.id, status: "CANCELLED", OR: [{ cancellationReason: null }, { cancellationReason: { not: "Substituída por revisão do roteiro fixo" } }] } });
+          await transaction.route.update({ where: { id: route.id }, data: { closedAt: new Date(), closureOutcome: cancelled ? "PARTIAL" : "FULL" } });
+        }
         await transaction.route.update({
           where: { id: route.id },
           data: {

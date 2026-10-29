@@ -509,6 +509,10 @@ async function main() {
     const { checkResidential } = await import("../residential/api");
     await checkResidential(app, p, coop, cat, driver, vehicle, pass);
   }
+  if (process.env.ROUTE_PENDING === "1") {
+    const { checkRoutePending } = await import("../route-pending/api");
+    await checkRoutePending(app, p, users, coop, cat, member, driver, vehicle, pass);
+  }
   const tools = process.env.KATUA_VALIDATION_TOOLS || "/tmp";
   fs.writeFileSync(
     path.join(tools, "field-operations-api-results.json"),

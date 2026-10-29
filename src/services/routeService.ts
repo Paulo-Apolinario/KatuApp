@@ -29,6 +29,7 @@ export interface RouteStats {
   fieldCompletedCollections: number;
 }
 
+export type RouteOperationEvent = { id?: string; kind: string; collectionId?: string; reason?: string; actorName?: string; at?: string; nextRouteId?: string | null };
 export interface RouteItem {
   fromCache?: boolean;
   id: string;
@@ -57,6 +58,8 @@ export interface RouteItem {
   estimatedMinutes?: number | null;
   revision?: number;
   planId?: string | null;
+  operationalEvents?: RouteOperationEvent[];
+  closureOutcome?: string | null;
   stops: string[];
   status: RouteStatus;
   createdAt?: string;
@@ -115,6 +118,8 @@ type BackendRoute = {
   estimatedMinutes?: number | null;
   revision?: number;
   planId?: string | null;
+  operationalEvents?: RouteOperationEvent[];
+  closureOutcome?: string | null;
   id: string;
   name: string;
   description?: string | null;
@@ -431,6 +436,8 @@ function normalizeRoute(route: BackendRoute): RouteItem {
     estimatedMinutes: route.estimatedMinutes,
     revision: route.revision,
     planId: route.planId,
+    operationalEvents: route.operationalEvents,
+    closureOutcome: route.closureOutcome,
     name: route.name,
     description: route.description ?? null,
     scheduledDate: route.scheduledDate ?? null,
@@ -587,12 +594,15 @@ export const routeService = {
     await saveRoutesToCache([value]);
     return value;
   },
-  async occurrence(id: string, collectionId: string, reason: string) {
+  async occurrence(id: string, collectionId: string, reason: string, operationId?: string) {
     return api.post(
       `/routes/${id}/visits/${collectionId}/occurrence`,
-      { reason },
+      { reason, operationId },
       true,
     );
+  },
+  async requestClosure(id: string, reason: string, operationId: string) {
+    return api.post(`/routes/${id}/request-closure`, { reason, operationId }, true);
   },
   async create(payload: CreateRoutePayload): Promise<RouteItem> {
     const response = await api.post<GetRouteByIdResponse>(
