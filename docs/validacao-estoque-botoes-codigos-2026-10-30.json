@@ -1,0 +1,55 @@
+{
+  "date": "2026-10-30",
+  "scope": "Ações do estoque, unidades e códigos automáticos",
+  "api": {
+    "passed": 26,
+    "checks": [
+      "Migração preserva execução histórica e seu ponto sem inventar data de saída",
+      "Antes da saída não existe operação em campo",
+      "Saída registra início da execução e preserva pontos aguardando atendimento",
+      "Painel conta uma rota fixa em campo sem contar suas três paradas novamente",
+      "Agenda e registros do painel identificam saída em campo sem confundir com atendimento do ponto",
+      "Repetir confirmação não modifica a primeira saída",
+      "Execuções são paginadas inteiras por data crescente, sem transferir todos os detalhes",
+      "Datas de execução permanecem em tópicos separados e em ordem entre páginas",
+      "Pontos seguem a sequência da rota com paginação própria e contexto em campo",
+      "Coletas normais excluem pontos de rotas fixas, inclusive plano histórico removido",
+      "Busca por um ponto encontra sua execução completa",
+      "Endereço avulso sem cadastro de gerador conserva identificação e pode ser pesquisado",
+      "Filtro de programação distingue os dias de execução no fuso do Ceará",
+      "Iniciar ponto dentro da rota não duplica a operação em campo",
+      "Coleta delegada individual iniciada entra no mesmo indicador",
+      "Rotas avulsas e fixas e coleta individual são contadas sem sobreposição",
+      "Pontos com saída confirmada não ficam na fila de pendentes sem saída",
+      "Recebimento de um ponto preserva os demais e sua entrada de material individual",
+      "Filtro por colaborador reconhece sua participação em equipe",
+      "Detalhes e consultas respeitam cooperativa proprietária e perfil autorizado",
+      "Paginação, etapa e período inválidos são rejeitados",
+      "Ordenação global cruza meses e páginas, ignora prioridade por status, desempata por ID e coloca sem data ao final",
+      "Material e lotes recebem códigos automáticos ao omitir ou deixar o código vazio",
+      "Edição preserva códigos existentes e preenche o código de um cadastro antigo ainda sem identificação",
+      "Criações simultâneas recebem códigos de lote distintos",
+      "Material criado durante a destinação também recebe código; lote rastreável continua automático"
+    ]
+  },
+  "browser": {
+    "passed": 6,
+    "checks": [
+      "Botão Movimentar lote fica abaixo da data, com espaço visível",
+      "As quatro ações ficam em uma barra alinhada com espaçamento consistente",
+      "Catálogo exibe Litro (L), mantendo LITER apenas como valor técnico",
+      "Cadastro de material salva sem digitar código interno e recebe identificação automática da API",
+      "Lote manual salva com código automático e mantém unidade e saldo",
+      "Barra de ações se adapta ao celular e fluxos não apresentam erros JavaScript"
+    ],
+    "errors": [],
+    "transport": "Real local API and disposable PGlite"
+  },
+  "apiTypecheck": "passed",
+  "apiBuild": "passed",
+  "panelLint": "passed, 0 errors/warnings in changed files",
+  "panelBuild": "passed; existing chunk-size warning",
+  "newMigration": false,
+  "appChanges": false,
+  "productionAccess": false
+}

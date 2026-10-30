@@ -1,3 +1,4 @@
+import { generateStockCode } from "../waste-stock/stock-codes";
 import { collectionReferenceWhere } from "../collections/collection-reference";
 import {
   listFieldPoints,
@@ -526,6 +527,7 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
               cooperativeId: id,
               name: input.name!,
               normalizedName: catalogNameKey(input.name!),
+              internalCode: generateStockCode("MAT"),
               category: input.category!,
               unit: input.unit,
               defaultUnit: input.unit,
@@ -540,6 +542,9 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
           failure(
             "Já existe material com esse nome, mas sua unidade ou situação não é compatível. Selecione ou revise o cadastro.",
           );
+        if (!item.internalCode) item = await tx.wasteStockItem.update({
+          where: { id: item.id }, data: { internalCode: generateStockCode("MAT") },
+        });
         if (entry.wasteTypeId && entry.wasteTypeId !== item.id)
           failure(
             "A entrada já foi classificada. Atualize antes de alterar o vínculo.",

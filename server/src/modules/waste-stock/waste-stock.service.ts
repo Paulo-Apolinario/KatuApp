@@ -1,3 +1,4 @@
+import { generateStockCode } from "./stock-codes";
 import { catalogNameKey } from "../waste-workspace/waste-workspace.model";
 import {
   AccountStatus,
@@ -692,7 +693,8 @@ export class WasteStockService {
 
     await this.ensureUniqueItemName(cooperative.id, name);
 
-    await this.ensureUniqueInternalCode(cooperative.id, data.internalCode);
+    const internalCode = normalizeInternalCode(data.internalCode) || generateStockCode("MAT");
+    await this.ensureUniqueInternalCode(cooperative.id, internalCode);
 
     const item = await prisma.wasteStockItem.create({
       data: {
@@ -710,7 +712,7 @@ export class WasteStockService {
 
         ncm: normalizeNcm(data.ncm),
 
-        internalCode: normalizeInternalCode(data.internalCode),
+        internalCode,
 
         wasteClass: data.wasteClass || WasteClass.NOT_INFORMED,
 
@@ -772,10 +774,11 @@ export class WasteStockService {
         );
       }
 
+      const internalCode = normalizeInternalCode(data.internalCode) || currentItem.internalCode || generateStockCode("MAT");
       if (data.internalCode !== undefined) {
         await this.ensureUniqueInternalCode(
           cooperative.id,
-          data.internalCode,
+          internalCode,
           itemId,
           transaction,
         );
@@ -819,11 +822,7 @@ export class WasteStockService {
               }
             : {}),
 
-          ...(data.internalCode !== undefined
-            ? {
-                internalCode: normalizeInternalCode(data.internalCode),
-              }
-            : {}),
+          internalCode,
 
           ...(data.wasteClass !== undefined
             ? {
@@ -962,7 +961,10 @@ export class WasteStockService {
         throw new Error(
           "A unidade do lote deve ser igual à unidade do catálogo.",
         );
-      const lotCode = normalizeRequiredText(data.lotCode);
+      if (!item.internalCode) await transaction.wasteStockItem.update({
+        where: { id: item.id }, data: { internalCode: generateStockCode("MAT") },
+      });
+      const lotCode = normalizeText(data.lotCode) || generateStockCode("LOT");
 
       await this.ensureUniqueLotCode(
         cooperative.id,
@@ -1263,9 +1265,10 @@ export class WasteStockService {
 
     await this.ensureUniqueItemName(cooperative.id, name);
 
-    await this.ensureUniqueInternalCode(cooperative.id, itemData.internalCode);
+    const internalCode = normalizeInternalCode(itemData.internalCode) || generateStockCode("MAT");
+    await this.ensureUniqueInternalCode(cooperative.id, internalCode);
 
-    const lotCode = normalizeRequiredText(lotData.lotCode);
+    const lotCode = normalizeText(lotData.lotCode) || generateStockCode("LOT");
 
     await this.ensureUniqueLotCode(cooperative.id, lotCode);
 
@@ -1296,7 +1299,7 @@ export class WasteStockService {
 
           ncm: normalizeNcm(itemData.ncm),
 
-          internalCode: normalizeInternalCode(itemData.internalCode),
+          internalCode,
 
           wasteClass: itemData.wasteClass || WasteClass.NOT_INFORMED,
 

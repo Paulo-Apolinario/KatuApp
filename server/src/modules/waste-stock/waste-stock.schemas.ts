@@ -323,11 +323,7 @@ export const updateWasteStockItemSchema =
  * Cadastro de lote para um tipo já existente.
  */
 export const createWasteStockLotSchema = z.object({
-  lotCode: requiredTrimmedString(
-    "O código do lote",
-    1,
-    100
-  ),
+  lotCode: optionalTrimmedString(100),
 
   quantity: positiveNumber,
 
@@ -447,11 +443,7 @@ export const createLegacyWasteStockSchema = z.object({
   item: createWasteStockItemSchema,
 
   lot: z.object({
-    lotCode: requiredTrimmedString(
-      "O código do lote",
-      1,
-      100
-    ),
+    lotCode: optionalTrimmedString(100),
 
     quantityKg: positiveNumber.optional(),
 
