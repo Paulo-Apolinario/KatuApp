@@ -538,13 +538,17 @@ async function main() {
     const { checkCommunication } = await import("../communication/api");
     await checkCommunication(app, p, users, coop, cat, driver, vehicle, pass);
   }
+  if (process.env.GENERATOR_DOCUMENT === "1") {
+    const { checkGeneratorDocument } = await import("../generator-document/api");
+    await checkGeneratorDocument(app, p, users, coop, pass);
+  }
   const tools = process.env.KATUA_VALIDATION_TOOLS || "/tmp";
   fs.writeFileSync(
     path.join(tools, "field-operations-api-results.json"),
     JSON.stringify({ passed: checks.length, checks }, null, 2),
   );
   if (process.env.RESIDENTIAL === "1") fs.writeFileSync(path.join(tools, "residential-api-results.json"), JSON.stringify({ passed: checks.length, checks }, null, 2));
-  if (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1") {
+  if (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1") {
     fs.writeFileSync(
       path.join(tools, "field-operations-fixture.json"),
       JSON.stringify({

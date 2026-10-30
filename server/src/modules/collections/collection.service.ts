@@ -132,7 +132,7 @@ const collectionInclude = {
       longitude: true,
     },
   },
-  generator: true,
+  generator: { omit: { documentNumber: true } },
   collector: true,
   driver: true,
   vehicle: true,

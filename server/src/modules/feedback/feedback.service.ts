@@ -141,7 +141,7 @@ async function resolveSenderIdentity(userId: string): Promise<SenderIdentity> {
     where: { id: userId },
     include: {
       cooperative: true,
-      generator: true,
+      generator: { omit: { documentNumber: true } },
       collector: true,
       driver: true,
     },

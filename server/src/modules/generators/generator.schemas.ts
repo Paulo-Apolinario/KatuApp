@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeDocument, validDocument } from "./generator-document";
 
 const optionalTrimmedString = z
   .string()
@@ -12,6 +13,10 @@ export const createGeneratorSchema = z.object({
   companyName: optionalTrimmedString,
   email: z.string().trim().email("E-mail inválido"),
   phone: optionalTrimmedString,
+  documentNumber: z.string().trim().max(30, "CPF/CNPJ inválido.")
+    .transform(normalizeDocument)
+    .refine(validDocument, "Informe um CPF ou CNPJ válido, incluindo os dígitos verificadores.")
+    .optional(),
 
   zipCode: optionalTrimmedString,
   street: optionalTrimmedString,

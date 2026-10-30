@@ -624,7 +624,7 @@ export const environmentalService = {
     const c = await prisma.collection.findFirst({
       where: { id: collectionId, cooperativeId: u.cooperativeId },
       include: {
-        generator: true,
+        generator: { omit: { documentNumber: true } },
         bin: true,
         driver: true,
         vehicle: true,

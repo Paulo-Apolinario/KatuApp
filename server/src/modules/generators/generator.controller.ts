@@ -1,3 +1,4 @@
+import { ZodError } from "zod";
 import { FastifyReply, FastifyRequest } from "fastify";
 import {
   createGeneratorSchema,
@@ -7,6 +8,15 @@ import {
 import { GeneratorService } from "./generator.service";
 
 const generatorService = new GeneratorService();
+function failure(error: any, reply: FastifyReply) {
+  const duplicate = error.code === "P2002";
+  const target = String(error.meta?.target || "");
+  const message = error instanceof ZodError ? error.issues.map(issue => issue.message).join(" ")
+    : duplicate ? (target.includes("documentNumber") ? "Já existe um gerador nesta cooperativa com este CPF/CNPJ." : "Já existe um cadastro com este e-mail.")
+    : error.code || error.name?.startsWith("PrismaClient") ? "Não foi possível salvar o gerador. Atualize e tente novamente."
+    : error.message || "Erro ao salvar gerador.";
+  return reply.code(duplicate ? 409 : error.statusCode || 400).send({ success: false, error: message });
+}
 
 export class GeneratorController {
   async create(request: FastifyRequest, reply: FastifyReply) {
@@ -28,10 +38,7 @@ export class GeneratorController {
         generator,
       });
     } catch (error: any) {
-      return reply.status(400).send({
-        success: false,
-        error: error.message || "Erro ao criar gerador.",
-      });
+      return failure(error, reply);
     }
   }
 
@@ -43,9 +50,11 @@ export class GeneratorController {
     if (!params.success || !body.success) return reply.badRequest(
       !body.success ? body.error.issues.map((issue) => issue.message).join(" ") : "ID inválido.",
     );
-    const generator = await generatorService.update(user.sub, params.data.id, body.data);
-    if (!generator) return reply.notFound("Gerador não encontrado.");
-    return reply.send({ success: true, generator });
+    try {
+      const generator = await generatorService.update(user.sub, params.data.id, body.data);
+      if (!generator) return reply.notFound("Gerador não encontrado.");
+      return reply.send({ success: true, generator });
+    } catch (error) { return failure(error, reply); }
   }
 
   async listMine(request: FastifyRequest, reply: FastifyReply) {

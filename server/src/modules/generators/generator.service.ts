@@ -1,3 +1,4 @@
+import { documentType, withGeneratorDocument } from "./generator-document";
 import {
   GeneratorAccessStatus,
   GeneratorType,
@@ -123,6 +124,9 @@ export class GeneratorService {
       throw new Error("Cooperativa do usuário autenticado não encontrada.");
     }
 
+    if (data.type === "LARGE" && documentType(data.documentNumber) === "CPF") {
+      throw Object.assign(new Error("Para grande gerador, informe um CNPJ."), { statusCode: 400 });
+    }
     const email = normalizeEmail(data.email);
 
     const existingUser = await prisma.user.findUnique({
@@ -164,6 +168,7 @@ export class GeneratorService {
         companyName: normalizeText(data.companyName),
         email,
         phone: normalizeText(data.phone),
+        documentNumber: data.documentNumber,
 
         zipCode: normalizeText(data.zipCode),
         street: normalizeText(data.street),
@@ -183,7 +188,7 @@ export class GeneratorService {
       },
     });
 
-    return generator;
+    return withGeneratorDocument(generator);
   }
 
   async listByAuthenticatedCooperative(cooperativeUserId: string) {
@@ -204,19 +209,21 @@ export class GeneratorService {
       },
     });
 
-    return generators;
+    return generators.map(withGeneratorDocument);
   }
 
   async update(cooperativeUserId: string, generatorId: string, data: UpdateGeneratorInput) {
     const cooperative = await prisma.cooperative.findUnique({ where: { userId: cooperativeUserId }, select: { id: true } });
     if (!cooperative) return null;
     return prisma.$transaction(async (tx) => {
-      const result = await tx.generator.updateMany({
-        where: { id: generatorId, cooperativeId: cooperative.id },
-        data,
-      });
-      if (!result.count) return null;
-      return tx.generator.findFirst({ where: { id: generatorId, cooperativeId: cooperative.id } });
+      await tx.$queryRaw`SELECT id FROM "Generator" WHERE id=${generatorId} AND "cooperativeId"=${cooperative.id} FOR UPDATE`;
+      const current = await tx.generator.findFirst({ where: { id: generatorId, cooperativeId: cooperative.id } });
+      if (!current) return null;
+      if ((data.type || current.type) === "LARGE" && documentType(data.documentNumber ?? current.documentNumber) === "CPF") {
+        throw Object.assign(new Error("Para grande gerador, informe um CNPJ."), { statusCode: 400 });
+      }
+      const result = await tx.generator.update({ where: { id: current.id }, data });
+      return withGeneratorDocument(result);
     });
   }
 
@@ -240,6 +247,6 @@ export class GeneratorService {
       throw new Error("Gerador não encontrado.");
     }
 
-    return generator;
+    return withGeneratorDocument(generator);
   }
 }
