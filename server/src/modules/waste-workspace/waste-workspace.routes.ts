@@ -1,3 +1,4 @@
+import { collectionReferenceWhere } from "../collections/collection-reference";
 import {
   listFieldPoints,
   listFieldRoutes,
@@ -20,6 +21,8 @@ const query = z
         "receipt",
         "review",
         "destination",
+        "follow-up",
+        "ready",
         "completed",
         "cancelled",
       ])
@@ -115,12 +118,18 @@ function collectionWhere(
       break;
     case "destination":
       conditions.push({
-        status: { in: ["RECEIVED", "SORTING"] },
+        status: { in: ["RECEIVED", "SORTING", "COMPLETED"] },
         quantityReviewVersion: { gt: 0 },
-        collectionWasteEntries: {
-          some: { OR: [{ remainingQuantity: { gt: 0 } }, openMovement] },
-        },
+        collectionWasteEntries: { some: { OR: [{ remainingQuantity: { gt: 0 } }, openMovement] } },
       });
+      break;
+    case "ready":
+      conditions.push({ status: { in: ["RECEIVED", "SORTING"] }, quantityReviewVersion: { gt: 0 },
+        collectionWasteEntries: { some: {}, none: { remainingQuantity: { gt: 0 } } } });
+      break;
+    case "follow-up":
+      conditions.push({ status: { in: ["RECEIVED", "SORTING", "COMPLETED"] },
+        collectionWasteEntries: { some: { OR: [openMovement, { destinations: { some: { status: "ACTIVE", type: "STOCK", stockLot: { is: { status: { in: ["AVAILABLE", "RESERVED"] }, availableQuantity: { gt: 0 } } } } } }] } } });
       break;
     case "completed":
       conditions.push({ status: "COMPLETED" });
@@ -150,7 +159,7 @@ function collectionWhere(
   if (q.q)
     conditions.push({
       OR: [
-        { id: { contains: q.q, mode: "insensitive" } },
+        ...collectionReferenceWhere(q.q),
         { generator: { name: { contains: q.q, mode: "insensitive" } } },
         { bin: { name: { contains: q.q, mode: "insensitive" } } },
         { collector: { name: { contains: q.q, mode: "insensitive" } } },
@@ -260,6 +269,7 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
           orderBy: [{ collectedAt: "desc" }, { id: "desc" }],
           select: {
             id: true,
+            scheduleId: true,
             status: true,
             collectedAt: true,
             receivedAt: true,
@@ -283,9 +293,9 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
                 destinations: {
                   where: {
                     status: "ACTIVE",
-                    type: { in: ["TRIAGE", "RESERVATION"] },
+                    type: { in: ["STOCK", "TRIAGE", "RESERVATION"] },
                   },
-                  select: { id: true, type: true, quantity: true },
+                  select: { id: true, type: true, quantity: true, stockLot: { select: { status: true, availableQuantity: true } } },
                 },
               },
             },
@@ -480,7 +490,10 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
           include: { collection: true },
         });
         if (!entry) failure("Entrada não encontrada.", 404);
-        if (["COMPLETED", "CANCELLED"].includes(entry.collection.status))
+        const pendingMovement = entry.collection.status === "COMPLETED" && !entry.wasteTypeId && await tx.collectionWasteDestination.count({
+          where: { collectionWasteEntryId: entry.id, status: "ACTIVE", type: { in: ["TRIAGE", "RESERVATION"] } },
+        });
+        if (entry.collection.status === "CANCELLED" || (entry.collection.status === "COMPLETED" && !pendingMovement))
           failure("Coleta encerrada: classificação preservada para consulta.");
         if (entry.unit !== input.unit)
           failure("A unidade do material deve ser a mesma da entrada.");

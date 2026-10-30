@@ -377,7 +377,7 @@ async function main() {
       destinationName: "Triagem interna",
     })
   ).destination;
-  await call("owner", "POST", `/collections/${a.id}/complete`, {}, 409);
+  await call("owner", "POST", `/collections/${a.id}/complete`, {});
   const pending = await call(
     "owner",
     "GET",
@@ -385,7 +385,7 @@ async function main() {
   );
   assert(pending.collections.some((c: any) => c.id === a.id));
   pass(
-    "Triagem intermediária bloqueia encerramento e continua visível mesmo com saldo zero",
+    "Triagem intermediária permite concluir a coleta e continua visível para acompanhamento mesmo com saldo zero",
   );
   await call(
     "owner",
@@ -398,9 +398,9 @@ async function main() {
       stockItemId: classified.item.id,
     },
   );
-  await call("owner", "POST", `/collections/${a.id}/complete`, {});
+  assert.equal((await call("owner", "GET", `/collections/${a.id}`)).collection.status, "COMPLETED");
   pass(
-    "Conversão de triagem em estoque libera encerramento sem duplicar entradas",
+    "Conversão de triagem em estoque após concluir preserva encerramento sem duplicar entradas",
   );
   const bin2 = await p.bin.create({
     data: {

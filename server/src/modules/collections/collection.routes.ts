@@ -89,9 +89,10 @@ export async function collectionRoutes(app: FastifyInstance) {
 
   /*
    * COOPERATIVE
-   * SORTING -> COMPLETED
+   * RECEIVED / SORTING -> COMPLETED
    *
-   * Exige remainingQuantity = 0 em todas as entradas.
+   * Exige conferência e encaminhamento integral. Estoque, triagem e reserva
+   * podem continuar em acompanhamento após concluir a coleta.
    */
   app.post("/:id/complete", (request, reply) =>
     collectionController.complete(request, reply),

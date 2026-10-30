@@ -1,3 +1,5 @@
+import { destinationFlowWhere, editableAfterCollection } from "./destination-policy";
+import { collectionReferenceWhere, referenceSearch } from "../collections/collection-reference";
 import { createHash } from "node:crypto";
 import {
   CollectionEntryStatus,
@@ -555,13 +557,8 @@ export class CollectionWasteDestinationsService {
           }
         : {}),
 
-      ...(filters.type
-        ? { type: filters.type }
-        : filters.flow === "intermediate"
-          ? { type: { in: ["TRIAGE", "RESERVATION"] } }
-          : filters.flow === "final"
-            ? { type: { notIn: ["TRIAGE", "RESERVATION"] } }
-            : {}),
+      ...(filters.type ? { type: filters.type } : {}),
+      ...destinationFlowWhere(filters.flow),
       ...(filters.unit ? { unit: filters.unit } : {}),
 
       ...("stockItemId" in filters && filters.stockItemId
@@ -624,10 +621,12 @@ export class CollectionWasteDestinationsService {
       ...(search
         ? {
             OR: [
+              ...(referenceSearch(search) ? [{ id: { contains: referenceSearch(search), mode: "insensitive" as const } }] : []),
               {
                 collectionWasteEntry: {
                   is: {
                     OR: [
+                      { collection: { is: { OR: collectionReferenceWhere(search) } } },
                       {
                         materialNameSnapshot: {
                           contains: search,
@@ -696,7 +695,7 @@ export class CollectionWasteDestinationsService {
   private calculateEntryState(
     collectedQuantity: number,
     destinedQuantity: number,
-    lastDestinationType?: WasteDestinationType,
+    activeTypes: WasteDestinationType[] = [],
   ): WasteEntryRecalculationResult {
     const normalizedCollected = Math.max(0, normalizeNumber(collectedQuantity));
     const normalizedDestined = Math.max(
@@ -716,8 +715,13 @@ export class CollectionWasteDestinationsService {
       status = CollectionEntryStatus.PENDING_DESTINATION;
     } else if (remainingQuantity > QUANTITY_EPSILON) {
       status = CollectionEntryStatus.PARTIALLY_DESTINED;
-    } else if (lastDestinationType) {
-      status = WASTE_DESTINATION_FINAL_STATUS_MAP[lastDestinationType];
+    } else if (activeTypes.length) {
+      // Intermediate portions cannot be hidden by a more recent final destination.
+      const pendingType = [WasteDestinationType.TRIAGE, WasteDestinationType.RESERVATION, WasteDestinationType.STOCK].find(type => activeTypes.includes(type));
+      const types = new Set(activeTypes);
+      status = pendingType ? WASTE_DESTINATION_FINAL_STATUS_MAP[pendingType]
+        : types.size === 1 ? WASTE_DESTINATION_FINAL_STATUS_MAP[activeTypes[0]]
+        : CollectionEntryStatus.FULLY_DESTINED;
     } else {
       status = CollectionEntryStatus.FULLY_DESTINED;
     }
@@ -1079,10 +1083,14 @@ export class CollectionWasteDestinationsService {
 
         const newDestinedQuantity =
           normalizeNumber(entry.destinedQuantity) + destinationQuantity;
+        const activeTypes = await transaction.collectionWasteDestination.findMany({
+          where: { collectionWasteEntryId: entry.id, status: ACTIVE_DESTINATION_STATUS },
+          select: { type: true },
+        });
         const recalculatedEntry = this.calculateEntryState(
           normalizeNumber(entry.collectedQuantity),
           newDestinedQuantity,
-          data.type,
+          activeTypes.map(destination => destination.type),
         );
 
         const updatedEntry = await transaction.collectionWasteEntry.update({
@@ -1392,7 +1400,11 @@ export class CollectionWasteDestinationsService {
       const parent = await transaction.collection.findUniqueOrThrow({
         where: { id: existing.collectionWasteEntry.collectionId },
       });
-      this.assertCollectionEditable(parent, data.type || existing.type);
+      // A completed collection may still contain an intermediate material movement.
+      // Converting that movement preserves quantity and the collection's completion audit.
+      if (parent.status !== "COMPLETED" || !editableAfterCollection(existing.type)) {
+        this.assertCollectionEditable(parent, data.type || existing.type);
+      }
       if (existing.stockLotId)
         await transaction.$queryRaw`SELECT id FROM "WasteStockLot" WHERE id = ${existing.stockLotId} FOR UPDATE`;
       if (existing.status === CANCELLED_DESTINATION_STATUS) {
@@ -1613,12 +1625,10 @@ export class CollectionWasteDestinationsService {
           0,
         );
 
-        const lastActiveDestination = activeDestinations[0];
-
         const recalculatedEntry = this.calculateEntryState(
           normalizeNumber(existing.collectionWasteEntry.collectedQuantity),
           remainingDestinedQuantity,
-          lastActiveDestination?.type,
+          activeDestinations.map(destination => destination.type),
         );
 
         await transaction.collectionWasteEntry.update({
@@ -1801,12 +1811,10 @@ export class CollectionWasteDestinationsService {
         0,
       );
 
-      const lastActiveDestination = activeDestinations[0];
-
       const recalculatedEntry = this.calculateEntryState(
         normalizeNumber(destination.collectionWasteEntry.collectedQuantity),
         remainingDestinedQuantity,
-        lastActiveDestination?.type,
+        activeDestinations.map(destination => destination.type),
       );
 
       const cancelledAt = data.cancelledAt ?? new Date();

@@ -1,3 +1,4 @@
+import { collectionReferenceWhere, referenceSearch } from "../collections/collection-reference";
 import {
   CollectionEntryStatus,
   Prisma,
@@ -665,6 +666,8 @@ export class CollectionEntriesService {
       ...(search
         ? {
             OR: [
+              ...(referenceSearch(search) ? [{ id: { contains: referenceSearch(search), mode: "insensitive" as const } }] : []),
+              { collection: { is: { OR: collectionReferenceWhere(search) } } },
               {
                 materialNameSnapshot: {
                   contains: search,

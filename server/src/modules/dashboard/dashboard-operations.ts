@@ -29,7 +29,7 @@ export async function operationalOverview(id: string) {
   const entryWhere: Prisma.CollectionWasteEntryWhereInput = {
     cooperativeId: id,
     collection: {
-      status: { in: ["RECEIVED", "SORTING"] },
+      status: { in: ["RECEIVED", "SORTING", "COMPLETED"] },
       quantityReviewVersion: { gt: 0 },
     },
     OR: [
@@ -151,7 +151,7 @@ export async function operationalOverview(id: string) {
       where: {
         cooperativeId: id,
         collection: {
-          status: { in: ["RECEIVED", "SORTING"] },
+          status: { in: ["RECEIVED", "SORTING", "COMPLETED"] },
           quantityReviewVersion: { gt: 0 },
         },
         destinations: {

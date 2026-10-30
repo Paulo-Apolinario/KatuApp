@@ -84,14 +84,14 @@ try {
   child.stdout.on("data", (b) => {
     process.stdout.write(b);
     if (
-      (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1") &&
+      (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1") &&
       !uiPromise &&
       b.toString().includes("FIELD_UI_READY")
     )
       uiPromise = new Promise((resolve) => {
         const ui = spawn(
           process.execPath,
-          [process.env.GENERATOR_DOCUMENT_UI === "1" ? "tests/generator-document/browser.mjs" : process.env.RESIDENTIAL_UI === "1" ? "tests/residential/browser.mjs" : "tests/field-operations/browser.mjs"],
+          [process.env.WASTE_COMPLETION_UI === "1" ? "tests/waste-completion/browser.mjs" : process.env.GENERATOR_DOCUMENT_UI === "1" ? "tests/generator-document/browser.mjs" : process.env.RESIDENTIAL_UI === "1" ? "tests/residential/browser.mjs" : "tests/field-operations/browser.mjs"],
           { cwd: root, env: process.env, stdio: "inherit" },
         );
         ui.on("exit", (code) => {

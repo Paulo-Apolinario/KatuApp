@@ -1,3 +1,4 @@
+import { collectionReferenceWhere } from "../collections/collection-reference";
 import { Prisma, CollectionStatus, WasteUnit } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma";
@@ -174,7 +175,7 @@ export function fieldPointWhere(
   if (q.q)
     parts.push({
       OR: [
-        { id: { contains: q.q, mode: "insensitive" } },
+        ...collectionReferenceWhere(q.q),
         {
           routePoint: {
             path: ["name"],

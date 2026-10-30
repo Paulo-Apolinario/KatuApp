@@ -1913,11 +1913,11 @@ export class CollectionService {
         );
       }
 
-      this.assertTransition(
-        collection.status,
-        CollectionStatus.SORTING,
-        CollectionStatus.COMPLETED,
-      );
+      if (![CollectionStatus.RECEIVED, CollectionStatus.SORTING].some(status => status === collection.status)) {
+        throw new CollectionDomainError("A coleta precisa estar recebida e conferida ou em triagem para ser concluída.", {
+          statusCode: 409, code: "INVALID_COLLECTION_TRANSITION",
+        });
+      }
 
       if (
         collection.participants.length &&
@@ -1946,7 +1946,7 @@ export class CollectionService {
 
       if (pendingEntries.length > 0) {
         throw new CollectionDomainError(
-          "Ainda existem resíduos com saldo pendente de destinação.",
+          "Ainda existem materiais sem encaminhamento. Registre estoque, triagem, reserva ou uma destinação final para todo o saldo antes de concluir a coleta.",
           {
             statusCode: 409,
             code: "COLLECTION_HAS_PENDING_DESTINATIONS",
@@ -1961,18 +1961,6 @@ export class CollectionService {
         throw new CollectionDomainError(
           "Registre a conferência antes de concluir.",
           { statusCode: 409, code: "QUANTITY_REVIEW_REQUIRED" },
-        );
-      const reservations = await transaction.collectionWasteDestination.count({
-        where: {
-          collectionWasteEntry: { collectionId },
-          type: { in: ["RESERVATION", "TRIAGE"] },
-          status: { not: "CANCELLED" },
-        },
-      });
-      if (reservations)
-        throw new CollectionDomainError(
-          "Existem movimentações intermediárias de triagem ou reserva. Converta-as em destinação final antes de encerrar.",
-          { statusCode: 409, code: "COLLECTION_HAS_RESERVATIONS" },
         );
 
       if (

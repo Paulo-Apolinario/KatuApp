@@ -542,16 +542,22 @@ async function main() {
     const { checkGeneratorDocument } = await import("../generator-document/api");
     await checkGeneratorDocument(app, p, users, coop, pass);
   }
+  let wasteCompletion;
+  if (process.env.WASTE_COMPLETION === "1") {
+    const { checkWasteCompletion } = await import("../waste-completion/api");
+    wasteCompletion = await checkWasteCompletion(app, p, users, coop, pass);
+  }
   const tools = process.env.KATUA_VALIDATION_TOOLS || "/tmp";
   fs.writeFileSync(
     path.join(tools, "field-operations-api-results.json"),
     JSON.stringify({ passed: checks.length, checks }, null, 2),
   );
   if (process.env.RESIDENTIAL === "1") fs.writeFileSync(path.join(tools, "residential-api-results.json"), JSON.stringify({ passed: checks.length, checks }, null, 2));
-  if (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1") {
+  if (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1") {
     fs.writeFileSync(
       path.join(tools, "field-operations-fixture.json"),
       JSON.stringify({
+        wasteCompletion,
         owner: {
           id: users.owner.id,
           role: "COOPERATIVE",
