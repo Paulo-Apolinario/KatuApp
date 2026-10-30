@@ -1,3 +1,4 @@
+import { serviceOrderRoutes } from "./modules/service-orders/service-orders.routes";
 import { residentialRoutes } from "./modules/residential/residential.routes";
 import { wasteWorkspaceRoutes } from "./modules/waste-workspace/waste-workspace.routes";
 import { impactRoutes } from "./modules/impact/impact.routes";
@@ -234,6 +235,7 @@ export async function buildApp() {
   await app.register(settingsRoutes);
   await app.register(dashboardRoutes);
   await app.register(wasteWorkspaceRoutes);
+  await app.register(serviceOrderRoutes);
   await app.register(vehicleDocumentsRoutes);
   await app.register(ownerDocumentsRoutes);
   await app.register(maintenanceLogsRoutes);

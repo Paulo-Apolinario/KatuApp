@@ -10,6 +10,7 @@ const input = z.object({
   kind: z.enum(["SALE", "DONATION", "DIRECT_DESTINATION", "DISPOSAL", "RESERVE", "RELEASE", "PROCESSING"]),
   quantity: z.number().positive().max(1000000000).refine(n => Math.abs(n*1000-Math.round(n*1000))<0.000001,"Use até três casas decimais.").optional(),
   destinationName: z.string().trim().max(255).optional(), destinationDocument: z.string().trim().max(100).optional(),
+  transportDriverName:z.string().trim().max(100).optional(),transportVehiclePlate:z.string().trim().max(20).optional(),
   destinationAddress: z.string().trim().max(500).optional(), transportDocument: z.string().trim().max(255).optional(),
   environmentalDocument: z.string().trim().max(255).optional(), notes: z.string().trim().max(1500).optional(),
   movementDate: z.string().datetime({offset:true}).optional(),
@@ -62,7 +63,7 @@ export async function stockMovementRoutes(app:FastifyInstance) {
         else {if(processingStage===data.processingStage)fail('O lote já está nesta etapa de processamento.');processingStage=data.processingStage!;}
         const updated=await tx.wasteStockLot.update({where:{id:lot.id},data:{status,availableQuantity:new Prisma.Decimal(available),processingStage,version:{increment:1}}});
         const actor=await tx.user.findUnique({where:{id:r.user.sub},select:{displayName:true}});
-        const movement=await tx.wasteStockMovement.create({data:{cooperativeId,lotId:lot.id,operationId:data.operationId,operationHash,kind:data.kind,quantity:new Prisma.Decimal(outgoing.includes(data.kind)?data.quantity!:available),unit:lot.unit,destinationName:data.destinationName||null,destinationDocument:data.destinationDocument||null,destinationAddress:data.destinationAddress||null,transportDocument:data.transportDocument||null,environmentalDocument:data.environmentalDocument||null,notes:data.notes||null,movementDate:data.movementDate?new Date(data.movementDate):new Date(),actorUserId:r.user.sub,actorName:actor?.displayName,before,after:snapshot(updated)}});
+        const movement=await tx.wasteStockMovement.create({data:{cooperativeId,lotId:lot.id,operationId:data.operationId,operationHash,kind:data.kind,quantity:new Prisma.Decimal(outgoing.includes(data.kind)?data.quantity!:available),unit:lot.unit,transportDriverName:data.transportDriverName||null,transportVehiclePlate:data.transportVehiclePlate||null,destinationName:data.destinationName||null,destinationDocument:data.destinationDocument||null,destinationAddress:data.destinationAddress||null,transportDocument:data.transportDocument||null,environmentalDocument:data.environmentalDocument||null,notes:data.notes||null,movementDate:data.movementDate?new Date(data.movementDate):new Date(),actorUserId:r.user.sub,actorName:actor?.displayName,before,after:snapshot(updated)}});
         return {lot:updated,movement,replayed:false};
       });
       p.header('Cache-Control','private, no-store');return p.code(result.replayed?200:201).send({success:true,...result});

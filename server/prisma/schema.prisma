@@ -55,6 +55,8 @@ model User {
 }
 
 model Cooperative {
+  serviceOrders ServiceOrder[]
+  internalDocuments InternalDocument[]
   collectorTeams CollectorTeam[]
   routePlans RoutePlan[]
   ownerDocuments OwnerDocument[]
@@ -1622,6 +1624,8 @@ model CollectionAllocationReview {
 }
 
 model WasteStockMovement {
+  transportDriverName String?
+  transportVehiclePlate String?
   id String @id @default(cuid())
   cooperativeId String
   lotId String
@@ -1646,4 +1650,58 @@ model WasteStockMovement {
   @@unique([cooperativeId, operationId])
   @@index([lotId, createdAt, id])
   @@index([cooperativeId, movementDate])
+}
+
+
+// Internal operational evidence only; no fiscal/environmental official issuance.
+model ServiceOrder {
+  collections ServiceOrderCollection[]
+  id String @id @default(cuid())
+  cooperativeId String
+  number String @unique
+  sourceKey String
+  sourceType String
+  sourceId String
+  createdAt DateTime @default(now())
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Restrict)
+  documents InternalDocumentLink[]
+  @@unique([cooperativeId, sourceKey])
+  @@index([cooperativeId, createdAt, id])
+}
+
+model InternalDocument {
+  id String @id @default(cuid())
+  cooperativeId String
+  number String @unique
+  kind String
+  eventKey String
+  collectionId String?
+  lotId String?
+  movementId String?
+  destinationId String?
+  snapshot Json
+  createdAt DateTime @default(now())
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Restrict)
+  orders InternalDocumentLink[]
+  @@unique([cooperativeId, eventKey])
+  @@index([cooperativeId, createdAt, id])
+  @@index([cooperativeId, collectionId])
+  @@index([cooperativeId, lotId])
+}
+
+model InternalDocumentLink {
+  documentId String
+  serviceOrderId String
+  document InternalDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Restrict)
+  @@id([documentId, serviceOrderId])
+  @@index([serviceOrderId])
+}
+
+model ServiceOrderCollection {
+  serviceOrderId String
+  collectionId String
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Restrict)
+  @@id([serviceOrderId, collectionId])
+  @@index([collectionId])
 }
