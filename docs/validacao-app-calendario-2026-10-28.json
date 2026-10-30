@@ -1,0 +1,138 @@
+{
+  "date": "2026-10-28",
+  "scope": "App de catador, motorista, PF e gerador; calendário do painel. Sem alteração de telas do perfil cooperativa no App.",
+  "navigation": {
+    "source_files_scanned": 173,
+    "navigation_references": 116,
+    "unresolved_literal_targets": {}
+  },
+  "lint": {
+    "files": 159,
+    "errors": 0,
+    "warnings": 0
+  },
+  "contracts": {
+    "method": "Funções/serviços reais transpilados, armazenamento e rede controlados; sem aparelho físico.",
+    "results": [
+      {
+        "name": "Data de Fortaleza rejeita calendário impossível e conserva fuso",
+        "status": "PASS"
+      },
+      {
+        "name": "Materiais conservam litros e unidades sem inventar massa",
+        "status": "PASS"
+      },
+      {
+        "name": "PDF escreve 50 L em vez de zero kg",
+        "status": "PASS"
+      },
+      {
+        "name": "Agenda local isola contas inclusive IDs compartilhados",
+        "status": "PASS"
+      },
+      {
+        "name": "401 limpa sessão; erro de rede conserva consulta local",
+        "status": "PASS"
+      },
+      {
+        "name": "Resposta antiga de auth/me não apaga uma sessão nova",
+        "status": "PASS"
+      },
+      {
+        "name": "Cofre nativo migra token legado e remove cópia em texto",
+        "status": "PASS"
+      },
+      {
+        "name": "Origem reconhece PEV, gerador e endereço PF com faixa válida",
+        "status": "PASS"
+      },
+      {
+        "name": "Rota serializa IDs de coleta e conserva PEV e ordem recebidos",
+        "status": "PASS"
+      },
+      {
+        "name": "Saída aguarda preparação da cooperativa e distingue veículo em manutenção",
+        "status": "PASS"
+      },
+      {
+        "name": "Seleção inicial prioriza execução em andamento e programação atual do Ceará",
+        "status": "PASS"
+      }
+    ]
+  },
+  "api": {
+    "passed": 6,
+    "checks": [
+      "Execução incompleta permanece agendada e informa preparação pela cooperativa; App não atribui recursos",
+      "Catador não atribuído não inicia a execução",
+      "Cooperativa prepara a mesma execução sem criar outra rota ou coleta",
+      "Catador inicia a rota depois da preparação",
+      "Motorista atribuído acompanha a execução sem duplicidade",
+      "Encerramento continua bloqueado enquanto houver ponto pendente"
+    ]
+  },
+  "calendar_model": {
+    "passed": 7,
+    "checks": [
+      "Dia do Ceará respeita a virada UTC",
+      "Ausência de programação não é substituída por criação; data impossível é rejeitada",
+      "Rota fixa usa data programada em vez de data de criação",
+      "Coleta realizada conserva a data efetiva",
+      "Agendamento vinculado não duplica o evento",
+      "Atalho abre o registro exato com identificador codificado",
+      "Litros e unidades não se transformam em kg; toneladas são convertidas"
+    ]
+  },
+  "app_ui": {
+    "passed": 3,
+    "errors": []
+  },
+  "panel_ui": {
+    "passed": 7,
+    "failed": 0,
+    "checks": [
+      {
+        "name": "Abrir calendário no painel inicial alcança a página operacional",
+        "status": "PASS"
+      },
+      {
+        "name": "Endereço antigo do calendário também é redirecionado",
+        "status": "PASS"
+      },
+      {
+        "name": "Data programada abre todos os pontos do dia, sem duplicar agendamento vinculado",
+        "status": "PASS"
+      },
+      {
+        "name": "Evento de coleta abre os detalhes daquela coleta",
+        "status": "PASS"
+      },
+      {
+        "name": "Dia com uma solicitação abre o registro correto",
+        "status": "PASS"
+      },
+      {
+        "name": "Falha de consulta é informada; criação não vira agendamento; layout cabe no celular",
+        "status": "PASS"
+      },
+      {
+        "name": "Navegação do calendário e detalhes sem erros JavaScript",
+        "status": "PASS"
+      }
+    ]
+  },
+  "builds": {
+    "app_typescript": "passed",
+    "api_typescript": "passed",
+    "api_build": "passed",
+    "expo_web_export": "passed",
+    "panel_eslint": "passed",
+    "panel_build": "passed"
+  },
+  "limits": [
+    "Testes de navegador com transporte controlado e API em banco descartável; sem acesso à VPS",
+    "Não foi realizado ensaio em aparelho físico para GPS, câmera, economia de bateria, suspensão e retomada",
+    "A análise estática de navegação cobre destinos literais; não comprova todos os percursos possíveis",
+    "O calendário ainda usa consultas existentes sem paginação; otimização mensal no servidor permanece recomendada"
+  ]
+}

@@ -16,5 +16,6 @@ export async function vehicleRoutes(app: FastifyInstance) {
   app.post("/", vehicleController.create);
   app.get("/", vehicleController.listMine);
   app.get("/:id", vehicleController.findById);
+  app.patch("/:id", vehicleController.update);
   app.patch("/:id/status", vehicleController.updateStatus);
 }

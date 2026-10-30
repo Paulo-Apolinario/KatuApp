@@ -9,7 +9,6 @@ export type GeneratorAccessStatus =
   | "BLOCKED";
 
 export interface Generator {
-  generator: any;
   id: string;
   cooperativeId: string;
   userId?: string | null;
@@ -76,8 +75,38 @@ type FindGeneratorByIdResponse = {
   generator: Generator;
 };
 
+function sanitizeCreatePayload(data: CreateGeneratorDTO): CreateGeneratorDTO {
+  return {
+    type: data.type,
+    name: data.name.trim(),
+    companyName: data.companyName?.trim() || undefined,
+    email: data.email.trim().toLowerCase(),
+    phone: data.phone?.trim() || undefined,
+
+    zipCode: data.zipCode?.trim() || undefined,
+    street: data.street?.trim() || undefined,
+    number: data.number?.trim() || undefined,
+    neighborhood: data.neighborhood?.trim() || undefined,
+    city: data.city?.trim() || undefined,
+    state: data.state?.trim() || undefined,
+    address: data.address?.trim() || undefined,
+
+    latitude:
+      typeof data.latitude === "number" && Number.isFinite(data.latitude)
+        ? data.latitude
+        : undefined,
+    longitude:
+      typeof data.longitude === "number" && Number.isFinite(data.longitude)
+        ? data.longitude
+        : undefined,
+
+    status: data.status?.trim() || undefined,
+  };
+}
+
 async function createGenerator(data: CreateGeneratorDTO) {
-  return api.post<CreateGeneratorResponse>("/generators", data, true);
+  const payload = sanitizeCreatePayload(data);
+  return api.post<CreateGeneratorResponse>("/generators", payload, true);
 }
 
 async function listMine() {
@@ -85,7 +114,6 @@ async function listMine() {
   return response.generators ?? [];
 }
 
-// compatibilidade com telas antigas
 async function list() {
   return listMine();
 }
@@ -98,7 +126,6 @@ async function findById(id: string) {
   return response.generator;
 }
 
-// compatibilidade com telas antigas
 async function getGeneratorById(id: string) {
   return findById(id);
 }

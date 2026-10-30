@@ -1,0 +1,121 @@
+{
+  "date": "2026-10-22",
+  "method": "Serviços/componentes reais transpilados; transporte/armazenamento controlados. Não é execução em aparelho físico.",
+  "results": [
+    {
+      "id": "APP01",
+      "name": "PF envia strings a um serviço que exige objetos de material",
+      "status": "REPRODUCED",
+      "evidence": {
+        "apiCalls": 0,
+        "error": "Material inválido na posição 1."
+      }
+    },
+    {
+      "id": "APP02",
+      "name": "Sair no botão compartilhado PF apenas redireciona",
+      "status": "REPRODUCED",
+      "evidence": {
+        "action": "router.replace",
+        "sessionClearInvoked": false
+      }
+    },
+    {
+      "id": "APP03",
+      "name": "Erro 401 em auth/me mantém usuário armazenado",
+      "status": "REPRODUCED",
+      "evidence": {
+        "httpStatus": 401,
+        "cachedUserReturned": true,
+        "sessionCleared": false,
+        "note": "Não comprova acesso indevido à API; os endpoints continuam autenticados."
+      }
+    },
+    {
+      "id": "APP04",
+      "name": "Cache de agendamentos atravessa troca de conta offline",
+      "status": "REPRODUCED",
+      "evidence": {
+        "activeAccount": "account-b",
+        "returnedSchedule": "schedule-account-a",
+        "sourceAccount": "account-a"
+      }
+    },
+    {
+      "id": "APP05",
+      "name": "Tabela do PDF imprime material em LITER como zero kg",
+      "status": "REPRODUCED",
+      "evidence": {
+        "input": "50 LITER",
+        "printed": "0.0 kg"
+      }
+    },
+    {
+      "id": "APP06",
+      "name": "Data inexistente PF é normalizada para outro dia",
+      "status": "REPRODUCED",
+      "evidence": {
+        "input": "31/02/2026",
+        "acceptedDate": "03/03/2026"
+      }
+    },
+    {
+      "id": "APP07",
+      "name": "Criar rota pelo serviço do app omite collectionIds",
+      "status": "REPRODUCED",
+      "evidence": {
+        "inputCollectionIds": 1,
+        "sentCollectionIds": 0
+      }
+    },
+    {
+      "id": "APP08",
+      "name": "Botão de problema do catador chama cancelamento exclusivo da cooperativa",
+      "status": "REPRODUCED",
+      "evidence": {
+        "caller": "COLLECTOR",
+        "httpStatus": 403,
+        "code": "ONLY_COOPERATIVE_CAN_CANCEL"
+      }
+    },
+    {
+      "id": "APP09",
+      "name": "Mapa do motorista ignora coleta com origem PEV",
+      "status": "REPRODUCED",
+      "evidence": {
+        "originType": "PEV",
+        "validCoordinatesProvided": true,
+        "originReturned": null
+      }
+    },
+    {
+      "id": "APP10",
+      "name": "Percentual da cooperativa omite as etapas intermediárias",
+      "status": "REPRODUCED",
+      "evidence": {
+        "input": "100 kg RECEIVED",
+        "representedCollections": 0,
+        "missingStatuses": [
+          "COLLECTED",
+          "RECEIVED",
+          "SORTING"
+        ]
+      }
+    }
+  ],
+  "checks": {
+    "eslintAppSrc": {
+      "errors": 0,
+      "warnings": 4
+    },
+    "typescriptWholeProject": {
+      "errors": 14,
+      "appErrors": 3,
+      "legacyServerTestErrors": 11,
+      "status": "FAIL"
+    },
+    "androidJavaScriptExport": "PASS",
+    "physicalDeviceTests": "NOT_RUN",
+    "vpsAccess": false
+  }
+}

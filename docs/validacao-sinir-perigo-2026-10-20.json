@@ -1,0 +1,68 @@
+{
+  "backend": {
+    "testes": 14,
+    "aprovados": 14,
+    "ambiente": "fetch simulado, sem token real"
+  },
+  "frontend": {
+    "testes": 32,
+    "aprovados": 32
+  },
+  "integracao": {
+    "environment": "API real Fastify/Prisma + migração incremental sobre baseline PEVs + PGlite + Chromium; sem comunicação com SINIR",
+    "outcomes": [
+      {
+        "name": "Migração incremental e município/unidade persistem sem alterar dados operacionais",
+        "status": "PASS"
+      },
+      {
+        "name": "Rascunho privado e validação de payload/escopo, sem status oficial manipulável",
+        "status": "PASS"
+      },
+      {
+        "name": "Concorrência de edição rejeita sobrescrita, preserva revisão e histórico",
+        "status": "PASS"
+      },
+      {
+        "name": "SINIR: prévia local por versão, conector não configurado e isolamento das novas rotas",
+        "status": "PASS"
+      },
+      {
+        "name": "Mudança da unidade invalida revisão para envio; evidências privadas têm escopo e hash",
+        "status": "PASS"
+      },
+      {
+        "name": "Designação municipal exclusiva de administrador, compartilhamento explícito e revogável",
+        "status": "PASS"
+      },
+      {
+        "name": "Declaração municipal tem seis etapas, ano, desconhecido/zero e separação editor/revisor",
+        "status": "PASS"
+      },
+      {
+        "name": "Paginação inclui mais de 20 documentos sem mistura de tipos ou organizações",
+        "status": "PASS"
+      },
+      {
+        "name": "Resíduo (*) em volume persiste e revisão exige densidade e identificação de perigo",
+        "status": "PASS"
+      },
+      {
+        "name": "Interface real prepara e persiste rascunho sem redirecionamento ou emissão fictícia",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel SINIR: prévia, erro de conexão, seleção de catálogos simulados e grupos LR persistem",
+        "status": "PASS"
+      },
+      {
+        "name": "Gestor municipal vê apenas central autorizada; seis etapas legíveis no celular",
+        "status": "PASS"
+      },
+      {
+        "name": "Offline não apresenta lista antiga; recuperação e ausência de erro JavaScript",
+        "status": "PASS"
+      }
+    ]
+  }
+}

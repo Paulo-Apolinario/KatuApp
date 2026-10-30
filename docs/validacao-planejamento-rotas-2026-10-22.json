@@ -1,0 +1,41 @@
+{
+  "environment": "API real Fastify/Prisma + migração incremental de ordem de coletas sobre baseline anterior + PGlite + Chromium; sem serviços externos",
+  "outcomes": [
+    {
+      "name": "API: validação de data, recursos, perfil e rollback de coletas indisponíveis",
+      "status": "PASS"
+    },
+    {
+      "name": "API: concorrência não duplica vínculo nem deixa rota parcial",
+      "status": "PASS"
+    },
+    {
+      "name": "Cadastro real: seleção de gerador/PEV, unidades, conflito de agenda e salvamento",
+      "status": "PASS"
+    },
+    {
+      "name": "Edição real: ordem persistente, remoção atômica e histórico preservado",
+      "status": "PASS"
+    },
+    {
+      "name": "Operação: ações separadas, início validado e compatibilidade dos vínculos antigos",
+      "status": "PASS"
+    },
+    {
+      "name": "Falhas: recuperar opções, preservar formulário e impedir envio duplicado",
+      "status": "PASS"
+    },
+    {
+      "name": "Planejamento móvel: mapa, sequência e controles sem transbordamento",
+      "status": "PASS"
+    }
+  ],
+  "data": "2026-10-22",
+  "migration": "20261022120000_route_collection_order",
+  "api_check_build": "PASS",
+  "painel_lint_build": "PASS",
+  "contratos_e_resumo_equipe": {
+    "pass": 4
+  },
+  "tiles_externos": "bloqueados nos testes; API e persistência reais locais"
+}

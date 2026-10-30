@@ -1,0 +1,41 @@
+{
+  "environment": "API real Fastify/Prisma + migração incremental sobre baseline + PGlite local + Chromium; dados fictícios; mapa-base externo bloqueado",
+  "outcomes": [
+    {
+      "name": "Migração preserva cadastro legado, capacidade, data e sinalização de cheio",
+      "status": "PASS"
+    },
+    {
+      "name": "Cadastro com clique no mapa, múltiplos materiais, horários, veículo e foto persiste",
+      "status": "PASS"
+    },
+    {
+      "name": "Mapa filtrado mostra apenas marcadores salvos e lista conserva pontos sem coordenadas",
+      "status": "PASS"
+    },
+    {
+      "name": "Edição preserva dados e permite limpar veículo, contato, foto e coordenadas",
+      "status": "PASS"
+    },
+    {
+      "name": "Vistoria, ocorrência e resolução têm autoria, datas e persistência",
+      "status": "PASS"
+    },
+    {
+      "name": "Solicitar retirada cria coleta pendente e rejeita duplicidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Catador executa retirada, gera entradas e destina sem perder origem do PEV",
+      "status": "PASS"
+    },
+    {
+      "name": "Isolamento, validações de coordenadas, horários, status e arquivo falso",
+      "status": "PASS"
+    },
+    {
+      "name": "Inativação mantém história; página móvel, erros e reconexão",
+      "status": "PASS"
+    }
+  ]
+}

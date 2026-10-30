@@ -1,0 +1,115 @@
+{
+  "date": "2026-10-29",
+  "scope": "Padronização visual das ações do painel web",
+  "lint": "passed",
+  "productionBuild": "passed",
+  "sourceAudit": {
+    "changedJsxFiles": 22,
+    "standardizedActions": 48,
+    "preservedLinks": 82,
+    "preservedCallbacks": 151,
+    "routeAndHandlerAudit": "passed"
+  },
+  "browser": {
+    "checks": 18,
+    "results": [
+      {
+        "viewport": 1366,
+        "name": "Analisar solicitação de BiBia",
+        "href": "/collection-requests?request=qa"
+      },
+      {
+        "viewport": 1366,
+        "name": "Abrir calendário",
+        "href": "/operational-calendar"
+      },
+      {
+        "viewport": 1366,
+        "name": "Conferir coleta",
+        "href": "/waste-list?coleta=coleta-qa"
+      },
+      {
+        "viewport": 1366,
+        "name": "Acompanhar rota",
+        "href": "/waste-list?tipo=fixed&execucao=rota-qa"
+      },
+      {
+        "viewport": 1366,
+        "name": "Acompanhar coletas operacionais",
+        "href": "/waste-list"
+      },
+      {
+        "viewport": 1366,
+        "name": "Ver catadores",
+        "href": "/collector-list"
+      },
+      {
+        "viewport": 1366,
+        "name": "Cadastrar documento do veículo",
+        "href": "/create-document"
+      },
+      {
+        "viewport": 1366,
+        "name": "Registros documentais anteriores",
+        "href": "/vehicle-document-registers"
+      },
+      {
+        "viewport": 1366,
+        "name": "Manutenções",
+        "href": "/maintenance-list"
+      },
+      {
+        "viewport": 390,
+        "name": "Analisar solicitação de BiBia",
+        "href": "/collection-requests?request=qa"
+      },
+      {
+        "viewport": 390,
+        "name": "Abrir calendário",
+        "href": "/operational-calendar"
+      },
+      {
+        "viewport": 390,
+        "name": "Conferir coleta",
+        "href": "/waste-list?coleta=coleta-qa"
+      },
+      {
+        "viewport": 390,
+        "name": "Acompanhar rota",
+        "href": "/waste-list?tipo=fixed&execucao=rota-qa"
+      },
+      {
+        "viewport": 390,
+        "name": "Acompanhar coletas operacionais",
+        "href": "/waste-list"
+      },
+      {
+        "viewport": 390,
+        "name": "Ver catadores",
+        "href": "/collector-list"
+      },
+      {
+        "viewport": 390,
+        "name": "Cadastrar documento do veículo",
+        "href": "/create-document"
+      },
+      {
+        "viewport": 390,
+        "name": "Registros documentais anteriores",
+        "href": "/vehicle-document-registers"
+      },
+      {
+        "viewport": 390,
+        "name": "Manutenções",
+        "href": "/maintenance-list"
+      }
+    ],
+    "errors": []
+  },
+  "limitations": [
+    "API simulada na conferência visual",
+    "Sem teste em dispositivo físico",
+    "Sem acesso à VPS",
+    "Aviso existente de bundle Vite acima de 500 kB"
+  ]
+}

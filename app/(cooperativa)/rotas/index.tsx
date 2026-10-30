@@ -2,7 +2,6 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -13,8 +12,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { routeService, type RouteItem } from "@/src/services/routeService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
-type RouteFilter = "ALL" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+type RouteFilter =
+  "ALL" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
 export default function RotasScreen() {
   const [routes, setRoutes] = useState<RouteItem[]>([]);
@@ -22,30 +23,33 @@ export default function RotasScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<RouteFilter>("ALL");
 
+  const { notifyError, notifyInfo } = useNotification();
+
   const loadRoutes = useCallback(async () => {
     try {
       const data = await routeService.list();
       setRoutes(data);
     } catch (error) {
       console.error("Erro ao carregar rotas:", error);
-      Alert.alert("Erro", "Não foi possível carregar as rotas.");
+      notifyError("Não foi possível carregar as rotas.");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
       loadRoutes();
-    }, [loadRoutes])
+    }, [loadRoutes]),
   );
 
   const onRefresh = useCallback(() => {
+    notifyInfo("Atualizando rotas...");
     setRefreshing(true);
     loadRoutes();
-  }, [loadRoutes]);
+  }, [loadRoutes, notifyInfo]);
 
   const filteredRoutes = useMemo(() => {
     if (activeFilter === "ALL") return routes;
@@ -53,18 +57,22 @@ export default function RotasScreen() {
   }, [routes, activeFilter]);
 
   const overview = useMemo(() => {
-    const scheduled = routes.filter((item) => item.status === "SCHEDULED").length;
-    const inProgress = routes.filter((item) => item.status === "IN_PROGRESS").length;
-    const completed = routes.filter((item) => item.status === "COMPLETED").length;
-    const cancelled = routes.filter((item) => item.status === "CANCELLED").length;
+    const scheduled = routes.filter(
+      (item) => item.status === "SCHEDULED",
+    ).length;
+    const inProgress = routes.filter(
+      (item) => item.status === "IN_PROGRESS",
+    ).length;
+    const completed = routes.filter(
+      (item) => item.status === "COMPLETED",
+    ).length;
+    const cancelled = routes.filter(
+      (item) => item.status === "CANCELLED",
+    ).length;
 
     const totalCollections = routes.reduce(
       (acc, item) => acc + Number(item.stats?.totalCollections ?? 0),
-      0
-    );
-    const totalActiveCollections = routes.reduce(
-      (acc, item) => acc + Number(item.stats?.inProgressCollections ?? 0),
-      0
+      0,
     );
 
     return {
@@ -74,7 +82,6 @@ export default function RotasScreen() {
       completed,
       cancelled,
       totalCollections,
-      totalActiveCollections,
     };
   }, [routes]);
 
@@ -130,7 +137,7 @@ export default function RotasScreen() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 12, color: "#6B7280" }}>
           Carregando rotas...
         </Text>
@@ -141,11 +148,11 @@ export default function RotasScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 52,
+          paddingTop: 20,
           paddingBottom: 24,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 28,
@@ -167,7 +174,7 @@ export default function RotasScreen() {
             style={{
               color: "#FFFFFF",
               fontSize: 18,
-              fontWeight: "800",
+              fontWeight: "700",
             }}
           >
             ROTAS
@@ -182,7 +189,7 @@ export default function RotasScreen() {
           style={{
             color: "#FFFFFF",
             fontSize: 24,
-            fontWeight: "800",
+            fontWeight: "700",
             marginTop: 16,
           }}
         >
@@ -222,7 +229,7 @@ export default function RotasScreen() {
           <Text
             style={{
               fontSize: 16,
-              fontWeight: "800",
+              fontWeight: "700",
               color: "#111827",
               marginBottom: 14,
             }}
@@ -283,7 +290,7 @@ export default function RotasScreen() {
             onPress={() => router.push("/(cooperativa)/rotas/novo")}
             style={{
               flex: 1,
-              backgroundColor: "#028C56",
+              backgroundColor: "#047857",
               borderRadius: 16,
               paddingVertical: 14,
               alignItems: "center",
@@ -295,7 +302,7 @@ export default function RotasScreen() {
             <Text
               style={{
                 color: "#FFFFFF",
-                fontWeight: "800",
+                fontWeight: "700",
                 marginLeft: 8,
               }}
             >
@@ -378,6 +385,7 @@ export default function RotasScreen() {
             >
               Nenhuma rota encontrada
             </Text>
+
             <Text
               style={{
                 marginTop: 6,
@@ -417,7 +425,7 @@ export default function RotasScreen() {
                   <Text
                     style={{
                       fontSize: 17,
-                      fontWeight: "800",
+                      fontWeight: "700",
                       color: "#111827",
                     }}
                   >
@@ -431,7 +439,8 @@ export default function RotasScreen() {
                       fontSize: 13,
                     }}
                   >
-                    {item.description?.trim() || "Rota operacional da cooperativa"}
+                    {item.description?.trim() ||
+                      "Rota operacional da cooperativa"}
                   </Text>
                 </View>
 
@@ -447,7 +456,7 @@ export default function RotasScreen() {
                     style={{
                       color: "#FFFFFF",
                       fontSize: 10,
-                      fontWeight: "800",
+                      fontWeight: "700",
                     }}
                   >
                     {getStatusLabel(item.status)}
@@ -475,7 +484,9 @@ export default function RotasScreen() {
                   icon="car-outline"
                   label={
                     item.vehicle?.model
-                      ? `${item.vehicle.model}${item.vehicle?.plate ? ` - ${item.vehicle.plate}` : ""}`
+                      ? `${item.vehicle.model}${
+                          item.vehicle?.plate ? ` - ${item.vehicle.plate}` : ""
+                        }`
                       : "Veículo não definido"
                   }
                 />
@@ -526,8 +537,8 @@ export default function RotasScreen() {
                     color="#10B981"
                   />
                   <MiniStat
-                    label="Concluídas"
-                    value={String(item.stats?.completedCollections ?? 0)}
+                    label="Finalizadas em campo"
+                    value={String(item.stats?.fieldCompletedCollections ?? 0)}
                     color="#2563EB"
                   />
                   <MiniStat
@@ -561,11 +572,7 @@ export default function RotasScreen() {
                   Toque para gerenciar a operação
                 </Text>
 
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color="#9CA3AF"
-                />
+                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
               </View>
             </TouchableOpacity>
           ))
@@ -606,11 +613,12 @@ function MetricCard({
       >
         {label}
       </Text>
+
       <Text
         style={{
           marginTop: 6,
           fontSize: 20,
-          fontWeight: "800",
+          fontWeight: "700",
           color,
         }}
       >
@@ -645,11 +653,12 @@ function MiniStat({
       >
         {label}
       </Text>
+
       <Text
         style={{
           marginTop: 4,
           fontSize: 16,
-          fontWeight: "800",
+          fontWeight: "700",
           color,
         }}
       >
@@ -679,6 +688,7 @@ function InfoPill({
       }}
     >
       <Ionicons name={icon} size={14} color="#4B5563" />
+
       <Text
         style={{
           marginLeft: 6,
@@ -706,12 +716,12 @@ function FilterChip({
     <TouchableOpacity
       onPress={onPress}
       style={{
-        backgroundColor: active ? "#028C56" : "#FFFFFF",
+        backgroundColor: active ? "#047857" : "#FFFFFF",
         borderRadius: 999,
         paddingHorizontal: 14,
         paddingVertical: 10,
         borderWidth: 1,
-        borderColor: active ? "#028C56" : "#E5E7EB",
+        borderColor: active ? "#047857" : "#E5E7EB",
       }}
     >
       <Text

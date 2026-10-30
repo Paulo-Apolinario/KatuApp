@@ -7,7 +7,8 @@ module.exports = function withAndroidCleartextTraffic(config) {
 
     if (app) {
       app.$ = app.$ || {};
-      app.$["android:usesCleartextTraffic"] = "true";
+      app.$["android:usesCleartextTraffic"] =
+        process.env.KATUA_ALLOW_HTTP === "1" ? "true" : "false";
     }
 
     return config;

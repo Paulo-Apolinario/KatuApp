@@ -1,0 +1,170 @@
+{
+  "dateLocal": "2026-10-26T22:33:00.361346-03:00",
+  "repository": "Paulo-Apolinario/KatuApp",
+  "branch": "main",
+  "totalPassed": 57,
+  "driverMapRules": {
+    "passed": 9,
+    "command": "node --import tsx --test tests/driver-map/model.test.ts"
+  },
+  "driverMapBrowser": {
+    "passed": 13,
+    "failed": 0,
+    "checks": [
+      {
+        "name": "Mapa inicia na rota em andamento e não mistura coletas de outras rotas",
+        "status": "PASS"
+      },
+      {
+        "name": "Números oficiais 2 e 3 preservados; PEV mantém símbolo e partida/chegada reais",
+        "status": "PASS"
+      },
+      {
+        "name": "Precisão de 275 m fica em aviso e círculo; mapa não inventa linha viária",
+        "status": "PASS"
+      },
+      {
+        "name": "Atendidas podem ser exibidas sem renumerar pendências; canceladas ficam fora",
+        "status": "PASS"
+      },
+      {
+        "name": "Coletas sem rota aparecem em visão própria, sem número ou percurso fictício",
+        "status": "PASS"
+      },
+      {
+        "name": "Troca de rota usa apenas seus pontos e recalcula próxima visita",
+        "status": "PASS"
+      },
+      {
+        "name": "Ponto sem coordenadas continua como próximo e a navegação fica bloqueada",
+        "status": "PASS"
+      },
+      {
+        "name": "GPS e sede coincidentes continuam acessíveis e selecionáveis",
+        "status": "PASS"
+      },
+      {
+        "name": "Atualização do GPS não recentraliza o mapa sobre uma visita selecionada",
+        "status": "PASS"
+      },
+      {
+        "name": "Mapa e ações cabem em 390 px sem corte horizontal",
+        "status": "PASS"
+      },
+      {
+        "name": "Catador acessa Solicitações de PEV pelo mapa, separado da nova O.C.",
+        "status": "PASS"
+      },
+      {
+        "name": "Link do calendário abre a rota e a coleta solicitadas",
+        "status": "PASS"
+      },
+      {
+        "name": "Telas não geram erros de JavaScript ou alterações operacionais",
+        "status": "PASS"
+      }
+    ]
+  },
+  "pevRegressionApi": {
+    "passed": 24,
+    "checks": [
+      "PF vê somente PEVs públicos localizados, sem contatos ou notas internas",
+      "Catador também vê pontos privados da própria cooperativa",
+      "Motorista não assume permissão de solicitante",
+      "PF não pode relatar ponto privado ou sem localização",
+      "Fotos inválidas e cooperativa forjada são rejeitadas",
+      "Relato com foto vai à cooperativa do PEV, sinaliza retirada e não cria peso ou estoque",
+      "Reenvio idêntico é idempotente e protocolo com outro conteúdo é bloqueado",
+      "Fotos e detalhes isolados por solicitante e cooperativa responsável",
+      "PF e outra cooperativa não executam a retirada",
+      "Resposta da cooperativa é idempotente e PF não altera o atendimento",
+      "Controle de versão bloqueia sobrescrita de atualização concorrente",
+      "Encaminhamento vincula todos os relatos abertos do mesmo PEV à única coleta",
+      "Catador abre retirada sem rota; repetição não duplica coleta",
+      "Novos relatos se vinculam à retirada já ativa sem gerar coleta duplicada",
+      "Catador pode informar PEV público de outra cooperativa, mas não assumir sua coleta",
+      "Catador da cooperativa complementa relato de PF com fotos",
+      "Retirada segue o fluxo de campo e registra material somente na conclusão",
+      "PF acompanha recebimento e recebe notificações das etapas; cooperativa recebe o relato",
+      "Encerramento impede nova retirada pelo mesmo protocolo e preserva coleta e estoque",
+      "Catador em rota pode abrir retirada avulsa na própria cooperativa",
+      "Retirada cancelada pode ser reencaminhada sem perder o histórico nem duplicar coleta ativa",
+      "Publicação no App exige modalidade pública compatível e localização salva",
+      "Conta desativada perde acesso imediatamente",
+      "Listagem não transfere fotos; histórico de evidências tem paginação"
+    ]
+  },
+  "pevRegressionBrowser": {
+    "passed": 11,
+    "failed": 0,
+    "checks": [
+      {
+        "name": "PF encontra PEVs públicos no celular com marcador próprio",
+        "status": "PASS"
+      },
+      {
+        "name": "PF envia pedido com foto e confirmação da cooperativa",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel exibe relato, foto e catadores reais",
+        "status": "PASS"
+      },
+      {
+        "name": "Cooperativa delega retirada e responde pela tela",
+        "status": "PASS"
+      },
+      {
+        "name": "Aviso no sino do PF abre o protocolo correto",
+        "status": "PASS"
+      },
+      {
+        "name": "Catador abre coleta pelo protocolo sem duplicar retirada",
+        "status": "PASS"
+      },
+      {
+        "name": "Rascunho offline permanece ao recarregar",
+        "status": "PASS"
+      },
+      {
+        "name": "Motorista tem marcador de veículo na posição do GPS",
+        "status": "PASS"
+      },
+      {
+        "name": "Catador tem símbolo de pessoa e pontos PEV usam ícone próprio",
+        "status": "PASS"
+      },
+      {
+        "name": "Protocolo cabe em celular de 320 px",
+        "status": "PASS"
+      },
+      {
+        "name": "Cadastro do PEV permite habilitar publicação no App",
+        "status": "PASS"
+      }
+    ]
+  },
+  "quality": {
+    "appTypescript": "PASS",
+    "targetedEslint": "PASS",
+    "expoWebExport": "PASS",
+    "gitDiffCheck": "PASS"
+  },
+  "testEnvironment": {
+    "driver": "Real exported Expo web App in Chromium; controlled API responses, simulated GPS at 275m accuracy and controlled tiles",
+    "pev": "Real Fastify/Prisma API with disposable PGlite database and real Vite panel/Expo App, simulated GPS/tiles",
+    "vpsAccess": false
+  },
+  "scope": {
+    "databaseMigration": false,
+    "backendApiChange": false,
+    "panelChange": false,
+    "webAppExportRequired": true
+  },
+  "limitations": [
+    "Android/iOS physical device tests remain pending",
+    "Location tests use simulated coordinates and do not certify real GPS accuracy",
+    "No internal turn-by-turn navigation or persistent road geometry introduced",
+    "Dense coincident markers are selected through the list; graphical expansion remains in backlog"
+  ]
+}

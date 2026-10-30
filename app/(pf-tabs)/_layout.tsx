@@ -1,3 +1,4 @@
+import { useBottomTabOptions } from "@/src/hooks/useBottomTabOptions";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { View } from "react-native";
@@ -5,27 +6,15 @@ import LogoutButton from "@/src/components/LogoutButton.tsx";
 import ProtectedRoute from "@/src/components/ProtectedRoute";
 
 export default function PFLayout() {
+  const bottomTabOptions = useBottomTabOptions();
   return (
     <ProtectedRoute allowedUserTypes={["PF"]}>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: "#028C56",
-          tabBarInactiveTintColor: "#9CA3AF",
-          tabBarStyle: {
-            backgroundColor: "#FFFFFF",
-            borderTopWidth: 1,
-            borderTopColor: "#E5E7EB",
-            paddingBottom: 5,
-            paddingTop: 5,
-            height: 60,
-          },
-          tabBarLabelStyle: {
-            fontSize: 11,
-            fontWeight: "500",
-          },
-          headerShown: true,
+          ...bottomTabOptions,
+          headerShown: false,
           headerStyle: {
-            backgroundColor: "#028C56",
+            backgroundColor: "#047857",
           },
           headerTintColor: "#FFFFFF",
           headerTitleStyle: {
@@ -39,7 +28,7 @@ export default function PFLayout() {
         }}
       >
         <Tabs.Screen
-          name="home"
+          name="residential-home"
           options={{
             title: "Início",
             tabBarIcon: ({ color }) => (
@@ -49,9 +38,9 @@ export default function PFLayout() {
         />
 
         <Tabs.Screen
-          name="schedule"
+          name="residential-request"
           options={{
-            title: "Agendar",
+            title: "Solicitar",
             tabBarIcon: ({ color }) => (
               <Ionicons name="calendar-outline" size={24} color={color} />
             ),
@@ -59,9 +48,10 @@ export default function PFLayout() {
         />
 
         <Tabs.Screen
-          name="history"
+          name="residential-history"
           options={{
-            title: "Histórico",
+            title: "Minhas coletas",
+            tabBarLabel: "Coletas",
             tabBarIcon: ({ color }) => (
               <Ionicons name="time-outline" size={24} color={color} />
             ),
@@ -69,9 +59,10 @@ export default function PFLayout() {
         />
 
         <Tabs.Screen
-          name="ranking"
+          name="residential-participation"
           options={{
-            title: "Ranking",
+            title: "Participação",
+            tabBarLabel: "Evolução",
             tabBarIcon: ({ color }) => (
               <Ionicons name="trophy-outline" size={24} color={color} />
             ),
@@ -79,7 +70,7 @@ export default function PFLayout() {
         />
 
         <Tabs.Screen
-          name="profile"
+          name="residential-profile"
           options={{
             title: "Perfil",
             tabBarIcon: ({ color }) => (
@@ -96,7 +87,7 @@ export default function PFLayout() {
         />
 
         <Tabs.Screen
-          name="calculator"
+          name="residential-planner"
           options={{
             href: null,
           }}
@@ -122,6 +113,15 @@ export default function PFLayout() {
             href: null,
           }}
         />
+        <Tabs.Screen name="request-details" options={{href:null,title:"Acompanhar coleta"}} />
+        <Tabs.Screen name="residential-pevs" options={{href:null,title:"Solicitações de PEV"}} />
+        <Tabs.Screen name="home" options={{ href: null }} />
+        <Tabs.Screen name="schedule" options={{ href: null }} />
+        <Tabs.Screen name="history" options={{ href: null }} />
+        <Tabs.Screen name="ranking" options={{ href: null }} />
+        <Tabs.Screen name="profile" options={{ href: null }} />
+        <Tabs.Screen name="calculator" options={{ href: null }} />
+        <Tabs.Screen name="pevs-publicos" options={{ href: null }} />
       </Tabs>
     </ProtectedRoute>
   );

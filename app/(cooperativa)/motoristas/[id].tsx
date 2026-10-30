@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   driverService,
@@ -20,6 +20,7 @@ import {
 export default function MotoristaDetalheScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const driverId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { notifyError, notifySuccess } = useNotification();
 
   const [motorista, setMotorista] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,16 +44,15 @@ export default function MotoristaDetalheScreen() {
       setMotorista(data);
     } catch (error) {
       console.error("Erro ao carregar motorista:", error);
-      Alert.alert("Erro", "Não foi possível carregar o motorista.", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/motoristas"),
-        },
-      ]);
+      notifyError({
+        message: "Não foi possível carregar o motorista.",
+        title: "Erro",
+      });
+      router.replace("/(cooperativa)/motoristas");
     } finally {
       setLoading(false);
     }
-  }, [driverId]);
+  }, [driverId, notifyError]);
 
   useEffect(() => {
     loadMotorista();
@@ -65,40 +65,46 @@ export default function MotoristaDetalheScreen() {
       setSavingStatus(true);
       const updated = await driverService.updateStatus(driverId, status);
       setMotorista(updated);
-      Alert.alert("Sucesso", "Status do motorista atualizado com sucesso.");
+      notifySuccess({
+        message: "Status do motorista atualizado com sucesso.",
+        title: "Sucesso",
+      });
     } catch (error) {
       console.error("Erro ao atualizar status do motorista:", error);
-      Alert.alert("Erro", "Não foi possível atualizar o status do motorista.");
+      notifyError({
+        message: "Não foi possível atualizar o status do motorista.",
+        title: "Erro",
+      });
     } finally {
       setSavingStatus(false);
     }
   }
 
   const getStatusColor = (status?: string) => {
-  switch (status) {
-    case "AVAILABLE":
-      return "#10B981";
-    case "ON_ROUTE":
-      return "#F59E0B";
-    case "INACTIVE":
-      return "#6B7280";
-    default:
-      return "#6B7280";
-  }
-};
+    switch (status) {
+      case "AVAILABLE":
+        return "#10B981";
+      case "ON_ROUTE":
+        return "#F59E0B";
+      case "INACTIVE":
+        return "#6B7280";
+      default:
+        return "#6B7280";
+    }
+  };
 
-const getStatusText = (status?: string) => {
-  switch (status) {
-    case "AVAILABLE":
-      return "DISPONÍVEL";
-    case "ON_ROUTE":
-      return "EM ROTA";
-    case "INACTIVE":
-      return "INATIVO";
-    default:
-      return "NÃO DEFINIDO";
-  }
-};
+  const getStatusText = (status?: string) => {
+    switch (status) {
+      case "AVAILABLE":
+        return "DISPONÍVEL";
+      case "ON_ROUTE":
+        return "EM ROTA";
+      case "INACTIVE":
+        return "INATIVO";
+      default:
+        return "NÃO DEFINIDO";
+    }
+  };
 
   if (loading) {
     return (
@@ -110,7 +116,7 @@ const getStatusText = (status?: string) => {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando motorista...
         </Text>
@@ -147,10 +153,10 @@ const getStatusText = (status?: string) => {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={{ paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20 }}
+        style={{ paddingTop: 20, paddingBottom: 20, paddingHorizontal: 20 }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <TouchableOpacity
@@ -166,7 +172,10 @@ const getStatusText = (status?: string) => {
         </View>
       </LinearGradient>
 
-      <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1, padding: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View
           style={{
             backgroundColor: "#F9FAFB",
@@ -186,7 +195,9 @@ const getStatusText = (status?: string) => {
             }}
           >
             <View style={{ flex: 1, paddingRight: 10 }}>
-              <Text style={{ fontSize: 20, fontWeight: "800", color: "#111827" }}>
+              <Text
+                style={{ fontSize: 20, fontWeight: "700", color: "#111827" }}
+              >
                 {motorista.name}
               </Text>
             </View>
@@ -199,22 +210,24 @@ const getStatusText = (status?: string) => {
                 borderRadius: 14,
               }}
             >
-              <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}>
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}
+              >
                 {getStatusText(motorista.status)}
               </Text>
             </View>
           </View>
           <View style={{ marginBottom: 10 }}>
-              <Text style={{ fontSize: 13, color: "#028C56", marginBottom: 4 }}>
-                   Email
-                </Text>
-                 <Text style={{ fontSize: 16, color: "#111827" }}>
-                  {motorista.email}
-              </Text>
-           </View>
+            <Text style={{ fontSize: 13, color: "#047857", marginBottom: 4 }}>
+              Email
+            </Text>
+            <Text style={{ fontSize: 16, color: "#111827" }}>
+              {motorista.email}
+            </Text>
+          </View>
 
           <View style={{ marginBottom: 10 }}>
-            <Text style={{ fontSize: 13, color: "#028C56", marginBottom: 4 }}>
+            <Text style={{ fontSize: 13, color: "#047857", marginBottom: 4 }}>
               CPF
             </Text>
             <Text style={{ fontSize: 16, color: "#111827" }}>
@@ -223,7 +236,7 @@ const getStatusText = (status?: string) => {
           </View>
 
           <View style={{ marginBottom: 10 }}>
-            <Text style={{ fontSize: 13, color: "#028C56", marginBottom: 4 }}>
+            <Text style={{ fontSize: 13, color: "#047857", marginBottom: 4 }}>
               Telefone
             </Text>
             <Text style={{ fontSize: 16, color: "#111827" }}>
@@ -232,7 +245,7 @@ const getStatusText = (status?: string) => {
           </View>
 
           <View style={{ marginBottom: 10 }}>
-            <Text style={{ fontSize: 13, color: "#028C56", marginBottom: 4 }}>
+            <Text style={{ fontSize: 13, color: "#047857", marginBottom: 4 }}>
               CNH
             </Text>
             <Text style={{ fontSize: 16, color: "#111827" }}>
@@ -241,7 +254,7 @@ const getStatusText = (status?: string) => {
           </View>
 
           <View style={{ marginBottom: 10 }}>
-            <Text style={{ fontSize: 13, color: "#028C56", marginBottom: 4 }}>
+            <Text style={{ fontSize: 13, color: "#047857", marginBottom: 4 }}>
               Categoria da CNH
             </Text>
             <Text style={{ fontSize: 16, color: "#111827" }}>
@@ -250,7 +263,7 @@ const getStatusText = (status?: string) => {
           </View>
 
           <View>
-            <Text style={{ fontSize: 13, color: "#028C56", marginBottom: 4 }}>
+            <Text style={{ fontSize: 13, color: "#047857", marginBottom: 4 }}>
               Observações
             </Text>
             <Text style={{ fontSize: 16, color: "#111827" }}>
@@ -260,49 +273,55 @@ const getStatusText = (status?: string) => {
         </View>
 
         <View style={{ marginBottom: 30 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 10 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 10 }}>
             Alterar status
           </Text>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-  {[
-    { label: "Disponível", value: "AVAILABLE" },
-    { label: "Em rota", value: "ON_ROUTE" },
-    { label: "Inativo", value: "INACTIVE" },
-  ].map((item) => {
-    const selected = motorista.status === item.value;
+            {[
+              { label: "Disponível", value: "AVAILABLE" },
+              { label: "Em rota", value: "ON_ROUTE" },
+              { label: "Inativo", value: "INACTIVE" },
+            ].map((item) => {
+              const selected = motorista.status === item.value;
 
-    return (
-      <TouchableOpacity
-        key={item.value}
-        onPress={() => handleChangeStatus(item.value as DriverStatus)}
-        disabled={savingStatus}
-        style={{
-          backgroundColor: selected ? "#028C56" : "#F3F4F6",
-          paddingHorizontal: 14,
-          paddingVertical: 8,
-          borderRadius: 20,
-          marginRight: 10,
-          marginBottom: 10,
-          opacity: savingStatus ? 0.7 : 1,
-        }}
-      >
-        <Text
-          style={{
-            color: selected ? "#FFFFFF" : "#4B5563",
-            fontWeight: "600",
-          }}
-        >
-          {item.label}
-        </Text>
-      </TouchableOpacity>
-    );
-  })}
-</View>
+              return (
+                <TouchableOpacity
+                  key={item.value}
+                  onPress={() => handleChangeStatus(item.value as DriverStatus)}
+                  disabled={savingStatus}
+                  style={{
+                    backgroundColor: selected ? "#047857" : "#F3F4F6",
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    marginRight: 10,
+                    marginBottom: 10,
+                    opacity: savingStatus ? 0.7 : 1,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: selected ? "#FFFFFF" : "#4B5563",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
           {savingStatus && (
-            <View style={{ marginTop: 8, flexDirection: "row", alignItems: "center" }}>
-              <ActivityIndicator size="small" color="#028C56" />
+            <View
+              style={{
+                marginTop: 8,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <ActivityIndicator size="small" color="#047857" />
               <Text style={{ marginLeft: 8, color: "#6B7280" }}>
                 Atualizando status...
               </Text>

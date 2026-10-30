@@ -1,0 +1,200 @@
+{
+  "date": "2026-10-28",
+  "environment": "Local, banco PostgreSQL descartável em memória; sem acesso à VPS",
+  "suites": {
+    "api": {
+      "checks": [
+        {
+          "name": "Dois relatos de uma retirada ativa compartilham a coleta"
+        },
+        {
+          "name": "Nova retirada do mesmo PEV tem coleta distinta mesmo aguardando recebimento anterior"
+        },
+        {
+          "name": "Mesmo dia: entradas separadas de 40 e 30 kg"
+        },
+        {
+          "name": "Reenvio da conclusão com mesmo identificador não duplica entradas"
+        },
+        {
+          "name": "Triagem e movimentações bloqueadas antes da conferência"
+        },
+        {
+          "name": "Conferência repetida sem mudança não duplica histórico nem avisos"
+        },
+        {
+          "name": "Classificação inline é vinculada à entrada, reutiliza material e não cria estoque"
+        },
+        {
+          "name": "Reenvio idêntico de destinação parcial devolve a mesma movimentação e lote"
+        },
+        {
+          "name": "Identificador reutilizado com conteúdo diferente e operação sem identificação são rejeitados"
+        },
+        {
+          "name": "Edição tem controle de versão e reenvio não duplica auditoria"
+        },
+        {
+          "name": "Cancelamento repetido preserva um evento e devolve o saldo uma única vez"
+        },
+        {
+          "name": "Nova destinação parcial intencional com outro identificador permanece permitida"
+        },
+        {
+          "name": "Estoque atual e cancelamentos separados, sem download dos lotes na lista"
+        },
+        {
+          "name": "Triagem intermediária bloqueia encerramento e continua visível mesmo com saldo zero"
+        },
+        {
+          "name": "Conversão de triagem em estoque libera encerramento sem duplicar entradas"
+        },
+        {
+          "name": "Painel inclui agendamentos, OCs e PEVs sem contar relatos do mesmo PEV como duas retiradas"
+        },
+        {
+          "name": "Lista agrupada e paginação no servidor preservam coletas separadas"
+        },
+        {
+          "name": "Isolamento entre cooperativas e restrição de perfis em consultas e detalhes"
+        },
+        {
+          "name": "Consulta de lotes carrega apenas a página solicitada e mantém total correto"
+        },
+        {
+          "name": "Lista de coletas usa paginação real e não baixa conferências na listagem"
+        },
+        {
+          "name": "Data inexistente é rejeitada sem consulta de período incorreto"
+        },
+        {
+          "name": "Nomes equivalentes com espaços duplicados são barrados no banco"
+        },
+        {
+          "name": "Conferência corrige total do gerador mesmo sem catador vinculado"
+        }
+      ],
+      "passed": 23
+    },
+    "interface": {
+      "passed": 10,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "Painel inclui PEVs e OCs e permite abrir detalhes de atendimento e campo",
+          "status": "PASS"
+        },
+        {
+          "name": "Resíduos organizados por coleta e materiais expansíveis, com quatro áreas de navegação",
+          "status": "PASS"
+        },
+        {
+          "name": "Conferência salva vira resumo; correção só aparece ao solicitar",
+          "status": "PASS"
+        },
+        {
+          "name": "Cadastro inline seleciona material e destinação cria um único lote",
+          "status": "PASS"
+        },
+        {
+          "name": "Auditoria é consultada sob demanda e edição mantém controle de versão",
+          "status": "PASS"
+        },
+        {
+          "name": "Material ausente pode ser cadastrado ao editar uma triagem para estoque, preservando litros",
+          "status": "PASS"
+        },
+        {
+          "name": "Estoque carrega lotes por página e mantém cancelamentos em histórico",
+          "status": "PASS"
+        },
+        {
+          "name": "Catálogo permite editar no endereço correto e cadastrar sem criar estoque",
+          "status": "PASS"
+        },
+        {
+          "name": "Layout mobile mantém conteúdo e conferência acessíveis sem transbordamento",
+          "status": "PASS"
+        },
+        {
+          "name": "Nenhum erro JavaScript durante a navegação operacional",
+          "status": "PASS"
+        }
+      ]
+    },
+    "migration": {
+      "passed": 3,
+      "checks": [
+        "Migração preserva destinação, quantidades, lote e auditoria existentes; versão inicial 1 sem inventar identificador de operação",
+        "Nomes duplicados históricos permanecem sem exclusão ou fusão automática; nomes inequívocos recebem normalização",
+        "Índice único impede novo nome normalizado repetido na mesma cooperativa"
+      ]
+    },
+    "teams": {
+      "passed": 11,
+      "checks": [
+        "Cadastro de equipe exige 2 a 30 catadores ativos e isola as cooperativas",
+        "Rota da equipe cria uma coleta única com três participantes e acesso compartilhado",
+        "Etapa de campo não multiplica material nem credita o peso completo a cada catador",
+        "Pesagem 50→40 preserva original; divisão exata com três casas atualiza parcelas e notifica todos",
+        "Alterar pesagem invalida parcelas; versões antigas são recusadas e histórico é preservado",
+        "Editar cadastro de equipe não altera participantes nem créditos de uma coleta já registrada",
+        "Impacto inclui etapas realizadas do vínculo; fatores ausentes não viram zero ou reciclagem comprovada",
+        "Coleta avulsa aceita e remove equipe antes da saída, com controle de versão",
+        "Rota fixa gera execuções com equipe e participantes registrados em cada coleta",
+        "Relatório de catadores incorpora parcelas sem multiplicar a produção",
+        "Publicação da PEV não concede acesso operacional a cooperativas e catadores alheios"
+      ]
+    },
+    "pev": {
+      "passed": 24,
+      "checks": [
+        "PF vê somente PEVs públicos localizados, sem contatos ou notas internas",
+        "Catador também vê pontos privados da própria cooperativa",
+        "Motorista não assume permissão de solicitante",
+        "PF não pode relatar ponto privado ou sem localização",
+        "Fotos inválidas e cooperativa forjada são rejeitadas",
+        "Relato com foto vai à cooperativa do PEV, sinaliza retirada e não cria peso ou estoque",
+        "Reenvio idêntico é idempotente e protocolo com outro conteúdo é bloqueado",
+        "Fotos e detalhes isolados por solicitante e cooperativa responsável",
+        "PF e outra cooperativa não executam a retirada",
+        "Resposta da cooperativa é idempotente e PF não altera o atendimento",
+        "Controle de versão bloqueia sobrescrita de atualização concorrente",
+        "Encaminhamento vincula todos os relatos abertos do mesmo PEV à única coleta",
+        "Catador abre retirada sem rota; repetição não duplica coleta",
+        "Novos relatos se vinculam à retirada já ativa sem gerar coleta duplicada",
+        "PEV público permanece oculto para outra cooperativa e seus catadores, inclusive por ID direto",
+        "Catador da cooperativa complementa relato de PF com fotos",
+        "Retirada segue o fluxo de campo e registra material somente na conclusão",
+        "PF acompanha recebimento e recebe notificações das etapas; cooperativa recebe o relato",
+        "Encerramento impede nova retirada pelo mesmo protocolo e preserva coleta e estoque",
+        "Catador em rota pode abrir retirada avulsa na própria cooperativa",
+        "Retirada cancelada pode ser reencaminhada sem perder o histórico nem duplicar coleta ativa",
+        "Publicação no App exige modalidade pública compatível e localização salva",
+        "Conta desativada perde acesso imediatamente",
+        "Listagem não transfere fotos; histórico de evidências tem paginação"
+      ]
+    },
+    "impact": {
+      "passed": 11,
+      "checks": [
+        "Painel mensal inclui geradores, PEVs, PF e equipe uma única vez; exclui canceladas e peso previsto",
+        "Catador mantém impacto das coletas em equipe mesmo antes do rateio; gerador vê somente seu histórico",
+        "Filtros mensais permanecem isolados por vínculo e perfil",
+        "Os quatro indicadores usam os mesmos fatores no painel, gerador e catador com cobertura explícita",
+        "Conferência recalcula o mês original, preservando entrada única e produção separada",
+        "Histórico permite anos anteriores e rejeita períodos inválidos",
+        "Resumo automático acumula todos os anos, com referência anterior do App e sem histórico mensal exposto",
+        "Sem configuração, gerador e catador recebem estimativas numéricas; produção individual não é alterada",
+        "Solicitações são deduplicadas quando uma O.C. tem agendamento de origem ou coleta vinculada",
+        "Resumo acumulado e filtro por gerador respeitam vínculos e papéis",
+        "Leitura paginada inclui mais de quinhentas coletas sem truncar o acumulado ou misturar cooperativas"
+      ]
+    }
+  },
+  "limits": [
+    "Sem ensaio em aparelho físico",
+    "Aviso preexistente de bundle do painel acima de 500 kB; build concluído",
+    "CSV das novas listagens exporta a página atual"
+  ]
+}

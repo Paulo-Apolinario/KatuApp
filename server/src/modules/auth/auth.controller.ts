@@ -1,3 +1,7 @@
+import { createReadStream } from "node:fs";
+import { avatarPath, discardAvatar, profileInput } from "./profile-avatar";
+import { requestAuthEmail, consumeLoginLink } from "./auth-email.service";
+import { requestLoginLinkSchema, consumeLoginLinkSchema } from "./auth.schemas";
 import { FastifyReply, FastifyRequest } from "fastify";
 
 import { AuthService } from "./auth.service";
@@ -17,6 +21,9 @@ function serializeUser(user: any) {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
+    avatarUrl: user.avatarFile
+      ? `/auth/profile/avatar?v=${encodeURIComponent(user.avatarFile)}`
+      : null,
     role: user.role,
     accountStatus: user.accountStatus,
     isActive: user.isActive,
@@ -33,6 +40,55 @@ function serializeUser(user: any) {
 }
 
 export class AuthController {
+  async requestLoginLink(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = requestLoginLinkSchema.safeParse(request.body);
+    if (!parsed.success)
+      return reply
+        .code(400)
+        .send({ success: false, error: "Informe um e-mail e perfil válidos." });
+    try {
+      return reply.send({
+        success: true,
+        ...(await requestAuthEmail(parsed.data, "LOGIN")),
+      });
+    } catch {
+      return reply
+        .code(503)
+        .send({
+          success: false,
+          error:
+            "Envio de e-mail indisponível. Tente novamente mais tarde ou contate o suporte.",
+        });
+    }
+  }
+
+  async consumeLoginLink(request: FastifyRequest, reply: FastifyReply) {
+    reply.header("Cache-Control", "no-store");
+    const parsed = consumeLoginLinkSchema.safeParse(request.body);
+    if (!parsed.success)
+      return reply
+        .code(400)
+        .send({ success: false, error: "Link inválido ou expirado." });
+    try {
+      const user = await consumeLoginLink(parsed.data);
+      const token = await reply.jwtSign({
+        sub: user.id,
+        role: user.role,
+        email: user.email,
+        authVersion: user.authVersion,
+      });
+      return reply.send({ success: true, token, user: serializeUser(user) });
+    } catch {
+      return reply
+        .code(400)
+        .send({
+          success: false,
+          error:
+            "Link inválido, expirado ou já utilizado. Solicite outro acesso.",
+        });
+    }
+  }
+
   async registerPf(request: FastifyRequest, reply: FastifyReply) {
     try {
       const body = registerPfSchema.parse(request.body);
@@ -41,6 +97,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: user.id,
+        authVersion: user.authVersion,
         role: user.role,
         email: user.email,
       });
@@ -53,7 +110,7 @@ export class AuthController {
     } catch (error: any) {
       return reply.status(400).send({
         success: false,
-        error: error.message || "Erro ao registrar pessoa física.",
+        error: error.message || "Erro ao registrar gerador residencial.",
       });
     }
   }
@@ -66,6 +123,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: result.user.id,
+        authVersion: result.user.authVersion,
         role: result.user.role,
         email: result.user.email,
       });
@@ -92,6 +150,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: user.id,
+        authVersion: user.authVersion,
         role: user.role,
         email: user.email,
       });
@@ -127,10 +186,126 @@ export class AuthController {
     }
   }
 
-  async activateGeneratorAccess(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ) {
+  async avatar(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const user = await authService.getMe(request.user.sub);
+      if (!user.avatarFile)
+        return reply.code(404).send({ error: "Imagem não cadastrada." });
+      const file = await avatarPath(user.avatarFile);
+      reply.header("Cache-Control", "private, no-store");
+      reply.header("X-Content-Type-Options", "nosniff");
+      reply.type(
+        user.avatarFile.endsWith(".png")
+          ? "image/png"
+          : user.avatarFile.endsWith(".webp")
+            ? "image/webp"
+            : "image/jpeg",
+      );
+      return reply.send(createReadStream(file));
+    } catch {
+      return reply.code(404).send({ error: "Imagem indisponível." });
+    }
+  }
+
+  async updateProfile(request: FastifyRequest, reply: FastifyReply) {
+    let key: string | undefined;
+    try {
+      const input = await profileInput(request);
+      key = input.key;
+      const { user, previousAvatarFile } = await authService.updateProfile(
+        request.user.sub,
+        { displayName: input.displayName, ...(key ? { avatarFile: key } : {}) },
+      );
+      if (key && previousAvatarFile !== key)
+        await discardAvatar(previousAvatarFile);
+      return reply.send({
+        success: true,
+        message: "Perfil atualizado com sucesso.",
+        user: serializeUser(user),
+      });
+    } catch (error: any) {
+      await discardAvatar(key);
+      const tooLarge = error.code === "FST_REQ_FILE_TOO_LARGE";
+      if (["EACCES", "EROFS", "ENOSPC", "EIO"].includes(error.code)) {
+        request.log.error(
+          { code: error.code },
+          "Falha ao armazenar foto de perfil",
+        );
+        return reply
+          .code(503)
+          .send({
+            success: false,
+            error:
+              "Não foi possível armazenar a foto. Verifique o armazenamento da API.",
+          });
+      }
+      return reply
+        .code(tooLarge ? 413 : 400)
+        .send({
+          success: false,
+          error: tooLarge
+            ? "A imagem deve ter no máximo 3 MB."
+            : error.message || "Erro ao atualizar perfil.",
+        });
+    }
+  }
+
+  async changePassword(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const authUser = request.user as { sub: string };
+
+      const body = request.body as {
+        currentPassword?: string;
+        current_password?: string;
+        newPassword?: string;
+        password?: string;
+      };
+
+      const currentPassword = String(
+        body?.currentPassword || body?.current_password || "",
+      );
+
+      const newPassword = String(body?.newPassword || body?.password || "");
+
+      if (!currentPassword) {
+        return reply.status(400).send({
+          success: false,
+          error: "Informe a senha atual.",
+        });
+      }
+
+      if (!newPassword) {
+        return reply.status(400).send({
+          success: false,
+          error: "Informe a nova senha.",
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return reply.status(400).send({
+          success: false,
+          error: "A nova senha precisa ter pelo menos 6 caracteres.",
+        });
+      }
+
+      await authService.changePassword(authUser.sub, {
+        currentPassword,
+        newPassword,
+      });
+
+      return reply.send({
+        success: true,
+        message: "Senha alterada com sucesso.",
+      });
+    } catch (error: any) {
+      return reply.status(400).send({
+        success: false,
+        error: error.message || "Erro ao alterar senha.",
+      });
+    }
+  }
+
+  async activateGeneratorAccess(request: FastifyRequest, reply: FastifyReply) {
     try {
       const body = activateGeneratorAccessSchema.parse(request.body);
 
@@ -138,6 +313,7 @@ export class AuthController {
 
       const token = await reply.jwtSign({
         sub: result.user.id,
+        authVersion: result.user.authVersion,
         role: result.user.role,
         email: result.user.email,
       });
@@ -168,8 +344,7 @@ export class AuthController {
       return reply.send({
         success: true,
         message: result.message,
-        resetToken: result.resetToken,
-        expiresAt: result.expiresAt ?? null,
+        expiresAt: null,
       });
     } catch (error: any) {
       return reply.status(400).send({

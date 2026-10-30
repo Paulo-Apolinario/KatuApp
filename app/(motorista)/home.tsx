@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/src/components/NotificationBell";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -56,7 +57,7 @@ function QuickCard({ title, subtitle, icon, onPress }: QuickCardProps) {
       }}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -75,7 +76,7 @@ function QuickCard({ title, subtitle, icon, onPress }: QuickCardProps) {
         style={{
           color: "#111827",
           fontSize: 16,
-          fontWeight: "800",
+          fontWeight: "700",
           marginBottom: 6,
         }}
       >
@@ -98,7 +99,7 @@ function QuickCard({ title, subtitle, icon, onPress }: QuickCardProps) {
 function StatItem({ value, label }: { value: string | number; label: string }) {
   return (
     <View style={{ alignItems: "center", width: "30%" }}>
-      <Text style={{ fontSize: 24, fontWeight: "800", color: "#028C56" }}>
+      <Text style={{ fontSize: 24, fontWeight: "700", color: "#047857" }}>
         {value}
       </Text>
       <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>
@@ -124,11 +125,11 @@ export default function MotoristaHomeScreen() {
 
   const summary = useMemo(() => {
     const activeRoutes = routes.filter(
-      (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS"
+      (item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS",
     );
 
     const activeCollections = collections.filter(
-      (item) => item.status === "PENDING" || item.status === "IN_PROGRESS"
+      (item) => item.status === "PENDING" || item.status === "IN_PROGRESS",
     );
 
     return {
@@ -182,20 +183,20 @@ export default function MotoristaHomeScreen() {
         setCollections(driverCollections);
       } catch (err: any) {
         setError(
-          err?.message || "Não foi possível carregar o painel do motorista."
+          err?.message || "Não foi possível carregar o painel do motorista.",
         );
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [driverId]
+    [driverId],
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadDashboard();
-    }, [loadDashboard])
+    }, [loadDashboard]),
   );
 
   if (loading) {
@@ -208,7 +209,7 @@ export default function MotoristaHomeScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
           Carregando painel do motorista...
         </Text>
@@ -219,11 +220,11 @@ export default function MotoristaHomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <LinearGradient
-        colors={["#028C56", "#10F35D"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          paddingTop: 58,
+          paddingTop: 24,
           paddingHorizontal: 20,
           paddingBottom: 28,
           borderBottomLeftRadius: 28,
@@ -253,7 +254,7 @@ export default function MotoristaHomeScreen() {
               style={{
                 color: "#FFFFFF",
                 fontSize: 26,
-                fontWeight: "800",
+                fontWeight: "700",
               }}
             >
               Olá, {user?.displayName?.split(" ")[0] || "Motorista"}
@@ -273,19 +274,29 @@ export default function MotoristaHomeScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity
-            onPress={() => router.push("/(motorista)/profile")}
+          <View
             style={{
-              width: 50,
-              height: 50,
-              borderRadius: 25,
-              backgroundColor: "rgba(255,255,255,0.18)",
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
+              gap: 8,
+              flexShrink: 0,
             }}
           >
-            <Ionicons name="person-outline" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+            <NotificationBell />{" "}
+            <TouchableOpacity
+              onPress={() => router.push("/(motorista)/profile")}
+              style={{
+                width: 50,
+                height: 50,
+                borderRadius: 25,
+                backgroundColor: "rgba(255,255,255,0.18)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="person-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
@@ -299,8 +310,8 @@ export default function MotoristaHomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void loadDashboard(true)}
-            colors={["#028C56"]}
-            tintColor="#028C56"
+            colors={["#047857"]}
+            tintColor="#047857"
           />
         }
         showsVerticalScrollIndicator={false}
@@ -337,7 +348,7 @@ export default function MotoristaHomeScreen() {
             style={{
               color: "#111827",
               fontSize: 16,
-              fontWeight: "800",
+              fontWeight: "700",
               marginBottom: 12,
             }}
           >
@@ -377,7 +388,7 @@ export default function MotoristaHomeScreen() {
             style={{
               color: "#111827",
               fontSize: 16,
-              fontWeight: "800",
+              fontWeight: "700",
               marginBottom: 10,
             }}
           >
@@ -388,9 +399,9 @@ export default function MotoristaHomeScreen() {
             <>
               <Text
                 style={{
-                  color: "#028C56",
+                  color: "#047857",
                   fontSize: 17,
-                  fontWeight: "800",
+                  fontWeight: "700",
                 }}
               >
                 {nextRoute.name}
@@ -444,7 +455,7 @@ export default function MotoristaHomeScreen() {
                   backgroundColor: "#ECFDF5",
                 }}
               >
-                <Text style={{ color: "#047857", fontWeight: "800" }}>
+                <Text style={{ color: "#047857", fontWeight: "700" }}>
                   VER DETALHES DA ROTA
                 </Text>
               </TouchableOpacity>
@@ -468,7 +479,7 @@ export default function MotoristaHomeScreen() {
             style={{
               color: "#111827",
               fontSize: 16,
-              fontWeight: "800",
+              fontWeight: "700",
               marginBottom: 10,
             }}
           >
@@ -477,7 +488,9 @@ export default function MotoristaHomeScreen() {
 
           {vehicle ? (
             <>
-              <Text style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#111827", fontSize: 16, fontWeight: "700" }}
+              >
                 {vehicle.plate}
               </Text>
               <Text style={{ color: "#6B7280", marginTop: 6 }}>
@@ -498,7 +511,7 @@ export default function MotoristaHomeScreen() {
           style={{
             color: "#111827",
             fontSize: 18,
-            fontWeight: "800",
+            fontWeight: "700",
             marginBottom: 14,
           }}
         >
@@ -571,7 +584,7 @@ export default function MotoristaHomeScreen() {
           <Text
             style={{
               color: "#DC2626",
-              fontWeight: "800",
+              fontWeight: "700",
               fontSize: 15,
             }}
           >

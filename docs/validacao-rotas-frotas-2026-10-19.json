@@ -1,0 +1,65 @@
+{
+  "generatedAt": "2026-10-19T15:18:03.330Z",
+  "environment": "API Fastify/Prisma real, PGlite PostgreSQL WASM, Chromium, Expo Web; não é concorrência PostgreSQL nativa nem dispositivo",
+  "outcomes": [
+    {
+      "name": "API: autenticação, perfil DRIVER e isolamento por cooperativa",
+      "status": "PASS"
+    },
+    {
+      "name": "API+DB: bloqueio de conclusão com pendência, sem gravação parcial",
+      "status": "PASS"
+    },
+    {
+      "name": "API+DB: conclusão com COLLECTED e CANCELLED mantém estados e atribuições",
+      "status": "PASS"
+    },
+    {
+      "name": "DB: rollback de rota/coletas provocado por trigger SQL",
+      "status": "PASS"
+    },
+    {
+      "name": "Navegador painel: trocar equipe, salvar, recarregar e conferir histórico no banco",
+      "status": "PASS"
+    },
+    {
+      "name": "Navegador painel: remover equipe, salvar e recarregar",
+      "status": "PASS"
+    },
+    {
+      "name": "Navegador painel: editar veículo e confirmar persistência após recarga",
+      "status": "PASS"
+    },
+    {
+      "name": "Offline+SQLite: operação rejeitada permanece na fila ERROR, servidor preservado",
+      "status": "PASS"
+    },
+    {
+      "name": "Offline: resultado da sincronização indica corretamente a rejeição",
+      "status": "PASS",
+      "detail": "success=false; existe item ERROR"
+    },
+    {
+      "name": "Offline+SQLite: reconexão sincroniza rota elegível e nova consulta confirma o servidor",
+      "status": "PASS"
+    },
+    {
+      "name": "App services + SQLite: rejeição e reconexão com API local",
+      "status": "PASS"
+    },
+    {
+      "name": "App Expo Web: carregar equipe e editar motorista/veículo",
+      "status": "PASS"
+    },
+    {
+      "name": "App Expo Web: remover equipe, recarregar e preservar vínculos históricos",
+      "status": "PASS"
+    }
+  ],
+  "limits": [
+    "PostgreSQL em WebAssembly (PGlite), sem comprovação de concorrência de PostgreSQL nativo.",
+    "App executado em Expo Web/Chromium; não em Android/iOS.",
+    "Fila offline executada com repositórios originais e SQLite via adaptador Node; perda de rede controlada no transporte.",
+    "Sem deploy, migração em produção ou uso de dados reais."
+  ]
+}

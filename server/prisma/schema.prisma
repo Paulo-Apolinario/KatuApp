@@ -8,53 +8,105 @@ datasource db {
 }
 
 model User {
-  id                     String         @id @default(cuid())
-  email                  String         @unique
+  id                     String        @id @default(cuid())
+  email                  String        @unique
   passwordHash           String
+  avatarFile             String?
   displayName            String
   role                   UserRole
-  accountStatus          AccountStatus  @default(ACTIVE)
-  isActive               Boolean        @default(true)
+  accountStatus          AccountStatus @default(ACTIVE)
+  isActive               Boolean       @default(true)
   phone                  String?
-  rememberMe             Boolean        @default(false)
+  rememberMe             Boolean       @default(false)
   resetPasswordToken     String?
   resetPasswordExpiresAt DateTime?
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
-  collector              Collector?
-  cooperative            Cooperative?
-  driver                 Driver?
-  generator              Generator?
-  personProfile          PersonProfile?
-  feedbacks              Feedback[]
-  requestedSchedules     Schedule[]     @relation("UserRequestedSchedules")
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  authVersion Int @default(0)
+  pevRequests PevRequest[]
+  inboxNotifications InboxNotification[]
+  emailTokens        AuthEmailToken[]
+
+  collector          Collector?
+  cooperative        Cooperative?
+  driver             Driver?
+  generator          Generator?
+  personProfile      PersonProfile?
+  feedbacks          Feedback[]
+  requestedSchedules Schedule[]     @relation("UserRequestedSchedules")
+
+  createdCollectionWasteEntries CollectionWasteEntry[]       @relation("CollectionWasteEntryCreatedBy")
+  createdWasteDestinations      CollectionWasteDestination[] @relation("CollectionWasteDestinationCreatedBy")
+  cancelledWasteDestinations    CollectionWasteDestination[] @relation("CollectionWasteDestinationCancelledBy")
+  createdWasteStockLots         WasteStockLot[]              @relation("WasteStockLotCreatedBy")
+
+  createdWasteCatalogSuggestions  WasteCatalogSuggestion[] @relation("WasteCatalogSuggestionCreatedBy")
+  reviewedWasteCatalogSuggestions WasteCatalogSuggestion[] @relation("WasteCatalogSuggestionReviewedBy")
+
+  startedCollections        Collection[] @relation("CollectionStartedBy")
+  fieldCompletedCollections Collection[] @relation("CollectionFieldCompletedBy")
+  receivedCollections       Collection[] @relation("CollectionReceivedBy")
+  sortingStartedCollections Collection[] @relation("CollectionSortingStartedBy")
+  completedCollections      Collection[] @relation("CollectionCompletedBy")
+  cancelledCollections      Collection[] @relation("CollectionCancelledBy")
 
   @@index([role])
 }
 
 model Cooperative {
-  id                 String       @id @default(cuid())
+  collectorTeams CollectorTeam[]
+  routePlans RoutePlan[]
+  ownerDocuments OwnerDocument[]
+  extraCollectionOrders ExtraCollectionOrder[]
+  id                 String  @id @default(cuid())
   name               String
-  registrationNumber String?      @unique
-  email              String?      @unique
+  registrationNumber String? @unique
+  email              String? @unique
   phone              String?
-  address            String?
-  latitude           Float?
-  longitude          Float?
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  userId             String       @unique
-  collections        Collection[]
-  collectors         Collector[]
-  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  drivers            Driver[]
-  generators         Generator[]
-  routes             Route[]
-  schedules          Schedule[]
-  vehicles           Vehicle[]
-  feedbacks          Feedback[]
+
+  zipCode      String?
+  street       String?
+  number       String?
+  neighborhood String?
+  city         String?
+  state        String?
+  address      String?
+
+  latitude  Float?
+  longitude Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String   @unique
+  reportConfiguration ReportConfiguration?
+  systemSettings CooperativeSettings?
+  settingEvents SettingEvent[]
+  systemAlerts SystemAlert[]
+  mailDeliveries MailDelivery[]
+
+  user                        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collections                 Collection[]
+  collectors                  Collector[]
+  collectorDocuments          CollectorDocument[]
+  drivers                     Driver[]
+  generators                  Generator[]
+  routes                      Route[]
+  schedules                   Schedule[]
+  vehicles                    Vehicle[]
+  feedbacks                   Feedback[]
+  wasteStockItems             WasteStockItem[]
+  wasteStockLots              WasteStockLot[]
+  bins                        Bin[]
+  vehicleDocuments            VehicleDocument[]
+  maintenanceLogs             MaintenanceLog[]
+  collectionWasteEntries      CollectionWasteEntry[]
+  collectionWasteDestinations CollectionWasteDestination[]
+  wasteCatalogSuggestions     WasteCatalogSuggestion[]
 
   @@index([name])
+  @@index([city])
+  @@index([state])
 }
 
 model DriverReport {
@@ -79,9 +131,11 @@ model DriverReport {
   @@index([vehicleId])
   @@index([collectionId])
   @@index([createdAt])
+  @@index([driverId, createdAt, id])
 }
 
 model PersonProfile {
+  savedAddresses Json @default("[]")
   id          String   @id @default(cuid())
   userId      String   @unique
   cpf         String   @unique
@@ -90,10 +144,12 @@ model PersonProfile {
   greenStreak Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Generator {
+  ownerDocuments OwnerDocument[]
   id            String        @id @default(cuid())
   cooperativeId String
   userId        String?       @unique
@@ -102,8 +158,8 @@ model Generator {
   companyName   String?
   email         String        @unique
   phone         String?
+  documentNumber String?
 
-  // endereço estruturado
   zipCode      String?
   street       String?
   number       String?
@@ -112,7 +168,6 @@ model Generator {
   state        String?
   address      String?
 
-  // coordenadas para mapa
   latitude  Float?
   longitude Float?
 
@@ -124,10 +179,11 @@ model Generator {
   updatedAt      DateTime              @updatedAt
   activatedAt    DateTime?
 
-  collections Collection[]
-  cooperative Cooperative  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  user        User?        @relation(fields: [userId], references: [id])
-  schedules   Schedule[]
+  collections            Collection[]
+  cooperative            Cooperative            @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  user                   User?                  @relation(fields: [userId], references: [id])
+  schedules              Schedule[]
+  collectionWasteEntries CollectionWasteEntry[]
 
   @@index([cooperativeId])
   @@index([type])
@@ -135,9 +191,16 @@ model Generator {
   @@index([name])
   @@index([city])
   @@index([state])
+  @@unique([cooperativeId, documentNumber])
 }
 
 model Schedule {
+  requestOperationId String? @unique
+  requestOperationHash String?
+  extraCollectionOrders ExtraCollectionOrder[]
+  pickupAddress String?
+  pickupLatitude Float?
+  pickupLongitude Float?
   id                String         @id @default(uuid())
   cooperativeId     String
   generatorId       String?
@@ -146,76 +209,278 @@ model Schedule {
   scheduledDate     DateTime?
   status            ScheduleStatus @default(REQUESTED)
   notes             String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
   generator   Generator?  @relation(fields: [generatorId], references: [id], onDelete: SetNull)
   requestedBy User        @relation("UserRequestedSchedules", fields: [requestedByUserId], references: [id], onDelete: Cascade)
 
-  collections Collection[]
-  feedbacks   Feedback[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  requestedMaterials ScheduleRequestedMaterial[]
+  collections        Collection[]
+  feedbacks          Feedback[]
 
   @@index([cooperativeId])
   @@index([generatorId])
   @@index([requestedByUserId])
   @@index([status])
+  @@index([requestedByUserId, createdAt, id])
+  @@index([generatorId, createdAt, id])
+}
+
+/**
+ * Materiais previstos pelo gerador, pessoa física ou cooperativa
+ * no momento da solicitação/agendamento.
+ * Estes registros representam somente a previsão da coleta.
+ * As quantidades efetivamente coletadas são registradas
+ * em CollectionMaterial e CollectionWasteEntry quando o catador
+ * conclui a etapa de campo e a coleta passa para COLLECTED.
+ */
+model ScheduleRequestedMaterial {
+  id          String  @id @default(cuid())
+  scheduleId  String
+  wasteTypeId String?
+
+  nameSnapshot        String
+  categorySnapshot    String?
+  subcategorySnapshot String?
+
+  estimatedQuantity Decimal?  @db.Decimal(18, 3)
+  unit              WasteUnit @default(KG)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedule          Schedule                @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  wasteType         WasteStockItem?         @relation(fields: [wasteTypeId], references: [id], onDelete: SetNull)
+  catalogSuggestion WasteCatalogSuggestion?
+
+  @@index([scheduleId])
+  @@index([wasteTypeId])
+  @@index([nameSnapshot])
+  @@index([categorySnapshot])
+  @@index([unit])
+  @@index([createdAt])
+}
+
+/**
+ * Sugestões de resíduos ainda não oficializadas no catálogo da cooperativa.
+ */
+model WasteCatalogSuggestion {
+  id            String @id @default(cuid())
+  cooperativeId String
+
+  suggestedByUserId String?
+  reviewedByUserId  String?
+
+  origin WasteCatalogSuggestionOrigin
+  status WasteCatalogSuggestionStatus @default(PENDING)
+
+  name        String
+  category    String?
+  subcategory String?
+  unit        WasteUnit @default(KG)
+
+  scheduleRequestedMaterialId String? @unique
+  collectionMaterialId        String? @unique
+  approvedWasteTypeId         String?
+
+  reviewedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+
+  suggestedBy User? @relation("WasteCatalogSuggestionCreatedBy", fields: [suggestedByUserId], references: [id], onDelete: SetNull)
+
+  reviewedBy User? @relation("WasteCatalogSuggestionReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  scheduleRequestedMaterial ScheduleRequestedMaterial? @relation(fields: [scheduleRequestedMaterialId], references: [id], onDelete: SetNull)
+
+  collectionMaterial CollectionMaterial? @relation(fields: [collectionMaterialId], references: [id], onDelete: SetNull)
+
+  approvedWasteType WasteStockItem? @relation("WasteCatalogSuggestionApprovedWasteType", fields: [approvedWasteTypeId], references: [id], onDelete: SetNull)
+
+  @@index([cooperativeId])
+  @@index([suggestedByUserId])
+  @@index([reviewedByUserId])
+  @@index([approvedWasteTypeId])
+  @@index([origin])
+  @@index([status])
+  @@index([name])
+  @@index([category])
+  @@index([createdAt])
 }
 
 model Collector {
-  id               String          @id @default(cuid())
-  cooperativeId    String?
-  userId           String?         @unique
-  name             String
-  email            String          @unique
-  phone            String?
-  rg               String?
-  birthDate        String?
+  teamParticipations CollectionParticipant[]
+  ownerDocuments OwnerDocument[]
+  extraCollectionOrders ExtraCollectionOrder[]
+  id            String  @id @default(cuid())
+  cooperativeId String?
+  userId        String? @unique
+
+  name       String
+  socialName String?
+  email      String           @unique
+  phone      String?
+  cpf        String?
+  rg         String?
+  birthDate  String?
+  sex        CollectorSex?
+  gender     CollectorGender?
+  address    String?
+
+  registrationNumber String?
+  membershipCategory CollectorCategory?
+  associationDate DateTime?
+  isAutonomous    Boolean   @default(false)
+
+  incomeRange          String?
+  socialBenefits       String?
+  occupationalDiseases String?
+  socioeconomicNotes   String?
+
   status           CollectorStatus @default(AVAILABLE)
   kgMonth          Float           @default(0)
   collectionsToday Int             @default(0)
   totalKg          Float           @default(0)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  collections      Collection[]
-  cooperative      Cooperative?    @relation(fields: [cooperativeId], references: [id])
-  user             User?           @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  collections            Collection[]
+  documents              CollectorDocument[]
+  cooperative            Cooperative?           @relation(fields: [cooperativeId], references: [id])
+  user                   User?                  @relation(fields: [userId], references: [id])
+  collectionWasteEntries CollectionWasteEntry[]
 
   @@index([cooperativeId])
   @@index([status])
   @@index([name])
+  @@index([cpf])
+  @@index([sex])
+  @@index([gender])
+  @@index([associationDate])
+}
+
+model CollectorDocument {
+  id            String  @id @default(cuid())
+  collectorId   String
+  cooperativeId String?
+
+  documentType String?
+  documentName String?
+  fileUrl      String
+  fileMimeType String?
+  fileSize     Int?
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  collector   Collector    @relation(fields: [collectorId], references: [id], onDelete: Cascade)
+  cooperative Cooperative? @relation(fields: [cooperativeId], references: [id], onDelete: SetNull)
+
+  @@index([collectorId])
+  @@index([cooperativeId])
+  @@index([documentType])
 }
 
 model Collection {
+  teamId String?
+  teamNameSnapshot String?
+  teamVersion Int @default(0)
+  allocationVersion Int @default(0)
+  allocationQuantityVersion Int?
+  participants CollectionParticipant[]
+  allocationReviews CollectionAllocationReview[]
+  routePoint Json?
+  routePointKey String?
+  extraOrder ExtraCollectionOrder? @relation("ApprovedExtraCollection")
+  incidents CollectionIncident[]
+  startOperationId String?
+  startOperationHash String?
+  fieldOperationId String?
+  fieldOperationHash String?
   id            String  @id @default(cuid())
   cooperativeId String
   generatorId   String?
   collectorId   String?
   scheduleId    String? @unique
+  binId         String?
 
   driverId  String?
   vehicleId String?
   routeId   String?
 
-  collectedAt   DateTime?
-  totalWeightKg Float            @default(0)
+  /**
+   * Ciclo operacional:
+   * PENDING     -> coleta delegada pela cooperativa
+   * IN_PROGRESS -> coleta iniciada em campo
+   * COLLECTED   -> catador concluiu a etapa de campo
+   * RECEIVED    -> material recebido fisicamente pela cooperativa
+   * SORTING     -> material em conferência/triagem
+   * COMPLETED   -> cooperativa concluiu a destinação operacional
+   */
+  status CollectionStatus @default(PENDING)
+
+  /**
+   * collectedAt permanece como o momento em que o catador concluiu
+   * a coleta em campo. Não representa o encerramento pela cooperativa.
+   */
+  startedAt        DateTime?
+  collectedAt      DateTime?
+  receivedAt       DateTime?
+  sortingStartedAt DateTime?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+
+  startedByUserId        String?
+  fieldCompletedByUserId String?
+  receivedByUserId       String?
+  sortingStartedByUserId String?
+  completedByUserId      String?
+  cancelledByUserId      String?
+
+  cancellationReason String?
+
+  reportedTotalWeightKg Float?
+  quantityReviewVersion Int @default(0)
+  quantitiesReviewedAt DateTime?
+  quantityReviews CollectionQuantityReview[]
+  pevRequests PevRequest[]
+  inboxNotifications InboxNotification[]
+  totalWeightKg Float    @default(0)
   materials     Json?
   notes         String?
-  status        CollectionStatus @default(PENDING)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  collector   Collector?  @relation(fields: [collectorId], references: [id])
+  bin         Bin?        @relation(fields: [binId], references: [id], onDelete: SetNull)
+  collector   Collector?  @relation(fields: [collectorId], references: [id], onDelete: SetNull)
   cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
   generator   Generator?  @relation(fields: [generatorId], references: [id], onDelete: SetNull)
   schedule    Schedule?   @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  driver      Driver?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle     Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  route       Route?      @relation(fields: [routeId], references: [id], onDelete: SetNull)
 
-  driver  Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  vehicle Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
-  route   Route?         @relation(fields: [routeId], references: [id], onDelete: SetNull)
-  reports DriverReport[]
+  startedBy        User? @relation("CollectionStartedBy", fields: [startedByUserId], references: [id], onDelete: SetNull)
+  fieldCompletedBy User? @relation("CollectionFieldCompletedBy", fields: [fieldCompletedByUserId], references: [id], onDelete: SetNull)
+  receivedBy       User? @relation("CollectionReceivedBy", fields: [receivedByUserId], references: [id], onDelete: SetNull)
+  sortingStartedBy User? @relation("CollectionSortingStartedBy", fields: [sortingStartedByUserId], references: [id], onDelete: SetNull)
+  completedBy      User? @relation("CollectionCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  cancelledBy      User? @relation("CollectionCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
 
+  reports                 DriverReport[]
+  collectionMaterials     CollectionMaterial[]
+  collectionWasteEntries  CollectionWasteEntry[]
+  generatedWasteStockLots WasteStockLot[]        @relation("WasteStockLotOriginCollection")
+
+  @@index([binId])
   @@index([cooperativeId])
   @@index([generatorId])
   @@index([collectorId])
@@ -224,9 +489,173 @@ model Collection {
   @@index([vehicleId])
   @@index([routeId])
   @@index([status])
+  @@index([startedAt])
+  @@index([collectedAt])
+  @@index([receivedAt])
+  @@index([sortingStartedAt])
+  @@index([completedAt])
+  @@index([cancelledAt])
+  @@index([startedByUserId])
+  @@index([fieldCompletedByUserId])
+  @@index([receivedByUserId])
+  @@index([sortingStartedByUserId])
+  @@index([completedByUserId])
+  @@index([cancelledByUserId])
+  @@index([cooperativeId, status, createdAt, id])
+  @@index([driverId, status, createdAt, id])
+}
+
+model CollectionMaterial {
+  id           String  @id @default(cuid())
+  collectionId String
+  wasteTypeId  String?
+
+  nameSnapshot        String
+  categorySnapshot    String?
+  subcategorySnapshot String?
+  unit                WasteUnit @default(KG)
+  reportedQuantity    Decimal?  @db.Decimal(18, 3)
+  quantity            Decimal   @db.Decimal(18, 3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  collection              Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  wasteType               WasteStockItem?         @relation(fields: [wasteTypeId], references: [id], onDelete: SetNull)
+  wasteEntry              CollectionWasteEntry?
+  catalogSuggestion       WasteCatalogSuggestion?
+  generatedWasteStockLots WasteStockLot[]         @relation("WasteStockLotOriginCollectionMaterial")
+
+  @@index([collectionId])
+  @@index([wasteTypeId])
+  @@index([unit])
+  @@index([nameSnapshot])
+  @@index([createdAt])
+}
+
+model CollectionWasteEntry {
+  id String @id @default(cuid())
+
+  cooperativeId        String
+  collectionId         String
+  collectionMaterialId String  @unique
+  wasteTypeId          String?
+
+  generatorId String?
+  routeId     String?
+  vehicleId   String?
+  driverId    String?
+  collectorId String?
+
+  materialNameSnapshot String
+  categorySnapshot     String?
+  subcategorySnapshot  String?
+  unit                 WasteUnit @default(KG)
+
+  collectedQuantity Decimal @db.Decimal(18, 3)
+  destinedQuantity  Decimal @default(0) @db.Decimal(18, 3)
+  remainingQuantity Decimal @db.Decimal(18, 3)
+
+  status CollectionEntryStatus @default(PENDING_DESTINATION)
+
+  origin      String?
+  notes       String?
+  collectedAt DateTime?
+
+  createdByUserId       String?
+  createdByNameSnapshot String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cooperative             Cooperative                  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  collection              Collection                   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collectionMaterial      CollectionMaterial           @relation(fields: [collectionMaterialId], references: [id], onDelete: Cascade)
+  wasteType               WasteStockItem?              @relation(fields: [wasteTypeId], references: [id], onDelete: SetNull)
+  generator               Generator?                   @relation(fields: [generatorId], references: [id], onDelete: SetNull)
+  route                   Route?                       @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  vehicle                 Vehicle?                     @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  driver                  Driver?                      @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  collector               Collector?                   @relation(fields: [collectorId], references: [id], onDelete: SetNull)
+  createdBy               User?                        @relation("CollectionWasteEntryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  destinations            CollectionWasteDestination[]
+  generatedWasteStockLots WasteStockLot[]              @relation("WasteStockLotOriginCollectionWasteEntry")
+
+  @@index([cooperativeId])
+  @@index([collectionId])
+  @@index([collectionMaterialId])
+  @@index([wasteTypeId])
+  @@index([generatorId])
+  @@index([routeId])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([collectorId])
+  @@index([createdByUserId])
+  @@index([status])
+  @@index([unit])
+  @@index([collectedAt])
+  @@index([createdAt])
+}
+
+model CollectionWasteDestination {
+  operationId String? @unique
+  operationHash String?
+  version Int @default(1)
+  lastOperationId String? @unique
+  lastOperationHash String?
+  auditEvents CollectionWasteDestinationEvent[]
+  id String @id @default(cuid())
+
+  cooperativeId          String
+  collectionWasteEntryId String
+  stockItemId            String?
+  stockLotId             String? @unique
+
+  type     WasteDestinationType
+  quantity Decimal              @db.Decimal(18, 3)
+  unit     WasteUnit
+
+  destinationName       String?
+  destinationDocument   String?
+  destinationAddress    String?
+  destinationContact    String?
+  transportDocument     String?
+  environmentalDocument String?
+  notes                 String?
+  metadata              Json?
+
+  destinationDate DateTime               @default(now())
+  status          WasteDestinationStatus @default(ACTIVE)
+
+  createdByUserId   String?
+  cancelledAt       DateTime?
+  cancelledReason   String?
+  cancelledByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cooperative          Cooperative          @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  collectionWasteEntry CollectionWasteEntry @relation(fields: [collectionWasteEntryId], references: [id], onDelete: Cascade)
+  stockItem            WasteStockItem?      @relation(fields: [stockItemId], references: [id], onDelete: SetNull)
+  stockLot             WasteStockLot?       @relation("WasteStockLotDestination", fields: [stockLotId], references: [id], onDelete: SetNull)
+  createdBy            User?                @relation("CollectionWasteDestinationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  cancelledBy          User?                @relation("CollectionWasteDestinationCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+
+  @@index([cooperativeId])
+  @@index([collectionWasteEntryId])
+  @@index([stockItemId])
+  @@index([type])
+  @@index([unit])
+  @@index([status])
+  @@index([createdByUserId])
+  @@index([cancelledByUserId])
+  @@index([destinationDate])
+  @@index([createdAt])
 }
 
 model Driver {
+  ownerDocuments OwnerDocument[]
   id            String       @id @default(cuid())
   cooperativeId String
   userId        String?      @unique
@@ -241,12 +670,13 @@ model Driver {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  user        User?          @relation(fields: [userId], references: [id])
-  routes      Route[]
-  vehicles    Vehicle[]
-  collections Collection[]
-  reports     DriverReport[]
+  cooperative            Cooperative            @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  user                   User?                  @relation(fields: [userId], references: [id])
+  routes                 Route[]
+  vehicles               Vehicle[]
+  collections            Collection[]
+  reports                DriverReport[]
+  collectionWasteEntries CollectionWasteEntry[]
 
   @@index([cooperativeId])
   @@index([status])
@@ -255,6 +685,7 @@ model Driver {
 }
 
 model Vehicle {
+  ownerDocuments OwnerDocument[]
   id            String        @id @default(cuid())
   cooperativeId String
   driverId      String?
@@ -267,11 +698,15 @@ model Vehicle {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  routes      Route[]
-  collections Collection[]
-  reports     DriverReport[]
-  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  driver      Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  routes                 Route[]
+  collections            Collection[]
+  reports                DriverReport[]
+  documents              VehicleDocument[]
+  maintenanceLogs        MaintenanceLog[]
+  bins                   Bin[]
+  cooperative            Cooperative            @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  driver                 Driver?                @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  collectionWasteEntries CollectionWasteEntry[]
 
   @@index([cooperativeId])
   @@index([driverId])
@@ -280,6 +715,24 @@ model Vehicle {
 }
 
 model Route {
+  operationalEvents Json @default("[]")
+  closureOutcome String?
+  closedAt DateTime?
+  startedAt DateTime?
+  @@index([cooperativeId, status, startedAt])
+  @@index([cooperativeId, planId, scheduledDate])
+  teamId String?
+  planId String?
+  plan RoutePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  executionDate String?
+  collectorIds String[] @default([])
+  startPoint Json?
+  endPoint Json?
+  departureTime String?
+  estimatedMinutes Int?
+  revision Int @default(0)
+  @@unique([planId, executionDate])
+  extraCollectionOrders ExtraCollectionOrder[]
   id            String      @id @default(cuid())
   cooperativeId String
   driverId      String?
@@ -288,15 +741,17 @@ model Route {
   description   String?
   scheduledDate DateTime?
   stops         String[]
+  collectionOrder String[] @default([])
   status        RouteStatus @default(SCHEDULED)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  cooperative Cooperative    @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
-  driver      Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  vehicle     Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
-  collections Collection[]
-  reports     DriverReport[]
+  cooperative            Cooperative            @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  driver                 Driver?                @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle                Vehicle?               @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  collections            Collection[]
+  reports                DriverReport[]
+  collectionWasteEntries CollectionWasteEntry[]
 
   @@index([cooperativeId])
   @@index([driverId])
@@ -331,7 +786,202 @@ model Feedback {
   @@index([createdAt])
 }
 
+model WasteStockItem {
+  normalizedName String?
+  @@unique([cooperativeId, normalizedName])
+  id            String @id @default(cuid())
+  cooperativeId String
+
+  name        String
+  category    String
+  subcategory String?
+
+  defaultUnit WasteUnit @default(KG)
+  isActive    Boolean   @default(true)
+
+  unit         WasteUnit        @default(KG)
+  ncm          String?
+  internalCode String?
+  wasteClass   WasteClass       @default(NOT_INFORMED)
+  description  String?
+  status       WasteStockStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cooperative                Cooperative                  @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  lots                       WasteStockLot[]
+  scheduleRequestedMaterials ScheduleRequestedMaterial[]
+  collectionMaterials        CollectionMaterial[]
+  collectionWasteEntries     CollectionWasteEntry[]
+  wasteDestinations          CollectionWasteDestination[]
+  approvedCatalogSuggestions WasteCatalogSuggestion[]     @relation("WasteCatalogSuggestionApprovedWasteType")
+
+  @@unique([cooperativeId, internalCode])
+  @@index([cooperativeId])
+  @@index([name])
+  @@index([category])
+  @@index([subcategory])
+  @@index([defaultUnit])
+  @@index([unit])
+  @@index([ncm])
+  @@index([wasteClass])
+  @@index([isActive])
+  @@index([status])
+}
+
+model WasteStockLot {
+  id            String @id @default(cuid())
+  cooperativeId String
+  stockItemId   String
+
+  code    String?
+  lotCode String?
+
+  quantity          Decimal?  @default(0) @db.Decimal(18, 3)
+  availableQuantity Decimal   @default(0) @db.Decimal(18, 3)
+  quantityKg        Float     @default(0)
+  unit              WasteUnit @default(KG)
+
+  storageLocation String?
+  processingStage WasteProcessingStage @default(TRIADO)
+  origin          String?
+  notes           String?
+  status          WasteLotStatus       @default(AVAILABLE)
+  receivedAt      DateTime             @default(now())
+
+  originCollectionId           String?
+  originCollectionMaterialId   String?
+  originCollectionWasteEntryId String?
+  createdByUserId              String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cooperative                Cooperative                 @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  stockItem                  WasteStockItem              @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  destination                CollectionWasteDestination? @relation("WasteStockLotDestination")
+  originCollection           Collection?                 @relation("WasteStockLotOriginCollection", fields: [originCollectionId], references: [id], onDelete: SetNull)
+  originCollectionMaterial   CollectionMaterial?         @relation("WasteStockLotOriginCollectionMaterial", fields: [originCollectionMaterialId], references: [id], onDelete: SetNull)
+  originCollectionWasteEntry CollectionWasteEntry?       @relation("WasteStockLotOriginCollectionWasteEntry", fields: [originCollectionWasteEntryId], references: [id], onDelete: SetNull)
+  createdBy                  User?                       @relation("WasteStockLotCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([cooperativeId, code])
+  @@unique([cooperativeId, lotCode])
+  @@index([cooperativeId])
+  @@index([stockItemId])
+  @@index([unit])
+  @@index([status])
+  @@index([processingStage])
+  @@index([receivedAt])
+  @@index([originCollectionId])
+  @@index([originCollectionMaterialId])
+  @@index([originCollectionWasteEntryId])
+  @@index([createdByUserId])
+}
+
+model Bin {
+  publicAccess Boolean @default(false)
+  requests PevRequest[]
+  id                 String       @id @default(cuid())
+  cooperativeId      String
+  vehicleId          String?
+  binId              String
+  name               String?
+  pointKind          String       @default("PEV")
+  zipCode            String?
+  street             String?
+  number             String?
+  neighborhood       String?
+  city               String?
+  state              String?
+  regional           String?
+  reference          String?
+  latitude           Float?
+  longitude          Float?
+  acceptedMaterials  String[]     @default([])
+  restrictions       String?
+  openingHours       Json?
+  hoursExceptions    String?
+  responsibleName    String?
+  responsibleContact String?
+  capacityValue      Float?
+  capacityUnit       String?
+  needsPickup        Boolean      @default(false)
+  pickupReason       String?
+  inspectionAt       DateTime?
+  events             BinEvent[]
+  collections        Collection[]
+  binType            String?
+  location           String?
+  capacityKg         Float?
+  notes              String?
+  photoUrl           String?
+  lastCollectionDate DateTime?
+  status             BinStatus    @default(ACTIVE)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  @@unique([cooperativeId, binId])
+  @@index([cooperativeId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([binType])
+}
+
+model VehicleDocument {
+  id             String    @id @default(cuid())
+  cooperativeId  String
+  vehicleId      String?
+  documentType   String
+  documentNumber String
+  issueDate      DateTime?
+  expiryDate     DateTime?
+  fileUrl        String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  @@index([cooperativeId])
+  @@index([vehicleId])
+  @@index([documentType])
+  @@index([expiryDate])
+}
+
+model MaintenanceLog {
+  id                  String            @id @default(cuid())
+  cooperativeId       String
+  vehicleId           String
+  maintenanceType     String
+  maintenanceDate     DateTime
+  location            String?
+  cost                Float?
+  performedBy         String?
+  nextMaintenanceDate DateTime?
+  notes               String?
+  fileUrl             String?
+  status              MaintenanceStatus @default(COMPLETED)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle     @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([cooperativeId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([maintenanceDate])
+  @@index([nextMaintenanceDate])
+}
+
 enum UserRole {
+  MUNICIPAL_MANAGER
   PF
   GENERATOR_SMALL
   GENERATOR_LARGE
@@ -360,10 +1010,34 @@ enum GeneratorAccessStatus {
   BLOCKED
 }
 
+enum CollectorCategory {
+  FOUNDER
+  EFFECTIVE
+  BENEFICIARY
+  CONTRIBUTOR
+}
+
 enum CollectorStatus {
   AVAILABLE
   ON_ROUTE
   INACTIVE
+}
+
+enum CollectorSex {
+  FEMALE
+  MALE
+  INTERSEX
+  NOT_INFORMED
+}
+
+enum CollectorGender {
+  CIS_WOMAN
+  CIS_MAN
+  TRANS_WOMAN
+  TRANS_MAN
+  NON_BINARY
+  OTHER
+  NOT_INFORMED
 }
 
 enum ScheduleStatus {
@@ -377,7 +1051,37 @@ enum ScheduleStatus {
 enum CollectionStatus {
   PENDING
   IN_PROGRESS
+  COLLECTED
+  RECEIVED
+  SORTING
   COMPLETED
+  CANCELLED
+}
+
+enum CollectionEntryStatus {
+  PENDING_DESTINATION
+  SENT_TO_TRIAGE
+  ADDED_TO_STOCK
+  PARTIALLY_DESTINED
+  FULLY_DESTINED
+  REJECTED
+  DISCARDED
+  DIRECTLY_DESTINED
+  RESERVED
+  CANCELLED
+}
+
+enum WasteDestinationType {
+  STOCK
+  TRIAGE
+  REJECT
+  DISPOSAL
+  DIRECT_DESTINATION
+  RESERVATION
+}
+
+enum WasteDestinationStatus {
+  ACTIVE
   CANCELLED
 }
 
@@ -413,4 +1117,503 @@ enum FeedbackCategory {
   COLETA
   APLICATIVO
   COMUNICACAO
+}
+
+enum WasteCatalogSuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum WasteCatalogSuggestionOrigin {
+  GENERATOR_REQUEST
+  COLLECTION_FOUND
+}
+
+enum WasteStockStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum WasteLotStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  DISCARDED
+  CANCELLED
+}
+
+enum WasteProcessingStage {
+  TRIADO
+  TRITURADO
+  PRENSADO
+  ENFARDADO
+  ARMAZENADO
+  DESTINADO
+}
+
+enum WasteUnit {
+  KG
+  TON
+  LITER
+  UNIT
+  CUBIC_METER
+}
+
+enum WasteClass {
+  CLASS_I
+  CLASS_II_A
+  CLASS_II_B
+  NOT_INFORMED
+}
+
+enum BinStatus {
+  ACTIVE
+  INACTIVE
+  FULL
+  MAINTENANCE
+}
+
+enum MaintenanceStatus {
+  COMPLETED
+  PENDING
+  SCHEDULED
+  OVERDUE
+}
+
+
+// Tokens opacos armazenados apenas como SHA-256; nunca JWTs de sessão.
+model AuthEmailToken {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash             String   @unique
+  purpose               String
+  audience              String
+  attempts Int @default(0)
+  temporaryPasswordHash String?
+  expiresAt             DateTime
+  consumedAt            DateTime?
+  createdAt             DateTime @default(now())
+
+  @@index([userId, purpose, createdAt])
+  @@index([expiresAt])
+}
+
+model BinEvent {
+  id               String    @id @default(cuid())
+  binId            String
+  cooperativeId    String
+  kind             String
+  notes            String?
+  data             Json?
+  actorUserId      String
+  actorName        String?
+  createdAt        DateTime  @default(now())
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  bin              Bin       @relation(fields: [binId], references: [id], onDelete: Restrict)
+
+  @@index([binId, createdAt])
+  @@index([cooperativeId])
+}
+
+
+// Central ambiental: preparação interna independente de confirmação oficial do SINIR.
+model EnvironmentalUnit {
+  id String @id @default(cuid())
+  cooperativeId String?
+  municipalityCode String
+  authorityKey String? @unique
+  kind String
+  name String
+  taxId String
+  officialUnitCode String?
+  address String?
+  responsibleName String?
+  responsiblePosition String?
+  appointmentReference String?
+  operationalRoles String[] @default([])
+  environment String @default("HOMOLOGATION")
+  shareWithMunicipality Boolean @default(false)
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  documents EnvironmentalDocument[]
+  @@index([cooperativeId, municipalityCode])
+}
+model EnvironmentalMunicipalAccess {
+  id String @id @default(cuid())
+  userId String
+  municipalityCode String
+  permission String
+  appointmentReference String
+  grantedBy String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([userId, municipalityCode])
+}
+model EnvironmentalDocument {
+  id String @id @default(cuid())
+  unitId String
+  family String
+  title String
+  referenceYear Int?
+  status String @default("DRAFT")
+  payload Json
+  sourceCollectionId String?
+  version Int @default(1)
+  createdBy String
+  reviewedBy String?
+  reviewedAt DateTime?
+  reviewedUnitVersion Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  unit EnvironmentalUnit @relation(fields:[unitId], references:[id], onDelete:Restrict)
+  events EnvironmentalEvent[]
+  attachments EnvironmentalAttachment[]
+  @@index([unitId, family, updatedAt])
+}
+model EnvironmentalEvent {
+  id String @id @default(cuid())
+  documentId String
+  kind String
+  actorUserId String
+  actorName String
+  documentVersion Int
+  notes String?
+  createdAt DateTime @default(now())
+  document EnvironmentalDocument @relation(fields:[documentId],references:[id],onDelete:Restrict)
+  @@index([documentId, createdAt])
+}
+model EnvironmentalAttachment {
+  id String @id @default(cuid())
+  documentId String
+  filename String
+  storageKey String @unique
+  mediaType String
+  size Int
+  sha256 String
+  createdBy String
+  createdAt DateTime @default(now())
+  document EnvironmentalDocument @relation(fields:[documentId],references:[id],onDelete:Restrict)
+  @@index([documentId])
+}
+
+model ReportConfiguration {
+  cooperativeId String @id
+  payload Json
+  version Int @default(1)
+  updatedBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+}
+
+model CooperativeSettings {
+ cooperativeId String @id
+ payload Json
+ smtp Json?
+ smtpPassword String?
+ version Int @default(1)
+ updatedAt DateTime @updatedAt
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+}
+model SettingEvent {
+ id String @id @default(cuid())
+ cooperativeId String
+ actorId String
+ actorName String
+ section String
+ fields String[]
+ createdAt DateTime @default(now())
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+ @@index([cooperativeId,createdAt])
+}
+model SystemAlert {
+ id String @id @default(cuid())
+ cooperativeId String
+ key String
+ category String
+ priority String
+ title String
+ message String
+ link String
+ status String @default("OPEN")
+ cycle Int @default(1)
+ readAt DateTime?
+ snoozedUntil DateTime?
+ assignee String?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ resolvedAt DateTime?
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+ @@unique([cooperativeId,key])
+ @@index([cooperativeId,status,updatedAt])
+}
+model MailDelivery {
+ id String @id @default(cuid())
+ cooperativeId String
+ dedupeKey String
+ subject String
+ text String
+ recipients String[]
+ status String @default("PENDING")
+ error String?
+ attempts Int @default(0)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ sentAt DateTime?
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+ @@unique([cooperativeId,dedupeKey])
+ @@index([cooperativeId,createdAt])
+}
+
+// Histórico de alterações: sem endpoints de edição ou exclusão.
+model CollectionWasteDestinationEvent {
+  id String @id @default(cuid())
+  destinationId String
+  actorUserId String
+  actorName String?
+  operation String
+  snapshot Json
+  createdAt DateTime @default(now())
+  destination CollectionWasteDestination @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+  @@index([destinationId, createdAt])
+}
+
+model CollectionIncident {
+  id String @id @default(cuid())
+  collectionId String
+  cooperativeId String
+  reportedByUserId String
+  reportedByName String?
+  operationId String?
+  description String
+  status String @default("OPEN")
+  resolution String?
+  resolvedByUserId String?
+  resolvedByName String?
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Restrict)
+  @@unique([collectionId, reportedByUserId, operationId])
+  @@index([cooperativeId, status, createdAt])
+}
+
+model ExtraCollectionOrder {
+ id String @id
+ cooperativeId String
+ collectorId String
+ contextRouteId String?
+ sourceScheduleId String?
+ collectionId String? @unique
+ status String @default("PENDING_REVIEW")
+ revision Int @default(1)
+ originalHash String
+ payload Json
+ reporterUserId String
+ reporterName String
+ routeNameSnapshot String?
+ receivedAt DateTime?
+ receivedByUserId String?
+ custody String
+ custodyNotes String
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Restrict)
+ collector Collector @relation(fields:[collectorId],references:[id],onDelete:Restrict)
+ contextRoute Route? @relation(fields:[contextRouteId],references:[id],onDelete:Restrict)
+ sourceSchedule Schedule? @relation(fields:[sourceScheduleId],references:[id],onDelete:Restrict)
+ collection Collection? @relation("ApprovedExtraCollection",fields:[collectionId],references:[id],onDelete:Restrict)
+ events ExtraCollectionOrderEvent[]
+ @@index([cooperativeId,status,createdAt])
+ @@index([collectorId,createdAt])
+ @@index([contextRouteId])
+}
+model ExtraCollectionOrderEvent {
+ id String @id @default(cuid())
+ orderId String
+ operationId String
+ operationHash String
+ kind String
+ actorUserId String
+ actorName String
+ notes String
+ data Json?
+ createdAt DateTime @default(now())
+ order ExtraCollectionOrder @relation(fields:[orderId],references:[id],onDelete:Restrict)
+ @@unique([orderId,operationId])
+ @@index([orderId,createdAt])
+}
+
+model OwnerDocument {
+ id String @id @default(cuid())
+ cooperativeId String
+ generatorId String?
+ collectorId String?
+ driverId String?
+ vehicleId String?
+ title String
+ documentType String
+ documentNumber String?
+ issueDate DateTime?
+ expiryDate DateTime?
+ notes String?
+ originalName String
+ storageKey String @unique
+ mimeType String
+ size Int
+ createdAt DateTime @default(now())
+ cooperative Cooperative @relation(fields:[cooperativeId], references:[id], onDelete:Restrict)
+ generator Generator? @relation(fields:[generatorId], references:[id], onDelete:Restrict)
+ collector Collector? @relation(fields:[collectorId], references:[id], onDelete:Restrict)
+ driver Driver? @relation(fields:[driverId], references:[id], onDelete:Restrict)
+ vehicle Vehicle? @relation(fields:[vehicleId], references:[id], onDelete:Restrict)
+ @@index([cooperativeId,generatorId])
+ @@index([cooperativeId,collectorId])
+ @@index([cooperativeId,driverId])
+ @@index([cooperativeId,vehicleId])
+}
+
+model CollectionQuantityReview {
+ id String @id @default(cuid())
+ collectionId String
+ version Int
+ actorUserId String
+ actorName String
+ reason String
+ items Json
+ previousTotalKg Float
+ confirmedTotalKg Float
+ createdAt DateTime @default(now())
+ collection Collection @relation(fields:[collectionId],references:[id],onDelete:Cascade)
+ @@unique([collectionId,version])
+}
+model InboxNotification {
+ id String @id @default(cuid())
+ userId String
+ collectionId String?
+ eventKey String
+ kind String
+ title String
+ message String
+ data Json?
+ readAt DateTime?
+ createdAt DateTime @default(now())
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ collection Collection? @relation(fields:[collectionId],references:[id],onDelete:SetNull)
+ @@unique([userId,eventKey])
+ @@index([userId,readAt,createdAt])
+}
+
+model RoutePlan {
+  teamId String?
+  id String @id @default(cuid())
+  cooperativeId String
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  name String
+  description String?
+  active Boolean @default(true)
+  version Int @default(0)
+  startsOn String
+  endsOn String?
+  weekdays Int[]
+  intervalWeeks Int @default(1)
+  departureTime String
+  estimatedMinutes Int @default(240)
+  driverId String?
+  vehicleId String?
+  collectorIds String[] @default([])
+  points Json
+  startPoint Json
+  endPoint Json
+  exceptions String[] @default([])
+  lastGenerationError String?
+  lastGeneratedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  routes Route[]
+  @@index([cooperativeId, active])
+}
+
+
+model PevRequest {
+  id String @id
+  binId String
+  cooperativeId String
+  requesterUserId String
+  requesterRole String
+  requesterName String
+  binName String
+  address String
+  condition String
+  notes String
+  photos Json
+  status String @default("OPEN")
+  version Int @default(1)
+  response String?
+  collectionId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  bin Bin @relation(fields:[binId], references:[id], onDelete:Restrict)
+  requester User @relation(fields:[requesterUserId], references:[id], onDelete:Restrict)
+  collection Collection? @relation(fields:[collectionId], references:[id], onDelete:SetNull)
+  updates PevRequestUpdate[]
+  @@index([cooperativeId,status,createdAt])
+  @@index([requesterUserId,createdAt])
+  @@index([binId,createdAt])
+  @@index([collectionId])
+}
+model PevRequestUpdate {
+  id String @id @default(cuid())
+  requestId String
+  operationId String @unique
+  actorUserId String
+  actorName String
+  kind String
+  notes String
+  photos Json
+  createdAt DateTime @default(now())
+  request PevRequest @relation(fields:[requestId], references:[id], onDelete:Restrict)
+  @@index([requestId,createdAt])
+}
+
+
+model CollectorTeam {
+  id String @id @default(cuid())
+  cooperativeId String
+  name String
+  active Boolean @default(true)
+  memberIds String[]
+  version Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  @@index([cooperativeId, active])
+}
+model CollectionParticipant {
+  id String @id @default(cuid())
+  collectionId String
+  collectorId String
+  nameSnapshot String
+  allocations Json?
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collector Collector @relation(fields: [collectorId], references: [id], onDelete: Restrict)
+  @@unique([collectionId, collectorId])
+  @@index([collectorId])
+}
+model CollectionAllocationReview {
+  id String @id @default(cuid())
+  collectionId String
+  version Int
+  quantityVersion Int
+  actorUserId String
+  actorName String
+  reason String
+  snapshot Json
+  createdAt DateTime @default(now())
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  @@unique([collectionId, version])
 }

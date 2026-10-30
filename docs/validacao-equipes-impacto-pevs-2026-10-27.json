@@ -1,0 +1,113 @@
+{
+  "date": "2026-10-27",
+  "status": "PASS",
+  "checksPassed": 52,
+  "api": {
+    "passed": 11,
+    "checks": [
+      "Cadastro de equipe exige 2 a 30 catadores ativos e isola as cooperativas",
+      "Rota da equipe cria uma coleta única com três participantes e acesso compartilhado",
+      "Etapa de campo não multiplica material nem credita o peso completo a cada catador",
+      "Pesagem 50→40 preserva original; divisão exata com três casas atualiza parcelas e notifica todos",
+      "Alterar pesagem invalida parcelas; versões antigas são recusadas e histórico é preservado",
+      "Editar cadastro de equipe não altera participantes nem créditos de uma coleta já registrada",
+      "Impacto usa apenas geradores e coletas concluídas do vínculo; fatores ausentes não viram zero ou reciclagem comprovada",
+      "Coleta avulsa aceita e remove equipe antes da saída, com controle de versão",
+      "Rota fixa gera execuções com equipe e participantes registrados em cada coleta",
+      "Relatório de catadores incorpora parcelas sem multiplicar a produção",
+      "Publicação da PEV não concede acesso operacional a cooperativas e catadores alheios"
+    ]
+  },
+  "pevRegression": {
+    "passed": 24,
+    "checks": [
+      "PF vê somente PEVs públicos localizados, sem contatos ou notas internas",
+      "Catador também vê pontos privados da própria cooperativa",
+      "Motorista não assume permissão de solicitante",
+      "PF não pode relatar ponto privado ou sem localização",
+      "Fotos inválidas e cooperativa forjada são rejeitadas",
+      "Relato com foto vai à cooperativa do PEV, sinaliza retirada e não cria peso ou estoque",
+      "Reenvio idêntico é idempotente e protocolo com outro conteúdo é bloqueado",
+      "Fotos e detalhes isolados por solicitante e cooperativa responsável",
+      "PF e outra cooperativa não executam a retirada",
+      "Resposta da cooperativa é idempotente e PF não altera o atendimento",
+      "Controle de versão bloqueia sobrescrita de atualização concorrente",
+      "Encaminhamento vincula todos os relatos abertos do mesmo PEV à única coleta",
+      "Catador abre retirada sem rota; repetição não duplica coleta",
+      "Novos relatos se vinculam à retirada já ativa sem gerar coleta duplicada",
+      "PEV público permanece oculto para outra cooperativa e seus catadores, inclusive por ID direto",
+      "Catador da cooperativa complementa relato de PF com fotos",
+      "Retirada segue o fluxo de campo e registra material somente na conclusão",
+      "PF acompanha recebimento e recebe notificações das etapas; cooperativa recebe o relato",
+      "Encerramento impede nova retirada pelo mesmo protocolo e preserva coleta e estoque",
+      "Catador em rota pode abrir retirada avulsa na própria cooperativa",
+      "Retirada cancelada pode ser reencaminhada sem perder o histórico nem duplicar coleta ativa",
+      "Publicação no App exige modalidade pública compatível e localização salva",
+      "Conta desativada perde acesso imediatamente",
+      "Listagem não transfere fotos; histórico de evidências tem paginação"
+    ]
+  },
+  "browser": {
+    "passed": 9,
+    "failed": 0,
+    "results": [
+      {
+        "name": "Painel separa gestão de motoristas e de catadores e abre equipes",
+        "status": "PASS"
+      },
+      {
+        "name": "Cadastro visual de equipe salva dois participantes na API real",
+        "status": "PASS"
+      },
+      {
+        "name": "Construção de rota oferece equipe e bloqueia alterações individuais incompatíveis",
+        "status": "PASS"
+      },
+      {
+        "name": "Conferência permite rateio por material com total preservado",
+        "status": "PASS"
+      },
+      {
+        "name": "Relatórios exibem impacto e cobertura por gerador com fonte",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel de equipes funciona em 390px sem corte horizontal",
+        "status": "PASS"
+      },
+      {
+        "name": "App mostra apenas a parcela individual na produção em equipe",
+        "status": "PASS"
+      },
+      {
+        "name": "Aba impacto do gerador usa os mesmos fatores do painel",
+        "status": "PASS"
+      },
+      {
+        "name": "Interfaces sem erros JavaScript durante os cenários",
+        "status": "PASS"
+      }
+    ]
+  },
+  "unitTests": {
+    "passed": 8,
+    "file": "server/tests/teams/model.test.ts"
+  },
+  "checks": {
+    "serverTypecheck": "PASS",
+    "serverBuild": "PASS",
+    "appTypecheck": "PASS",
+    "appExpoWebExport": "PASS",
+    "panelViteBuild": "PASS",
+    "targetedLint": "PASS",
+    "migrationFromPreviousSchema": "PASS",
+    "desktopAnd390pxVisualInspection": "PASS"
+  },
+  "boundaries": [
+    "Banco PostgreSQL descartável em loopback via PGlite. Sem acesso à VPS.",
+    "Playwright executa interfaces reais contra API e banco locais. GPS e tiles são controlados.",
+    "Os fatores ambientais usados nos testes são sintéticos e não são gravados na produção.",
+    "Não houve teste em aparelhos Android/iOS físicos nem publicação de binários nativos."
+  ],
+  "migration": "20261027030000_teams_material_allocations"
+}

@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import {
   createVehicleSchema,
+  updateVehicleSchema,
   updateVehicleStatusSchema,
   vehicleIdParamsSchema,
 } from "./vehicle.schemas";
@@ -103,6 +104,24 @@ export class VehicleController {
     }
   }
 
+  async update(request: FastifyRequest, reply: FastifyReply) {
+    const authUser = request.user as { sub: string; role: string };
+    if (authUser.role !== "COOPERATIVE") {
+      return reply.status(403).send({ success: false, error: "Apenas cooperativas podem atualizar veículos." });
+    }
+    try {
+      const { id } = vehicleIdParamsSchema.parse(request.params);
+      const body = updateVehicleSchema.parse(request.body);
+      const vehicle = await vehicleService.update(authUser.sub, id, body);
+      return reply.send({ success: true, vehicle });
+    } catch (error: any) {
+      const message = error.code === "P2002" ? "Já existe veículo com esta placa." :
+        error.code === "P2034" ? "O veículo foi alterado simultaneamente. Recarregue e tente novamente." :
+        error.message || "Erro ao atualizar veículo.";
+      return reply.status(error.code === "P2034" || error.code === "P2002" ? 409 : 400).send({ success: false, error: message });
+    }
+  }
+
   async updateStatus(request: FastifyRequest, reply: FastifyReply) {
     try {
       const authUser = request.user as { sub: string; role: string };
@@ -127,9 +146,9 @@ export class VehicleController {
         vehicle,
       });
     } catch (error: any) {
-      return reply.status(400).send({
+      return reply.status(error.code === "P2034" ? 409 : 400).send({
         success: false,
-        error: error.message || "Erro ao atualizar status do veículo.",
+        error: error.code === "P2034" ? "O veículo foi alterado simultaneamente. Recarregue e tente novamente." : error.message || "Erro ao atualizar status do veículo.",
       });
     }
   }

@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,10 +14,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 export default function ActivateAccessScreen() {
   const { activateGeneratorAccess } = useAuth();
   const params = useLocalSearchParams<{ email?: string }>();
+  const { notifyError, notifySuccess, notifyWarning } = useNotification();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,17 +39,20 @@ export default function ActivateAccessScreen() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail || !password.trim() || !confirmPassword.trim()) {
-      Alert.alert("Atenção", "Preencha todos os campos.");
+      notifyWarning({ message: "Preencha todos os campos.", title: "Atenção" });
       return false;
     }
 
     if (password.length < 6) {
-      Alert.alert("Atenção", "A senha deve ter pelo menos 6 caracteres.");
+      notifyWarning({
+        message: "A senha deve ter pelo menos 6 caracteres.",
+        title: "Atenção",
+      });
       return false;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Atenção", "As senhas não coincidem.");
+      notifyWarning({ message: "As senhas não coincidem.", title: "Atenção" });
       return false;
     }
 
@@ -66,13 +70,22 @@ export default function ActivateAccessScreen() {
       const result = await activateGeneratorAccess(normalizedEmail, password);
 
       if (!result.success) {
-        Alert.alert("Erro", result.error || "Não foi possível liberar o acesso.");
+        notifyError({
+          message: result.error || "Não foi possível liberar o acesso.",
+          title: "Erro",
+        });
         return;
       }
 
-      Alert.alert("Acesso liberado", "Seu acesso foi liberado com sucesso.");
+      notifySuccess({
+        message: "Acesso liberado",
+        title: "Seu acesso foi liberado com sucesso.",
+      });
     } catch {
-      Alert.alert("Erro", "Não foi possível liberar o acesso.");
+      notifyError({
+        message: "Não foi possível liberar o acesso.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -97,10 +110,10 @@ export default function ActivateAccessScreen() {
           alignItems: "center",
         }}
       >
-        <Ionicons name="arrow-back" size={24} color="#028C56" />
+        <Ionicons name="arrow-back" size={24} color="#047857" />
         <Text
           style={{
-            color: "#028C56",
+            color: "#047857",
             marginLeft: 4,
             fontWeight: "600",
             fontSize: 14,
@@ -131,7 +144,7 @@ export default function ActivateAccessScreen() {
             <Text
               style={{
                 fontSize: 28,
-                fontWeight: "800",
+                fontWeight: "700",
                 color: "#111827",
                 textAlign: "center",
               }}
@@ -143,7 +156,7 @@ export default function ActivateAccessScreen() {
               style={{
                 fontSize: 18,
                 fontWeight: "700",
-                color: "#028C56",
+                color: "#047857",
                 marginTop: 8,
                 textAlign: "center",
               }}
@@ -168,7 +181,7 @@ export default function ActivateAccessScreen() {
           <View style={{ marginBottom: 18 }}>
             <Text
               style={{
-                color: "#028C56",
+                color: "#047857",
                 marginBottom: 6,
                 fontWeight: "700",
                 fontSize: 14,
@@ -206,7 +219,7 @@ export default function ActivateAccessScreen() {
               }}
             >
               <Text
-                style={{ color: "#028C56", fontWeight: "700", fontSize: 14 }}
+                style={{ color: "#047857", fontWeight: "700", fontSize: 14 }}
               >
                 Nova senha *
               </Text>
@@ -214,7 +227,7 @@ export default function ActivateAccessScreen() {
                 <Ionicons
                   name={showPassword ? "eye-outline" : "eye-off-outline"}
                   size={22}
-                  color="#028C56"
+                  color="#047857"
                 />
               </TouchableOpacity>
             </View>
@@ -248,21 +261,17 @@ export default function ActivateAccessScreen() {
               }}
             >
               <Text
-                style={{ color: "#028C56", fontWeight: "700", fontSize: 14 }}
+                style={{ color: "#047857", fontWeight: "700", fontSize: 14 }}
               >
                 Confirmar senha *
               </Text>
               <TouchableOpacity
-                onPress={() =>
-                  setShowConfirmPassword(!showConfirmPassword)
-                }
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
               >
                 <Ionicons
-                  name={
-                    showConfirmPassword ? "eye-outline" : "eye-off-outline"
-                  }
+                  name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
                   size={22}
-                  color="#028C56"
+                  color="#047857"
                 />
               </TouchableOpacity>
             </View>
@@ -292,7 +301,7 @@ export default function ActivateAccessScreen() {
             disabled={loading}
           >
             <LinearGradient
-              colors={["#10F35D", "#028C56"]}
+              colors={["#123C35", "#17694F"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{
@@ -310,7 +319,7 @@ export default function ActivateAccessScreen() {
                     style={{
                       color: "#FFFFFF",
                       fontSize: 16,
-                      fontWeight: "800",
+                      fontWeight: "700",
                       marginLeft: 8,
                     }}
                   >
@@ -322,7 +331,7 @@ export default function ActivateAccessScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 18,
-                    fontWeight: "800",
+                    fontWeight: "700",
                   }}
                 >
                   LIBERAR ACESSO

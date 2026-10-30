@@ -141,18 +141,18 @@ function StatusBadge({ label }: { label: string }) {
   const backgroundColor = isInProgress
     ? "#FEF3C7"
     : isCompleted
-    ? "#DCFCE7"
-    : isCancelled
-    ? "#FEE2E2"
-    : "#ECFDF5";
+      ? "#DCFCE7"
+      : isCancelled
+        ? "#FEE2E2"
+        : "#ECFDF5";
 
   const textColor = isInProgress
     ? "#B45309"
     : isCompleted
-    ? "#166534"
-    : isCancelled
-    ? "#B91C1C"
-    : "#047857";
+      ? "#166534"
+      : isCancelled
+        ? "#B91C1C"
+        : "#047857";
 
   return (
     <View
@@ -178,7 +178,7 @@ export default function MotoristaCalendarioScreen() {
 
   const today = useMemo(() => normalizeDate(new Date()), []);
   const [currentMonth, setCurrentMonth] = useState(
-    new Date(today.getFullYear(), today.getMonth(), 1)
+    new Date(today.getFullYear(), today.getMonth(), 1),
   );
   const [selectedDate, setSelectedDate] = useState<Date>(today);
 
@@ -217,13 +217,13 @@ export default function MotoristaCalendarioScreen() {
         setRefreshing(false);
       }
     },
-    [driverId]
+    [driverId],
   );
 
   useFocusEffect(
     useCallback(() => {
       void loadRoutes();
-    }, [loadRoutes])
+    }, [loadRoutes]),
   );
 
   const routeItems = useMemo<RouteWithDetail[]>(
@@ -239,7 +239,7 @@ export default function MotoristaCalendarioScreen() {
           const bTime = b.calendarDate ? b.calendarDate.getTime() : 0;
           return aTime - bTime;
         }),
-    [detailsById, routes]
+    [detailsById, routes],
   );
 
   const monthGrid = useMemo(() => buildMonthGrid(currentMonth), [currentMonth]);
@@ -278,13 +278,16 @@ export default function MotoristaCalendarioScreen() {
     });
 
     const totalCollections = monthRoutes.reduce((acc, route) => {
-      return acc + (route.detail.collections?.length || route.collections?.length || 0);
+      return (
+        acc +
+        (route.detail.collections?.length || route.collections?.length || 0)
+      );
     }, 0);
 
     const activeDays = new Set(
       monthRoutes
         .filter((route) => route.calendarDate)
-        .map((route) => normalizeDate(route.calendarDate!).toISOString())
+        .map((route) => normalizeDate(route.calendarDate!).toISOString()),
     ).size;
 
     return {
@@ -308,11 +311,13 @@ export default function MotoristaCalendarioScreen() {
           const detail = await routeService.getById(routeId);
           setDetailsById((prev) => ({ ...prev, [routeId]: detail }));
         } catch (err: any) {
-          setError(err?.message || "Não foi possível carregar os detalhes da rota.");
+          setError(
+            err?.message || "Não foi possível carregar os detalhes da rota.",
+          );
         }
       }
     },
-    [detailsById, expandedId]
+    [detailsById, expandedId],
   );
 
   if (loading) {
@@ -325,7 +330,7 @@ export default function MotoristaCalendarioScreen() {
           backgroundColor: "#F8FAFC",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
           Carregando calendário...
         </Text>
@@ -350,8 +355,8 @@ export default function MotoristaCalendarioScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void loadRoutes(true)}
-            colors={["#028C56"]}
-            tintColor="#028C56"
+            colors={["#047857"]}
+            tintColor="#047857"
           />
         }
       >
@@ -392,8 +397,8 @@ export default function MotoristaCalendarioScreen() {
                   new Date(
                     currentMonth.getFullYear(),
                     currentMonth.getMonth() - 1,
-                    1
-                  )
+                    1,
+                  ),
                 )
               }
               style={{
@@ -405,14 +410,14 @@ export default function MotoristaCalendarioScreen() {
                 justifyContent: "center",
               }}
             >
-              <Ionicons name="chevron-back" size={20} color="#028C56" />
+              <Ionicons name="chevron-back" size={20} color="#047857" />
             </TouchableOpacity>
 
             <Text
               style={{
                 color: "#111827",
                 fontSize: 18,
-                fontWeight: "800",
+                fontWeight: "700",
                 textTransform: "capitalize",
               }}
             >
@@ -425,8 +430,8 @@ export default function MotoristaCalendarioScreen() {
                   new Date(
                     currentMonth.getFullYear(),
                     currentMonth.getMonth() + 1,
-                    1
-                  )
+                    1,
+                  ),
                 )
               }
               style={{
@@ -438,7 +443,7 @@ export default function MotoristaCalendarioScreen() {
                 justifyContent: "center",
               }}
             >
-              <Ionicons name="chevron-forward" size={20} color="#028C56" />
+              <Ionicons name="chevron-forward" size={20} color="#047857" />
             </TouchableOpacity>
           </View>
 
@@ -487,15 +492,15 @@ export default function MotoristaCalendarioScreen() {
                       justifyContent: "center",
                       borderWidth: isSelected ? 2 : 1,
                       borderColor: isSelected
-                        ? "#028C56"
+                        ? "#047857"
                         : isToday
-                        ? "#86EFAC"
-                        : "#E5E7EB",
+                          ? "#86EFAC"
+                          : "#E5E7EB",
                       backgroundColor: isSelected
                         ? "#ECFDF5"
                         : day.inCurrentMonth
-                        ? "#FFFFFF"
-                        : "#F8FAFC",
+                          ? "#FFFFFF"
+                          : "#F8FAFC",
                       opacity: day.inCurrentMonth ? 1 : 0.6,
                     }}
                   >
@@ -516,7 +521,7 @@ export default function MotoristaCalendarioScreen() {
                           width: 7,
                           height: 7,
                           borderRadius: 999,
-                          backgroundColor: "#028C56",
+                          backgroundColor: "#047857",
                         }}
                       />
                     )}
@@ -550,7 +555,7 @@ export default function MotoristaCalendarioScreen() {
               style={{
                 color: "#111827",
                 fontSize: 22,
-                fontWeight: "800",
+                fontWeight: "700",
                 marginTop: 8,
               }}
             >
@@ -574,7 +579,7 @@ export default function MotoristaCalendarioScreen() {
               style={{
                 color: "#111827",
                 fontSize: 22,
-                fontWeight: "800",
+                fontWeight: "700",
                 marginTop: 8,
               }}
             >
@@ -598,7 +603,7 @@ export default function MotoristaCalendarioScreen() {
               style={{
                 color: "#111827",
                 fontSize: 22,
-                fontWeight: "800",
+                fontWeight: "700",
                 marginTop: 8,
               }}
             >
@@ -615,7 +620,7 @@ export default function MotoristaCalendarioScreen() {
             marginBottom: 16,
           }}
         >
-          <Text style={{ color: "#111827", fontSize: 17, fontWeight: "800" }}>
+          <Text style={{ color: "#111827", fontSize: 17, fontWeight: "700" }}>
             Agenda do dia
           </Text>
 
@@ -641,11 +646,12 @@ export default function MotoristaCalendarioScreen() {
               padding: 16,
             }}
           >
-            <Text style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}>
+            <Text style={{ color: "#111827", fontSize: 16, fontWeight: "700" }}>
               Nenhuma rota neste dia
             </Text>
             <Text style={{ color: "#6B7280", marginTop: 10, lineHeight: 22 }}>
-              Selecione outro dia marcado no calendário para ver as rotas atribuídas.
+              Selecione outro dia marcado no calendário para ver as rotas
+              atribuídas.
             </Text>
           </View>
         ) : (
@@ -657,7 +663,7 @@ export default function MotoristaCalendarioScreen() {
               detail.collections?.find(
                 (collection) =>
                   collection.generator?.latitude != null &&
-                  collection.generator?.longitude != null
+                  collection.generator?.longitude != null,
               )?.generator || null;
 
             return (
@@ -680,7 +686,13 @@ export default function MotoristaCalendarioScreen() {
                   }}
                 >
                   <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text style={{ color: "#111827", fontSize: 17, fontWeight: "800" }}>
+                    <Text
+                      style={{
+                        color: "#111827",
+                        fontSize: 17,
+                        fontWeight: "700",
+                      }}
+                    >
                       {item.name}
                     </Text>
 
@@ -698,7 +710,10 @@ export default function MotoristaCalendarioScreen() {
                           : "Não definida"
                       }
                     />
-                    <DetailLine label="Paradas" value={item.stops?.length || 0} />
+                    <DetailLine
+                      label="Paradas"
+                      value={item.stops?.length || 0}
+                    />
                     <DetailLine
                       label="Coletas"
                       value={
@@ -734,7 +749,7 @@ export default function MotoristaCalendarioScreen() {
                       style={{
                         color: "#111827",
                         fontSize: 15,
-                        fontWeight: "800",
+                        fontWeight: "700",
                         marginBottom: 10,
                       }}
                     >
@@ -758,7 +773,7 @@ export default function MotoristaCalendarioScreen() {
                       style={{
                         color: "#111827",
                         fontSize: 14,
-                        fontWeight: "800",
+                        fontWeight: "700",
                         marginTop: 14,
                         marginBottom: 8,
                       }}
@@ -785,7 +800,7 @@ export default function MotoristaCalendarioScreen() {
                       style={{
                         color: "#111827",
                         fontSize: 14,
-                        fontWeight: "800",
+                        fontWeight: "700",
                         marginTop: 14,
                         marginBottom: 8,
                       }}
@@ -809,7 +824,7 @@ export default function MotoristaCalendarioScreen() {
                           <Text
                             style={{
                               color: "#111827",
-                              fontWeight: "800",
+                              fontWeight: "700",
                               marginBottom: 4,
                             }}
                           >
@@ -818,10 +833,12 @@ export default function MotoristaCalendarioScreen() {
                               "Ponto de coleta"}
                           </Text>
                           <Text style={{ color: "#6B7280", lineHeight: 20 }}>
-                            Status: {translateCollectionStatus(collection.status)}
+                            Status:{" "}
+                            {translateCollectionStatus(collection.status)}
                           </Text>
                           <Text style={{ color: "#6B7280", lineHeight: 20 }}>
-                            Endereço: {collection.generator?.address || "Não informado"}
+                            Endereço:{" "}
+                            {collection.generator?.address || "Não informado"}
                           </Text>
                           <Text style={{ color: "#6B7280", lineHeight: 20 }}>
                             Data:{" "}
@@ -830,7 +847,7 @@ export default function MotoristaCalendarioScreen() {
                               ? new Date(
                                   collection.schedule?.scheduledDate ||
                                     collection.schedule?.preferredDate ||
-                                    ""
+                                    "",
                                 ).toLocaleString("pt-BR")
                               : "Não definida"}
                           </Text>
@@ -864,7 +881,7 @@ export default function MotoristaCalendarioScreen() {
                           borderRadius: 12,
                         }}
                       >
-                        <Text style={{ color: "#047857", fontWeight: "800" }}>
+                        <Text style={{ color: "#047857", fontWeight: "700" }}>
                           VER NO MAPA
                         </Text>
                       </TouchableOpacity>
@@ -879,13 +896,15 @@ export default function MotoristaCalendarioScreen() {
                               })
                             }
                             style={{
-                              backgroundColor: "#028C56",
+                              backgroundColor: "#047857",
                               paddingHorizontal: 14,
                               paddingVertical: 10,
                               borderRadius: 12,
                             }}
                           >
-                            <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>
+                            <Text
+                              style={{ color: "#FFFFFF", fontWeight: "700" }}
+                            >
                               TRAÇAR ROTA
                             </Text>
                           </TouchableOpacity>

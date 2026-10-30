@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,6 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 import { useAuth } from "@/src/contexts/AuthContext";
 
 type ProfileType = "pf" | "comercial" | "grande" | "cooperativa" | "catador";
@@ -22,6 +22,7 @@ export default function ForgotScreen() {
   const params = useLocalSearchParams<{ profile?: string }>();
   const profile = params.profile as ProfileType | undefined;
   const { forgotPassword } = useAuth();
+  const { notifyWarning, notifyError, notifySuccess } = useNotification();
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +30,7 @@ export default function ForgotScreen() {
   const profileLabel = useMemo(() => {
     switch (profile) {
       case "pf":
-        return "Pessoa Física";
+        return "Gerador residencial";
       case "comercial":
         return "Pequeno Gerador Comercial";
       case "grande":
@@ -47,7 +48,7 @@ export default function ForgotScreen() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail) {
-      Alert.alert("Atenção", "Informe seu e-mail.");
+      notifyWarning("Informe seu e-mail.");
       return;
     }
 
@@ -57,45 +58,20 @@ export default function ForgotScreen() {
       const result = await forgotPassword(normalizedEmail);
 
       if (!result.success) {
-        Alert.alert(
-          "Erro",
-          result.error || "Não foi possível iniciar a recuperação."
-        );
+        notifyError(result.error || "Não foi possível iniciar a recuperação.");
         return;
       }
 
-      if (result.resetToken) {
-        Alert.alert(
-          "Token gerado",
-          `Ambiente de desenvolvimento:\n\nToken: ${result.resetToken}`,
-          [
-            {
-              text: "Continuar",
-              onPress: () => {
-                const query = new URLSearchParams({
-                  email: normalizedEmail,
-                  token: result.resetToken!,
-                  ...(profile ? { profile } : {}),
-                }).toString();
-
-                router.push(`/(auth)/reset-password?${query}` as any);
-              },
-            },
-          ]
-        );
-        return;
-      }
-
-      Alert.alert(
-        "Solicitação enviada",
-        result.message ||
-          "Se o e-mail existir em nossa base, a recuperação foi iniciada."
-      );
+      notifySuccess({
+        message:
+          result.message ||
+          "Se o e-mail estiver habilitado, enviaremos as instruções.",
+        title: "Solicitação enviada",
+      });
     } catch (error: any) {
       console.error("Erro ao solicitar recuperação:", error);
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível iniciar a recuperação de senha."
+      notifyError(
+        error?.message || "Não foi possível iniciar a recuperação de senha.",
       );
     } finally {
       setLoading(false);
@@ -121,10 +97,10 @@ export default function ForgotScreen() {
           alignItems: "center",
         }}
       >
-        <Ionicons name="arrow-back" size={24} color="#028C56" />
+        <Ionicons name="arrow-back" size={24} color="#047857" />
         <Text
           style={{
-            color: "#028C56",
+            color: "#047857",
             marginLeft: 4,
             fontWeight: "600",
             fontSize: 14,
@@ -155,7 +131,7 @@ export default function ForgotScreen() {
             <Text
               style={{
                 fontSize: 28,
-                fontWeight: "800",
+                fontWeight: "700",
                 color: "#111827",
                 textAlign: "center",
               }}
@@ -167,7 +143,7 @@ export default function ForgotScreen() {
               style={{
                 fontSize: 18,
                 fontWeight: "700",
-                color: "#028C56",
+                color: "#047857",
                 marginTop: 8,
                 textAlign: "center",
               }}
@@ -198,7 +174,7 @@ export default function ForgotScreen() {
             >
               <Text
                 style={{
-                  color: "#028C56",
+                  color: "#047857",
                   fontSize: 13,
                   fontWeight: "700",
                 }}
@@ -211,7 +187,7 @@ export default function ForgotScreen() {
           <View style={{ marginBottom: 24 }}>
             <Text
               style={{
-                color: "#028C56",
+                color: "#047857",
                 marginBottom: 6,
                 fontWeight: "700",
                 fontSize: 14,
@@ -246,7 +222,7 @@ export default function ForgotScreen() {
             disabled={loading}
           >
             <LinearGradient
-              colors={["#10F35D", "#028C56"]}
+              colors={["#123C35", "#17694F"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{
@@ -264,7 +240,7 @@ export default function ForgotScreen() {
                     style={{
                       color: "#FFFFFF",
                       fontSize: 16,
-                      fontWeight: "800",
+                      fontWeight: "700",
                       marginLeft: 8,
                     }}
                   >
@@ -276,7 +252,7 @@ export default function ForgotScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 18,
-                    fontWeight: "800",
+                    fontWeight: "700",
                   }}
                 >
                   CONTINUAR

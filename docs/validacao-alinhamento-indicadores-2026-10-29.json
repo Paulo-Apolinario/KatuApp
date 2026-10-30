@@ -1,0 +1,148 @@
+{
+  "lint": "passed",
+  "productionBuild": "passed",
+  "browser": {
+    "results": [
+      {
+        "width": 1366,
+        "boxes": [
+          {
+            "cardY": 319.65625,
+            "buttonY": 537.96875,
+            "bottom": 25,
+            "left": 25,
+            "padding": 24,
+            "width": 149.703125,
+            "cardWidth": 234.703125,
+            "href": null
+          },
+          {
+            "cardY": 319.65625,
+            "buttonY": 537.96875,
+            "bottom": 25,
+            "left": 25,
+            "padding": 24,
+            "width": 134.75,
+            "cardWidth": 234.703125,
+            "href": null
+          },
+          {
+            "cardY": 319.65625,
+            "buttonY": 537.96875,
+            "bottom": 25,
+            "left": 25,
+            "padding": 24,
+            "width": 127.9375,
+            "cardWidth": 234.703125,
+            "href": "/collected-waste?stage=receipt"
+          },
+          {
+            "cardY": 319.65625,
+            "buttonY": 537.96875,
+            "bottom": 25,
+            "left": 25,
+            "padding": 24,
+            "width": 127.9375,
+            "cardWidth": 234.703125,
+            "href": "/collected-waste?stage=destination"
+          }
+        ]
+      },
+      {
+        "width": 768,
+        "boxes": [
+          {
+            "cardY": 318.03125,
+            "buttonY": 536.34375,
+            "bottom": 25,
+            "left": 25,
+            "padding": 24,
+            "width": 149.703125,
+            "cardWidth": 212.265625,
+            "href": null
+          },
+          {
+            "cardY": 318.03125,
+            "buttonY": 536.34375,
+            "bottom": 25,
+            "left": 25,
+            "padding": 24,
+            "width": 134.75,
+            "cardWidth": 212.265625,
+            "href": null
+          },
+          {
+            "cardY": 318.03125,
+            "buttonY": 536.34375,
+            "bottom": 25,
+            "left": 25,
+            "padding": 24,
+            "width": 127.9375,
+            "cardWidth": 212.265625,
+            "href": "/collected-waste?stage=receipt"
+          },
+          {
+            "cardY": 613.34375,
+            "buttonY": 831.65625,
+            "bottom": 25,
+            "left": 25,
+            "padding": 24,
+            "width": 127.9375,
+            "cardWidth": 212.265625,
+            "href": "/collected-waste?stage=destination"
+          }
+        ]
+      },
+      {
+        "width": 390,
+        "boxes": [
+          {
+            "cardY": 452.15625,
+            "buttonY": 630.34375,
+            "bottom": 17,
+            "left": 17,
+            "padding": 16,
+            "width": 149.703125,
+            "cardWidth": 318,
+            "href": null
+          },
+          {
+            "cardY": 699.34375,
+            "buttonY": 850.53125,
+            "bottom": 17,
+            "left": 17,
+            "padding": 16,
+            "width": 134.75,
+            "cardWidth": 318,
+            "href": null
+          },
+          {
+            "cardY": 919.53125,
+            "buttonY": 1097.71875,
+            "bottom": 17,
+            "left": 17,
+            "padding": 16,
+            "width": 127.9375,
+            "cardWidth": 318,
+            "href": "/collected-waste?stage=receipt"
+          },
+          {
+            "cardY": 1166.71875,
+            "buttonY": 1344.90625,
+            "bottom": 17,
+            "left": 17,
+            "padding": 16,
+            "width": 127.9375,
+            "cardWidth": 318,
+            "href": "/collected-waste?stage=destination"
+          }
+        ]
+      }
+    ],
+    "errors": []
+  },
+  "limitations": [
+    "Dados simulados na verificação visual",
+    "Sem acesso à VPS"
+  ]
+}

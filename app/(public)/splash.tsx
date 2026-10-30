@@ -9,7 +9,7 @@ export default function Splash() {
       style={{ flex: 1 }}
     >
       <LinearGradient
-        colors={["#6EF7B0", "#19E462", "#009E60"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0.05, y: 0.95 }}
         end={{ x: 0.95, y: 0.05 }}
         style={{
@@ -39,7 +39,7 @@ export default function Splash() {
           <Text
             style={{
               fontSize: 58,
-              fontWeight: "900",
+              fontWeight: "700",
               color: "#FFFFFF",
               letterSpacing: 1,
             }}

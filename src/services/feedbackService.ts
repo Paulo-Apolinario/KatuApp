@@ -5,9 +5,9 @@ export type FeedbackCategory =
   | "PONTUALIDADE"
   | "COLETA"
   | "APLICATIVO"
-  | "COMUNICAÇÃO";
+  | "COMUNICACAO";
 
-export type CreateFeedbackPayload = {
+export type SendFeedbackPayload = {
   npsScore: number;
   categories: FeedbackCategory[];
   reason?: string;
@@ -16,27 +16,17 @@ export type CreateFeedbackPayload = {
   continuity?: string;
 };
 
-type FeedbackResponse = {
+export type SendFeedbackResponse = {
   success: boolean;
   message: string;
+  feedbackId: string;
+  emailSent: boolean;
+  destinationEmail?: string;
+  senderEmail?: string;
 };
 
 export async function sendFeedback(
-  payload: CreateFeedbackPayload
-): Promise<FeedbackResponse> {
-  try {
-    const response = await api.post<FeedbackResponse>(
-      "/feedback",
-      payload,
-      true // 🔥 ESSENCIAL: envia o token JWT
-    );
-
-    return response;
-  } catch (error: any) {
-    console.error("[FEEDBACK] Erro ao enviar:", error);
-
-    throw new Error(
-      error?.message || "Erro ao enviar feedback. Tente novamente."
-    );
-  }
+  payload: SendFeedbackPayload
+): Promise<SendFeedbackResponse> {
+  return api.post<SendFeedbackResponse>("/feedback", payload, true);
 }

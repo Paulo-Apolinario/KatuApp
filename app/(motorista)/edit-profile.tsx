@@ -2,7 +2,6 @@ import { router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Text,
   TextInput,
@@ -13,22 +12,24 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { driverService } from "@/src/services/driverService";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 export default function MotoristaEditProfileScreen() {
   const { user, refreshUser } = useAuth();
+  const { notifyError, notifySuccess, notifyWarning } = useNotification();
 
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [cnh, setCnh] = useState(user?.driver?.cnh || "");
   const [cnhCategory, setCnhCategory] = useState(
-    user?.driver?.cnhCategory || ""
+    user?.driver?.cnhCategory || "",
   );
   const [notes, setNotes] = useState(user?.driver?.notes || "");
   const [loading, setLoading] = useState(false);
 
   async function handleSave() {
     if (!displayName.trim()) {
-      Alert.alert("Atenção", "Informe o nome do motorista.");
+      notifyWarning("Informe o nome do motorista.");
       return;
     }
 
@@ -45,13 +46,10 @@ export default function MotoristaEditProfileScreen() {
 
       await refreshUser();
 
-      Alert.alert("Sucesso", "Perfil atualizado com sucesso.");
+      notifySuccess("Perfil atualizado com sucesso.");
       router.back();
     } catch (err: any) {
-      Alert.alert(
-        "Erro",
-        err?.message || "Não foi possível atualizar o perfil."
-      );
+      notifyError(err?.message || "Não foi possível atualizar o perfil.");
     } finally {
       setLoading(false);
     }
@@ -82,11 +80,11 @@ export default function MotoristaEditProfileScreen() {
               marginRight: 12,
             }}
           >
-            <Ionicons name="arrow-back" size={22} color="#028C56" />
+            <Ionicons name="arrow-back" size={22} color="#047857" />
           </TouchableOpacity>
 
           <View>
-            <Text style={{ color: "#111827", fontSize: 22, fontWeight: "800" }}>
+            <Text style={{ color: "#111827", fontSize: 22, fontWeight: "700" }}>
               Editar perfil
             </Text>
             <Text style={{ color: "#6B7280", fontSize: 13, marginTop: 2 }}>
@@ -105,7 +103,9 @@ export default function MotoristaEditProfileScreen() {
             marginBottom: 16,
           }}
         >
-          <Text style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}>
+          <Text
+            style={{ color: "#047857", fontWeight: "700", marginBottom: 6 }}
+          >
             Nome
           </Text>
           <TextInput
@@ -122,7 +122,9 @@ export default function MotoristaEditProfileScreen() {
             }}
           />
 
-          <Text style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}>
+          <Text
+            style={{ color: "#047857", fontWeight: "700", marginBottom: 6 }}
+          >
             Telefone
           </Text>
           <TextInput
@@ -139,7 +141,9 @@ export default function MotoristaEditProfileScreen() {
             }}
           />
 
-          <Text style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}>
+          <Text
+            style={{ color: "#047857", fontWeight: "700", marginBottom: 6 }}
+          >
             CNH
           </Text>
           <TextInput
@@ -156,7 +160,9 @@ export default function MotoristaEditProfileScreen() {
             }}
           />
 
-          <Text style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}>
+          <Text
+            style={{ color: "#047857", fontWeight: "700", marginBottom: 6 }}
+          >
             Categoria CNH
           </Text>
           <TextInput
@@ -174,7 +180,9 @@ export default function MotoristaEditProfileScreen() {
             }}
           />
 
-          <Text style={{ color: "#028C56", fontWeight: "700", marginBottom: 6 }}>
+          <Text
+            style={{ color: "#047857", fontWeight: "700", marginBottom: 6 }}
+          >
             Observações
           </Text>
           <TextInput
@@ -201,7 +209,7 @@ export default function MotoristaEditProfileScreen() {
           disabled={loading}
         >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -219,7 +227,7 @@ export default function MotoristaEditProfileScreen() {
                 style={{
                   color: "#FFFFFF",
                   fontSize: 16,
-                  fontWeight: "800",
+                  fontWeight: "700",
                 }}
               >
                 SALVAR ALTERAÇÕES

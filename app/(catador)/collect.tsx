@@ -1,23 +1,36 @@
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useActiveReadRefresh } from "@/src/hooks/useActiveReadRefresh";
+import { DataReadNotice } from "@/src/components/DataReadNotice";
+import { collectionOrigin } from "@/src/utils/collectionOrigin";
+import { NotificationBell } from "@/src/components/NotificationBell";
+import { syncManager } from "@/src/offline/syncManager";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
   TextInput,
+  Modal,
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
+import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { LastSyncBadge } from "@/src/components/LastSyncBadge";
+import { useConnectivity } from "@/src/hooks/useConnectivity";
 import {
   collectionService,
   type Collection,
   type CollectionMaterial,
+  type WasteUnit,
 } from "@/src/services/collectionService";
+import { wasteCatalogService } from "@/src/services/wasteCatalogService";
+import type { WasteCatalogItem } from "@/src/types/collection";
 
 function formatDateTime(dateString?: string | null) {
   if (!dateString) return "-";
@@ -40,6 +53,12 @@ function translateCollectionStatus(status: Collection["status"]) {
       return "Pendente";
     case "IN_PROGRESS":
       return "Em andamento";
+    case "COLLECTED":
+      return "Coletada";
+    case "RECEIVED":
+      return "Recebida";
+    case "SORTING":
+      return "Em triagem";
     case "COMPLETED":
       return "Concluída";
     case "CANCELLED":
@@ -55,6 +74,12 @@ function getCollectionStatusColor(status: Collection["status"]) {
       return "#64748B";
     case "IN_PROGRESS":
       return "#F59E0B";
+    case "COLLECTED":
+      return "#059669";
+    case "RECEIVED":
+      return "#0284C7";
+    case "SORTING":
+      return "#7C3AED";
     case "COMPLETED":
       return "#10B981";
     case "CANCELLED":
@@ -65,114 +90,295 @@ function getCollectionStatusColor(status: Collection["status"]) {
 }
 
 function getOriginLabel(item: Collection) {
+  if (item.routePoint)
+    return item.routePoint.kind === "PEV"
+      ? "PEV"
+      : item.routePoint.kind === "ADDRESS"
+        ? "Ponto avulso"
+        : "Gerador";
+  if (item.bin) return "PEV";
   if (item.generatorId) return "Gerador";
-  if (item.schedule?.requestedBy?.displayName || item.schedule?.requestedBy?.email) {
+  if (
+    item.schedule?.requestedBy?.displayName ||
+    item.schedule?.requestedBy?.email
+  ) {
     return "Pessoa física";
   }
   return "Solicitação";
 }
 
 function getSourceName(item: Collection) {
+  if (collectionOrigin(item)?.name) return collectionOrigin(item)!.name;
   if (item.generator?.companyName) return item.generator.companyName;
   if (item.generator?.name) return item.generator.name;
-  if (item.schedule?.requestedBy?.displayName) return item.schedule.requestedBy.displayName;
+  if (item.schedule?.requestedBy?.displayName) {
+    return item.schedule.requestedBy.displayName;
+  }
   if (item.schedule?.requestedBy?.email) return item.schedule.requestedBy.email;
   return "Origem não identificada";
 }
 
 function getAddress(item: Collection) {
-  return item.generator?.address || "-";
-}
-
-function extractRequestedMaterials(notes?: string | null): string[] {
-  if (!notes) return [];
-
-  const match = notes.match(/Materiais solicitados:\s*([^|]+)/i);
-  if (!match) return [];
-
-  return match[1]
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  return collectionOrigin(item)?.address || "-";
 }
 
 function normalizeMaterialsForEditing(item: Collection): CollectionMaterial[] {
-  if (Array.isArray(item.materials) && item.materials.length > 0) {
-    return item.materials.map((material) => ({
-      type: material.type,
-      quantityKg: Number(material.quantityKg || 0),
-    }));
+  if (
+    Array.isArray(item.collectionMaterials) &&
+    item.collectionMaterials.length > 0
+  ) {
+    return item.collectionMaterials.map((material) => {
+      const unit = material.unit || "KG";
+      const quantity = Number(material.quantity || 0);
+      const name =
+        material.wasteType?.name ||
+        material.catalogSuggestion?.name ||
+        material.nameSnapshot ||
+        "Material";
+
+      return {
+        wasteTypeId: material.wasteTypeId || null,
+        proposedMaterial: material.wasteTypeId
+          ? undefined
+          : {
+              name,
+              category:
+                material.catalogSuggestion?.category ||
+                material.categorySnapshot ||
+                null,
+              subcategory:
+                material.catalogSuggestion?.subcategory ||
+                material.subcategorySnapshot ||
+                null,
+              unit,
+            },
+        type: name,
+        name,
+        category:
+          material.wasteType?.category ||
+          material.catalogSuggestion?.category ||
+          material.categorySnapshot ||
+          null,
+        subcategory:
+          material.wasteType?.subcategory ||
+          material.catalogSuggestion?.subcategory ||
+          material.subcategorySnapshot ||
+          null,
+        quantity,
+        quantityKg: quantityToKg(quantity, unit),
+        unit,
+      };
+    });
   }
 
-  return extractRequestedMaterials(item.schedule?.notes).map((type) => ({
-    type,
-    quantityKg: 0,
-  }));
+  if (Array.isArray(item.materials) && item.materials.length > 0) {
+    return item.materials.map((material) => {
+      const unit = material.unit || "KG";
+      const quantity =
+        material.quantity !== undefined
+          ? Number(material.quantity)
+          : Number(material.quantityKg || 0);
+      const name = material.name || material.type || "Material";
+
+      return {
+        ...material,
+        wasteTypeId: material.wasteTypeId || null,
+        proposedMaterial:
+          material.wasteTypeId || material.proposedMaterial
+            ? material.proposedMaterial
+            : {
+                name,
+                category: material.category || null,
+                subcategory: material.subcategory || null,
+                unit,
+              },
+        type: name,
+        name,
+        quantity,
+        quantityKg: quantityToKg(quantity, unit),
+        unit,
+      };
+    });
+  }
+
+  const requestedMaterials = item.schedule?.requestedMaterials;
+
+  if (!Array.isArray(requestedMaterials)) {
+    return [];
+  }
+
+  return requestedMaterials.map((material) => {
+    const unit = material.unit || "KG";
+    const quantity = Number(material.estimatedQuantity || 0);
+    const name = material.nameSnapshot || "Material solicitado";
+
+    return {
+      wasteTypeId: material.wasteTypeId || null,
+      proposedMaterial: material.wasteTypeId
+        ? undefined
+        : {
+            name,
+            category: material.categorySnapshot || null,
+            subcategory: material.subcategorySnapshot || null,
+            unit,
+          },
+      type: name,
+      name,
+      category: material.categorySnapshot || null,
+      subcategory: material.subcategorySnapshot || null,
+      quantity,
+      quantityKg: quantityToKg(quantity, unit),
+      unit,
+    };
+  });
+}
+
+function formatUnit(unit?: WasteUnit) {
+  switch (unit) {
+    case "TON":
+      return "t";
+    case "LITER":
+      return "L";
+    case "UNIT":
+      return "un";
+    case "CUBIC_METER":
+      return "m³";
+    case "KG":
+    default:
+      return "kg";
+  }
+}
+
+function quantityToKg(quantity: number, unit: WasteUnit) {
+  if (unit === "KG") return quantity;
+  if (unit === "TON") return quantity * 1000;
+  return 0;
 }
 
 function formatMaterials(materials?: CollectionMaterial[]) {
   if (!Array.isArray(materials) || materials.length === 0) return "-";
 
   return materials
-    .map((item) => `${item.type}: ${Number(item.quantityKg || 0).toFixed(1)} kg`)
+    .map((item) => {
+      const unit = item.unit || "KG";
+      const quantity =
+        item.quantity !== undefined
+          ? Number(item.quantity)
+          : Number(item.quantityKg || 0);
+
+      return `${item.name || item.type}: ${quantity.toFixed(1)} ${formatUnit(unit)}`;
+    })
     .join(" • ");
 }
 
 export default function CollectScreen() {
+  const params = useLocalSearchParams<{ highlightCollectionId?: string }>();
+  const consumed = useRef<string | null>(null);
+  const { isOffline } = useConnectivity();
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState("");
-  const [materialsDraft, setMaterialsDraft] = useState<CollectionMaterial[]>([]);
+  const [materialsDraft, setMaterialsDraft] = useState<CollectionMaterial[]>(
+    [],
+  );
   const [notesDraft, setNotesDraft] = useState("");
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [catalogItems, setCatalogItems] = useState<WasteCatalogItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogModalVisible, setCatalogModalVisible] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const { notifyError, notifySuccess } = useNotification();
 
-  const loadCollections = useCallback(async (showLoader = true) => {
-    try {
-      if (showLoader) setLoading(true);
-
-      const response = await collectionService.list();
-      setCollections(Array.isArray(response) ? response : []);
-    } catch (error) {
-      console.error("Erro ao carregar coletas delegadas:", error);
-      Alert.alert("Erro", "Não foi possível carregar as coletas delegadas.");
-      setCollections([]);
-    } finally {
-      if (showLoader) setLoading(false);
-      setRefreshing(false);
+  useEffect(() => {
+    const id = params.highlightCollectionId;
+    if (id && consumed.current !== id && collections.some((c) => c.id === id)) {
+      const item = collections.find((c) => c.id === id)!;
+      setSelectedCollectionId(id);
+      setMaterialsDraft(normalizeMaterialsForEditing(item));
+      setNotesDraft(item.notes || "");
+      consumed.current = id;
     }
-  }, []);
+  }, [params.highlightCollectionId, collections]);
 
+  const loadCollections = useCallback(
+    async (showLoader = true) => {
+      try {
+        if (showLoader) setLoading(true);
+
+        const response = await collectionService.list();
+        const nextCollections = Array.isArray(response) ? response : [];
+        setCollections(nextCollections);
+        setLastSyncAt(collectionService.getLastRemoteSyncAt());
+
+        setSelectedCollectionId((currentId) => {
+          if (!currentId) return currentId;
+
+          const stillExists = nextCollections.some(
+            (item) =>
+              item.id === currentId &&
+              (item.status === "PENDING" ||
+                item.status === "IN_PROGRESS" ||
+                item.syncStatus === "PENDING"),
+          );
+
+          return stillExists ? currentId : "";
+        });
+      } catch (error) {
+        console.error("Erro ao carregar coletas delegadas:", error);
+        notifyError({
+          message: "Não foi possível carregar as coletas delegadas.",
+          title: "Erro",
+        });
+        // Mantém os dados visíveis quando a atualização falha.
+      } finally {
+        if (showLoader) setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [notifyError],
+  );
+
+  useActiveReadRefresh(() => loadCollections(false), loading || refreshing || !!selectedCollectionId || catalogModalVisible);
   useFocusEffect(
     useCallback(() => {
-      loadCollections(true);
-    }, [loadCollections])
+      void loadCollections(true);
+    }, [loadCollections]),
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    const result = await syncManager.runSyncNow();
+    if (!result.success && !isOffline)
+      notifyError({ message: result.message, title: "Sincronização pendente" });
     await loadCollections(false);
-  }, [loadCollections]);
+  }, [loadCollections, isOffline, notifyError]);
 
   const delegatedCollections = useMemo(() => {
     return collections.filter(
-      (item) => item.status === "PENDING" || item.status === "IN_PROGRESS"
+      (item) =>
+        item.status === "PENDING" ||
+        item.status === "IN_PROGRESS" ||
+        item.syncStatus === "PENDING",
     );
   }, [collections]);
 
   const selectedCollection = useMemo(() => {
     return (
-      delegatedCollections.find((item) => item.id === selectedCollectionId) || null
+      delegatedCollections.find((item) => item.id === selectedCollectionId) ||
+      null
     );
   }, [delegatedCollections, selectedCollectionId]);
 
   const metrics = useMemo(() => {
     const pending = delegatedCollections.filter(
-      (item) => item.status === "PENDING"
+      (item) => item.status === "PENDING",
     ).length;
 
     const inProgress = delegatedCollections.filter(
-      (item) => item.status === "IN_PROGRESS"
+      (item) => item.status === "IN_PROGRESS",
     ).length;
 
     return {
@@ -183,11 +389,30 @@ export default function CollectScreen() {
   }, [delegatedCollections]);
 
   const totalDraftWeight = useMemo(() => {
-    return materialsDraft.reduce(
-      (acc, item) => acc + Number(item.quantityKg || 0),
-      0
-    );
+    return materialsDraft.reduce((acc, item) => {
+      const unit = item.unit || "KG";
+      const quantity =
+        item.quantity !== undefined
+          ? Number(item.quantity)
+          : Number(item.quantityKg || 0);
+
+      return acc + quantityToKg(quantity, unit);
+    }, 0);
   }, [materialsDraft]);
+
+  const filteredCatalogItems = useMemo(() => {
+    const term = catalogSearch.trim().toLocaleLowerCase("pt-BR");
+
+    if (!term) return catalogItems;
+
+    return catalogItems.filter((item) =>
+      [item.name, item.category, item.subcategory, item.internalCode]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("pt-BR")
+        .includes(term),
+    );
+  }, [catalogItems, catalogSearch]);
 
   const handleOpenCollection = (collection: Collection) => {
     setSelectedCollectionId(collection.id);
@@ -197,41 +422,191 @@ export default function CollectScreen() {
 
   const updateMaterialQuantity = (index: number, value: string) => {
     const numeric = Number(String(value).replace(",", "."));
-    const safeValue = Number.isNaN(numeric) ? 0 : numeric;
+    const safeValue = Number.isFinite(numeric) ? numeric : 0;
 
     setMaterialsDraft((prev) =>
-      prev.map((item, itemIndex) =>
-        itemIndex === index
-          ? {
-              ...item,
-              quantityKg: safeValue,
-            }
-          : item
-      )
+      prev.map((item, itemIndex) => {
+        if (itemIndex !== index) return item;
+
+        const unit = item.unit || "KG";
+
+        return {
+          ...item,
+          quantity: safeValue,
+          quantityKg: quantityToKg(safeValue, unit),
+        };
+      }),
     );
+  };
+
+  const updateMaterialName = (index: number, value: string) => {
+    setMaterialsDraft((prev) =>
+      prev.map((item, itemIndex) => {
+        if (itemIndex !== index) return item;
+
+        const unit = item.unit || "KG";
+
+        return {
+          ...item,
+          type: value,
+          name: value,
+          proposedMaterial: item.wasteTypeId
+            ? undefined
+            : {
+                name: value,
+                category: item.category || null,
+                subcategory: item.subcategory || null,
+                unit,
+              },
+        };
+      }),
+    );
+  };
+
+  const addProposedMaterial = () => {
+    setMaterialsDraft((prev) => [
+      ...prev,
+      {
+        wasteTypeId: null,
+        proposedMaterial: {
+          name: "",
+          category: null,
+          subcategory: null,
+          unit: "KG",
+        },
+        type: "",
+        name: "",
+        category: null,
+        subcategory: null,
+        quantity: 0,
+        quantityKg: 0,
+        unit: "KG",
+      },
+    ]);
+  };
+
+  const updateMaterialUnit = (index: number, unit: WasteUnit) => {
+    setMaterialsDraft((prev) =>
+      prev.map((item, itemIndex) => {
+        if (itemIndex !== index) return item;
+
+        const quantity =
+          item.quantity !== undefined
+            ? Number(item.quantity)
+            : Number(item.quantityKg || 0);
+
+        return {
+          ...item,
+          unit,
+          quantity,
+          quantityKg: quantityToKg(quantity, unit),
+          proposedMaterial:
+            item.wasteTypeId || !item.proposedMaterial
+              ? item.proposedMaterial
+              : {
+                  ...item.proposedMaterial,
+                  unit,
+                },
+        };
+      }),
+    );
+  };
+
+  const removeMaterial = (index: number) => {
+    setMaterialsDraft((prev) =>
+      prev.filter((_, itemIndex) => itemIndex !== index),
+    );
+  };
+
+  const loadCatalog = async () => {
+    try {
+      setCatalogLoading(true);
+      const items = await wasteCatalogService.list();
+      setCatalogItems(items);
+      setCatalogModalVisible(true);
+    } catch (error: any) {
+      notifyError({
+        message:
+          error?.message || "Não foi possível carregar o catálogo de resíduos.",
+        title: "Erro",
+      });
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
+  const addCatalogMaterial = (catalogItem: WasteCatalogItem) => {
+    const alreadyAdded = materialsDraft.some(
+      (item) => item.wasteTypeId === catalogItem.id,
+    );
+
+    if (alreadyAdded) {
+      notifyError({
+        message: "Este resíduo já foi adicionado à coleta.",
+        title: "Atenção",
+      });
+      return;
+    }
+
+    const unit = catalogItem.unit || catalogItem.defaultUnit || "KG";
+
+    setMaterialsDraft((prev) => [
+      ...prev,
+      {
+        wasteTypeId: catalogItem.id,
+        type: catalogItem.name,
+        name: catalogItem.name,
+        category: catalogItem.category || null,
+        subcategory: catalogItem.subcategory || null,
+        quantity: 0,
+        quantityKg: 0,
+        unit,
+      },
+    ]);
+
+    setCatalogModalVisible(false);
+    setCatalogSearch("");
+  };
+
+  const showOperationSuccess = (
+    messageOnline: string,
+    messageOffline: string,
+    pending = false,
+  ) => {
+    notifySuccess({
+      message: pending ? "Aguardando sincronização" : "Sucesso",
+      title: pending ? messageOffline : messageOnline,
+    });
   };
 
   const handleStartCollection = async () => {
     if (!selectedCollection) {
-      Alert.alert("Atenção", "Selecione uma coleta delegada.");
+      notifyError({
+        message: "Selecione uma coleta delegada.",
+        title: "Atenção",
+      });
       return;
     }
 
     try {
       setUpdatingId(selectedCollection.id);
 
-      await collectionService.updateStatus(selectedCollection.id, {
-        status: "IN_PROGRESS",
+      const result = await collectionService.start(selectedCollection.id, {
+        startedAt: new Date().toISOString(),
         notes: notesDraft,
       });
 
       await loadCollections(false);
-      Alert.alert("Sucesso", "Coleta iniciada com sucesso.");
-    } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível iniciar a coleta."
+      showOperationSuccess(
+        "Coleta iniciada com sucesso.",
+        "Coleta iniciada e salva no dispositivo. Será sincronizada quando a conexão permitir.",
+        result.syncStatus === "PENDING",
       );
+    } catch (error: any) {
+      notifyError({
+        message: error?.message || "Não foi possível iniciar a coleta.",
+        title: "Erro",
+      });
     } finally {
       setUpdatingId(null);
     }
@@ -239,76 +614,121 @@ export default function CollectScreen() {
 
   const handleCompleteCollection = async () => {
     if (!selectedCollection) {
-      Alert.alert("Atenção", "Selecione uma coleta delegada.");
+      notifyError({
+        message: "Selecione uma coleta delegada.",
+        title: "Atenção",
+      });
       return;
     }
 
     if (materialsDraft.length === 0) {
-      Alert.alert(
-        "Atenção",
-        "Informe ao menos um material com quantidade para concluir."
-      );
+      notifyError({
+        message: "Informe ao menos um material com quantidade para concluir.",
+        title: "Atenção",
+      });
       return;
     }
 
-    const hasInvalidQuantity = materialsDraft.some(
-      (item) => Number(item.quantityKg) <= 0
-    );
+    const hasInvalidMaterial = materialsDraft.some((item) => {
+      const name = String(item.name || item.type || "").trim();
+      const quantity =
+        item.quantity !== undefined
+          ? Number(item.quantity)
+          : Number(item.quantityKg || 0);
 
-    if (hasInvalidQuantity) {
-      Alert.alert(
-        "Atenção",
-        "Todas as quantidades dos materiais devem ser maiores que zero."
-      );
+      return !name || !Number.isFinite(quantity) || quantity <= 0;
+    });
+
+    if (hasInvalidMaterial) {
+      notifyError({
+        message:
+          "Todos os materiais devem possuir nome e quantidade maior que zero.",
+        title: "Atenção",
+      });
       return;
     }
 
     try {
       setUpdatingId(selectedCollection.id);
 
-      await collectionService.updateStatus(selectedCollection.id, {
-        status: "COMPLETED",
-        collectedAt: new Date().toISOString(),
-        totalWeightKg: totalDraftWeight,
-        materials: materialsDraft,
-        notes: notesDraft,
-      });
+      const result = await collectionService.completeField(
+        selectedCollection.id,
+        {
+          collectedAt: new Date().toISOString(),
+          totalWeightKg: totalDraftWeight > 0 ? totalDraftWeight : undefined,
+          materials: materialsDraft.map((material) => {
+            const unit = material.unit || "KG";
+            const quantity =
+              material.quantity !== undefined
+                ? Number(material.quantity)
+                : Number(material.quantityKg || 0);
+            const name = String(material.name || material.type || "").trim();
+
+            if (material.wasteTypeId) {
+              return {
+                wasteTypeId: material.wasteTypeId,
+                displayName: name,
+                quantity,
+                unit,
+                notes: material.notes || undefined,
+              };
+            }
+
+            return {
+              proposedMaterial: {
+                name,
+                category: material.category || null,
+                subcategory: material.subcategory || null,
+                unit,
+              },
+              quantity,
+              unit,
+              notes: material.notes || undefined,
+            };
+          }),
+          notes: notesDraft,
+        },
+      );
 
       await loadCollections(false);
-      Alert.alert("Sucesso", "Coleta concluída com sucesso.");
-    } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível concluir a coleta."
+      showOperationSuccess(
+        "Etapa de campo concluída com sucesso.",
+        "Etapa de campo concluída e salva no dispositivo. Será sincronizada quando a conexão permitir.",
+        result.syncStatus === "PENDING",
       );
+    } catch (error: any) {
+      notifyError({
+        message: error?.message || "Não foi possível concluir a coleta.",
+        title: "Erro",
+      });
     } finally {
       setUpdatingId(null);
     }
   };
 
   const handleReportProblem = async () => {
-    if (!selectedCollection) {
-      Alert.alert("Atenção", "Selecione uma coleta delegada.");
+    if (!selectedCollection || updatingId) return;
+    if (notesDraft.trim().length < 5) {
+      notifyError(
+        "Descreva a ocorrência nas observações com pelo menos cinco caracteres.",
+      );
       return;
     }
-
     try {
       setUpdatingId(selectedCollection.id);
-
-      await collectionService.updateStatus(selectedCollection.id, {
-        status: "CANCELLED",
-        notes:
-          notesDraft?.trim() ||
-          "Problema operacional informado pelo catador.",
-      });
-
-      await loadCollections(false);
-      Alert.alert("Sucesso", "Problema registrado e coleta cancelada.");
-    } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível atualizar a coleta."
+      const result = await collectionService.reportIncident(
+        selectedCollection.id,
+        notesDraft,
       );
+      await loadCollections(false);
+      notifySuccess(
+        result.syncStatus === "PENDING"
+          ? "Ocorrência salva neste dispositivo; aguarda sincronização."
+          : "Ocorrência registrada. A cooperativa avaliará o tratamento; a coleta permanece em sua etapa atual.",
+      );
+      setNotesDraft("");
+    } catch (error: any) {
+      notifyError(error?.message || "Não foi possível registrar a ocorrência.");
     } finally {
       setUpdatingId(null);
     }
@@ -324,7 +744,7 @@ export default function CollectScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando coletas delegadas...
         </Text>
@@ -342,7 +762,7 @@ export default function CollectScreen() {
       contentContainerStyle={{ paddingBottom: 28 }}
     >
       <LinearGradient
-        colors={["#16a34a", "#22c55e"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
@@ -367,14 +787,45 @@ export default function CollectScreen() {
           <Text
             style={{
               color: "#FFFFFF",
-              fontSize: 24,
-              fontWeight: "800",
+              fontSize: 20,
+              flex: 1,
+              marginHorizontal: 10,
+              fontWeight: "700",
             }}
           >
             Coletas delegadas
           </Text>
 
-          <View style={{ width: 24 }} />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              flexShrink: 0,
+            }}
+          >
+            <NotificationBell />
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Recarregar dados"
+              onPress={() => void onRefresh()}
+              disabled={refreshing}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: "rgba(255,255,255,0.18)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {refreshing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="refresh-outline" size={20} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Text
@@ -385,9 +836,19 @@ export default function CollectScreen() {
             lineHeight: 22,
           }}
         >
-          Aqui aparecem as coletas atribuídas para este catador com contexto operacional completo.
+          Aqui aparecem as coletas atribuídas para este catador com contexto
+          operacional completo.
         </Text>
       </LinearGradient>
+
+      <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+        <OfflineBanner visible={isOffline} />
+          <DataReadNotice resource="collections" onRetry={() => void loadCollections(false)} />
+      </View>
+
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+        <LastSyncBadge value={lastSyncAt} />
+      </View>
 
       <View style={{ paddingHorizontal: 16, paddingTop: 18 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -426,7 +887,7 @@ export default function CollectScreen() {
                   style={[
                     listItemCard,
                     {
-                      borderColor: selected ? "#028C56" : "#E5E7EB",
+                      borderColor: selected ? "#047857" : "#E5E7EB",
                       backgroundColor: selected ? "#F0FDF4" : "#F9FAFB",
                     },
                   ]}
@@ -441,7 +902,21 @@ export default function CollectScreen() {
                     <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={itemTitle}>{getSourceName(item)}</Text>
 
-                      <Text style={itemText}>Origem: {getOriginLabel(item)}</Text>
+                      {item.syncStatus === "PENDING" && (
+                        <Text
+                          style={{
+                            color: "#92400E",
+                            fontWeight: "600",
+                            marginTop: 6,
+                          }}
+                        >
+                          Aguardando sincronização · salvo neste dispositivo.
+                          {item.syncError ? ` ${item.syncError}` : ""}
+                        </Text>
+                      )}
+                      <Text style={itemText}>
+                        Origem: {getOriginLabel(item)}
+                      </Text>
                       <Text style={itemText}>Endereço: {getAddress(item)}</Text>
 
                       {!!item.route?.name && (
@@ -449,7 +924,9 @@ export default function CollectScreen() {
                       )}
 
                       {!!item.driver?.name && (
-                        <Text style={itemText}>Motorista: {item.driver.name}</Text>
+                        <Text style={itemText}>
+                          Motorista: {item.driver.name}
+                        </Text>
                       )}
 
                       {!!item.vehicle?.model && (
@@ -464,7 +941,7 @@ export default function CollectScreen() {
                         {formatMaterials(
                           item.materials?.length
                             ? item.materials
-                            : normalizeMaterialsForEditing(item)
+                            : normalizeMaterialsForEditing(item),
                         )}
                       </Text>
 
@@ -473,7 +950,7 @@ export default function CollectScreen() {
                         {formatDateTime(
                           item.schedule?.scheduledDate ||
                             item.schedule?.preferredDate ||
-                            item.createdAt
+                            item.createdAt,
                         )}
                       </Text>
                     </View>
@@ -500,9 +977,18 @@ export default function CollectScreen() {
             <SectionHeader title="Operação atual" />
 
             <View style={sectionCard}>
-              <InfoRow label="Origem" value={getOriginLabel(selectedCollection)} />
-              <InfoRow label="Solicitante" value={getSourceName(selectedCollection)} />
-              <InfoRow label="Endereço" value={getAddress(selectedCollection)} />
+              <InfoRow
+                label="Origem"
+                value={getOriginLabel(selectedCollection)}
+              />
+              <InfoRow
+                label="Solicitante"
+                value={getSourceName(selectedCollection)}
+              />
+              <InfoRow
+                label="Endereço"
+                value={getAddress(selectedCollection)}
+              />
               <InfoRow
                 label="Status"
                 value={translateCollectionStatus(selectedCollection.status)}
@@ -532,7 +1018,7 @@ export default function CollectScreen() {
                 value={formatDateTime(
                   selectedCollection.schedule?.scheduledDate ||
                     selectedCollection.schedule?.preferredDate ||
-                    selectedCollection.createdAt
+                    selectedCollection.createdAt,
                 )}
                 isLast
               />
@@ -546,15 +1032,17 @@ export default function CollectScreen() {
                 value={formatMaterials(
                   materialsDraft.length > 0
                     ? materialsDraft
-                    : normalizeMaterialsForEditing(selectedCollection)
+                    : normalizeMaterialsForEditing(selectedCollection),
                 )}
               />
               <InfoRow
                 label="Peso total"
                 value={`${Number(
-                  selectedCollection.status === "COMPLETED"
+                  ["COLLECTED", "RECEIVED", "SORTING", "COMPLETED"].includes(
+                    selectedCollection.status,
+                  )
                     ? selectedCollection.totalWeightKg || 0
-                    : totalDraftWeight
+                    : totalDraftWeight,
                 ).toFixed(1)} kg`}
                 isLast
               />
@@ -562,50 +1050,292 @@ export default function CollectScreen() {
 
             {selectedCollection.status === "IN_PROGRESS" && (
               <>
-                <SectionHeader title="Registrar quantidade por material" />
+                <SectionHeader title="Registrar materiais coletados" />
 
                 <View style={sectionCard}>
-                  {materialsDraft.length > 0 ? (
-                    materialsDraft.map((material, index) => (
-                      <View
-                        key={`${material.type}-${index}`}
-                        style={{
-                          marginBottom: index === materialsDraft.length - 1 ? 0 : 14,
-                        }}
-                      >
+                  <TouchableOpacity
+                    onPress={() => void loadCatalog()}
+                    disabled={catalogLoading}
+                    style={{
+                      minHeight: 48,
+                      borderRadius: 12,
+                      backgroundColor: "#ECFDF5",
+                      borderWidth: 1,
+                      borderColor: "#A7F3D0",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 16,
+                    }}
+                  >
+                    {catalogLoading ? (
+                      <ActivityIndicator size="small" color="#047857" />
+                    ) : (
+                      <>
+                        <Ionicons
+                          name="add-circle-outline"
+                          size={20}
+                          color="#047857"
+                        />
                         <Text
                           style={{
-                            fontSize: 14,
+                            marginLeft: 8,
+                            color: "#047857",
                             fontWeight: "700",
-                            color: "#111827",
-                            marginBottom: 6,
                           }}
                         >
-                          {material.type}
+                          Adicionar resíduo do catálogo
                         </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
 
-                        <TextInput
-                          value={String(material.quantityKg || "")}
-                          onChangeText={(value) => updateMaterialQuantity(index, value)}
-                          keyboardType="numeric"
-                          placeholder="Quantidade em kg"
-                          placeholderTextColor="#9CA3AF"
+                  <TouchableOpacity
+                    onPress={addProposedMaterial}
+                    style={{
+                      minHeight: 48,
+                      borderRadius: 12,
+                      backgroundColor: "#EFF6FF",
+                      borderWidth: 1,
+                      borderColor: "#BFDBFE",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 16,
+                    }}
+                  >
+                    <Ionicons name="create-outline" size={20} color="#2563EB" />
+                    <Text
+                      style={{
+                        marginLeft: 8,
+                        color: "#2563EB",
+                        fontWeight: "700",
+                      }}
+                    >
+                      Informar material não catalogado
+                    </Text>
+                  </TouchableOpacity>
+
+                  {materialsDraft.length > 0 ? (
+                    materialsDraft.map((material, index) => {
+                      const unit = material.unit || "KG";
+                      const quantity =
+                        material.quantity !== undefined
+                          ? Number(material.quantity)
+                          : Number(material.quantityKg || 0);
+
+                      return (
+                        <View
+                          key={`${material.wasteTypeId || material.type}-${index}`}
                           style={{
                             borderWidth: 1,
-                            borderColor: "#D1D5DB",
-                            borderRadius: 10,
-                            paddingHorizontal: 12,
-                            paddingVertical: 10,
-                            backgroundColor: "#FFFFFF",
-                            color: "#111827",
+                            borderColor: "#E5E7EB",
+                            borderRadius: 14,
+                            padding: 14,
+                            marginBottom:
+                              index === materialsDraft.length - 1 ? 0 : 14,
+                            backgroundColor: "#F9FAFB",
                           }}
-                        />
-                      </View>
-                    ))
+                        >
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <View style={{ flex: 1, paddingRight: 12 }}>
+                              {material.wasteTypeId ? (
+                                <Text
+                                  style={{
+                                    fontSize: 15,
+                                    fontWeight: "700",
+                                    color: "#111827",
+                                  }}
+                                >
+                                  {material.name || material.type}
+                                </Text>
+                              ) : (
+                                <TextInput
+                                  value={material.name || material.type || ""}
+                                  onChangeText={(value) =>
+                                    updateMaterialName(index, value)
+                                  }
+                                  placeholder="Nome do material encontrado"
+                                  placeholderTextColor="#9CA3AF"
+                                  style={{
+                                    borderWidth: 1,
+                                    borderColor: "#D1D5DB",
+                                    borderRadius: 10,
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 9,
+                                    backgroundColor: "#FFFFFF",
+                                    color: "#111827",
+                                    fontWeight: "700",
+                                  }}
+                                />
+                              )}
+
+                              {!!material.category && (
+                                <Text
+                                  style={{
+                                    fontSize: 12,
+                                    color: "#6B7280",
+                                    marginTop: 3,
+                                  }}
+                                >
+                                  {material.category}
+                                  {material.subcategory
+                                    ? ` • ${material.subcategory}`
+                                    : ""}
+                                </Text>
+                              )}
+                            </View>
+
+                            <TouchableOpacity
+                              onPress={() => removeMaterial(index)}
+                              accessibilityLabel="Remover material"
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 17,
+                                backgroundColor: "#FEE2E2",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Ionicons
+                                name="trash-outline"
+                                size={17}
+                                color="#DC2626"
+                              />
+                            </TouchableOpacity>
+                          </View>
+
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              fontWeight: "700",
+                              color: "#374151",
+                              marginTop: 14,
+                              marginBottom: 7,
+                            }}
+                          >
+                            Unidade
+                          </Text>
+
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={{ paddingRight: 4 }}
+                          >
+                            {(
+                              [
+                                ["KG", "kg"],
+                                ["TON", "t"],
+                                ["LITER", "L"],
+                                ["UNIT", "un"],
+                                ["CUBIC_METER", "m³"],
+                              ] as [WasteUnit, string][]
+                            ).map(([value, label]) => {
+                              const active = unit === value;
+
+                              return (
+                                <TouchableOpacity
+                                  key={value}
+                                  onPress={() =>
+                                    updateMaterialUnit(index, value)
+                                  }
+                                  style={{
+                                    paddingHorizontal: 13,
+                                    paddingVertical: 8,
+                                    borderRadius: 999,
+                                    marginRight: 8,
+                                    borderWidth: 1,
+                                    borderColor: active ? "#047857" : "#D1D5DB",
+                                    backgroundColor: active
+                                      ? "#DCFCE7"
+                                      : "#FFFFFF",
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      color: active ? "#047857" : "#4B5563",
+                                      fontWeight: active ? "800" : "600",
+                                    }}
+                                  >
+                                    {label}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              fontWeight: "700",
+                              color: "#374151",
+                              marginTop: 14,
+                              marginBottom: 7,
+                            }}
+                          >
+                            Quantidade ({formatUnit(unit)})
+                          </Text>
+
+                          <TextInput
+                            value={quantity > 0 ? String(quantity) : ""}
+                            onChangeText={(value) =>
+                              updateMaterialQuantity(index, value)
+                            }
+                            keyboardType="decimal-pad"
+                            placeholder={`Quantidade em ${formatUnit(unit)}`}
+                            placeholderTextColor="#9CA3AF"
+                            style={{
+                              borderWidth: 1,
+                              borderColor: "#D1D5DB",
+                              borderRadius: 10,
+                              paddingHorizontal: 12,
+                              paddingVertical: 10,
+                              backgroundColor: "#FFFFFF",
+                              color: "#111827",
+                            }}
+                          />
+
+                          {(unit === "KG" || unit === "TON") && (
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                color: "#6B7280",
+                                marginTop: 7,
+                              }}
+                            >
+                              Equivalente:{" "}
+                              {Number(material.quantityKg || 0).toFixed(2)} kg
+                            </Text>
+                          )}
+                        </View>
+                      );
+                    })
                   ) : (
-                    <Text style={{ color: "#6B7280" }}>
-                      Nenhum material disponível para informar.
-                    </Text>
+                    <View
+                      style={{
+                        alignItems: "center",
+                        paddingVertical: 18,
+                      }}
+                    >
+                      <Ionicons name="cube-outline" size={30} color="#9CA3AF" />
+                      <Text
+                        style={{
+                          color: "#6B7280",
+                          textAlign: "center",
+                          marginTop: 8,
+                        }}
+                      >
+                        Nenhum material informado. Adicione os resíduos
+                        encontrados na coleta.
+                      </Text>
+                    </View>
                   )}
 
                   <View
@@ -619,11 +1349,21 @@ export default function CollectScreen() {
                     <Text
                       style={{
                         fontSize: 15,
-                        fontWeight: "800",
-                        color: "#028C56",
+                        fontWeight: "700",
+                        color: "#047857",
                       }}
                     >
-                      Total calculado: {totalDraftWeight.toFixed(1)} kg
+                      Peso total calculado: {totalDraftWeight.toFixed(2)} kg
+                    </Text>
+                    <Text
+                      style={{
+                        color: "#6B7280",
+                        fontSize: 12,
+                        marginTop: 4,
+                      }}
+                    >
+                      Litros, unidades e metros cúbicos não entram
+                      automaticamente no peso em kg.
                     </Text>
                   </View>
 
@@ -678,8 +1418,8 @@ export default function CollectScreen() {
               {selectedCollection.status === "IN_PROGRESS" && (
                 <QuickAction
                   icon="checkmark-circle-outline"
-                  title="Concluir coleta"
-                  subtitle="Finaliza a coleta com peso real por material"
+                  title="Finalizar etapa de campo"
+                  subtitle="Registra os materiais e envia a coleta para recebimento"
                   onPress={handleCompleteCollection}
                   loading={updatingId === selectedCollection.id}
                 />
@@ -690,7 +1430,7 @@ export default function CollectScreen() {
                 <QuickAction
                   icon="alert-circle-outline"
                   title="Relatar problema"
-                  subtitle="Cancelar a coleta por problema operacional"
+                  subtitle="Registrar uma ocorrência para análise da cooperativa"
                   onPress={handleReportProblem}
                   loading={updatingId === selectedCollection.id}
                   isLast
@@ -700,6 +1440,182 @@ export default function CollectScreen() {
           </>
         )}
       </View>
+
+      <Modal
+        visible={catalogModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCatalogModalVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(17,24,39,0.45)",
+            justifyContent: "flex-end",
+          }}
+        >
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => setCatalogModalVisible(false)}
+          />
+
+          <View
+            style={{
+              maxHeight: "78%",
+              backgroundColor: "#FFFFFF",
+              borderTopLeftRadius: 26,
+              borderTopRightRadius: 26,
+              paddingHorizontal: 18,
+              paddingTop: 18,
+              paddingBottom: 28,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <View>
+                <Text
+                  style={{
+                    fontSize: 20,
+                    fontWeight: "700",
+                    color: "#111827",
+                  }}
+                >
+                  Catálogo de resíduos
+                </Text>
+                <Text
+                  style={{
+                    color: "#6B7280",
+                    marginTop: 3,
+                  }}
+                >
+                  Selecione o material coletado
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setCatalogModalVisible(false)}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  backgroundColor: "#F3F4F6",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="close" size={22} color="#374151" />
+              </TouchableOpacity>
+            </View>
+
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                borderWidth: 1,
+                borderColor: "#D1D5DB",
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                marginTop: 16,
+                marginBottom: 14,
+              }}
+            >
+              <Ionicons name="search-outline" size={20} color="#6B7280" />
+              <TextInput
+                value={catalogSearch}
+                onChangeText={setCatalogSearch}
+                placeholder="Pesquisar resíduo ou categoria"
+                placeholderTextColor="#9CA3AF"
+                style={{
+                  flex: 1,
+                  minHeight: 46,
+                  marginLeft: 8,
+                  color: "#111827",
+                }}
+              />
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {filteredCatalogItems.length > 0 ? (
+                filteredCatalogItems.map((item) => {
+                  const alreadyAdded = materialsDraft.some(
+                    (material) => material.wasteTypeId === item.id,
+                  );
+
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      disabled={alreadyAdded}
+                      onPress={() => addCatalogMaterial(item)}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: alreadyAdded ? "#D1FAE5" : "#E5E7EB",
+                        borderRadius: 13,
+                        padding: 14,
+                        marginBottom: 10,
+                        backgroundColor: alreadyAdded ? "#F0FDF4" : "#FFFFFF",
+                        opacity: alreadyAdded ? 0.7 : 1,
+                      }}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <View style={{ flex: 1, paddingRight: 10 }}>
+                          <Text
+                            style={{
+                              fontWeight: "700",
+                              color: "#111827",
+                              fontSize: 15,
+                            }}
+                          >
+                            {item.name}
+                          </Text>
+                          <Text
+                            style={{
+                              color: "#6B7280",
+                              fontSize: 12,
+                              marginTop: 3,
+                            }}
+                          >
+                            {item.category || "Sem categoria"}
+                            {item.subcategory ? ` • ${item.subcategory}` : ""}
+                            {" • "}
+                            {formatUnit(item.unit || item.defaultUnit || "KG")}
+                          </Text>
+                        </View>
+
+                        <Ionicons
+                          name={
+                            alreadyAdded
+                              ? "checkmark-circle"
+                              : "add-circle-outline"
+                          }
+                          size={23}
+                          color={alreadyAdded ? "#047857" : "#047857"}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <EmptyState
+                  icon="search-outline"
+                  title="Nenhum resíduo encontrado"
+                  subtitle="Tente pesquisar por outro nome ou categoria."
+                />
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -735,7 +1651,7 @@ function MetricCard({
           marginBottom: 12,
         }}
       >
-        <Ionicons name={icon} size={22} color="#028C56" />
+        <Ionicons name={icon} size={22} color="#047857" />
       </View>
 
       <Text style={{ color: "#6B7280", fontSize: 13 }}>{title}</Text>
@@ -743,7 +1659,7 @@ function MetricCard({
         style={{
           color: "#111827",
           fontSize: 20,
-          fontWeight: "800",
+          fontWeight: "700",
           marginTop: 4,
         }}
       >
@@ -793,7 +1709,7 @@ function MetricCardFull({
             style={{
               color: "#111827",
               fontSize: 24,
-              fontWeight: "800",
+              fontWeight: "700",
               marginTop: 2,
             }}
           >
@@ -813,20 +1729,14 @@ function SectionHeader({ title }: { title: string }) {
         marginBottom: 12,
       }}
     >
-      <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>
+      <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
         {title}
       </Text>
     </View>
   );
 }
 
-function StatusBadge({
-  label,
-  color,
-}: {
-  label: string;
-  color: string;
-}) {
+function StatusBadge({ label, color }: { label: string; color: string }) {
   return (
     <View
       style={{
@@ -836,7 +1746,7 @@ function StatusBadge({
         paddingVertical: 6,
       }}
     >
-      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "800" }}>
+      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}>
         {label}
       </Text>
     </View>
@@ -912,14 +1822,14 @@ function QuickAction({
         }}
       >
         {loading ? (
-          <ActivityIndicator size="small" color="#028C56" />
+          <ActivityIndicator size="small" color="#047857" />
         ) : (
-          <Ionicons name={icon} size={22} color="#028C56" />
+          <Ionicons name={icon} size={22} color="#047857" />
         )}
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text style={{ color: "#111827", fontSize: 15, fontWeight: "800" }}>
+        <Text style={{ color: "#111827", fontSize: 15, fontWeight: "700" }}>
           {title}
         </Text>
         <Text style={{ color: "#6B7280", fontSize: 13, marginTop: 2 }}>
@@ -946,7 +1856,7 @@ function EmptyState({
         style={{
           color: "#111827",
           fontSize: 16,
-          fontWeight: "800",
+          fontWeight: "700",
           marginTop: 12,
         }}
       >
@@ -985,7 +1895,7 @@ const listItemCard = {
 const itemTitle = {
   color: "#111827",
   fontSize: 15,
-  fontWeight: "800",
+  fontWeight: "700",
 } as const;
 
 const itemText = {

@@ -1,13 +1,16 @@
-import { UserRole, VehicleStatus } from "@prisma/client";
+import { Prisma, UserRole, VehicleStatus } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import {
   CreateVehicleInput,
+  UpdateVehicleInput,
   UpdateVehicleStatusInput,
 } from "./vehicle.schemas";
 
 function sanitizePlate(value: string) {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
+
+const vehicleInclude = { driver: { select: { id: true, name: true, status: true } } } as const;
 
 export class VehicleService {
   async create(cooperativeUserId: string, data: CreateVehicleInput) {
@@ -43,6 +46,7 @@ export class VehicleService {
     }
 
     return prisma.vehicle.create({
+      include: vehicleInclude,
       data: {
         cooperativeId: cooperative.id,
         driverId: data.driverId || null,
@@ -68,6 +72,7 @@ export class VehicleService {
     }
 
     return prisma.vehicle.findMany({
+      include: vehicleInclude,
       where: { cooperativeId: cooperative.id },
       orderBy: { createdAt: "desc" },
     });
@@ -83,6 +88,7 @@ export class VehicleService {
     }
 
     return prisma.vehicle.findMany({
+      include: vehicleInclude,
       where: {
         driverId: driver.id,
       },
@@ -100,6 +106,7 @@ export class VehicleService {
     }
 
     const vehicle = await prisma.vehicle.findFirst({
+      include: vehicleInclude,
       where: {
         id: vehicleId,
         cooperativeId: cooperative.id,
@@ -123,6 +130,7 @@ export class VehicleService {
     }
 
     const vehicle = await prisma.vehicle.findFirst({
+      include: vehicleInclude,
       where: {
         id: vehicleId,
         driverId: driver.id,
@@ -148,21 +156,29 @@ export class VehicleService {
     throw new Error("Usuário sem permissão para consultar veículo.");
   }
 
-  async updateStatus(
-    cooperativeUserId: string,
-    vehicleId: string,
-    data: UpdateVehicleStatusInput
-  ) {
-    const vehicle = await this.findByIdForCooperative(
-      cooperativeUserId,
-      vehicleId
-    );
+  async update(cooperativeUserId: string, vehicleId: string, data: UpdateVehicleInput) {
+    const cooperative = await prisma.cooperative.findUnique({ where: { userId: cooperativeUserId } });
+    if (!cooperative) throw new Error("Cooperativa do usuário autenticado não encontrada.");
+    return prisma.$transaction(async (transaction) => {
+      const vehicle = await transaction.vehicle.findFirst({ where: { id: vehicleId, cooperativeId: cooperative.id } });
+      if (!vehicle) throw new Error("Veículo não encontrado.");
+      if (data.driverId) {
+        const driver = await transaction.driver.findFirst({ where: { id: data.driverId, cooperativeId: cooperative.id } });
+        if (!driver) throw new Error("Motorista não encontrado para esta cooperativa.");
+      }
+      return transaction.vehicle.update({
+        where: { id: vehicle.id },
+        data: {
+          ...data,
+          plate: data.plate === undefined ? undefined : sanitizePlate(data.plate),
+          brand: data.brand === undefined ? undefined : data.brand?.trim() || null,
+        },
+        include: vehicleInclude,
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }
 
-    return prisma.vehicle.update({
-      where: { id: vehicle.id },
-      data: {
-        status: VehicleStatus[data.status],
-      },
-    });
+  async updateStatus(cooperativeUserId: string, vehicleId: string, data: UpdateVehicleStatusInput) {
+    return this.update(cooperativeUserId, vehicleId, data);
   }
 }

@@ -1,0 +1,116 @@
+{
+  "dateLocal": "2026-10-26T21:14:53.308323-03:00",
+  "repositories": [
+    "Paulo-Apolinario/KatuApp",
+    "Paulo-Apolinario/Katua_Web"
+  ],
+  "branch": "main",
+  "totalPassed": 45,
+  "api": {
+    "passed": 24,
+    "checks": [
+      "PF vê somente PEVs públicos localizados, sem contatos ou notas internas",
+      "Catador também vê pontos privados da própria cooperativa",
+      "Motorista não assume permissão de solicitante",
+      "PF não pode relatar ponto privado ou sem localização",
+      "Fotos inválidas e cooperativa forjada são rejeitadas",
+      "Relato com foto vai à cooperativa do PEV, sinaliza retirada e não cria peso ou estoque",
+      "Reenvio idêntico é idempotente e protocolo com outro conteúdo é bloqueado",
+      "Fotos e detalhes isolados por solicitante e cooperativa responsável",
+      "PF e outra cooperativa não executam a retirada",
+      "Resposta da cooperativa é idempotente e PF não altera o atendimento",
+      "Controle de versão bloqueia sobrescrita de atualização concorrente",
+      "Encaminhamento vincula todos os relatos abertos do mesmo PEV à única coleta",
+      "Catador abre retirada sem rota; repetição não duplica coleta",
+      "Novos relatos se vinculam à retirada já ativa sem gerar coleta duplicada",
+      "Catador pode informar PEV público de outra cooperativa, mas não assumir sua coleta",
+      "Catador da cooperativa complementa relato de PF com fotos",
+      "Retirada segue o fluxo de campo e registra material somente na conclusão",
+      "PF acompanha recebimento e recebe notificações das etapas; cooperativa recebe o relato",
+      "Encerramento impede nova retirada pelo mesmo protocolo e preserva coleta e estoque",
+      "Catador em rota pode abrir retirada avulsa na própria cooperativa",
+      "Retirada cancelada pode ser reencaminhada sem perder o histórico nem duplicar coleta ativa",
+      "Publicação no App exige modalidade pública compatível e localização salva",
+      "Conta desativada perde acesso imediatamente",
+      "Listagem não transfere fotos; histórico de evidências tem paginação"
+    ]
+  },
+  "browser": {
+    "passed": 11,
+    "failed": 0,
+    "checks": [
+      {
+        "name": "PF encontra PEVs públicos no celular com marcador próprio",
+        "status": "PASS"
+      },
+      {
+        "name": "PF envia pedido com foto e confirmação da cooperativa",
+        "status": "PASS"
+      },
+      {
+        "name": "Painel exibe relato, foto e catadores reais",
+        "status": "PASS"
+      },
+      {
+        "name": "Cooperativa delega retirada e responde pela tela",
+        "status": "PASS"
+      },
+      {
+        "name": "Aviso no sino do PF abre o protocolo correto",
+        "status": "PASS"
+      },
+      {
+        "name": "Catador abre coleta pelo protocolo sem duplicar retirada",
+        "status": "PASS"
+      },
+      {
+        "name": "Rascunho offline permanece ao recarregar",
+        "status": "PASS"
+      },
+      {
+        "name": "Motorista tem marcador de veículo na posição do GPS",
+        "status": "PASS"
+      },
+      {
+        "name": "Catador tem símbolo de pessoa e pontos PEV usam ícone próprio",
+        "status": "PASS"
+      },
+      {
+        "name": "Protocolo cabe em celular de 320 px",
+        "status": "PASS"
+      },
+      {
+        "name": "Cadastro do PEV permite habilitar publicação no App",
+        "status": "PASS"
+      }
+    ]
+  },
+  "regressions": {
+    "passed": 10,
+    "command": "node --test tests/pevs.test.mjs tests/pev-geocoding.test.mjs"
+  },
+  "quality": {
+    "appTypescript": "PASS",
+    "apiTypescript": "PASS",
+    "targetedEslintAppAndPanel": "PASS",
+    "apiBuild": "PASS",
+    "panelBuild": "PASS (existing large-bundle warning)",
+    "expoWebExport": "PASS",
+    "gitDiffCheck": "PASS"
+  },
+  "environment": {
+    "database": "Disposable PGlite PostgreSQL over loopback with Prisma; previous schema plus new migration; single connection",
+    "api": "Real Fastify API and authorization, no production data",
+    "browser": "Real exported Expo App and Vite panel with local API, Chromium",
+    "gps": "Controlled simulated coordinates; no physical-device signal test",
+    "mapTiles": "Controlled test images; not external coverage validation"
+  },
+  "migration": "20261027000000_pev_app_requests",
+  "deployedToVps": false,
+  "limits": [
+    "Native Android/iOS physical testing remains pending",
+    "Offline PEV reports have a local draft and manual send after reconnecting; no automatic queue in this feature",
+    "Notifications are persistent in-app; no background push",
+    "No multi-connection PostgreSQL load/concurrency benchmark in this validation"
+  ]
+}

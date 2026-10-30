@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, isApiNetworkError } from "./api";
 import { routeService } from "./routeService";
 
 export type VehicleStatus = "ACTIVE" | "MAINTENANCE" | "INACTIVE";
@@ -83,7 +83,7 @@ function sanitizePlate(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
 }
 
-function normalizeRouteVehicle(vehicle: any): Vehicle | null {
+function normalizeRouteVehicle(vehicle: any, driverId?: string | null): Vehicle | null {
   if (!vehicle?.id) return null;
 
   return {
@@ -93,11 +93,49 @@ function normalizeRouteVehicle(vehicle: any): Vehicle | null {
     brand: vehicle.brand ?? null,
     year: vehicle.year ?? null,
     capacityKg: vehicle.capacityKg ?? null,
-    driverId: null,
+    driverId: driverId ?? null,
     status: normalizeStatus(vehicle.status),
-    createdAt: undefined,
-    updatedAt: undefined,
+    createdAt: vehicle.createdAt,
+    updatedAt: vehicle.updatedAt,
   };
+}
+
+async function readVehiclesFromRoutes(driverId?: string | null): Promise<Vehicle[]> {
+  try {
+    const routes = driverId
+      ? await routeService.listByDriver(driverId)
+      : await routeService.list();
+
+    const map = new Map<string, Vehicle>();
+
+    for (const route of routes) {
+      const normalized = normalizeRouteVehicle(route.vehicle, route.driverId ?? driverId);
+      if (normalized?.id) {
+        map.set(normalized.id, normalized);
+      }
+    }
+
+    return Array.from(map.values());
+  } catch {
+    return [];
+  }
+}
+
+async function readVehicleByIdFromRoutes(id: string): Promise<Vehicle | null> {
+  try {
+    const routes = await routeService.list();
+
+    for (const route of routes) {
+      const normalized = normalizeRouteVehicle(route.vehicle, route.driverId ?? null);
+      if (normalized?.id === id) {
+        return normalized;
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export const vehicleService = {
@@ -139,60 +177,114 @@ export const vehicleService = {
   },
 
   async list(): Promise<Vehicle[]> {
-    const response = await api.get<VehicleEnvelope>("/vehicles", true);
-    const items = Array.isArray(response?.vehicles) ? response.vehicles : [];
-    return items.map(normalizeVehicle);
+    try {
+      const response = await api.get<VehicleEnvelope>("/vehicles", true);
+      const items = Array.isArray(response?.vehicles) ? response.vehicles : [];
+      return items.map(normalizeVehicle);
+    } catch (error) {
+      if (isApiNetworkError(error)) {
+        return readVehiclesFromRoutes();
+      }
+
+      throw error;
+    }
   },
 
   async listByDriver(driverId?: string | null): Promise<Vehicle[]> {
-    const vehicles = await this.list();
+    try {
+      const vehicles = await this.list();
 
-    if (!driverId) return vehicles;
+      if (!driverId) return vehicles;
 
-    const filtered = vehicles.filter((vehicle) => vehicle.driverId === driverId);
+      const filtered = vehicles.filter((vehicle) => vehicle.driverId === driverId);
 
-    // fallback: quando o backend do motorista já retorna apenas os veículos dele
-    return filtered.length > 0 ? filtered : vehicles;
+      if (filtered.length > 0) {
+        return filtered;
+      }
+
+      return readVehiclesFromRoutes(driverId);
+    } catch (error) {
+      if (isApiNetworkError(error)) {
+        return readVehiclesFromRoutes(driverId);
+      }
+
+      throw error;
+    }
   },
 
   async getCurrentByDriver(driverId?: string | null): Promise<Vehicle | null> {
-    const vehicles = await this.listByDriver(driverId);
+    try {
+      const vehicles = await this.listByDriver(driverId);
 
-    if (vehicles.length > 0) {
-      return vehicles[0];
-    }
+      if (vehicles.length > 0) {
+        return vehicles[0];
+      }
 
-    // fallback forte: usa o veículo vinculado à próxima rota do motorista
-    if (driverId) {
-      try {
+      if (driverId) {
         const nextRoute = await routeService.getNextRouteByDriver(driverId);
 
         if (nextRoute?.vehicle) {
-          return normalizeRouteVehicle(nextRoute.vehicle);
+          return normalizeRouteVehicle(nextRoute.vehicle, driverId);
         }
 
         const activeRoutes = await routeService.listActiveByDriver(driverId);
         const routeWithVehicle = activeRoutes.find((route) => route.vehicle?.id);
 
         if (routeWithVehicle?.vehicle) {
-          return normalizeRouteVehicle(routeWithVehicle.vehicle);
+          return normalizeRouteVehicle(routeWithVehicle.vehicle, driverId);
         }
-      } catch {
-        // mantém retorno nulo se não conseguir resolver pelo fallback
       }
-    }
 
-    return null;
+      return null;
+    } catch (error) {
+      if (driverId) {
+        try {
+          const nextRoute = await routeService.getNextRouteByDriver(driverId);
+
+          if (nextRoute?.vehicle) {
+            return normalizeRouteVehicle(nextRoute.vehicle, driverId);
+          }
+
+          const activeRoutes = await routeService.listActiveByDriver(driverId);
+          const routeWithVehicle = activeRoutes.find((route) => route.vehicle?.id);
+
+          if (routeWithVehicle?.vehicle) {
+            return normalizeRouteVehicle(routeWithVehicle.vehicle, driverId);
+          }
+        } catch {
+          return null;
+        }
+      }
+
+      if (isApiNetworkError(error)) {
+        const routeVehicles = await readVehiclesFromRoutes(driverId);
+        return routeVehicles.length > 0 ? routeVehicles[0] : null;
+      }
+
+      throw error;
+    }
   },
 
   async getById(id: string): Promise<Vehicle> {
-    const response = await api.get<VehicleEnvelope>(`/vehicles/${id}`, true);
+    try {
+      const response = await api.get<VehicleEnvelope>(`/vehicles/${id}`, true);
 
-    if (!response?.vehicle) {
-      throw new Error("Veículo não encontrado.");
+      if (!response?.vehicle) {
+        throw new Error("Veículo não encontrado.");
+      }
+
+      return normalizeVehicle(response.vehicle);
+    } catch (error) {
+      if (isApiNetworkError(error)) {
+        const cached = await readVehicleByIdFromRoutes(id);
+
+        if (cached) {
+          return cached;
+        }
+      }
+
+      throw error;
     }
-
-    return normalizeVehicle(response.vehicle);
   },
 
   async updateStatus(id: string, status: VehicleStatus): Promise<Vehicle> {

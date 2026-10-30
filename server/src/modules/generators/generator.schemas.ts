@@ -1,33 +1,57 @@
 import { z } from "zod";
+import { normalizeDocument, validDocument } from "./generator-document";
+
+const optionalTrimmedString = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => (value === "" ? undefined : value));
 
 export const createGeneratorSchema = z.object({
   type: z.enum(["SMALL", "LARGE"]),
-  name: z.string().min(2, "Nome inválido"),
-  companyName: z.string().optional(),
-  email: z.string().email("E-mail inválido"),
-  phone: z.string().optional(),
+  name: z.string().trim().min(2, "Nome inválido"),
+  companyName: optionalTrimmedString,
+  email: z.string().trim().email("E-mail inválido"),
+  phone: optionalTrimmedString,
+  documentNumber: z.string().trim().max(30, "CPF/CNPJ inválido.")
+    .transform(normalizeDocument)
+    .refine(validDocument, "Informe um CPF ou CNPJ válido, incluindo os dígitos verificadores.")
+    .optional(),
 
-  // endereço estruturado
-  zipCode: z.string().optional(),
-  street: z.string().optional(),
-  number: z.string().optional(),
-  neighborhood: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
+  zipCode: optionalTrimmedString,
+  street: optionalTrimmedString,
+  number: optionalTrimmedString,
+  neighborhood: optionalTrimmedString,
+  city: optionalTrimmedString,
+  state: optionalTrimmedString,
 
-  // endereço consolidado
-  address: z.string().optional(),
+  address: optionalTrimmedString,
 
-  // coordenadas opcionais
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
+  latitude: z.number().finite().optional(),
+  longitude: z.number().finite().optional(),
 
-  status: z.string().optional(),
+  status: optionalTrimmedString,
 });
 
 export const generatorIdParamsSchema = z.object({
-  id: z.string().min(1, "ID inválido"),
+  id: z.string().trim().min(1, "ID inválido"),
 });
 
 export type CreateGeneratorInput = z.infer<typeof createGeneratorSchema>;
 export type GeneratorIdParams = z.infer<typeof generatorIdParamsSchema>;
+
+export const updateGeneratorSchema = createGeneratorSchema
+  .omit({ email: true, status: true })
+  .partial()
+  .extend({
+    latitude: z.number().finite().min(-90).max(90).optional(),
+    longitude: z.number().finite().min(-180).max(180).optional(),
+  })
+  .strict()
+  .refine((data) => (data.latitude === undefined) === (data.longitude === undefined), {
+    message: "Informe latitude e longitude juntas.",
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Informe ao menos um dado para atualizar.",
+  });
+export type UpdateGeneratorInput = z.infer<typeof updateGeneratorSchema>;

@@ -1,5 +1,7 @@
+import { useHistoryPages } from "@/src/hooks/useHistoryPages";
+import { HistoryStatus } from "@/src/components/HistoryStatus";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -78,7 +80,7 @@ function ReportCard({ item }: { item: DriverReport }) {
           marginBottom: 12,
         }}
       >
-        <Text style={{ color: colors.text, fontWeight: "800", fontSize: 12 }}>
+        <Text style={{ color: colors.text, fontWeight: "700", fontSize: 12 }}>
           {formatReportType(item.type)}
         </Text>
       </View>
@@ -123,36 +125,11 @@ function ReportCard({ item }: { item: DriverReport }) {
 }
 
 export default function MotoristaHistoricoRelatoriosScreen() {
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [reports, setReports] = useState<DriverReport[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadReports = useCallback(async (showRefresh = false) => {
-    try {
-      setError(null);
-
-      if (showRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-
-      const data = await driverService.listMyReports();
-      setReports(data);
-    } catch (err: any) {
-      setError(err?.message || "Não foi possível carregar o histórico.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadReports();
-    }, [loadReports])
-  );
+  const history = useHistoryPages(driverService.history);
+  const { items: reports, loading, busy: refreshing, error } = history;
+  const loadRef = useRef(history.load); loadRef.current = history.load;
+  const loadReports = (_refresh = false) => history.load();
+  useFocusEffect(useCallback(() => { void loadRef.current(); }, []));
 
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
@@ -179,11 +156,11 @@ export default function MotoristaHistoricoRelatoriosScreen() {
               marginRight: 12,
             }}
           >
-            <Ionicons name="arrow-back" size={22} color="#028C56" />
+            <Ionicons name="arrow-back" size={22} color="#047857" />
           </TouchableOpacity>
 
           <View>
-            <Text style={{ color: "#111827", fontSize: 22, fontWeight: "800" }}>
+            <Text style={{ color: "#111827", fontSize: 22, fontWeight: "700" }}>
               Histórico de relatórios
             </Text>
             <Text style={{ color: "#6B7280", fontSize: 13, marginTop: 2 }}>
@@ -201,7 +178,7 @@ export default function MotoristaHistoricoRelatoriosScreen() {
             justifyContent: "center",
           }}
         >
-          <ActivityIndicator size="large" color="#028C56" />
+          <ActivityIndicator size="large" color="#047857" />
           <Text style={{ marginTop: 12, color: "#4B5563", fontWeight: "600" }}>
             Carregando histórico...
           </Text>
@@ -213,11 +190,13 @@ export default function MotoristaHistoricoRelatoriosScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void loadReports(true)}
-              colors={["#028C56"]}
-              tintColor="#028C56"
+              colors={["#047857"]}
+              tintColor="#047857"
             />
           }
         >
+
+        <HistoryStatus count={reports.length} total={history.meta.total} error={history.error} busy={history.busy} hasMore={history.meta.hasMore} updatedAt={history.updatedAt} onRefresh={() => void history.load()} onMore={() => void history.load(true)} />
           {!!error && (
             <View
               style={{
@@ -229,7 +208,9 @@ export default function MotoristaHistoricoRelatoriosScreen() {
                 marginBottom: 16,
               }}
             >
-              <Text style={{ color: "#B91C1C", fontWeight: "700" }}>{error}</Text>
+              <Text style={{ color: "#B91C1C", fontWeight: "700" }}>
+                {error}
+              </Text>
             </View>
           )}
 
@@ -241,8 +222,10 @@ export default function MotoristaHistoricoRelatoriosScreen() {
                 padding: 18,
               }}
             >
-              <Text style={{ color: "#111827", fontSize: 16, fontWeight: "800" }}>
-                Nenhum relatório encontrado
+              <Text
+                style={{ color: "#111827", fontSize: 16, fontWeight: "700" }}
+              >
+                {history.error ? "Histórico indisponível no momento" : "Nenhum relatório encontrado"}
               </Text>
               <Text style={{ color: "#6B7280", marginTop: 8, lineHeight: 22 }}>
                 Ainda não existem ocorrências registradas por este motorista.

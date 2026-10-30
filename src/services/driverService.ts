@@ -1,5 +1,7 @@
-import { api } from "./api";
+import { historyQuery, type HistoryPage } from "./historyPage";
+import { api, isApiNetworkError } from "./api";
 import { vehicleService, type Vehicle } from "./vehicleService";
+import { routeService } from "./routeService";
 
 export type DriverStatus = "AVAILABLE" | "ON_ROUTE" | "INACTIVE";
 
@@ -201,6 +203,58 @@ function normalizeReport(report: BackendDriverReport): DriverReport {
   };
 }
 
+function normalizeStatus(status?: string | null): DriverStatus {
+  if (status === "ON_ROUTE") return "ON_ROUTE";
+  if (status === "INACTIVE") return "INACTIVE";
+  return "AVAILABLE";
+}
+
+async function readDriverProfileFromRoutes(
+  driverId?: string | null
+): Promise<DriverProfile | null> {
+  if (!driverId) return null;
+
+  try {
+    const routes = await routeService.listByDriver(driverId);
+
+    const routeWithDriver = routes.find((route) => route.driver?.id === driverId);
+
+    if (!routeWithDriver?.driver) {
+      return null;
+    }
+
+    const vehicle = await vehicleService.getCurrentByDriver(driverId);
+
+    return {
+      id: routeWithDriver.driver.id,
+      name: routeWithDriver.driver.name ?? "Motorista",
+      email: routeWithDriver.driver.email ?? null,
+      cpf: routeWithDriver.driver.cpf ?? null,
+      phone: routeWithDriver.driver.phone ?? null,
+      cnh: routeWithDriver.driver.cnh ?? null,
+      cnhCategory: routeWithDriver.driver.cnhCategory ?? null,
+      notes: null,
+      status: normalizeStatus(routeWithDriver.driver.status),
+      createdAt: undefined,
+      updatedAt: undefined,
+      cooperative: routeWithDriver.cooperative
+        ? {
+            id: routeWithDriver.cooperative.id,
+            name: routeWithDriver.cooperative.name ?? "Cooperativa",
+            email: routeWithDriver.cooperative.email ?? null,
+            phone: routeWithDriver.cooperative.phone ?? null,
+            address: routeWithDriver.cooperative.address ?? null,
+            latitude: routeWithDriver.cooperative.latitude ?? null,
+            longitude: routeWithDriver.cooperative.longitude ?? null,
+          }
+        : null,
+      currentVehicle: vehicle,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export const driverService = {
   async create(payload: CreateDriverPayload): Promise<Driver> {
     const response = await api.post<DriverEnvelope>(
@@ -231,13 +285,25 @@ export const driverService = {
   },
 
   async getById(id: string): Promise<Driver> {
-    const response = await api.get<DriverEnvelope>(`/drivers/${id}`, true);
+    try {
+      const response = await api.get<DriverEnvelope>(`/drivers/${id}`, true);
 
-    if (!response?.driver) {
-      throw new Error("Motorista não encontrado.");
+      if (!response?.driver) {
+        throw new Error("Motorista não encontrado.");
+      }
+
+      return normalizeDriver(response.driver);
+    } catch (error) {
+      if (isApiNetworkError(error)) {
+        const fallback = await readDriverProfileFromRoutes(id);
+
+        if (fallback) {
+          return fallback;
+        }
+      }
+
+      throw error;
     }
-
-    return normalizeDriver(response.driver);
   },
 
   async getMe(): Promise<DriverProfile> {
@@ -250,17 +316,42 @@ export const driverService = {
     return normalizeDriver(response.driver);
   },
 
-  async getMyProfile(): Promise<DriverProfile> {
-    return this.getMe();
+  async getMyProfile(driverId?: string | null): Promise<DriverProfile> {
+    try {
+      return await this.getMe();
+    } catch (error) {
+      if (isApiNetworkError(error)) {
+        const fallback = await readDriverProfileFromRoutes(driverId);
+
+        if (fallback) {
+          return fallback;
+        }
+      }
+
+      throw error;
+    }
   },
 
   async getMeWithVehicle(driverId?: string | null): Promise<DriverProfile> {
-    const profile = await this.getMe();
-    const vehicle = await vehicleService.getCurrentByDriver(driverId || profile.id);
-    return {
-      ...profile,
-      currentVehicle: vehicle,
-    };
+    try {
+      const profile = await this.getMe();
+      const vehicle = await vehicleService.getCurrentByDriver(driverId || profile.id);
+
+      return {
+        ...profile,
+        currentVehicle: vehicle,
+      };
+    } catch (error) {
+      if (isApiNetworkError(error)) {
+        const fallback = await readDriverProfileFromRoutes(driverId);
+
+        if (fallback) {
+          return fallback;
+        }
+      }
+
+      throw error;
+    }
   },
 
   async getMyProfileWithVehicle(driverId?: string | null): Promise<DriverProfile> {
@@ -289,6 +380,11 @@ export const driverService = {
     return normalizeDriver(response.driver);
   },
 
+  async history(page: number, until: string): Promise<HistoryPage<DriverReport>> {
+    const response = await api.get<{ reports: DriverReport[]; pagination: HistoryPage<DriverReport>["pagination"] }>(`/drivers/me/reports?${historyQuery(page, until)}`, true);
+    if (!Array.isArray(response?.reports) || !response.pagination) throw new Error("Não foi possível confirmar a página do histórico.");
+    return { items: response.reports.map(normalizeReport), pagination: response.pagination };
+  },
   async listMyReports(): Promise<DriverReport[]> {
     const response = await api.get<DriverEnvelope>("/drivers/me/reports", true);
     const items = Array.isArray(response?.reports) ? response.reports : [];

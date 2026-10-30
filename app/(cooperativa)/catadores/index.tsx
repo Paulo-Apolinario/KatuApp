@@ -8,11 +8,11 @@ import {
   ScrollView,
   TextInput,
   Platform,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   collectorService,
@@ -23,6 +23,7 @@ export default function CatadoresScreen() {
   const [searchText, setSearchText] = useState("");
   const [catadores, setCatadores] = useState<Collector[]>([]);
   const [loading, setLoading] = useState(true);
+  const { notifyError } = useNotification();
 
   const carregarCatadores = useCallback(async () => {
     try {
@@ -31,16 +32,16 @@ export default function CatadoresScreen() {
       setCatadores(data);
     } catch (error) {
       console.error("Erro ao carregar catadores:", error);
-      Alert.alert("Erro", "Não foi possível carregar os catadores.");
+      notifyError("Não foi possível carregar os catadores.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notifyError]);
 
   useFocusEffect(
     useCallback(() => {
       carregarCatadores();
-    }, [carregarCatadores])
+    }, [carregarCatadores]),
   );
 
   const getStatusColor = (status: Collector["status"]) => {
@@ -78,18 +79,18 @@ export default function CatadoresScreen() {
       (c) =>
         c.name.toLowerCase().includes(term) ||
         c.email.toLowerCase().includes(term) ||
-        (c.phone || "").includes(searchText)
+        (c.phone || "").includes(searchText),
     );
   }, [catadores, searchText]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -103,7 +104,9 @@ export default function CatadoresScreen() {
             justifyContent: "space-between",
           }}
         >
-          <TouchableOpacity onPress={() => router.replace("/(cooperativa)/home")}>
+          <TouchableOpacity
+            onPress={() => router.replace("/(cooperativa)/home")}
+          >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
@@ -113,12 +116,14 @@ export default function CatadoresScreen() {
               resizeMode="contain"
               style={{ width: 36, height: 36, marginRight: 8 }}
             />
-            <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>
+            <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>
               KATUÁ
             </Text>
           </View>
 
-          <TouchableOpacity onPress={() => router.push("/(cooperativa)/catadores/novo")}>
+          <TouchableOpacity
+            onPress={() => router.push("/(cooperativa)/catadores/novo")}
+          >
             <Ionicons name="person-add-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -182,7 +187,7 @@ export default function CatadoresScreen() {
         >
           {loading ? (
             <View style={{ alignItems: "center", paddingVertical: 40 }}>
-              <ActivityIndicator size="large" color="#028C56" />
+              <ActivityIndicator size="large" color="#047857" />
               <Text style={{ marginTop: 10, color: "#6B7280" }}>
                 Carregando catadores...
               </Text>
@@ -191,7 +196,9 @@ export default function CatadoresScreen() {
             filteredCatadores.map((catador) => (
               <TouchableOpacity
                 key={catador.id}
-                onPress={() => router.push(`/(cooperativa)/catadores/${catador.id}` as any)}
+                onPress={() =>
+                  router.push(`/(cooperativa)/catadores/${catador.id}` as any)
+                }
                 style={{
                   backgroundColor: "#F9FAFB",
                   borderRadius: 16,
@@ -224,7 +231,13 @@ export default function CatadoresScreen() {
                         alignItems: "center",
                       }}
                     >
-                      <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827" }}>
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          fontWeight: "700",
+                          color: "#111827",
+                        }}
+                      >
                         {catador.name}
                       </Text>
 
@@ -236,13 +249,25 @@ export default function CatadoresScreen() {
                           borderRadius: 12,
                         }}
                       >
-                        <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "600" }}>
+                        <Text
+                          style={{
+                            color: "#FFFFFF",
+                            fontSize: 10,
+                            fontWeight: "600",
+                          }}
+                        >
                           {getStatusText(catador.status)}
                         </Text>
                       </View>
                     </View>
 
-                    <View style={{ flexDirection: "row", marginTop: 4, flexWrap: "wrap" }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        marginTop: 4,
+                        flexWrap: "wrap",
+                      }}
+                    >
                       <Ionicons name="call-outline" size={12} color="#6B7280" />
                       <Text
                         style={{
@@ -256,7 +281,13 @@ export default function CatadoresScreen() {
                       </Text>
 
                       <Ionicons name="mail-outline" size={12} color="#6B7280" />
-                      <Text style={{ fontSize: 11, color: "#6B7280", marginLeft: 4 }}>
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          color: "#6B7280",
+                          marginLeft: 4,
+                        }}
+                      >
                         {catador.email}
                       </Text>
                     </View>
@@ -271,19 +302,35 @@ export default function CatadoresScreen() {
                       }}
                     >
                       <View style={{ flex: 1, alignItems: "center" }}>
-                        <Text style={{ fontSize: 16, fontWeight: "700", color: "#028C56" }}>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: "700",
+                            color: "#047857",
+                          }}
+                        >
                           {Number(catador.kgMonth || 0)} kg
                         </Text>
-                        <Text style={{ fontSize: 10, color: "#6B7280" }}>NO MÊS</Text>
+                        <Text style={{ fontSize: 10, color: "#6B7280" }}>
+                          NO MÊS
+                        </Text>
                       </View>
 
                       <View style={{ width: 1, backgroundColor: "#E5E7EB" }} />
 
                       <View style={{ flex: 1, alignItems: "center" }}>
-                        <Text style={{ fontSize: 16, fontWeight: "700", color: "#028C56" }}>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: "700",
+                            color: "#047857",
+                          }}
+                        >
                           {Number(catador.collectionsToday || 0)}
                         </Text>
-                        <Text style={{ fontSize: 10, color: "#6B7280" }}>COLETAS HOJE</Text>
+                        <Text style={{ fontSize: 10, color: "#6B7280" }}>
+                          COLETAS HOJE
+                        </Text>
                       </View>
                     </View>
                   </View>

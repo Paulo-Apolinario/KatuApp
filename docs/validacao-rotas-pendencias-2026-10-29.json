@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-29",
+  "api": {
+    "passed": 34,
+    "checks": [
+      "Migração preserva execução histórica e seu ponto sem inventar data de saída",
+      "Antes da saída não existe operação em campo",
+      "Saída registra início da execução e preserva pontos aguardando atendimento",
+      "Painel conta uma rota fixa em campo sem contar suas três paradas novamente",
+      "Agenda e registros do painel identificam saída em campo sem confundir com atendimento do ponto",
+      "Repetir confirmação não modifica a primeira saída",
+      "Execuções são paginadas inteiras; ativa vem primeiro e a lista não transfere todos os detalhes",
+      "Duas datas do mesmo plano permanecem em tópicos separados",
+      "Pontos seguem a sequência da rota com paginação própria e contexto em campo",
+      "Coletas normais excluem pontos de rotas fixas, inclusive plano histórico removido",
+      "Busca por um ponto encontra sua execução completa",
+      "Endereço avulso sem cadastro de gerador conserva identificação e pode ser pesquisado",
+      "Filtro de programação distingue os dias de execução no fuso do Ceará",
+      "Iniciar ponto dentro da rota não duplica a operação em campo",
+      "Coleta delegada individual iniciada entra no mesmo indicador",
+      "Rotas avulsas e fixas e coleta individual são contadas sem sobreposição",
+      "Pontos com saída confirmada não ficam na fila de pendentes sem saída",
+      "Recebimento de um ponto preserva os demais e sua entrada de material individual",
+      "Filtro por colaborador reconhece sua participação em equipe",
+      "Detalhes e consultas respeitam cooperativa proprietária e perfil autorizado",
+      "Paginação, etapa e período inválidos são rejeitados",
+      "Migração aditiva preserva execução antiga e inicia histórico vazio",
+      "Catador relata ponto não atendido com autor/data/motivo sem cancelar a coleta ou o agendamento",
+      "Relato é idempotente e rejeita reutilização do identificador com outro conteúdo",
+      "Bloqueia relato em coleta realizada, acesso entre cooperativas e decisão do catador",
+      "Solicitação exige motivo em todos os pontos e notifica a cooperativa sem encerrar a rota",
+      "Cancelamento preserva integralmente três coletas feitas e cancela somente dois pontos, encerrando como parcial",
+      "Reenvio após perda de resposta não duplica decisão nem notificações",
+      "Execução sem coletas realizadas é cancelada com os pontos e sem gerar produção",
+      "Reagendamento parcial cria somente dois atendimentos novos sem peso, preserva histórico e próximas recorrências, com repetição segura",
+      "Reagendamento antes da saída valida data, preserva data anterior e atualiza todos os agendamentos sem duplicar coletas",
+      "Impede reescrever execução iniciada e cancelação com materiais inconsistentes, com rollback integral",
+      "Duas decisões simultâneas resultam em somente um encerramento, sem duplicação de histórico",
+      "Execução encerrada e acesso da cooperativa estrangeira permanecem bloqueados"
+    ]
+  },
+  "newApiCases": {
+    "passed": 13,
+    "checks": [
+      "Migração aditiva preserva execução antiga e inicia histórico vazio",
+      "Catador relata ponto não atendido com autor/data/motivo sem cancelar a coleta ou o agendamento",
+      "Relato é idempotente e rejeita reutilização do identificador com outro conteúdo",
+      "Bloqueia relato em coleta realizada, acesso entre cooperativas e decisão do catador",
+      "Solicitação exige motivo em todos os pontos e notifica a cooperativa sem encerrar a rota",
+      "Cancelamento preserva integralmente três coletas feitas e cancela somente dois pontos, encerrando como parcial",
+      "Reenvio após perda de resposta não duplica decisão nem notificações",
+      "Execução sem coletas realizadas é cancelada com os pontos e sem gerar produção",
+      "Reagendamento parcial cria somente dois atendimentos novos sem peso, preserva histórico e próximas recorrências, com repetição segura",
+      "Reagendamento antes da saída valida data, preserva data anterior e atualiza todos os agendamentos sem duplicar coletas",
+      "Impede reescrever execução iniciada e cancelação com materiais inconsistentes, com rollback integral",
+      "Duas decisões simultâneas resultam em somente um encerramento, sem duplicação de histórico",
+      "Execução encerrada e acesso da cooperativa estrangeira permanecem bloqueados"
+    ]
+  },
+  "collectorWebUI": {
+    "passed": 5,
+    "checks": [
+      "Relato envia ponto e motivo com identificador",
+      "Relato não cancela atendimento",
+      "Solicitação após dois pontos relatados",
+      "Três coletas realizadas preservadas",
+      "Encerramento parcial é somente leitura, sem erros JavaScript"
+    ],
+    "errors": []
+  },
+  "panelUI": {
+    "passed": 5,
+    "checks": [
+      "Programação vencida e relato visíveis",
+      "Confirmação obrigatória",
+      "Decisão envia revisão e identificador",
+      "Três coletas preservadas e dois pontos cancelados na tela",
+      "Histórico responsivo em 390 px e sem erros JavaScript"
+    ],
+    "errors": []
+  },
+  "typescript": {
+    "api": "passed",
+    "app": "passed"
+  },
+  "lint": {
+    "changedAppFiles": "passed",
+    "changedPanelFiles": "passed"
+  },
+  "build": {
+    "api": "passed",
+    "panel": "passed",
+    "expoWebExport": "passed"
+  },
+  "limitations": [
+    "API tests use disposable PGlite with connection_limit=1; not a production load test",
+    "UI uses actual screens with intercepted API and demonstrative data",
+    "No physical Android/iPhone test",
+    "No VPS access",
+    "Existing Vite chunk warning above 500 kB remains"
+  ]
+}

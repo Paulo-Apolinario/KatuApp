@@ -1,4 +1,5 @@
-import { DriverReportType, DriverStatus } from "@prisma/client";
+import { type HistoryPage, pageResult } from "../../shared/history-page";
+import { DriverReportType, DriverStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import {
   CreateDriverInput,
@@ -205,17 +206,22 @@ export class DriverService {
     });
   }
 
-  async listMyReports(userId: string) {
+  async listMyReports(userId: string): Promise<Prisma.DriverReportGetPayload<{ include: { route: true; vehicle: true; collection: true } }>[]>;
+  async listMyReports(userId: string, page: HistoryPage): Promise<{ reports: Prisma.DriverReportGetPayload<{ include: { route: true; vehicle: true; collection: true } }>[]; pagination: ReturnType<typeof pageResult> }>;
+  async listMyReports(userId: string, page?: HistoryPage) {
     const driver = await this.getAuthenticatedDriverByUserId(userId);
 
-    return prisma.driverReport.findMany({
-      where: { driverId: driver.id },
+    const where = { driverId: driver.id, ...(page?.until ? { createdAt: { lte: new Date(page.until) } } : {}) };
+    const reports = await prisma.driverReport.findMany({
+      where,
+      ...(page ? { skip: (page.page - 1) * page.limit, take: page.limit } : {}),
       include: {
         route: true,
         vehicle: true,
         collection: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
+    return page ? { reports, pagination: pageResult(await prisma.driverReport.count({ where }), page) } : reports;
   }
 }

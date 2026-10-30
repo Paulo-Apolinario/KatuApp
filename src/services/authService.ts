@@ -1,6 +1,6 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { api, STORAGE_KEYS } from "./api";
+import { api, isApiHttpError } from "./api";
 import { UserDoc } from "../types/user";
+import { sessionService } from "./sessionService";
 
 export type AuthSuccess = {
   success: true;
@@ -10,7 +10,6 @@ export type AuthSuccess = {
   firstAccess?: boolean;
   mustChangePassword?: boolean;
   message?: string;
-  resetToken?: string;
 };
 
 export type AuthError = {
@@ -41,12 +40,48 @@ type ActivateAccessResponse = {
 
 type ForgotPasswordResponse = {
   message?: string;
-  token?: string;
-  resetToken?: string;
+  expiresAt?: string | null;
 };
 
 type ResetPasswordResponse = {
   message?: string;
+};
+
+type RegisterPfPayload = {
+  displayName: string;
+  email: string;
+  password: string;
+  phone: string;
+  cpf: string;
+  address?: string;
+  rememberMe?: boolean;
+};
+
+type RegisterCooperativePayload = {
+  displayName: string;
+  email: string;
+  password: string;
+  phone: string;
+  cooperativeName: string;
+  registrationNumber: string;
+  address?: string;
+  rememberMe?: boolean;
+  zipCode?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+type ResetPasswordPayload = {
+  email: string;
+  token: string;
+  temporaryPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 };
 
 function normalizeEmail(email: string) {
@@ -55,65 +90,78 @@ function normalizeEmail(email: string) {
 
 class AuthService {
   async saveSession(token: string, user?: UserDoc): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.token, token);
-
-    if (user) {
-      await AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
-    }
+    await sessionService.saveSession({
+      token,
+      user: user ?? null,
+      userId: user?.id ?? null,
+    });
   }
 
   async saveToken(token: string): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.token, token);
+    const currentUser = await this.getStoredUser();
+
+    await sessionService.saveSession({
+      token,
+      user: currentUser ?? null,
+      userId: currentUser?.id ?? null,
+    });
   }
 
   async getToken(): Promise<string | null> {
-    return AsyncStorage.getItem(STORAGE_KEYS.token);
+    return sessionService.getToken();
   }
 
   async removeToken(): Promise<void> {
-    await AsyncStorage.removeItem(STORAGE_KEYS.token);
+    await sessionService.clearSession();
   }
 
   async saveUser(user: UserDoc): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    const token = await this.getToken();
+
+    if (!token) return;
+
+    await sessionService.saveSession({
+      token,
+      user,
+      userId: user?.id ?? null,
+    });
   }
 
   async getStoredUser(): Promise<UserDoc | null> {
-    const raw = await AsyncStorage.getItem(STORAGE_KEYS.user);
-
-    if (!raw) return null;
-
-    try {
-      return JSON.parse(raw) as UserDoc;
-    } catch {
-      return null;
-    }
+    const user = await sessionService.getUser();
+    return (user as UserDoc | null) ?? null;
   }
 
   async removeUser(): Promise<void> {
-    await AsyncStorage.removeItem(STORAGE_KEYS.user);
+    const token = await this.getToken();
+
+    if (!token) {
+      await sessionService.clearSession();
+      return;
+    }
+
+    await sessionService.saveSession({
+      token,
+      user: null,
+      userId: null,
+    });
   }
 
   async clearSession(): Promise<void> {
-    await AsyncStorage.multiRemove([STORAGE_KEYS.token, STORAGE_KEYS.user]);
+    await sessionService.clearSession();
   }
 
-  async registerPf(data: {
-    displayName: string;
-    email: string;
-    password: string;
-    phone: string;
-    cpf: string;
-    address?: string;
-    rememberMe?: boolean;
-  }): Promise<AuthResult> {
+  async registerPf(data: RegisterPfPayload): Promise<AuthResult> {
     try {
       const payload = {
         ...data,
         email: normalizeEmail(data.email),
       };
 
-      const response = await api.post<LoginResponse>("/auth/register/pf", payload);
+      const response = await api.post<LoginResponse>(
+        "/auth/register/pf",
+        payload,
+      );
 
       if (!response.user) {
         return {
@@ -146,21 +194,14 @@ class AuthService {
         error:
           error instanceof Error
             ? error.message
-            : "Erro ao registrar pessoa física.",
+            : "Erro ao registrar gerador residencial.",
       };
     }
   }
 
-  async registerCooperative(data: {
-    displayName: string;
-    email: string;
-    password: string;
-    phone: string;
-    cooperativeName: string;
-    registrationNumber: string;
-    address?: string;
-    rememberMe?: boolean;
-  }): Promise<AuthResult> {
+  async registerCooperative(
+    data: RegisterCooperativePayload,
+  ): Promise<AuthResult> {
     try {
       const payload = {
         ...data,
@@ -169,7 +210,7 @@ class AuthService {
 
       const response = await api.post<LoginResponse>(
         "/auth/register/cooperative",
-        payload
+        payload,
       );
 
       if (!response.user) {
@@ -204,6 +245,38 @@ class AuthService {
           error instanceof Error
             ? error.message
             : "Erro ao registrar cooperativa.",
+      };
+    }
+  }
+
+  async requestLoginLink(
+    email: string,
+    profile?: string,
+  ): Promise<{ message: string }> {
+    return api.post("/auth/login-link", {
+      email: normalizeEmail(email),
+      audience: "APP",
+      profile,
+    });
+  }
+
+  async loginWithLink(token: string): Promise<AuthResult> {
+    try {
+      const response = await api.post<LoginResponse>(
+        "/auth/login-link/consume",
+        { token, audience: "APP" },
+      );
+      if (!response.token || !response.user)
+        return { success: false, error: "Resposta de login inválida." };
+      await this.saveSession(response.token, response.user);
+      return { success: true, token: response.token, user: response.user };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível utilizar o link.",
       };
     }
   }
@@ -243,15 +316,14 @@ class AuthService {
     } catch (error: unknown) {
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Erro ao fazer login.",
+        error: error instanceof Error ? error.message : "Erro ao fazer login.",
       };
     }
   }
 
   async activateGeneratorAccess(
     email: string,
-    password: string
+    password: string,
   ): Promise<AuthResult> {
     try {
       const response = await api.post<ActivateAccessResponse>(
@@ -259,7 +331,7 @@ class AuthService {
         {
           email: normalizeEmail(email),
           password,
-        }
+        },
       );
 
       if (!response.user) {
@@ -299,15 +371,14 @@ class AuthService {
         "/auth/forgot-password",
         {
           email: normalizeEmail(email),
-        }
+        },
       );
 
       return {
         success: true,
         message:
           response.message ||
-          "Se o e-mail existir, a recuperação foi iniciada.",
-        resetToken: response.resetToken || response.token,
+          "Se o e-mail existir, enviaremos as instruções de recuperação.",
       };
     } catch (error: unknown) {
       return {
@@ -320,21 +391,23 @@ class AuthService {
     }
   }
 
-  async resetPassword(data: {
-    email: string;
-    token: string;
-    newPassword: string;
-    confirmPassword: string;
-  }): Promise<AuthResult> {
+  async resetPassword(data: ResetPasswordPayload): Promise<AuthResult> {
     try {
       const response = await api.post<ResetPasswordResponse>(
         "/auth/reset-password",
         {
           email: normalizeEmail(data.email),
           token: data.token.trim(),
+
+          temporaryPassword: data.temporaryPassword,
+          temporary_password: data.temporaryPassword,
+
           newPassword: data.newPassword,
+          password: data.newPassword,
+
           confirmPassword: data.confirmPassword,
-        }
+          password_confirmation: data.confirmPassword,
+        },
       );
 
       return {
@@ -345,16 +418,14 @@ class AuthService {
       return {
         success: false,
         error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao redefinir a senha.",
+          error instanceof Error ? error.message : "Erro ao redefinir a senha.",
       };
     }
   }
 
   async getCurrentUserData(): Promise<UserDoc | null> {
+    const token = await this.getToken();
     try {
-      const token = await this.getToken();
       if (!token) return null;
 
       const response = await api.get<MeResponse>("/auth/me", true);
@@ -365,17 +436,21 @@ class AuthService {
         return storedUser;
       }
 
+      if (token !== (await this.getToken())) return this.getStoredUser();
       await this.saveUser(user);
       return user;
     } catch (error) {
       console.error("Erro ao buscar usuário atual:", error);
 
-      const storedUser = await this.getStoredUser();
-      if (storedUser) {
-        return storedUser;
+      if (isApiHttpError(error) && error.status === 401) {
+        const currentToken = await this.getToken();
+        if (currentToken && currentToken !== token) return this.getStoredUser();
+        await this.clearSession();
+        return null;
       }
+      const storedUser = await this.getStoredUser();
+      if (storedUser) return storedUser;
 
-      await this.clearSession();
       return null;
     }
   }

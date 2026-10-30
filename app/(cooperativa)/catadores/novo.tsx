@@ -6,18 +6,19 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import { collectorService } from "@/src/services/collectorService";
 
 export default function NovoCatadorScreen() {
   const [name, setName] = useState("");
+  const { notifyError, notifySuccess } = useNotification();
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [document, setDocument] = useState("");
@@ -35,7 +36,10 @@ export default function NovoCatadorScreen() {
 
   async function handleSalvar() {
     if (!name.trim() || !phone.trim() || !email.trim()) {
-      Alert.alert("Atenção", "Preencha nome, telefone e email.");
+      notifyError({
+        message: "Preencha nome, telefone e email.",
+        title: "Atenção",
+      });
       return;
     }
 
@@ -50,18 +54,16 @@ export default function NovoCatadorScreen() {
         address,
       });
 
-      Alert.alert("Sucesso", "Catador cadastrado com sucesso!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(cooperativa)/catadores"),
-        },
-      ]);
+      notifySuccess({
+        message: "Catador cadastrado com sucesso!",
+        title: "Sucesso",
+      });
     } catch (error: any) {
       console.error("Erro ao cadastrar catador:", error);
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível cadastrar o catador."
-      );
+      notifyError({
+        message: error?.message || "Não foi possível cadastrar o catador.",
+        title: "Erro",
+      });
     } finally {
       setLoading(false);
     }
@@ -73,11 +75,11 @@ export default function NovoCatadorScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 20,
           paddingHorizontal: 20,
         }}
@@ -96,9 +98,12 @@ export default function NovoCatadorScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, padding: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, padding: 20 }}
+      >
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Nome Completo *
           </Text>
           <TextInput
@@ -118,7 +123,7 @@ export default function NovoCatadorScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Telefone *
           </Text>
           <TextInput
@@ -139,7 +144,7 @@ export default function NovoCatadorScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Email *
           </Text>
           <TextInput
@@ -161,7 +166,7 @@ export default function NovoCatadorScreen() {
         </View>
 
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             CPF
           </Text>
           <TextInput
@@ -182,7 +187,7 @@ export default function NovoCatadorScreen() {
         </View>
 
         <View style={{ marginBottom: 30 }}>
-          <Text style={{ fontSize: 14, color: "#028C56", marginBottom: 5 }}>
+          <Text style={{ fontSize: 14, color: "#047857", marginBottom: 5 }}>
             Endereço
           </Text>
           <TextInput
@@ -208,7 +213,7 @@ export default function NovoCatadorScreen() {
           style={{ marginBottom: 30 }}
         >
           <LinearGradient
-            colors={["#10F35D", "#028C56"]}
+            colors={["#123C35", "#17694F"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -227,7 +232,7 @@ export default function NovoCatadorScreen() {
                   style={{
                     color: "#FFFFFF",
                     fontSize: 18,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     marginLeft: 8,
                   }}
                 >
@@ -235,7 +240,9 @@ export default function NovoCatadorScreen() {
                 </Text>
               </>
             ) : (
-              <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800" }}>
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "700" }}
+              >
                 SALVAR CATADOR
               </Text>
             )}

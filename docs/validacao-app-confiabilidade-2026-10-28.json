@@ -1,0 +1,125 @@
+{
+  "date": "2026-10-28",
+  "passed": 61,
+  "environment": "API local em PostgreSQL descartável via PGlite; App web exportado e Chromium a 390px; transporte e GPS controlados nos testes offline/UI. Nenhum acesso à VPS.",
+  "suites": {
+    "api_e_rotas": {
+      "passed": 29,
+      "checks": [
+        "Migração preserva execução histórica e seu ponto sem inventar data de saída",
+        "Antes da saída não existe operação em campo",
+        "Saída registra início da execução e preserva pontos aguardando atendimento",
+        "Painel conta uma rota fixa em campo sem contar suas três paradas novamente",
+        "Agenda e registros do painel identificam saída em campo sem confundir com atendimento do ponto",
+        "Repetir confirmação não modifica a primeira saída",
+        "Execuções são paginadas inteiras; ativa vem primeiro e a lista não transfere todos os detalhes",
+        "Duas datas do mesmo plano permanecem em tópicos separados",
+        "Pontos seguem a sequência da rota com paginação própria e contexto em campo",
+        "Coletas normais excluem pontos de rotas fixas, inclusive plano histórico removido",
+        "Busca por um ponto encontra sua execução completa",
+        "Endereço avulso sem cadastro de gerador conserva identificação e pode ser pesquisado",
+        "Filtro de programação distingue os dias de execução no fuso do Ceará",
+        "Iniciar ponto dentro da rota não duplica a operação em campo",
+        "Coleta delegada individual iniciada entra no mesmo indicador",
+        "Rotas avulsas e fixas e coleta individual são contadas sem sobreposição",
+        "Pontos com saída confirmada não ficam na fila de pendentes sem saída",
+        "Recebimento de um ponto preserva os demais e sua entrada de material individual",
+        "Filtro por colaborador reconhece sua participação em equipe",
+        "Detalhes e consultas respeitam cooperativa proprietária e perfil autorizado",
+        "Paginação, etapa e período inválidos são rejeitados",
+        "Comprovantes paginam 25 + 4 sem duplicar datas iguais e preservam crédito do catador",
+        "Histórico de coleta mantém escopo do motorista e isolamento entre cooperativas",
+        "Clientes legados continuam recebendo a lista de operações com todas as etapas",
+        "Paginação inválida é rejeitada antes da consulta",
+        "Solicitações de PF têm paginação estável e cada conta vê somente seus registros",
+        "Ocorrências do motorista paginam sem vazamento para outro perfil",
+        "Data de corte impede que novos registros desloquem as páginas do histórico",
+        "API real aceita reenvios com a mesma operação sem duplicar material ou regredir recebimento"
+      ]
+    },
+    "offline_e_gps_simulado": {
+      "passed": 14,
+      "checks": [
+        "Início e conclusão offline são persistidos em ordem e projetados na coleta",
+        "Sem conexão não há envio e nenhuma pendência é apagada",
+        "Reinicialização do runtime recupera a fila persistente com os mesmos identificadores",
+        "Resposta perdida preserva início e bloqueia conclusão da mesma coleta",
+        "Tentativas automáticas respeitam intervalo após falha",
+        "Reenvio manual usa operationId original, respeita ordem e confirma sem duplicar efeito",
+        "Nova tentativa individual preserva pendências de outras entidades",
+        "Troca de conta não exibe nem envia a fila e o cache de outro usuário",
+        "Exportação consolidada consulta todas as páginas sob demanda com a mesma data de corte",
+        "Falha intermediária bloqueia documento consolidado parcial",
+        "Exportação é interrompida se a conta mudar durante a consulta",
+        "Conectividade desconhecida não é confundida com offline; falta de acesso confirmada bloqueia envio",
+        "GPS no navegador valida posição e informa permissão negada, coordenadas inválidas e HTTPS ausente",
+        "Consolidado ordena pelo dia efetivo da coleta, mesmo quando a criação tem ordem diferente"
+      ]
+    },
+    "app_telas_mobile": {
+      "passed": 8,
+      "checks": [
+        "Histórico em celular carrega somente a primeira página e busca mais sob demanda",
+        "Falha na atualização mantém os 27 registros visíveis e oferece nova tentativa",
+        "Resposta vazia confirmada é apresentada separadamente de falha de conexão",
+        "Central identifica cada etapa e impede enviar conclusão antes de um início rejeitado",
+        "Nova tentativa confirma as etapas em ordem com os mesmos identificadores",
+        "Comprovantes paginam em celular sem rolagem horizontal",
+        "Ocorrências do motorista carregam a segunda página sem perder a primeira",
+        "Telas revisadas sem erros JavaScript"
+      ],
+      "errors": []
+    },
+    "regressao_inicio_rota_app": {
+      "passed": 3,
+      "errors": []
+    },
+    "painel_agrupamento_rotas": {
+      "passed": 7,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "Painel informa três operações, separando rota fixa, avulsa e coleta individual",
+          "status": "PASS"
+        },
+        {
+          "name": "Acompanhar rota abre uma execução com seus três pontos e contexto Em campo",
+          "status": "PASS"
+        },
+        {
+          "name": "Cooperativa pode conferir material de um ponto mantendo os demais independentes",
+          "status": "PASS"
+        },
+        {
+          "name": "Rotas fixas apresentam um tópico por execução e data, sem repetir pontos na lista principal",
+          "status": "PASS"
+        },
+        {
+          "name": "Coletas normais usam aba própria com atendimento e saída identificados",
+          "status": "PASS"
+        },
+        {
+          "name": "Execução e pontos permanecem acessíveis no celular sem transbordamento da página",
+          "status": "PASS"
+        },
+        {
+          "name": "Nenhum erro JavaScript na navegação e conferência dos pontos",
+          "status": "PASS"
+        }
+      ]
+    }
+  },
+  "checks": {
+    "app_typescript": "pass",
+    "api_typescript": "pass",
+    "api_build": "pass",
+    "app_web_export": "pass",
+    "app_changed_files_eslint": "pass",
+    "physical_device": "pending"
+  },
+  "limitations": [
+    "GPS, câmera, suspensão e retorno em Android/iPhone físicos ainda precisam do roteiro de campo.",
+    "Sem teste de carga ou medição de desempenho na produção.",
+    "Históricos paginados exigem conexão para buscar páginas novas; uma atualização malsucedida preserva os registros já carregados na tela."
+  ]
+}

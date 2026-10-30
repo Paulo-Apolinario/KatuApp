@@ -18,11 +18,11 @@ export function MotoristaGreenHeader({
 }: MotoristaGreenHeaderProps) {
   return (
     <LinearGradient
-      colors={["#10F35D", "#028C56"]}
+      colors={["#123C35", "#17694F"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       style={{
-        paddingTop: 48,
+        paddingTop: 24,
         paddingBottom: 18,
         paddingHorizontal: 20,
         borderBottomLeftRadius: 26,
@@ -53,7 +53,7 @@ export function MotoristaGreenHeader({
           </TouchableOpacity>
 
           <View style={{ flex: 1 }}>
-            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}>
+            <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "700" }}>
               {title}
             </Text>
             <Text style={{ color: "#E8FFF1", fontSize: 13, marginTop: 2 }}>

@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import { TouchableOpacity, Alert } from "react-native";
+import { useAuth } from "../contexts/AuthContext";
+import { TouchableOpacity, Alert, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 interface LogoutButtonProps {
@@ -7,30 +7,38 @@ interface LogoutButtonProps {
   size?: number;
 }
 
-export default function LogoutButton({ color = "#FFFFFF", size = 24 }: LogoutButtonProps) {
+export default function LogoutButton({
+  color = "#FFFFFF",
+  size = 24,
+}: LogoutButtonProps) {
+  const { signOut } = useAuth();
   const handleLogout = () => {
-    Alert.alert(
-      "Sair da conta",
-      "Tem certeza que deseja sair?",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel"
+    if (Platform.OS === "web") {
+      if (window.confirm("Deseja sair da sua conta?")) void signOut();
+      return;
+    }
+    Alert.alert("Sair da conta", "Tem certeza que deseja sair?", [
+      {
+        text: "Cancelar",
+        style: "cancel",
+      },
+      {
+        text: "Sair",
+        onPress: () => {
+          // Redirecionar para a tela de seleção de perfil
+          void signOut();
         },
-        {
-          text: "Sair",
-          onPress: () => {
-            // Redirecionar para a tela de seleção de perfil
-            router.replace("/(public)/access-type");
-          },
-          style: "destructive"
-        }
-      ]
-    );
+        style: "destructive",
+      },
+    ]);
   };
 
   return (
-    <TouchableOpacity onPress={handleLogout}>
+    <TouchableOpacity
+      onPress={handleLogout}
+      accessibilityRole="button"
+      accessibilityLabel="Sair da conta"
+    >
       <Ionicons name="log-out-outline" size={size} color={color} />
     </TouchableOpacity>
   );

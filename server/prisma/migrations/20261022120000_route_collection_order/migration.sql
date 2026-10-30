@@ -1,0 +1,1 @@
+ALTER TABLE "Route" ADD COLUMN "collectionOrder" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

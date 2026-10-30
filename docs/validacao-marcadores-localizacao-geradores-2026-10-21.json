@@ -1,0 +1,45 @@
+{
+  "environment": "API real Fastify/Prisma + migração incremental sobre baseline anterior aos relatórios + PGlite + Chromium; sem comunicação com SINIR",
+  "outcomes": [
+    {
+      "name": "Painel: contagens reais, unidades distintas e estoque sem duplicar produção",
+      "status": "PASS"
+    },
+    {
+      "name": "Painel: isolamento por cooperativa, autorização e datas inválidas",
+      "status": "PASS"
+    },
+    {
+      "name": "Painel desktop real: gráficos, mapa sem chave Google e filtros de pontos",
+      "status": "PASS"
+    },
+    {
+      "name": "Posição no mapa obtida do navegador e falha de permissão explícita",
+      "status": "PASS"
+    },
+    {
+      "name": "Painel móvel sem transbordamento e mapa com lista de pontos",
+      "status": "PASS"
+    },
+    {
+      "name": "Falha de API não vira zero nem mensagem de ausência de pendências",
+      "status": "PASS"
+    },
+    {
+      "name": "Gerador: completar localização pelo painel e persistir pino após recarga",
+      "status": "PASS"
+    },
+    {
+      "name": "Edição: CEP e número na busca, ajuste da sugestão e persistência móvel",
+      "status": "PASS"
+    },
+    {
+      "name": "API: escopo da cooperativa, coordenadas válidas e preservação sem GPS",
+      "status": "PASS"
+    }
+  ],
+  "data": "2026-10-21",
+  "api_check_build": "PASS",
+  "painel_lint_build": "PASS",
+  "servicos_externos": "CEP e geocoder simulados; tiles externos bloqueados; persistência e autorização via API e banco reais."
+}

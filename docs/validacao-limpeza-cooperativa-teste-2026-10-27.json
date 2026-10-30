@@ -1,0 +1,12 @@
+{
+  "passed": 7,
+  "checks": [
+    "email incorreto não altera registro algum",
+    "CNPJ de outra cooperativa não altera registro algum",
+    "vínculo entre cooperativas bloqueia sem alterações",
+    "dependência inesperada restaura inclusive históricos já removidos",
+    "remove cadastro, duas coletas, lote e dependências de teste; preserva conta do colaborador",
+    "cooperativa alheia e seus históricos permanecem idênticos",
+    "repetição não atinge outra cooperativa"
+  ]
+}

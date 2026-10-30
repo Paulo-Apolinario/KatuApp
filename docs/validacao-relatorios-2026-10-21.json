@@ -1,0 +1,53 @@
+{
+  "environment": "API real Fastify/Prisma + migração incremental sobre baseline anterior aos relatórios + PGlite + Chromium; sem comunicação com SINIR",
+  "outcomes": [
+    {
+      "name": "Migração incremental e totais por unidade, sem duplicar coleta/estoque",
+      "status": "PASS"
+    },
+    {
+      "name": "Paginação e exportação abrangem o mesmo recorte completo",
+      "status": "PASS"
+    },
+    {
+      "name": "Filtros de unidade/material/status preservam legado e excluem quantidade cancelada",
+      "status": "PASS"
+    },
+    {
+      "name": "Recebimento e destinação respeitam a data própria; estoque é atual",
+      "status": "PASS"
+    },
+    {
+      "name": "Equipe e veículos usam atribuições reais e custos registrados",
+      "status": "PASS"
+    },
+    {
+      "name": "Isolamento de cooperativas, autorização e ausência de dados pessoais",
+      "status": "PASS"
+    },
+    {
+      "name": "Validação de datas, extensão e campos desconhecidos",
+      "status": "PASS"
+    },
+    {
+      "name": "Metas e metodologia persistem com proteção de versão e material da cooperativa",
+      "status": "PASS"
+    },
+    {
+      "name": "Cinco telas reais carregam no desktop, com tabela e sem erro JavaScript",
+      "status": "PASS"
+    },
+    {
+      "name": "Filtros aplicados e salvos, detalhes com Escape e exportações completas reais",
+      "status": "PASS"
+    },
+    {
+      "name": "Layout móvel sem transbordamento da página",
+      "status": "PASS"
+    },
+    {
+      "name": "Falha de API limpa resultados e permite recuperação sem dados antigos",
+      "status": "PASS"
+    }
+  ]
+}

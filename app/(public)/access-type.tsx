@@ -1,133 +1,44 @@
 import { router } from "expo-router";
-import { Image, Pressable, Text, View, TouchableOpacity } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-
-type EntryButtonProps = {
-  title: string;
-  onPress: () => void;
-};
-
-function EntryButton({ title, onPress }: EntryButtonProps) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        marginBottom: 18,
-        borderRadius: 14,
-        overflow: "hidden",
-      }}
-    >
-      <LinearGradient
-        colors={["#10F35D", "#028C56"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={{
-          minHeight: 58,
-          borderRadius: 14,
-          paddingHorizontal: 18,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <Text
-          style={{
-            color: "#FFFFFF",
-            fontSize: 16,
-            fontWeight: "800",
-          }}
-        >
-          {title}
-        </Text>
-
-        <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
-      </LinearGradient>
-    </Pressable>
-  );
-}
-
+import {
+  AccessShell,
+  AccessLink,
+  ProfileChoice,
+} from "@/src/components/auth/AccessShell";
 export default function AccessTypeScreen() {
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: "#FFFFFF",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 24,
-      }}
+    <AccessShell
+      eyebrow="BEM-VINDO À KATUÁ"
+      title="Como você participa?"
+      subtitle="Escolha seu perfil para acessar os serviços e acompanhar suas operações."
     >
-      <View style={{ width: "100%", maxWidth: 360 }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 46,
-          }}
-        >
-          <Image
-            source={require("../../assets/images/logo.png")}
-            resizeMode="contain"
-            style={{
-              width: 58,
-              height: 58,
-              marginRight: 12,
-            }}
-          />
-
-          <Text
-            style={{
-              fontSize: 28,
-              color: "#111827",
-              fontWeight: "700",
-            }}
-          >
-            KATUÁ
-          </Text>
-        </View>
-
-        <EntryButton
-          title="GERADOR"
-          onPress={() => router.replace("/(public)/choose-profile")}
-        />
-
-        <EntryButton
-          title="COOPERATIVA"
-          onPress={() => router.replace("/(auth)/login?profile=cooperativa")}
-        />
-
-        <EntryButton
-          title="CATADOR"
-          onPress={() => router.replace("/(auth)/login?profile=catador")}
-        />
-
-        <EntryButton
-          title="MOTORISTA"
-          onPress={() => router.replace("/(auth)/login?profile=motorista")}
-        />
-
-        <TouchableOpacity
-          onPress={() => router.replace("/(public)/activate-access")}
-          style={{
-            marginTop: 8,
-            alignItems: "center",
-            paddingVertical: 10,
-          }}
-        >
-          <Text
-            style={{
-              color: "#028C56",
-              fontSize: 14,
-              fontWeight: "700",
-              textDecorationLine: "underline",
-            }}
-          >
-            Liberar meu acesso
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      <ProfileChoice
+        title="Gerador"
+        description="Solicite coletas e acompanhe os materiais."
+        icon="leaf-outline"
+        onPress={() => router.push("/(public)/choose-profile")}
+      />
+      <ProfileChoice
+        title="Cooperativa / OSC"
+        description="Organize equipes, recebimentos e destinações."
+        icon="business-outline"
+        onPress={() => router.push("/(auth)/login?profile=cooperativa")}
+      />
+      <ProfileChoice
+        title="Catador"
+        description="Consulte suas coletas e registre o trabalho de campo."
+        icon="people-outline"
+        onPress={() => router.push("/(auth)/login?profile=catador")}
+      />
+      <ProfileChoice
+        title="Motorista"
+        description="Acesse suas rotas, veículo e pontos de coleta."
+        icon="car-outline"
+        onPress={() => router.push("/(auth)/login?profile=motorista")}
+      />
+      <AccessLink
+        label="Já tenho cadastro: liberar meu acesso"
+        onPress={() => router.push("/(public)/activate-access")}
+      />
+    </AccessShell>
   );
 }

@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Alert,
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotification } from "@/src/contexts/NotificationContext";
 
 import {
   collectionService,
@@ -74,7 +74,9 @@ function formatMaterials(materials?: CollectionMaterial[] | null) {
   if (!Array.isArray(materials) || materials.length === 0) return "-";
 
   return materials
-    .map((item) => `${item.type}: ${Number(item.quantityKg || 0).toFixed(1)} kg`)
+    .map(
+      (item) => `${item.type}: ${Number(item.quantityKg || 0).toFixed(1)} kg`,
+    )
     .join(" • ");
 }
 
@@ -92,50 +94,53 @@ export default function CooperativaHistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [history, setHistory] = useState<CooperativaHistoryItem[]>([]);
+  const { notifyError } = useNotification();
 
-  const loadHistory = useCallback(async (showLoader = true) => {
-    try {
-      if (showLoader) setLoading(true);
+  const loadHistory = useCallback(
+    async (showLoader = true) => {
+      try {
+        if (showLoader) setLoading(true);
 
-      const collections = await collectionService.list();
+        const collections = await collectionService.list();
 
-      const items: CooperativaHistoryItem[] = collections.map((item: Collection) => {
-        const rawDate = item.collectedAt || item.createdAt || null;
+        const items: CooperativaHistoryItem[] = collections.map(
+          (item: Collection) => {
+            const rawDate = item.collectedAt || item.createdAt || null;
 
-        return {
-          id: item.id,
-          geradorNome:
-            item.generator?.companyName ||
-            item.generator?.name ||
-            item.schedule?.requestedBy?.displayName ||
-            item.schedule?.requestedBy?.email ||
-            "Origem não identificada",
-          peso: Number(item.totalWeightKg ?? 0),
-          status: item.status || "PENDING",
-          dateLabel: formatDate(rawDate),
-          sortDate: getSortDate(rawDate),
-          materialsLabel: formatMaterials(item.materials),
-        };
-      });
+            return {
+              id: item.id,
+              geradorNome:
+                item.generator?.companyName ||
+                item.generator?.name ||
+                item.schedule?.requestedBy?.displayName ||
+                item.schedule?.requestedBy?.email ||
+                "Origem não identificada",
+              peso: Number(item.totalWeightKg ?? 0),
+              status: item.status || "PENDING",
+              dateLabel: formatDate(rawDate),
+              sortDate: getSortDate(rawDate),
+              materialsLabel: formatMaterials(item.materials),
+            };
+          },
+        );
 
-      const orderedItems = items.sort((a, b) => b.sortDate - a.sortDate);
-      setHistory(orderedItems);
-    } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        error?.message || "Não foi possível carregar o histórico."
-      );
-      setHistory([]);
-    } finally {
-      if (showLoader) setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+        const orderedItems = items.sort((a, b) => b.sortDate - a.sortDate);
+        setHistory(orderedItems);
+      } catch {
+        notifyError("Não foi possível carregar o histórico.");
+        setHistory([]);
+      } finally {
+        if (showLoader) setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [notifyError],
+  );
 
   useFocusEffect(
     useCallback(() => {
       loadHistory(true);
-    }, [loadHistory])
+    }, [loadHistory]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -161,7 +166,7 @@ export default function CooperativaHistoryScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#028C56" />
+        <ActivityIndicator size="large" color="#047857" />
         <Text style={{ marginTop: 10, color: "#6B7280" }}>
           Carregando histórico...
         </Text>
@@ -172,11 +177,11 @@ export default function CooperativaHistoryScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       <LinearGradient
-        colors={["#10F35D", "#028C56"]}
+        colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{
-          paddingTop: 50,
+          paddingTop: 20,
           paddingBottom: 24,
           paddingHorizontal: 20,
           borderBottomLeftRadius: 30,
@@ -198,7 +203,7 @@ export default function CooperativaHistoryScreen() {
             style={{
               color: "#FFFFFF",
               fontSize: 22,
-              fontWeight: "800",
+              fontWeight: "700",
             }}
           >
             HISTÓRICO
@@ -230,12 +235,14 @@ export default function CooperativaHistoryScreen() {
               borderColor: "#E5E7EB",
             }}
           >
-            <Text style={{ color: "#6B7280", fontSize: 13 }}>Total coletado</Text>
+            <Text style={{ color: "#6B7280", fontSize: 13 }}>
+              Total coletado
+            </Text>
             <Text
               style={{
                 color: "#111827",
                 fontSize: 24,
-                fontWeight: "800",
+                fontWeight: "700",
                 marginTop: 6,
               }}
             >
@@ -258,7 +265,7 @@ export default function CooperativaHistoryScreen() {
               style={{
                 color: "#111827",
                 fontSize: 24,
-                fontWeight: "800",
+                fontWeight: "700",
                 marginTop: 6,
               }}
             >
@@ -270,7 +277,7 @@ export default function CooperativaHistoryScreen() {
         <Text
           style={{
             fontSize: 18,
-            fontWeight: "800",
+            fontWeight: "700",
             color: "#111827",
             marginTop: 20,
             marginBottom: 12,
@@ -316,18 +323,30 @@ export default function CooperativaHistoryScreen() {
                       style={{
                         color: "#111827",
                         fontSize: 16,
-                        fontWeight: "800",
+                        fontWeight: "700",
                         marginBottom: 6,
                       }}
                     >
                       {item.geradorNome}
                     </Text>
 
-                    <Text style={{ color: "#374151", fontSize: 14, marginBottom: 4 }}>
+                    <Text
+                      style={{
+                        color: "#374151",
+                        fontSize: 14,
+                        marginBottom: 4,
+                      }}
+                    >
                       Peso total: {item.peso.toFixed(1)} kg
                     </Text>
 
-                    <Text style={{ color: "#6B7280", fontSize: 13, marginBottom: 4 }}>
+                    <Text
+                      style={{
+                        color: "#6B7280",
+                        fontSize: 13,
+                        marginBottom: 4,
+                      }}
+                    >
                       Data: {item.dateLabel}
                     </Text>
 
@@ -348,7 +367,7 @@ export default function CooperativaHistoryScreen() {
                       style={{
                         color: statusColors.text,
                         fontSize: 11,
-                        fontWeight: "800",
+                        fontWeight: "700",
                       }}
                     >
                       {getStatusLabel(item.status)}
@@ -367,7 +386,11 @@ export default function CooperativaHistoryScreen() {
                 paddingVertical: 40,
               }}
             >
-              <Ionicons name="document-text-outline" size={48} color="#9CA3AF" />
+              <Ionicons
+                name="document-text-outline"
+                size={48}
+                color="#9CA3AF"
+              />
               <Text
                 style={{
                   marginTop: 12,
@@ -388,7 +411,8 @@ export default function CooperativaHistoryScreen() {
                   paddingHorizontal: 24,
                 }}
               >
-                Quando as coletas forem executadas pelos catadores, elas aparecerão aqui.
+                Quando as coletas forem executadas pelos catadores, elas
+                aparecerão aqui.
               </Text>
             </View>
           }
