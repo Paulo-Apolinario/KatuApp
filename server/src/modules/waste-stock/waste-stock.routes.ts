@@ -1,3 +1,4 @@
+import { stockMovementRoutes } from "./stock-movements";
 import { FastifyInstance } from "fastify";
 
 import { WasteStockController } from "./waste-stock.controller";
@@ -12,6 +13,8 @@ export async function wasteStockRoutes(
     "preHandler",
     app.authenticate
   );
+
+  await stockMovementRoutes(app);
 
   /*
    * ============================================================

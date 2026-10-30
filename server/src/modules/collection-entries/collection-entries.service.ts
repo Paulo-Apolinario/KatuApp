@@ -166,6 +166,7 @@ const collectionEntryInclude = {
     include: {
       stockLot: {
         include: {
+          movements: { where: { kind: { in: ["SALE", "DONATION", "DIRECT_DESTINATION", "DISPOSAL"] } }, orderBy: [{ movementDate: "desc" as const }, { id: "desc" as const }], take: 5, select: { id: true, kind: true, quantity: true, destinationName: true, movementDate: true } },
           stockItem: true,
         },
       },

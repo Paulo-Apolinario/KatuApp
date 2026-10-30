@@ -1,3 +1,5 @@
+import { rankMaterials, rankedQuantity, materialTotalsLabel, type MaterialRanking } from "@/src/utils/materialRanking";
+import { unitLabel } from "@/src/utils/materials";
 import { personalMaterialParcels } from "@/src/utils/collectionParticipation";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -26,11 +28,7 @@ import type {
 
 type PeriodFilter = "TODAY" | "WEEK" | "MONTH";
 
-type MaterialRankingItem = {
-  material: string;
-  quantityKg: number;
-  percentage: number;
-};
+type MaterialRankingItem = MaterialRanking;
 
 type TimelineItem = {
   id: string;
@@ -615,35 +613,9 @@ export default function CollectorDashboardScreen() {
 
     const lastCollection = sortedCollectedCollections[0] || null;
 
-    const materialsMap: Record<string, number> = {};
-
-    periodCollections.forEach((collection) => {
-      (collection.participants?.length ? personalMaterialParcels(collection) : getCollectionMaterials(collection)).forEach((material) => {
-        const materialName =
-          material.name?.trim() || material.type?.trim() || "Não informado";
-
-        const quantityKg =
-          safeNumber(material.quantityKg) ||
-          quantityToKg(safeNumber(material.quantity), material.unit || "KG");
-
-        materialsMap[materialName] =
-          (materialsMap[materialName] || 0) + quantityKg;
-      });
-    });
-
-    const totalRankedKg = Object.values(materialsMap).reduce(
-      (sum, quantityKg) => sum + quantityKg,
-      0,
-    );
-
-    const topMaterials: MaterialRankingItem[] = Object.entries(materialsMap)
-      .map(([material, quantityKg]) => ({
-        material,
-        quantityKg,
-        percentage: totalRankedKg > 0 ? (quantityKg / totalRankedKg) * 100 : 0,
-      }))
-      .sort((a, b) => b.quantityKg - a.quantityKg)
-      .slice(0, 5);
+    const topMaterials = rankMaterials(periodCollections.flatMap(collection =>
+      collection.participants?.length ? personalMaterialParcels(collection) : getCollectionMaterials(collection),
+    ));
 
     const recentCollections = [...collections]
       .sort((a, b) => {
@@ -667,6 +639,7 @@ export default function CollectorDashboardScreen() {
       totalKg,
       lastCollection,
       topMaterials,
+      quantitiesSummary: materialTotalsLabel(periodCollections.flatMap(collection => collection.participants?.length ? personalMaterialParcels(collection) : getCollectionMaterials(collection))),
       recentCollections,
       activeCollection,
       timeline: buildTimeline(activeCollection),
@@ -892,8 +865,8 @@ export default function CollectorDashboardScreen() {
             }}
           >
             <MetricCard
-              title="Peso coletado"
-              value={`${metrics.totalKg.toFixed(1)} kg`}
+              title="Quantidades registradas"
+              value={metrics.quantitiesSummary}
               icon="leaf-outline"
             />
 
@@ -949,10 +922,8 @@ export default function CollectorDashboardScreen() {
                 />
 
                 <InfoRow
-                  label="Peso"
-                  value={`${getCollectionTotalKg(
-                    metrics.lastCollection,
-                  ).toFixed(1)} kg`}
+                  label="Quantidade"
+                  value={materialTotalsLabel(metrics.lastCollection.participants?.length ? personalMaterialParcels(metrics.lastCollection) : getCollectionMaterials(metrics.lastCollection))}
                 />
 
                 <InfoRow
@@ -974,14 +945,14 @@ export default function CollectorDashboardScreen() {
 
           <SectionHeader
             title="Resíduos mais coletados"
-            subtitle="Ranking por peso no período selecionado"
+            subtitle="Quantidades por unidade. Percentuais comparados dentro de cada unidade."
           />
 
           <View style={sectionCard}>
             {metrics.topMaterials.length > 0 ? (
               metrics.topMaterials.map((item, index) => (
                 <MaterialRankingRow
-                  key={item.material}
+                  key={item.key}
                   position={index + 1}
                   item={item}
                   isLast={index === metrics.topMaterials.length - 1}
@@ -1437,7 +1408,7 @@ function MaterialRankingRow({
               marginTop: 2,
             }}
           >
-            {item.quantityKg.toFixed(1)} kg
+            {rankedQuantity(item)}
           </Text>
         </View>
 
@@ -1448,7 +1419,7 @@ function MaterialRankingRow({
             fontSize: 15,
           }}
         >
-          {item.percentage.toFixed(0)}%
+          {item.percentage.toFixed(0)}% em {unitLabel(item.unit)}
         </Text>
       </View>
 
@@ -1673,7 +1644,7 @@ function RecentCollectionCard({
                 fontWeight: "600",
               }}
             >
-              Peso: {getCollectionTotalKg(collection).toFixed(1)} kg
+              Quantidade: {materialTotalsLabel(collection.participants?.length ? personalMaterialParcels(collection) : getCollectionMaterials(collection))}
             </Text>
           ) : null}
 

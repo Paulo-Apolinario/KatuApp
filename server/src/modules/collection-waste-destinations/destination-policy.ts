@@ -21,7 +21,7 @@ export function destinationFlowWhere(flow?: string): Prisma.CollectionWasteDesti
     AND: [{ OR: [
       { type: { in: [...FINAL_TYPES] } },
       { type: "STOCK", stockLot: { is: {
-        status: { in: ["SOLD", "DISCARDED"] },
+        status: { in: ["SOLD", "DESTINED", "DISCARDED"] },
       } } },
     ] }],
   };

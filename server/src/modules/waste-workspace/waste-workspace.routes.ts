@@ -14,7 +14,7 @@ const query = z
     page: z.coerce.number().int().min(1).max(100000).default(1),
     limit: z.coerce.number().int().min(1).max(50).default(20),
     q: z.string().trim().max(150).default(""),
-    view: z.enum(["current", "history", "catalog"]).default("current"),
+    view: z.enum(["current", "history", "catalog", "closed"]).default("current"),
     stage: z
       .enum([
         "all",
@@ -270,6 +270,8 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
           select: {
             id: true,
             scheduleId: true,
+            routePoint: true,
+            schedule: { select: { pickupAddress: true, requestedBy: { select: { displayName: true } } } },
             status: true,
             collectedAt: true,
             receivedAt: true,
@@ -293,9 +295,12 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
                 destinations: {
                   where: {
                     status: "ACTIVE",
-                    type: { in: ["STOCK", "TRIAGE", "RESERVATION"] },
                   },
-                  select: { id: true, type: true, quantity: true, stockLot: { select: { status: true, availableQuantity: true } } },
+                  select: { id: true, type: true, quantity: true, destinationName: true, destinationDate: true,
+                    stockLot: { select: { id: true, code: true, lotCode: true, status: true, availableQuantity: true,
+                      movements: { where: { kind: { in: ["SALE", "DONATION", "DIRECT_DESTINATION", "DISPOSAL"] } }, orderBy: [{ movementDate: "desc" }, { id: "desc" }], take: 5, select: { id: true, kind: true, quantity: true, destinationName: true, movementDate: true } },
+                      _count: { select: { movements: true } },
+                    } } },
                 },
               },
             },
@@ -329,13 +334,14 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
           status:
             q.view === "history"
               ? "CANCELLED"
+              : q.view === "closed" ? { in: ["SOLD", "DESTINED", "DISCARDED"] }
               : q.view === "catalog"
                 ? { not: "CANCELLED" }
                 : { in: ["AVAILABLE", "RESERVED"] },
         };
       if (q.status && q.view !== "catalog")
         lotWhere.status = z
-          .enum(["AVAILABLE", "RESERVED", "SOLD", "DISCARDED", "CANCELLED"])
+          .enum(["AVAILABLE", "RESERVED", "SOLD", "DESTINED", "DISCARDED", "CANCELLED"])
           .parse(q.status);
       const where: Prisma.WasteStockItemWhereInput = {
         cooperativeId: id,
@@ -416,11 +422,12 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
         status:
           q.view === "history"
             ? "CANCELLED"
+            : q.view === "closed" ? { in: ["SOLD", "DESTINED", "DISCARDED"] }
             : { in: ["AVAILABLE", "RESERVED"] },
       };
       if (q.status && q.view !== "history")
         where.status = z
-          .enum(["AVAILABLE", "RESERVED", "SOLD", "DISCARDED"])
+          .enum(["AVAILABLE", "RESERVED", "SOLD", "DESTINED", "DISCARDED"])
           .parse(q.status);
       const [lots, total] = await prisma.$transaction([
         prisma.wasteStockLot.findMany({
@@ -439,7 +446,7 @@ export async function wasteWorkspaceRoutes(app: FastifyInstance) {
     handle(async (id, r) => {
       const lot = await prisma.wasteStockLot.findFirst({
         where: { id: r.params.id, cooperativeId: id },
-        include: { stockItem: { select: itemSelect } },
+        include: { stockItem: { select: itemSelect }, _count: { select: { movements: true } } },
       });
       if (!lot) failure("Lote não encontrado.", 404);
       return { lot };

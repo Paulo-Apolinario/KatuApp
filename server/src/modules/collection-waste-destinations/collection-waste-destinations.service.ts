@@ -748,6 +748,11 @@ export class CollectionWasteDestinationsService {
     before: unknown,
     after: unknown,
   ) {
+    if (operation === "UPDATED") {
+      const fields = ["type", "quantity", "destinationDate", "destinationName", "destinationDocument", "destinationAddress", "destinationContact", "transportDocument", "environmentalDocument", "notes", "status", "stockItemId", "stockLotId", "metadata"];
+      const scalarValue = (value: any) => value === undefined || value === null ? "" : value instanceof Date ? value.toISOString() : typeof value === "object" ? JSON.stringify(value) : String(value);
+      if (fields.every(key => scalarValue((before as any)?.[key]) === scalarValue((after as any)?.[key]))) return;
+    }
     const actor = await transaction.user.findUnique({
       where: { id: actorUserId },
       select: { displayName: true, email: true },
@@ -1414,6 +1419,8 @@ export class CollectionWasteDestinationsService {
         );
       }
 
+      if (existing.stockLotId && (data.type && data.type !== existing.type || data.stockItemId && data.stockItemId !== existing.stockItemId) && await transaction.wasteStockMovement.count({where:{lotId:existing.stockLotId}}))
+        throw new WasteDestinationDomainError("O lote possui histórico de movimentações. Preserve a entrada e continue pela gestão do lote.", {statusCode:409, code:"STOCK_LOT_HAS_MOVEMENTS"});
       let newStockLotId = existing.stockLotId;
       const newType = data.type || existing.type;
       const changingType = data.type && data.type !== existing.type;
@@ -1431,7 +1438,7 @@ export class CollectionWasteDestinationsService {
 
           if (
             [
-              WasteLotStatus.SOLD,
+              WasteLotStatus.SOLD, WasteLotStatus.DESTINED,
               WasteLotStatus.DISCARDED,
               WasteLotStatus.CANCELLED,
             ].some((status) => status === existing.stockLot?.status) ||
@@ -1742,6 +1749,9 @@ export class CollectionWasteDestinationsService {
         );
       }
 
+      if (destination.stockLotId && await transaction.wasteStockMovement.count({where:{lotId:destination.stockLotId}}))
+        throw new WasteDestinationDomainError("O lote possui histórico de movimentações e não pode ser anulado pela destinação de origem.", {statusCode:409, code:"STOCK_LOT_HAS_MOVEMENTS"});
+
       if (
         destination.type === WasteDestinationType.STOCK &&
         destination.stockLot
@@ -1753,7 +1763,7 @@ export class CollectionWasteDestinationsService {
 
         if (
           [
-            WasteLotStatus.SOLD,
+            WasteLotStatus.SOLD, WasteLotStatus.DESTINED,
             WasteLotStatus.DISCARDED,
             WasteLotStatus.CANCELLED,
           ].some((status) => status === destination.stockLot?.status) ||

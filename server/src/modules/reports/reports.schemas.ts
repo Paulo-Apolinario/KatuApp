@@ -56,7 +56,7 @@ export const querySchema = z
       .enum(["COLLECTED", "RECEIVED", "DESTINED", "STOCK"])
       .default("COLLECTED"),
     lotStatus: z
-      .enum(["", "AVAILABLE", "RESERVED", "SOLD", "DISCARDED", "CANCELLED"])
+      .enum(["", "AVAILABLE", "RESERVED", "SOLD", "DESTINED", "DISCARDED", "CANCELLED"])
       .default(""),
     processingStage: z
       .enum([

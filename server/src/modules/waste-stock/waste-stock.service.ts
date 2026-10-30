@@ -127,7 +127,7 @@ function mapWasteStockItem(item: any) {
       ![
         WasteLotStatus.DISCARDED,
         WasteLotStatus.CANCELLED,
-        WasteLotStatus.SOLD,
+        WasteLotStatus.SOLD, WasteLotStatus.DESTINED,
       ].includes(lot.status),
   );
 
@@ -1042,7 +1042,7 @@ export class WasteStockService {
       }
 
       if (
-        [WasteLotStatus.SOLD, WasteLotStatus.DISCARDED].includes(
+        [WasteLotStatus.SOLD, WasteLotStatus.DESTINED, WasteLotStatus.DISCARDED].includes(
           currentLot.status as any,
         ) &&
         data.status &&
@@ -1080,6 +1080,11 @@ export class WasteStockService {
         );
       }
 
+      if (await transaction.wasteStockMovement.count({ where: { lotId: currentLot.id } })) {
+        if (changesOrigin || (data.status && data.status !== currentLot.status) || (data.processingStage && data.processingStage !== currentLot.processingStage))
+          throw new Error("Este lote possui histórico de movimentações. Use Movimentar lote para alterar situação ou processamento; o saldo e a origem são preservados.");
+      }
+
       const nextQuantity =
         data.quantity !== undefined
           ? normalizeQuantity(data.quantity)
@@ -1101,6 +1106,7 @@ export class WasteStockService {
         },
 
         data: {
+          version: { increment: 1 },
           ...(data.lotCode !== undefined
             ? {
                 lotCode: normalizeRequiredText(data.lotCode),
@@ -1158,7 +1164,7 @@ export class WasteStockService {
           ...(data.status !== undefined
             ? {
                 status: data.status,
-                ...([WasteLotStatus.SOLD, WasteLotStatus.DISCARDED].includes(
+                ...([WasteLotStatus.SOLD, WasteLotStatus.DESTINED, WasteLotStatus.DISCARDED].includes(
                   data.status as any,
                 )
                   ? { availableQuantity: 0 }
@@ -1192,8 +1198,11 @@ export class WasteStockService {
         transaction,
       );
 
+      if (await transaction.wasteStockMovement.count({ where: { lotId: currentLot.id } }))
+        throw new Error("Use Movimentar lote e registre a saída para descarte, preservando o histórico.");
+
       if (
-        [WasteLotStatus.CANCELLED, WasteLotStatus.SOLD].includes(
+        [WasteLotStatus.CANCELLED, WasteLotStatus.SOLD, WasteLotStatus.DESTINED].includes(
           currentLot.status as any,
         )
       )

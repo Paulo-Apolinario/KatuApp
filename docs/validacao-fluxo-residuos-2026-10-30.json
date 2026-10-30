@@ -1,0 +1,151 @@
+{
+  "date": "2026-10-30",
+  "scope": "Revisão do fluxo de resíduos, movimentações de lotes, destinos e unidades do catador",
+  "api": {
+    "passed": 41,
+    "checks": [
+      "Migração preserva execução histórica e seu ponto sem inventar data de saída",
+      "Antes da saída não existe operação em campo",
+      "Saída registra início da execução e preserva pontos aguardando atendimento",
+      "Painel conta uma rota fixa em campo sem contar suas três paradas novamente",
+      "Agenda e registros do painel identificam saída em campo sem confundir com atendimento do ponto",
+      "Repetir confirmação não modifica a primeira saída",
+      "Execuções são paginadas inteiras por data crescente, sem transferir todos os detalhes",
+      "Datas de execução permanecem em tópicos separados e em ordem entre páginas",
+      "Pontos seguem a sequência da rota com paginação própria e contexto em campo",
+      "Coletas normais excluem pontos de rotas fixas, inclusive plano histórico removido",
+      "Busca por um ponto encontra sua execução completa",
+      "Endereço avulso sem cadastro de gerador conserva identificação e pode ser pesquisado",
+      "Filtro de programação distingue os dias de execução no fuso do Ceará",
+      "Iniciar ponto dentro da rota não duplica a operação em campo",
+      "Coleta delegada individual iniciada entra no mesmo indicador",
+      "Rotas avulsas e fixas e coleta individual são contadas sem sobreposição",
+      "Pontos com saída confirmada não ficam na fila de pendentes sem saída",
+      "Recebimento de um ponto preserva os demais e sua entrada de material individual",
+      "Filtro por colaborador reconhece sua participação em equipe",
+      "Detalhes e consultas respeitam cooperativa proprietária e perfil autorizado",
+      "Paginação, etapa e período inválidos são rejeitados",
+      "Ordenação global cruza meses e páginas, ignora prioridade por status, desempata por ID e coloca sem data ao final",
+      "Migração mantém lote antigo disponível, sua quantidade, unidade e versão inicial sem inventar saídas",
+      "Recebimento e conferência de óleo preservam 50 L, sem exigir pesagem fictícia nem converter volume em peso",
+      "Reserva, liberação, processamento e saída parcial preservam origem, saldo e unidade; repetição da mesma operação não duplica saída",
+      "Saída excessiva, descarte sem motivo, destinatário ausente, versão antiga e acesso indevido são bloqueados",
+      "Duas saídas simultâneas da mesma versão não gastam o mesmo saldo",
+      "Saída total conclui lote, preserva destinatários das partes, mantém histórico e não reabre saldo por edição antiga",
+      "Histórico do catador contém a coleta de óleo com 50 litros; peso zero não apaga a coleta nem converte litros em kg",
+      "Destino direto é retornado na lista sem saldo; salvamento sem mudança não cria auditoria redundante e alteração de documento é auditada",
+      "Lote antigo de catálogo inativo pode sair; toneladas, unidades e m³ preservam quantidade; histórico paginado mantém isolamento",
+      "DIRECT_DESTINATION: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "REJECT: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "DISPOSAL: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "STOCK: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "TRIAGE: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "RESERVATION: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "Material dividido entre triagem e destino final preserva pendência; conversão em estoque cria um único lote após concluir a coleta",
+      "Saldo parcial, conferência ausente, ocorrência aberta e acesso indevido continuam bloqueados",
+      "Busca por código curto com/sem #, ID completo e solicitação vinculada funciona em quatro listas e respeita cooperativa",
+      "Lista retorna referência da solicitação e filtro A concluir encontra material todo encaminhado"
+    ]
+  },
+  "wasteRegression": {
+    "checks": [
+      {
+        "name": "Dois relatos de uma retirada ativa compartilham a coleta"
+      },
+      {
+        "name": "Nova retirada do mesmo PEV tem coleta distinta mesmo aguardando recebimento anterior"
+      },
+      {
+        "name": "Mesmo dia: entradas separadas de 40 e 30 kg"
+      },
+      {
+        "name": "Reenvio da conclusão com mesmo identificador não duplica entradas"
+      },
+      {
+        "name": "Triagem e movimentações bloqueadas antes da conferência"
+      },
+      {
+        "name": "Conferência repetida sem mudança não duplica histórico nem avisos"
+      },
+      {
+        "name": "Classificação inline é vinculada à entrada, reutiliza material e não cria estoque"
+      },
+      {
+        "name": "Reenvio idêntico de destinação parcial devolve a mesma movimentação e lote"
+      },
+      {
+        "name": "Identificador reutilizado com conteúdo diferente e operação sem identificação são rejeitados"
+      },
+      {
+        "name": "Edição tem controle de versão e reenvio não duplica auditoria"
+      },
+      {
+        "name": "Cancelamento repetido preserva um evento e devolve o saldo uma única vez"
+      },
+      {
+        "name": "Nova destinação parcial intencional com outro identificador permanece permitida"
+      },
+      {
+        "name": "Estoque atual e cancelamentos separados, sem download dos lotes na lista"
+      },
+      {
+        "name": "Triagem intermediária permite concluir a coleta e continua visível para acompanhamento mesmo com saldo zero"
+      },
+      {
+        "name": "Conversão de triagem em estoque após concluir preserva encerramento sem duplicar entradas"
+      },
+      {
+        "name": "Painel inclui agendamentos, OCs e PEVs sem contar relatos do mesmo PEV como duas retiradas"
+      },
+      {
+        "name": "Lista agrupada e paginação no servidor preservam coletas separadas"
+      },
+      {
+        "name": "Isolamento entre cooperativas e restrição de perfis em consultas e detalhes"
+      },
+      {
+        "name": "Consulta de lotes carrega apenas a página solicitada e mantém total correto"
+      },
+      {
+        "name": "Lista de coletas usa paginação real e não baixa conferências na listagem"
+      },
+      {
+        "name": "Data inexistente é rejeitada sem consulta de período incorreto"
+      },
+      {
+        "name": "Nomes equivalentes com espaços duplicados são barrados no banco"
+      },
+      {
+        "name": "Conferência corrige total do gerador mesmo sem catador vinculado"
+      }
+    ],
+    "passed": 23
+  },
+  "browser": {
+    "passed": 9,
+    "checks": [
+      "Lote disponível em litros permite reservar, liberar e registrar saída parcial pela tela; saldo cai de 50 para 30 L",
+      "Saída total mantém destinatários, responsáveis e histórico; edição de observações não reabre o saldo",
+      "Lotes sem saldo ficam acessíveis na aba Saídas concluídas",
+      "Saldo zero mostra destinatário direto e saídas finais do lote na lista da coleta",
+      "Histórico mostra alteração de documento em vez de repetir tipo de destinação sem mudança",
+      "Consulta de destino e histórico continua utilizável em 390 px",
+      "App do catador mostra 50 L de óleo e participação por unidade, usando a API real",
+      "Resumo e ranking do catador preservam litros e não omitem material por limite de cinco posições",
+      "Fluxos verificados sem erros JavaScript"
+    ],
+    "errors": [],
+    "transport": "Real local API + disposable PGlite, real panel and Expo web export"
+  },
+  "unitAssertions": 9,
+  "apiTypecheck": "passed",
+  "apiBuild": "passed",
+  "appTypecheck": "passed",
+  "appExpoWebExport": "passed",
+  "panelLint": "passed, no errors or warnings in changed production files",
+  "panelBuild": "passed; pre-existing main chunk size warning",
+  "databaseMigration": "20261030020000_stock_movement_history",
+  "productionDatabaseAccess": false,
+  "cooperativeAppScreensChanged": false,
+  "nativeDeviceTesting": false
+}

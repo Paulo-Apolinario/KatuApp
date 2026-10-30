@@ -22,6 +22,7 @@ export const labels: Record<string, string> = {
   AVAILABLE: "Disponível",
   RESERVED: "Reservado",
   SOLD: "Vendido",
+  DESTINED: "Destinado",
   DISCARDED: "Descartado",
   ACTIVE: "Ativo",
   MAINTENANCE: "Em manutenção",

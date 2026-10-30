@@ -1,3 +1,5 @@
+import { rankMaterials, rankedQuantity, materialTotalsLabel, type MaterialRanking } from "@/src/utils/materialRanking";
+import { unitLabel } from "@/src/utils/materials";
 import { DataReadNotice } from "@/src/components/DataReadNotice";
 import { personalMaterialParcels } from "@/src/utils/collectionParticipation";
 import { NotificationBell } from "@/src/components/NotificationBell";
@@ -29,11 +31,7 @@ type CollectionStatus = Collection["status"];
 type PeriodFilter = "TODAY" | "WEEK" | "MONTH" | "ALL";
 type StatusFilter = "ALL" | CollectionStatus;
 
-type MaterialSummary = {
-  name: string;
-  quantityKg: number;
-  percentage: number;
-};
+type MaterialSummary = MaterialRanking;
 
 type EvolutionItem = {
   key: string;
@@ -331,38 +329,16 @@ export default function DataScreen() {
     );
 
     const averageKg =
-      realizedCollections.length > 0 ? totalKg / realizedCollections.length : 0;
+      realizedCollections.filter(collection => getCollectionTotalKg(collection) > 0).length > 0 ? totalKg / realizedCollections.filter(collection => getCollectionTotalKg(collection) > 0).length : 0;
 
-    const materialMap: Record<string, number> = {};
-    realizedCollections.forEach((collection) => {
-      (collection.participants?.length ? personalMaterialParcels(collection) : getCollectionMaterials(collection)).forEach((material) => {
-        const name =
-          material.name?.trim() || material.type?.trim() || "Não informado";
-        const quantityKg =
-          safeNumber(material.quantityKg) ||
-          quantityToKg(safeNumber(material.quantity), material.unit || "KG");
-        materialMap[name] = (materialMap[name] || 0) + quantityKg;
-      });
-    });
-
-    const totalMaterialKg = Object.values(materialMap).reduce(
-      (sum, value) => sum + value,
-      0,
-    );
-
-    const materials: MaterialSummary[] = Object.entries(materialMap)
-      .map(([name, quantityKg]) => ({
-        name,
-        quantityKg,
-        percentage:
-          totalMaterialKg > 0 ? (quantityKg / totalMaterialKg) * 100 : 0,
-      }))
-      .sort((a, b) => b.quantityKg - a.quantityKg);
+    const materials = rankMaterials(realizedCollections.flatMap(collection =>
+      collection.participants?.length ? personalMaterialParcels(collection) : getCollectionMaterials(collection),
+    ));
 
     const evolutionMap: Record<string, number> = {};
     realizedCollections.forEach((collection) => {
       const date = getReferenceDate(collection);
-      if (!date) return;
+      if (!date || getCollectionTotalKg(collection) <= 0) return;
       const parsed = new Date(date);
       if (Number.isNaN(parsed.getTime())) return;
       const key = parsed.toISOString().slice(0, 10);
@@ -387,6 +363,7 @@ export default function DataScreen() {
       averageKg,
       realizedCount: realizedCollections.length,
       materialCount: materials.length,
+      quantitiesSummary: materialTotalsLabel(realizedCollections.flatMap(collection => collection.participants?.length ? personalMaterialParcels(collection) : getCollectionMaterials(collection))),
       materials,
       evolution,
       filteredCollections,
@@ -479,8 +456,8 @@ export default function DataScreen() {
           />
           <View style={styles.grid}>
             <MetricCard
-              title="Total coletado"
-              value={`${metrics.totalKg.toFixed(1)} kg`}
+              title="Quantidades registradas"
+              value={metrics.quantitiesSummary}
               icon="scale-outline"
             />
             <MetricCard
@@ -489,7 +466,7 @@ export default function DataScreen() {
               icon="checkmark-circle-outline"
             />
             <MetricCard
-              title="Média por coleta"
+              title="Média das coletas com peso"
               value={`${metrics.averageKg.toFixed(1)} kg`}
               icon="stats-chart-outline"
             />
@@ -511,20 +488,20 @@ export default function DataScreen() {
               <EmptyState
                 icon="analytics-outline"
                 title="Sem dados de evolução"
-                subtitle="As barras aparecerão após o registro das primeiras coletas."
+                subtitle="Este gráfico utiliza somente peso registrado. Litros, unidades e m³ aparecem no resumo de materiais."
               />
             )}
           </View>
 
           <SectionHeader
             title="Materiais mais coletados"
-            subtitle="Participação de cada material no peso total"
+            subtitle="Quantidades na unidade original. Percentuais comparados dentro de cada unidade."
           />
           <View style={styles.card}>
             {metrics.materials.length > 0 ? (
               metrics.materials.map((item, index) => (
                 <MaterialRow
-                  key={item.name}
+                  key={item.key}
                   item={item}
                   position={index + 1}
                   isLast={index === metrics.materials.length - 1}
@@ -762,7 +739,7 @@ function MaterialRow({
       <View style={{ flex: 1 }}>
         <Text style={styles.materialName}>{item.name}</Text>
         <Text style={styles.materialWeight}>
-          {item.quantityKg.toFixed(1)} kg
+          {rankedQuantity(item)}
         </Text>
         <View style={[styles.progressTrack, { marginTop: 8 }]}>
           <View
@@ -773,7 +750,7 @@ function MaterialRow({
           />
         </View>
       </View>
-      <Text style={styles.materialPercent}>{item.percentage.toFixed(0)}%</Text>
+      <Text style={styles.materialPercent}>{item.percentage.toFixed(0)}% em {unitLabel(item.unit)}</Text>
     </View>
   );
 }
@@ -805,7 +782,7 @@ function HistoryCard({
           </Text>
         </View>
         <Text style={styles.historyWeight}>
-          {getCollectionTotalKg(collection).toFixed(1)} kg
+          {materialTotalsLabel(collection.participants?.length ? personalMaterialParcels(collection) : getCollectionMaterials(collection))}
         </Text>
       </View>
 

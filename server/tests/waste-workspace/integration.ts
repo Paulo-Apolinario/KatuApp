@@ -206,8 +206,8 @@ async function main() {
     { name: "Papel estoque", category: "Papel", unit: "KG" },
   );
   assert.equal(classified.item.id, classifiedAgain.item.id);
-  assert.equal(await p.wasteStockItem.count(), 1);
-  assert.equal(await p.wasteStockLot.count(), 0);
+  assert.equal(await p.wasteStockItem.count({where:{cooperativeId:coop.id}}), 1);
+  assert.equal(await p.wasteStockLot.count({where:{cooperativeId:coop.id}}), 0);
   assert.equal(
     (
       await p.collectionMaterial.findFirstOrThrow({
@@ -235,7 +235,7 @@ async function main() {
     await call("owner", "POST", "/collection-waste-destinations", dest)
   ).destination;
   assert.equal(first.id, replay.id);
-  assert.equal(await p.wasteStockLot.count(), 1);
+  assert.equal(await p.wasteStockLot.count({where:{cooperativeId:coop.id}}), 1);
   assert.equal(await p.collectionWasteDestination.count(), 1);
   assert.equal(
     Number(

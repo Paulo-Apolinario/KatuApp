@@ -831,6 +831,8 @@ model WasteStockItem {
 }
 
 model WasteStockLot {
+  version Int @default(1)
+  movements WasteStockMovement[]
   id            String @id @default(cuid())
   cooperativeId String
   stockItemId   String
@@ -1136,6 +1138,7 @@ enum WasteStockStatus {
 }
 
 enum WasteLotStatus {
+  DESTINED
   AVAILABLE
   RESERVED
   SOLD
@@ -1616,4 +1619,31 @@ model CollectionAllocationReview {
   createdAt DateTime @default(now())
   collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   @@unique([collectionId, version])
+}
+
+model WasteStockMovement {
+  id String @id @default(cuid())
+  cooperativeId String
+  lotId String
+  operationId String
+  operationHash String
+  kind String
+  quantity Decimal @db.Decimal(18, 3)
+  unit WasteUnit
+  destinationName String?
+  destinationDocument String?
+  destinationAddress String?
+  transportDocument String?
+  environmentalDocument String?
+  notes String?
+  movementDate DateTime @default(now())
+  actorUserId String
+  actorName String?
+  before Json
+  after Json
+  createdAt DateTime @default(now())
+  lot WasteStockLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  @@unique([cooperativeId, operationId])
+  @@index([lotId, createdAt, id])
+  @@index([cooperativeId, movementDate])
 }

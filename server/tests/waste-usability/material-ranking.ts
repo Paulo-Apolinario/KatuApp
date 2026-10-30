@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {rankMaterials,materialTotalsLabel} from '../../../src/utils/materialRanking';
+import {personalMaterialParcels} from '../../../src/utils/collectionParticipation';
+const materials:any=[{name:'Óleo',type:'Óleo',quantity:50,quantityKg:0,unit:'LITER'},{name:'Papel',type:'Papel',quantity:20,quantityKg:20,unit:'KG'},{name:'Papel',type:'Papel',quantity:0.01,quantityKg:10,unit:'TON'}];
+const ranked=rankMaterials(materials);assert.equal(ranked.find(m=>m.unit==='LITER')?.quantity,50);assert.equal(ranked.find(m=>m.unit==='LITER')?.percentage,100);assert.equal(ranked.find(m=>m.unit==='KG')?.quantity,30);
+assert.equal(materialTotalsLabel(materials),'30 kg · 50 L');
+const parcels=personalMaterialParcels({participants:[{collectorId:'cat',allocations:[{name:'Óleo',quantity:25,unit:'LITER'}]}],myCollectorId:'cat',allocationVersion:1,quantityReviewVersion:1,allocationQuantityVersion:1,status:'COMPLETED'} as any);assert.equal(rankMaterials(parcels)[0].quantity,25);assert.equal(rankMaterials(parcels)[0].unit,'LITER');
+const many:any=Array.from({length:8},(_,i)=>({name:'Material '+i,type:'Material '+i,quantity:8-i,unit:'KG'}));many.push(materials[0]);assert.equal(rankMaterials(many).length,9);assert.equal(rankMaterials(many).at(-1)?.name,'Óleo');
+assert.equal(rankMaterials([{type:'Material',name:'Material',quantity:0,quantityKg:0,unit:'KG'}]).length,0);
+console.log('PASS 9 assertions: liters, tons, per-unit shares, personal allocation, no top-five omission and no invented weight');
