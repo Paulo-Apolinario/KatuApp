@@ -1,3 +1,4 @@
+import "../src/services/driverTrackingTask";
 import { InboxProvider } from "../src/contexts/InboxContext";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Stack } from "expo-router";

@@ -1,1 +1,4 @@
-export { default } from "@/src/screens/pev-requests/PevRequestsScreen";
+import { Redirect } from "expo-router";
+export default function LegacyScreen() {
+  return <Redirect href={'/(cooperativa)/pevs' as any} />;
+}

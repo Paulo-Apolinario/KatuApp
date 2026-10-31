@@ -127,6 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(
     () =>
       onSessionExpired(() => {
+        void import("../services/driverTracking").then(m=>m.stopSharing()).catch(()=>{});
         setUser(null);
         router.replace("/(public)/access-type");
       }),
@@ -228,6 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const signOut = async (): Promise<void> => {
     try {
       setLoading(true);
+      try { const {stopSharing}=await import("../services/driverTracking"); await stopSharing(); } catch {}
       await authService.clearSession();
     } catch (error) {
       console.error("Erro ao sair:", error);

@@ -11,9 +11,9 @@ export async function readToken() {
   }
   return null;
 }
-export async function writeToken(token: string) {
+export async function writeToken(token: string, background = false) {
   await SecureStore.setItemAsync(key, token, {
-    keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    keychainAccessible: background ? SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY : SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   });
   await AsyncStorage.removeItem("@katu:token");
 }

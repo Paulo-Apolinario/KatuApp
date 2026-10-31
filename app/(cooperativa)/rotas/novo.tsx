@@ -1,4 +1,4 @@
-import RouteEditor from "@/src/components/routes/RouteEditor";
-export default function NewRoute() {
-  return <RouteEditor />;
+import { Redirect } from "expo-router";
+export default function LegacyScreen() {
+  return <Redirect href={'/(cooperativa)/home' as any} />;
 }

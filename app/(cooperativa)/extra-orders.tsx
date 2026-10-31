@@ -1,1 +1,4 @@
-export { default } from "@/src/screens/extra-orders/ExtraOrdersScreen";
+import { Redirect } from "expo-router";
+export default function LegacyScreen() {
+  return <Redirect href={'/(cooperativa)/home' as any} />;
+}

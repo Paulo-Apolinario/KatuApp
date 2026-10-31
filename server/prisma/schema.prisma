@@ -657,6 +657,7 @@ model CollectionWasteDestination {
 }
 
 model Driver {
+  liveLocation DriverLiveLocation?
   ownerDocuments OwnerDocument[]
   id            String       @id @default(cuid())
   cooperativeId String
@@ -1704,4 +1705,23 @@ model ServiceOrderCollection {
   serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Restrict)
   @@id([serviceOrderId, collectionId])
   @@index([collectionId])
+}
+
+model DriverLiveLocation {
+  driverId String @id
+  cooperativeId String
+  sessionId String @unique
+  routeId String?
+  collectionId String?
+  active Boolean @default(true)
+  latitude Float?
+  longitude Float?
+  accuracy Float?
+  capturedAt DateTime?
+  receivedAt DateTime?
+  startedAt DateTime @default(now())
+  endedAt DateTime?
+  mode String
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  @@index([cooperativeId, active])
 }

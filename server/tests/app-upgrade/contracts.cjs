@@ -28,6 +28,7 @@ function load(file, mocks = {}, cache = new Map(), storage) {
   )(
     (name) => {
       if (Object.hasOwn(mocks, name)) return mocks[name];
+      if (!name.startsWith(".") && !name.startsWith("/")) return require(name);
       let target =
         path.relative(root, path.resolve(path.dirname(full), name)) + ".ts";
       if (target === "src/database/index.ts")

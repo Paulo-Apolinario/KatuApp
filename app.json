@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.katua",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Permitir que o KATU use sua localização para mostrar a cidade atual.",
+        "NSLocationWhenInUseUsageDescription": "Permitir localização para mapas e compartilhamento durante serviços iniciados pelo motorista.",
         "UISupportsDocumentBrowser": true
       }
     },
@@ -63,7 +63,10 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Permitir que o KATU use sua localização para mostrar a cidade atual."
+          "locationAlwaysAndWhenInUsePermission": "Permitir que sua cooperativa acompanhe sua localização durante um serviço compartilhado por você, inclusive com o App em segundo plano.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "expo-secure-store",
