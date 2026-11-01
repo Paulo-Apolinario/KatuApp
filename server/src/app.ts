@@ -1,3 +1,4 @@
+import {mobileOfflineRoutes} from "./modules/mobile-offline/mobile-offline.routes";
 import { driverTrackingRoutes } from "./modules/driver-tracking/driver-tracking.routes";
 import { cooperativeFieldRoutes } from "./modules/cooperative-field/cooperative-field.routes";
 import { serviceOrderRoutes } from "./modules/service-orders/service-orders.routes";
@@ -239,6 +240,7 @@ export async function buildApp() {
   await app.register(wasteWorkspaceRoutes);
   await app.register(serviceOrderRoutes);
   await app.register(cooperativeFieldRoutes);
+  await app.register(mobileOfflineRoutes);
   await app.register(driverTrackingRoutes);
   await app.register(vehicleDocumentsRoutes);
   await app.register(ownerDocumentsRoutes);

@@ -12,7 +12,8 @@
     "check": "tsc --noEmit",
     "check:server": "npm --prefix server run check",
     "test:app": "cd server && node --import tsx tests/app-upgrade/contracts.cjs",
-    "export:web": "expo export --platform web"
+    "export:web": "expo export --platform web --output-dir dist && node scripts/build-pwa.mjs dist",
+    "prepare:pwa": "node scripts/build-pwa.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

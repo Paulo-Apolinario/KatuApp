@@ -16,6 +16,7 @@ const root = path.resolve(
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "katua-field-"));
 const schema = fs
   .readFileSync(root + "/prisma/schema.prisma", "utf8")
+  .replace(/model MobileOfflineOperation \{[\s\S]*?\n\}/, "")
   .replace(/model DriverLiveLocation \{[\s\S]*?\n\}/, "")
   .replace(/^  liveLocation DriverLiveLocation\?\n/gm, "")
   .replace(/model (?:ServiceOrder|ServiceOrderCollection|InternalDocument|InternalDocumentLink) \{[\s\S]*?\n\}/g, "")
@@ -74,6 +75,7 @@ await db.exec(`INSERT INTO "WasteStockItem" (id,"cooperativeId",name,category,un
 await db.exec(fs.readFileSync(root + "/prisma/migrations/20261030020000_stock_movement_history/migration.sql", "utf8"));
 await db.exec(fs.readFileSync(root + "/prisma/migrations/20261030030000_internal_service_documents/migration.sql", "utf8"));
 await db.exec(fs.readFileSync(root + "/prisma/migrations/20261031010000_driver_live_location/migration.sql", "utf8"));
+await db.exec(fs.readFileSync(root + "/prisma/migrations/20261031020000_mobile_offline_operations/migration.sql", "utf8"));
 const server = new PGLiteSocketServer({ db, port: 54329, host: "127.0.0.1" });
 await server.start();
 try {
@@ -95,14 +97,14 @@ try {
   child.stdout.on("data", (b) => {
     process.stdout.write(b);
     if (
-      (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1" || process.env.WASTE_USABILITY_UI === "1" || process.env.COOPERATIVE_FIELD_UI === "1" || process.env.SERVICE_DOCUMENTS_UI === "1" || process.env.STOCK_CODES_UI === "1") &&
+      (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1" || process.env.WASTE_USABILITY_UI === "1" || process.env.BROWSER_OFFLINE_UI === "1" || process.env.COOPERATIVE_FIELD_UI === "1" || process.env.SERVICE_DOCUMENTS_UI === "1" || process.env.STOCK_CODES_UI === "1") &&
       !uiPromise &&
       b.toString().includes("FIELD_UI_READY")
     )
       uiPromise = new Promise((resolve) => {
         const ui = spawn(
           process.execPath,
-          [process.env.COOPERATIVE_FIELD_UI === "1" ? "tests/cooperative-field/browser.mjs" : process.env.SERVICE_DOCUMENTS_UI === "1" ? "tests/service-documents/browser.mjs" : process.env.STOCK_CODES_UI === "1" ? "tests/stock-codes/browser.mjs" : process.env.WASTE_USABILITY_UI === "1" ? "tests/waste-usability/browser.mjs" : process.env.WASTE_COMPLETION_UI === "1" ? "tests/waste-completion/browser.mjs" : process.env.GENERATOR_DOCUMENT_UI === "1" ? "tests/generator-document/browser.mjs" : process.env.RESIDENTIAL_UI === "1" ? "tests/residential/browser.mjs" : "tests/field-operations/browser.mjs"],
+          [process.env.BROWSER_OFFLINE_UI === "1" ? "tests/browser-offline/browser.mjs" : process.env.COOPERATIVE_FIELD_UI === "1" ? "tests/cooperative-field/browser.mjs" : process.env.SERVICE_DOCUMENTS_UI === "1" ? "tests/service-documents/browser.mjs" : process.env.STOCK_CODES_UI === "1" ? "tests/stock-codes/browser.mjs" : process.env.WASTE_USABILITY_UI === "1" ? "tests/waste-usability/browser.mjs" : process.env.WASTE_COMPLETION_UI === "1" ? "tests/waste-completion/browser.mjs" : process.env.GENERATOR_DOCUMENT_UI === "1" ? "tests/generator-document/browser.mjs" : process.env.RESIDENTIAL_UI === "1" ? "tests/residential/browser.mjs" : "tests/field-operations/browser.mjs"],
           { cwd: root, env: process.env, stdio: "inherit" },
         );
         ui.on("exit", (code) => {

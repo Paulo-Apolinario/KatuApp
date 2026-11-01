@@ -1,3 +1,4 @@
+import {Platform} from "react-native";
 import { onSessionExpired } from "../services/sessionEvents";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { router, Href } from "expo-router";
@@ -134,6 +135,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     [],
   );
 
+  useEffect(()=>{if(Platform.OS!=='web')return;let timer:ReturnType<typeof setTimeout>;const changed=(event:StorageEvent)=>{if(event.key&&!['@katu:user','@katu:token'].includes(event.key))return;clearTimeout(timer);timer=setTimeout(()=>{void authService.getStoredUser().then(next=>{if(next?.id!==user?.id){setUser(next);router.replace(next?getRouteByRole(next.role):'/(public)/access-type');}});},50);};window.addEventListener('storage',changed);return()=>{clearTimeout(timer);window.removeEventListener('storage',changed);};},[user?.id]);
+
   async function refreshUser() {
     try {
       const currentUser = await authService.getCurrentUserData();
@@ -147,6 +150,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     async function bootstrap() {
       try {
+        if(Platform.OS==='web'){
+          const [cached,token]=await Promise.all([authService.getStoredUser(),authService.getToken()]);
+          if(cached&&token){setUser(cached);setLoading(false);}
+        }
         const currentUser = await authService.getCurrentUserData();
         setUser(currentUser);
       } catch (error) {

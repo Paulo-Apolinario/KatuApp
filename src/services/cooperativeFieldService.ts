@@ -108,6 +108,7 @@ export type FieldDetail = {
 };
 export const fieldService = {
   list: (kind: FieldKind, q = '', page = 1) => api.get<{
+    offline?: boolean;
     items: FieldItem[];
     pagination: FieldPage;
   }>(`/cooperative-field/${kind}?${new URLSearchParams({

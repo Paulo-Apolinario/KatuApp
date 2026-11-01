@@ -1725,3 +1725,15 @@ model DriverLiveLocation {
   driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
   @@index([cooperativeId, active])
 }
+
+
+model MobileOfflineOperation {
+  id String @id
+  actorUserId String
+  cooperativeId String
+  kind String
+  requestHash String
+  entityId String
+  createdAt DateTime @default(now())
+  @@index([cooperativeId, actorUserId, createdAt])
+}

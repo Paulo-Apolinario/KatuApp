@@ -1,5 +1,6 @@
+import {syncCooperativeCreate} from "./cooperativeCreate";
 import { syncExtraOrder } from "./extraOrderSync";
-import { api } from "@/src/services/api";
+import { api, isApiHttpError } from "@/src/services/api";
 import {
   clearSyncedSyncItems,
   getPendingSyncItems,
@@ -98,6 +99,7 @@ async function syncCollectionStatus(payload: SyncCollectionPayload) {
       notes: payload.notes?.trim() || undefined,
     },
     true,
+    (payload as any).__ownerId,
   );
 
   if (!response?.collection) {
@@ -127,6 +129,7 @@ async function syncRouteStatus(payload: SyncRoutePayload) {
       status: payload.status,
     },
     true,
+    (payload as any).__ownerId,
   );
 
   if (!response?.route) {
@@ -161,6 +164,7 @@ async function syncFieldAction(
     `/collections/${payload.id}/${payload.action}`,
     payload.body,
     true,
+    (payload as any).__ownerId,
   );
   if (!response?.collection)
     throw new Error("Coleta não retornada durante sincronização.");
@@ -208,7 +212,8 @@ async function processSyncItem(item: PendingSyncItem) {
   await markSyncItemSyncing(item.id);
 
   try {
-    if (item.operationType === "EXTRA_ORDER_WRITE") {
+    if(item.operationType === "COOPERATIVE_CREATE"){await syncCooperativeCreate(item.payload);}
+    else if (item.operationType === "EXTRA_ORDER_WRITE") {
       ensureEntity(item.entityType, "EXTRA_ORDER", item.operationType);
       await syncExtraOrder(item.payload as any);
     } else if (item.operationType === "COLLECTION_FIELD_ACTION") {
@@ -229,7 +234,7 @@ async function processSyncItem(item: PendingSyncItem) {
   } catch (error: any) {
     await markSyncItemError(
       item.id,
-      error?.message || "Erro desconhecido na sincronização.",
+      (isApiHttpError(error)&&[400,403,404,409,422].includes(error.status)?"[REVISÃO] ":"")+(error?.message || "Erro desconhecido na sincronização."),
     );
     return false;
   }
@@ -269,6 +274,7 @@ export async function syncPendingOperations(options?: { entityId?: string; manua
       continue;
     }
     // Evita martelar uma falha a cada timer. A tentativa manual ignora a espera.
+    if(!options?.manual&&item.errorMessage?.startsWith("[REVISÃO]")){deferred++;blockedEntities.add(item.entityId);continue;}
     const backoff = Math.min(300000, 15000 * 2 ** Math.min(item.retryCount, 5));
     if (!options?.manual && item.status === "ERROR" && Date.now() - Date.parse(item.updatedAt) < backoff) {
       deferred += 1;

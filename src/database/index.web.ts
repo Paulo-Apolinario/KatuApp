@@ -1,3 +1,4 @@
+import {durableAtomic} from "../offline/durableStorage.web";
 /** Adaptador persistente para os repositórios offline usados no navegador.
  * Suporta somente as consultas parametrizadas desses repositórios. */
 const tables = new Set([
@@ -26,7 +27,8 @@ export function runQuery(sql: string, params: any[] = []): Promise<any[]> {
     if (!table || !tables.has(table))
       throw new Error("Consulta offline não suportada.");
     const key = `@katu:offline:${table}`;
-    let rows: any[] = JSON.parse(localStorage.getItem(key) || "[]");
+    return durableAtomic<any[],any[]>('table:'+table, stored=>{
+    let rows: any[] = stored===undefined?JSON.parse(localStorage.getItem(key) || "[]"):stored;
     if (/^INSERT/i.test(normalized)) {
       const cols = /\(([^)]+)\)/
         .exec(normalized)![1]
@@ -68,10 +70,10 @@ export function runQuery(sql: string, params: any[] = []): Promise<any[]> {
             String(a.updated_at || a.id),
           ),
         );
-      return /LIMIT 1/i.test(normalized) ? rows.slice(0, 1) : rows;
+      return {value:rows,result:/LIMIT 1/i.test(normalized) ? rows.slice(0, 1) : rows,unchanged:stored!==undefined};
     } else throw new Error("Consulta offline não suportada.");
-    localStorage.setItem(key, JSON.stringify(rows));
-    return [];
+    return {value:rows,result:[]};
+    }).then(result=>{localStorage.removeItem(key);return result;});
   });
   writer = operation.catch(() => {});
   return operation;

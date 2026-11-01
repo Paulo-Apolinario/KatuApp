@@ -31,6 +31,7 @@ function load(file, mocks = {}, cache = new Map(), storage) {
       if (!name.startsWith(".") && !name.startsWith("/")) return require(name);
       let target =
         path.relative(root, path.resolve(path.dirname(full), name)) + ".ts";
+      if(target === "src/offline/durableStorage.ts") target="src/offline/durableStorage.web.ts";
       if (target === "src/database/index.ts")
         target = "src/database/index.web.ts";
       return load(target, mocks, cache, storage);
@@ -117,6 +118,9 @@ async function check(name, fn) {
         storage = {
           getItem: (key) => memory.get(key) || null,
           setItem: (key, value) => memory.set(key, value),
+          removeItem: key => memory.delete(key),
+          get length(){return memory.size;},
+          key: index => [...memory.keys()][index],
         },
         cache = new Map();
       const session = load(

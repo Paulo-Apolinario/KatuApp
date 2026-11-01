@@ -117,5 +117,5 @@ export default function ProtectedRoute({
     return null;
   }
 
-  return <>{children}</>;
+  return <React.Fragment key={user.id}>{children}</React.Fragment>;
 }

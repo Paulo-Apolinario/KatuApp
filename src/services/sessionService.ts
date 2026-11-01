@@ -40,7 +40,7 @@ async function getSession() {
   const [token, rawUser, localSession] = await Promise.all([
     readToken(),
     AsyncStorage.getItem(SESSION_STORAGE_KEYS.user),
-    getSessionRepository(),
+    getSessionRepository().catch(()=>null),
   ]);
 
   let activeToken = token;
@@ -56,6 +56,7 @@ async function getSession() {
     });
   }
   const parsedUser = rawUser ? JSON.parse(rawUser) : null;
+  if(Platform.OS === "web" && (!activeToken || !parsedUser)) return null;
 
   if (!activeToken && !localSession) {
     return null;
@@ -64,7 +65,7 @@ async function getSession() {
   return {
     token: activeToken ?? localSession?.token ?? null,
     user: parsedUser ?? localSession?.payload ?? null,
-    userId: localSession?.userId ?? null,
+    userId: Platform.OS === "web" ? parsedUser?.id ?? null : localSession?.userId ?? null,
     updatedAt: localSession?.updatedAt ?? null,
   };
 }

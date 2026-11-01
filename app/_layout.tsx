@@ -1,3 +1,4 @@
+import BrowserOfflineStatus from "../src/components/BrowserOfflineStatus";
 import "../src/services/driverTrackingTask";
 import { InboxProvider } from "../src/contexts/InboxContext";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -137,6 +138,7 @@ export default function RootLayout() {
         <NotificationProvider>
           <AuthProvider>
             <InboxProvider>
+              <BrowserOfflineStatus />
               <Stack screenOptions={{ headerShown: false }} />
             </InboxProvider>
           </AuthProvider>

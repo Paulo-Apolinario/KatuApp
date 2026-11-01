@@ -142,9 +142,11 @@ export const extraOrderService = {
     cooperativeId: string,
     payload: ExtraOrderPayload,
     revision?: number,
+    expectedOwner?: string,
   ) {
     const owner = await extraOwner();
     if (!owner) throw Error("Entre na sua conta para salvar a O.C.");
+    if(expectedOwner && owner !== expectedOwner) throw Error("A conta foi alterada. Abra novamente o formulário antes de salvar.");
     const action = revision ? "revise" : "create";
     const old = (await getPendingSyncItems()).find(
       (q) => q?.operationType === "EXTRA_ORDER_WRITE" && q.entityId === id,
@@ -159,6 +161,7 @@ export const extraOrderService = {
       : { id, cooperativeId, payload };
     await enqueueSyncItem({
       id: `oc:${id}:${operationId}`,
+      expectedOwner: owner,
       operationType: "EXTRA_ORDER_WRITE",
       entityType: "EXTRA_ORDER",
       entityId: id,

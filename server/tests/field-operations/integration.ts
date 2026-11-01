@@ -542,6 +542,11 @@ async function main() {
     const { checkGeneratorDocument } = await import("../generator-document/api");
     await checkGeneratorDocument(app, p, users, coop, pass);
   }
+  let browserOffline;
+  if (process.env.BROWSER_OFFLINE === "1") {
+    const {checkBrowserOffline}=await import("../browser-offline/api");
+    browserOffline=await checkBrowserOffline(app,p,users,coop,pass);
+  }
   let cooperativeField;
   if (process.env.COOPERATIVE_FIELD === "1") {
     const {checkCooperativeField}=await import("../cooperative-field/api");
@@ -573,7 +578,7 @@ async function main() {
     JSON.stringify({ passed: checks.length, checks }, null, 2),
   );
   if (process.env.RESIDENTIAL === "1") fs.writeFileSync(path.join(tools, "residential-api-results.json"), JSON.stringify({ passed: checks.length, checks }, null, 2));
-  if (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1" || process.env.WASTE_USABILITY_UI === "1" || process.env.COOPERATIVE_FIELD_UI === "1" || process.env.SERVICE_DOCUMENTS_UI === "1" || process.env.STOCK_CODES_UI === "1") {
+  if (process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1" || process.env.WASTE_USABILITY_UI === "1" || process.env.BROWSER_OFFLINE_UI === "1" || process.env.COOPERATIVE_FIELD_UI === "1" || process.env.SERVICE_DOCUMENTS_UI === "1" || process.env.STOCK_CODES_UI === "1") {
     fs.writeFileSync(
       path.join(tools, "field-operations-fixture.json"),
       JSON.stringify({
@@ -582,6 +587,7 @@ async function main() {
         stockCodes,
         serviceDocuments,
         cooperativeField,
+        browserOffline,
         owner: {
           id: users.owner.id,
           role: "COOPERATIVE",

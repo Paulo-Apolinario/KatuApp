@@ -9,13 +9,13 @@ export class BinError extends Error {
     super(message);
   }
 }
-async function context(userId: string) {
-  const coop = await prisma.cooperative.findUnique({
+async function context(userId: string, database: Prisma.TransactionClient = prisma) {
+  const coop = await database.cooperative.findUnique({
     where: { userId },
     select: { id: true },
   });
   if (!coop) throw new BinError("Cooperativa não identificada.", 403);
-  const actor = await prisma.user.findUnique({
+  const actor = await database.user.findUnique({
     where: { id: userId },
     select: { displayName: true },
   });
@@ -259,12 +259,12 @@ export const binsService = {
     ]);
     return { events, pagination: { page, limit: 20, total } };
   },
-  async create(userId: string, input: CreateBinInput) {
-    const ctx = await context(userId);
+  async create(userId: string, input: CreateBinInput, transaction?: Prisma.TransactionClient) {
+    const ctx = await context(userId, transaction || prisma);
     const data = toData(input);
     capacity(data);
     validatePublicPoint(data);
-    return prisma.$transaction(async (tx) => {
+    const write = async (tx: Prisma.TransactionClient) => {
       await validateVehicle(tx, ctx.cooperativeId, input.vehicle_id);
       const bin = await tx.bin.create({
         data: {
@@ -281,7 +281,8 @@ export const binsService = {
         },
       });
       return serialize(bin);
-    });
+    };
+    return transaction ? write(transaction) : prisma.$transaction(write);
   },
   async update(userId: string, id: string, input: UpdateBinInput) {
     const ctx = await context(userId);

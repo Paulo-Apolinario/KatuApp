@@ -442,7 +442,7 @@ class AuthService {
     } catch (error) {
       console.error("Erro ao buscar usuário atual:", error);
 
-      if (isApiHttpError(error) && error.status === 401) {
+      if (isApiHttpError(error) && [401,403].includes(error.status)) {
         const currentToken = await this.getToken();
         if (currentToken && currentToken !== token) return this.getStoredUser();
         await this.clearSession();

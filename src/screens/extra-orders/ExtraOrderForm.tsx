@@ -163,7 +163,7 @@ export default function ExtraOrderForm({
         )
         .then(() => setDraftError(""))
         .catch((e) => setDraftError(e.message));
-    }, 600);
+    }, 0);
     return () => clearTimeout(timer);
   }, [
     snapshot,
@@ -303,6 +303,7 @@ export default function ExtraOrderForm({
         initialOrder?.status === "NEEDS_INFO"
           ? initialOrder.revision
           : undefined,
+        owner || undefined,
       );
       onSaved(order);
     } catch (e: any) {

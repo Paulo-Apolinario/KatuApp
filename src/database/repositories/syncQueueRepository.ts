@@ -5,6 +5,7 @@ import { SYNC_STATUS, TABLES } from "../schema";
 export type SyncQueueStatus = "PENDING" | "SYNCING" | "SYNCED" | "ERROR";
 
 export type SyncQueueOperation =
+  | "COOPERATIVE_CREATE"
   | "EXTRA_ORDER_WRITE"
   | "COLLECTION_FIELD_ACTION"
   | "UPDATE_COLLECTION_STATUS"
@@ -12,7 +13,7 @@ export type SyncQueueOperation =
   | "UPDATE_ROUTE_STATUS"
   | "UPDATE_ROUTE_PROGRESS";
 
-export type SyncQueueEntity = "COLLECTION" | "ROUTE" | "EXTRA_ORDER";
+export type SyncQueueEntity = "COLLECTION" | "ROUTE" | "EXTRA_ORDER" | "COOPERATIVE_RECORD";
 
 type SyncQueueRow = {
   id: string;
@@ -34,6 +35,7 @@ export type EnqueueSyncItemInput = {
   entityId: string;
   payload: unknown;
   status?: SyncQueueStatus;
+  expectedOwner?: string;
 };
 
 function mapRow(row: SyncQueueRow | null) {
@@ -57,6 +59,7 @@ export async function enqueueSyncItem(input: EnqueueSyncItemInput) {
   const now = new Date().toISOString();
   const session = await getSession();
   const ownerId = session?.userId || session?.payload?.id;
+  if(input.expectedOwner&&input.expectedOwner!==ownerId)throw Error("A conta mudou. Os dados permanecem no rascunho da conta original.");
   if (!ownerId)
     throw new Error("Sessão necessária para salvar uma operação offline.");
 

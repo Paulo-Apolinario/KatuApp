@@ -19,6 +19,7 @@ export async function syncExtraOrder(payload: {
       : `/extra-collection-orders/${payload.orderId}/revise`,
     payload.body,
     true,
+    payload.__ownerId,
   );
   if (!order?.id)
     throw Error("Resposta da O.C. não confirmada. A pendência foi preservada.");

@@ -1,5 +1,6 @@
 import { documentType, withGeneratorDocument } from "./generator-document";
 import {
+  Prisma,
   GeneratorAccessStatus,
   GeneratorType,
 } from "@prisma/client";
@@ -115,8 +116,8 @@ async function geocodeAddress(data: CreateGeneratorInput) {
 }
 
 export class GeneratorService {
-  async create(cooperativeUserId: string, data: CreateGeneratorInput) {
-    const cooperative = await prisma.cooperative.findUnique({
+  async create(cooperativeUserId: string, data: CreateGeneratorInput, database: Prisma.TransactionClient = prisma) {
+    const cooperative = await database.cooperative.findUnique({
       where: { userId: cooperativeUserId },
     });
 
@@ -129,7 +130,7 @@ export class GeneratorService {
     }
     const email = normalizeEmail(data.email);
 
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await database.user.findUnique({
       where: { email },
     });
 
@@ -137,7 +138,7 @@ export class GeneratorService {
       throw new Error("Já existe um usuário com este e-mail.");
     }
 
-    const existingGenerator = await prisma.generator.findUnique({
+    const existingGenerator = await database.generator.findUnique({
       where: { email },
     });
 
@@ -160,7 +161,7 @@ export class GeneratorService {
       longitude = geocoded.longitude;
     }
 
-    const generator = await prisma.generator.create({
+    const generator = await database.generator.create({
       data: {
         cooperativeId: cooperative.id,
         type: data.type === "LARGE" ? GeneratorType.LARGE : GeneratorType.SMALL,

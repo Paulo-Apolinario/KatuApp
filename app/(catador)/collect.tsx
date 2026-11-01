@@ -1,3 +1,4 @@
+import {useDurableDraft} from "@/src/hooks/useDurableDraft";
 import { useActiveReadRefresh } from "@/src/hooks/useActiveReadRefresh";
 import { DataReadNotice } from "@/src/components/DataReadNotice";
 import { collectionOrigin } from "@/src/utils/collectionOrigin";
@@ -285,6 +286,7 @@ export default function CollectScreen() {
     [],
   );
   const [notesDraft, setNotesDraft] = useState("");
+  const workDraft=useDurableDraft('collection:'+selectedCollectionId,'Registro de campo da coleta',{collectionId:selectedCollectionId,materials:materialsDraft,notes:notesDraft},v=>{setMaterialsDraft(v.materials||[]);setNotesDraft(v.notes||'');},!!selectedCollectionId);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [catalogItems, setCatalogItems] = useState<WasteCatalogItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -415,6 +417,7 @@ export default function CollectScreen() {
   }, [catalogItems, catalogSearch]);
 
   const handleOpenCollection = (collection: Collection) => {
+    router.setParams({highlightCollectionId:collection.id});
     setSelectedCollectionId(collection.id);
     setMaterialsDraft(normalizeMaterialsForEditing(collection));
     setNotesDraft(collection.notes || "");
@@ -580,6 +583,7 @@ export default function CollectScreen() {
   };
 
   const handleStartCollection = async () => {
+    if(!workDraft.ready||workDraft.saving)return;
     if (!selectedCollection) {
       notifyError({
         message: "Selecione uma coleta delegada.",
@@ -613,6 +617,7 @@ export default function CollectScreen() {
   };
 
   const handleCompleteCollection = async () => {
+    if(!workDraft.ready||workDraft.saving)return;
     if (!selectedCollection) {
       notifyError({
         message: "Selecione uma coleta delegada.",
@@ -690,6 +695,7 @@ export default function CollectScreen() {
         },
       );
 
+      await workDraft.clear();
       await loadCollections(false);
       showOperationSuccess(
         "Etapa de campo concluída com sucesso.",
@@ -975,6 +981,7 @@ export default function CollectScreen() {
         {selectedCollection && (
           <>
             <SectionHeader title="Operação atual" />
+            <Text accessibilityLiveRegion="polite" style={{color:workDraft.error?'#B42318':'#087B55'}}>{workDraft.error||(!workDraft.ready?'Recuperando rascunho...':workDraft.saving?'Salvando registro neste aparelho...':workDraft.savedAt?'Rascunho de campo salvo neste aparelho.':'')}</Text>
 
             <View style={sectionCard}>
               <InfoRow
@@ -1380,6 +1387,7 @@ export default function CollectScreen() {
                     </Text>
 
                     <TextInput
+                      editable={workDraft.ready}
                       value={notesDraft}
                       onChangeText={setNotesDraft}
                       multiline

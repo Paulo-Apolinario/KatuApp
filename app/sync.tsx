@@ -1,3 +1,4 @@
+import {router} from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { Text } from "react-native";
@@ -6,7 +7,7 @@ import { Workspace, Card, Action, Notice } from "@/src/components/ui/Workspace";
 import { getPendingSyncItems } from "@/src/database/repositories/syncQueueRepository";
 import { syncManager } from "@/src/offline/syncManager";
 import { useConnectivity } from "@/src/hooks/useConnectivity";
-const labels: Record<string, string> = { start: "Início da coleta", "complete-field": "Conclusão em campo", "report-incident": "Ocorrência", UPDATE_ROUTE_STATUS: "Atualização da rota", UPDATE_ROUTE_PROGRESS: "Andamento da rota", EXTRA_ORDER_WRITE: "Ordem de coleta extra", UPDATE_COLLECTION_STATUS: "Situação da coleta", COMPLETE_COLLECTION: "Conclusão da coleta" };
+const labels: Record<string, string> = {COOPERATIVE_CREATE:"Cadastro de gerador / PEV", start: "Início da coleta", "complete-field": "Conclusão em campo", "report-incident": "Ocorrência", UPDATE_ROUTE_STATUS: "Atualização da rota", UPDATE_ROUTE_PROGRESS: "Andamento da rota", EXTRA_ORDER_WRITE: "Ordem de coleta extra", UPDATE_COLLECTION_STATUS: "Situação da coleta", COMPLETE_COLLECTION: "Conclusão da coleta" };
 type Rows = Awaited<ReturnType<typeof getPendingSyncItems>>;
 export default function SyncScreen() {
   const [rows, setRows] = useState<Rows>([]), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
@@ -25,7 +26,7 @@ export default function SyncScreen() {
     try { const result = await syncManager.runSyncNow({ entityId, manual: true }); setMessage(result.message); await refresh(); }
     finally { working.current = false; setBusy(false); }
   }
-  return <ProtectedRoute allowedUserTypes={["COLLECTOR", "DRIVER"]}><Workspace title="Sincronização" subtitle="Os registros permanecem salvos neste aparelho até a confirmação do servidor.">
+  return <ProtectedRoute allowedUserTypes={["COLLECTOR", "DRIVER", "COOPERATIVE"]}><Workspace title="Sincronização" subtitle="Os registros permanecem salvos neste aparelho até a confirmação do servidor.">
     {isOffline && <Notice text="Sem conexão. Você pode consultar as pendências; o envio será retomado quando a conexão voltar." />}
     {!!loadError && <Notice error text={loadError} />}
     {!!message && <Notice text={message} />}
@@ -36,8 +37,9 @@ export default function SyncScreen() {
     {rows.slice(0, visibleCount).map(row => row && <Card key={row.id}>
       <Text style={{ fontWeight: "700" }}>{labels[row.payload?.action] || labels[row.operationType] || "Operação de campo"}</Text>
       <Text>{row.entityType === "ROUTE" ? "Rota" : row.entityType === "COLLECTION" ? "Coleta" : "Ordem"} #{row.entityId.slice(-8).toUpperCase()}</Text>
-      <Text>{row.status === "ERROR" ? "Falha no envio" : row.status === "SYNCING" ? "Envio iniciado; aguardando confirmação" : "Aguardando envio"} · {new Date(row.createdAt).toLocaleString("pt-BR")}</Text>
+      <Text>{row.status === "ERROR" ? row.errorMessage?.startsWith("[REVISÃO]")?"Precisa de revisão":"Falha no envio" : row.status === "SYNCING" ? "Envio iniciado; aguardando confirmação" : "Aguardando envio"} · {new Date(row.createdAt).toLocaleString("pt-BR")}</Text>
       {!!row.errorMessage && <Notice error text={row.errorMessage} />}
+      {row.operationType==='COOPERATIVE_CREATE'&&<Action secondary label="Ver cadastro salvo / corrigir" onPress={()=>router.push({pathname:'/(cooperativa)/cadastro-pendente' as any,params:{id:row.entityId}})}/>}
       <Text>Tentativas com falha: {row.retryCount}</Text>
       <Action secondary label="Tentar enviar esta operação" disabled={isOffline} busy={busy} onPress={() => void retry(row.entityId)} />
       <Text style={{ color: "#64748B", fontSize: 12 }}>Etapas anteriores desta mesma coleta ou rota serão enviadas primeiro. Se houver conflito, atualize os dados e confira a situação com a cooperativa.</Text>
