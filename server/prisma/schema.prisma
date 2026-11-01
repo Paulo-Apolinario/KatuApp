@@ -392,6 +392,12 @@ model CollectorDocument {
 }
 
 model Collection {
+  intakeKind String?
+  intakeOrigin Json?
+  intakeOperationId String? @unique
+  intakeHash String?
+  intakeWeighOperationId String?
+  intakeWeighHash String?
   teamId String?
   teamNameSnapshot String?
   teamVersion Int @default(0)
@@ -718,6 +724,8 @@ model Vehicle {
 }
 
 model Route {
+  coverageMode String @default("POINTS")
+  coverageArea String?
   operationalEvents Json @default("[]")
   closureOutcome String?
   closedAt DateTime?
@@ -1515,6 +1523,8 @@ model InboxNotification {
 }
 
 model RoutePlan {
+  coverageMode String @default("POINTS")
+  coverageArea String?
   teamId String?
   id String @id @default(cuid())
   cooperativeId String
@@ -1736,4 +1746,16 @@ model MobileOfflineOperation {
   entityId String
   createdAt DateTime @default(now())
   @@index([cooperativeId, actorUserId, createdAt])
+}
+
+model PrivacyAcceptance {
+ id String @id @default(cuid())
+ userId String
+ version String
+ documentHash String
+ document Json
+ reportedAcceptedAt DateTime
+ receivedAt DateTime @default(now())
+ @@unique([userId, version])
+ @@index([userId, receivedAt])
 }

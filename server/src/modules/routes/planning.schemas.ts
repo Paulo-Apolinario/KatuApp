@@ -49,6 +49,8 @@ export const pointsSchema = z
 export const planSchema = z
   .object({
     name: z.string().trim().min(2).max(120),
+    coverageMode: z.enum(["POINTS", "AREA"]).default("POINTS"),
+    coverageArea: z.string().trim().max(1000).nullable().optional(),
     description: z.string().trim().max(3000).default(""),
     active: z.boolean().default(true),
     startsOn: dateKeySchema,
@@ -61,10 +63,7 @@ export const planSchema = z
     vehicleId: z.string().nullable().optional(),
     teamId: z.string().min(1).max(100).nullable().optional(),
     collectorIds: z.array(z.string().min(1)).min(1).max(30),
-    points: pointsSchema.refine(
-      (p) => p.length > 0,
-      "Adicione ao menos um ponto.",
-    ),
+    points: pointsSchema,
     startPoint: locationSchema,
     endPoint: locationSchema,
     exceptions: z.array(dateKeySchema).max(366).default([]),
@@ -72,6 +71,8 @@ export const planSchema = z
     applyToScheduled: z.boolean().default(false),
   })
   .superRefine((p, c) => {
+    if(p.coverageMode === "POINTS" && !p.points.length)c.addIssue({code:"custom",path:["points"],message:"Adicione ao menos um ponto ou selecione coleta por bairro / área."});
+    if(p.coverageMode === "AREA" && (!p.coverageArea || p.coverageArea.length<3))c.addIssue({code:"custom",path:["coverageArea"],message:"Descreva os bairros ou ruas atendidos pela rota."});
     if (
       p.points.some(
         (point) =>

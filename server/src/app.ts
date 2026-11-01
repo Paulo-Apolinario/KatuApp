@@ -1,3 +1,6 @@
+import {privacyRoutes} from "./modules/privacy/privacy.routes";
+import {materialIntakeRoutes} from "./modules/material-intakes/material-intakes.routes";
+import "./lib/validation-pt";
 import {mobileOfflineRoutes} from "./modules/mobile-offline/mobile-offline.routes";
 import { driverTrackingRoutes } from "./modules/driver-tracking/driver-tracking.routes";
 import { cooperativeFieldRoutes } from "./modules/cooperative-field/cooperative-field.routes";
@@ -241,6 +244,8 @@ export async function buildApp() {
   await app.register(serviceOrderRoutes);
   await app.register(cooperativeFieldRoutes);
   await app.register(mobileOfflineRoutes);
+  await app.register(privacyRoutes);
+  await app.register(materialIntakeRoutes);
   await app.register(driverTrackingRoutes);
   await app.register(vehicleDocumentsRoutes);
   await app.register(ownerDocumentsRoutes);

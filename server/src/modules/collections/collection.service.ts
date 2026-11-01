@@ -1,6 +1,6 @@
 import { type HistoryPage, pageResult } from "../../shared/history-page";
 import { creditedKg } from "../collector-teams/team.model";
-import { refreshTeamTotals } from "../collector-teams/team.service";
+import { snapshotCollectionTeam, refreshTeamTotals } from "../collector-teams/team.service";
 import { notifyCooperative, notifyCollection } from "../inbox/inbox.service";
 import type { ReviewQuantitiesInput } from "./collection.schemas";
 import { createHash } from "node:crypto";
@@ -369,6 +369,50 @@ export class CollectionService {
    * NORMALIZAÇÃO DOS MATERIAIS
    * ============================================================
    */
+
+  async registerIntake(userId:string,role:string,input:any) {
+    const ctx=await this.getAccessContext(userId,role);
+    if(ctx.role!=="COOPERATIVE")throw new CollectionDomainError("Apenas a cooperativa registra entradas avulsas.",{statusCode:403,code:"INTAKE_FORBIDDEN"});
+    const hash=createHash("sha256").update(JSON.stringify(input)).digest("hex");
+    return prisma.$transaction(async tx=>{
+      await tx.$queryRaw`SELECT id FROM "Cooperative" WHERE id=${ctx.cooperativeId} FOR UPDATE`;
+      const old=await tx.collection.findUnique({where:{intakeOperationId:input.operationId}});
+      if(old){if(old.cooperativeId!==ctx.cooperativeId||old.intakeHash!==hash)throw new CollectionDomainError("Protocolo já usado com outros dados.",{statusCode:409,code:"INTAKE_CONFLICT"});return old;}
+      let route:any=null;
+      if(input.routeId){route=await tx.route.findFirst({where:{id:input.routeId,cooperativeId:ctx.cooperativeId,status:{in:["SCHEDULED","IN_PROGRESS"]}}});if(!route)throw new CollectionDomainError("Rota não disponível.",{statusCode:404,code:"INTAKE_ROUTE"});}
+      if(route&&((input.driverId&&input.driverId!==route.driverId)||(input.vehicleId&&input.vehicleId!==route.vehicleId)||(input.collectorId&&!route.collectorIds.includes(input.collectorId))))throw new CollectionDomainError("A equipe e o veículo devem corresponder à rota selecionada.",{statusCode:400,code:"INTAKE_ROUTE_TEAM"});
+      const driverId=route?route.driverId:input.driverId||null,vehicleId=route?route.vehicleId:input.vehicleId||null,collectorId=route?input.collectorId||route.collectorIds[0]||null:input.collectorId||null;
+      for(const [table,id] of [["driver",driverId],["vehicle",vehicleId],["collector",collectorId]] as const)if(id&&!(await (tx[table] as any).findFirst({where:{id,cooperativeId:ctx.cooperativeId,...(table==="vehicle"?{status:"ACTIVE"}:{status:{not:"INACTIVE"}})}})))throw new CollectionDomainError("Colaborador ou veículo indisponível para esta cooperativa.",{statusCode:403,code:"INTAKE_SCOPE"});
+      if(vehicleId&&driverId){const assigned=await tx.vehicle.findUniqueOrThrow({where:{id:vehicleId},select:{driverId:true}});if(assigned.driverId&&assigned.driverId!==driverId)throw new CollectionDomainError("O veículo está vinculado a outro motorista.",{statusCode:400,code:"INTAKE_VEHICLE_DRIVER"});}
+      const direct=input.kind==="DIRECT",now=new Date();
+      const c=await tx.collection.create({data:{cooperativeId:ctx.cooperativeId,intakeKind:input.kind,intakeOrigin:input.origin,intakeOperationId:input.operationId,intakeHash:hash,notes:input.notes||null,
+        collectorId:direct?null:collectorId,driverId:direct?null:driverId,vehicleId:direct?null:vehicleId,routeId:direct?null:route?.id||null,
+        routePoint:{kind:"ADDRESS",key:input.operationId,name:input.origin.name|| (direct?"Entrega avulsa":"Coleta em endereço avulso"),address:input.origin.address||"Entrega na sede da cooperativa",latitude:input.origin.latitude??null,longitude:input.origin.longitude??null},
+        status:direct?"RECEIVED":"PENDING",receivedAt:direct?now:null,receivedByUserId:direct?userId:null}});
+      if(!direct&&route?.teamId)await snapshotCollectionTeam(tx,c.id,ctx.cooperativeId!,route.teamId,route.collectorIds);
+      if(!direct&&route)await tx.route.update({where:{id:route.id},data:{collectionOrder:{push:c.id},revision:{increment:1}}});
+      return c;
+    });
+  }
+  async arriveIntake(userId:string,role:string,id:string){
+    const ctx=await this.getAccessContext(userId,role);if(ctx.role!=="COOPERATIVE")throw new CollectionDomainError("Sem permissão.",{statusCode:403,code:"INTAKE_FORBIDDEN"});
+    return prisma.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM "Collection" WHERE id=${id} FOR UPDATE`;const c=await tx.collection.findFirst({where:{id,cooperativeId:ctx.cooperativeId,intakeKind:{not:null}}});if(!c)throw new CollectionDomainError("Entrada não encontrada.",{statusCode:404,code:"INTAKE_NOT_FOUND"});if(["RECEIVED","SORTING"].includes(c.status))return c;if(!["PENDING","IN_PROGRESS","COLLECTED"].includes(c.status))throw new CollectionDomainError("Entrada encerrada.",{statusCode:409,code:"INTAKE_STAGE"});return tx.collection.update({where:{id},data:{status:"RECEIVED",receivedAt:new Date(),receivedByUserId:userId}});});
+  }
+  async weighIntake(userId:string,role:string,id:string,input:any){
+    const ctx=await this.getAccessContext(userId,role);if(ctx.role!=="COOPERATIVE")throw new CollectionDomainError("Sem permissão.",{statusCode:403,code:"INTAKE_FORBIDDEN"});
+    const hash=createHash("sha256").update(JSON.stringify(input)).digest("hex");
+    return prisma.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM "Collection" WHERE id=${id} FOR UPDATE`;const c=await tx.collection.findFirst({where:{id,cooperativeId:ctx.cooperativeId,intakeKind:{not:null}},include:{collectionMaterials:true}});if(!c)throw new CollectionDomainError("Entrada não encontrada.",{statusCode:404,code:"INTAKE_NOT_FOUND"});
+      if(c.intakeWeighOperationId===input.operationId){if(c.intakeWeighHash!==hash)throw new CollectionDomainError("Pesagem já registrada com outros dados.",{statusCode:409,code:"INTAKE_CONFLICT"});return c;}
+      if(!["RECEIVED","SORTING"].includes(c.status)||c.collectionMaterials.length)throw new CollectionDomainError("Pesagem inicial indisponível. Use Corrigir conferência para materiais já registrados.",{statusCode:409,code:"INTAKE_WEIGH_STAGE"});
+      const materials=await this.normalizeMaterials(tx,ctx.cooperativeId!,input.materials),actor=await tx.user.findUniqueOrThrow({where:{id:userId},select:{displayName:true}}),now=new Date();
+      await this.createCollectedMaterials(tx,c,materials,userId,actor.displayName,c.receivedAt||now);
+      await tx.collectionWasteEntry.updateMany({where:{collectionId:id},data:{origin:c.intakeKind==='DIRECT'?'COOPERATIVE_DIRECT_INTAKE':'COOPERATIVE_PICKUP_INTAKE'}});
+      const total=materials.reduce((sum,m)=>sum+m.quantityKg,0);
+      const ms=await tx.collectionMaterial.findMany({where:{collectionId:id}});
+      await tx.collectionQuantityReview.create({data:{collectionId:id,version:1,actorUserId:userId,actorName:actor.displayName,reason:"Pesagem inicial de entrada avulsa recebida na cooperativa.",items:ms.map(m=>({materialId:m.id,name:m.nameSnapshot,unit:m.unit,reportedQuantity:Number(m.quantity),previousQuantity:0,confirmedQuantity:Number(m.quantity)})),previousTotalKg:0,confirmedTotalKg:total}});
+      return tx.collection.update({where:{id},data:{materials:materials as any,totalWeightKg:total,reportedTotalWeightKg:total,quantityReviewVersion:1,quantitiesReviewedAt:now,intakeWeighOperationId:input.operationId,intakeWeighHash:hash}});
+    });
+  }
 
   private async normalizeMaterials(
     transaction: TransactionClient,
@@ -1293,6 +1337,7 @@ export class CollectionService {
       });
       await notifyCollection(transaction, collection.id, `started:${collection.id}`, "COLLECTION_STAGE",
         "Atendimento iniciado", "A equipe iniciou o atendimento desta coleta.");
+      await notifyCooperative(transaction,collection.cooperativeId,`collection-started:${collection.id}`,"Coleta iniciada","A equipe iniciou a coleta. Acompanhe a operação e a localização quando compartilhada.",{collectionId:collection.id,driverId:collection.driverId||null});
       return started;
     });
   }

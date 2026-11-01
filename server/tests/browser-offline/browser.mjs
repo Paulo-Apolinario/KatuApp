@@ -52,6 +52,7 @@ const api = async (url, method = 'GET', body, token = fixture.token) => {
     return r.json();
 };
 async function setup(token, user) {
+    if(['COLLECTOR','DRIVER','GENERATOR_SMALL','GENERATOR_LARGE'].includes(user.role)){const n=await api('/privacy/notice','GET',undefined,token);await api('/privacy/acceptance','POST',{version:n.document.version,documentHash:n.documentHash,accepted:true,reportedAcceptedAt:new Date().toISOString()},token);}
     const c = await browser.newContext({
         viewport: {
             width: 390,
@@ -158,7 +159,7 @@ try {
     page.on('requestfailed', r => { if (r.url().includes('127.0.0.1'))
         console.log('FAILED ASSET', r.url(), r.failure()); });
     await page.goto('http://127.0.0.1:5180/(cooperativa)/home');
-    await page.getByText('App pronto para reabrir offline', { exact: true }).waitFor({ timeout: 60000 });
+    await page.waitForFunction(async()=>{for(const k of await caches.keys())if(await(await caches.open(k)).match('/__katua_ready__'))return true;return false;},{},{timeout:60000});
     await page.waitForFunction(() => !!navigator.serviceWorker.controller);
     const keys = await page.evaluate(async () => { const result = []; for (const k of await caches.keys())
         for (const r of await (await caches.open(k)).keys())
@@ -170,7 +171,7 @@ try {
     await context.setOffline(true);
     await page.reload();
     await page.getByText('Gerador baixado offline QA', { exact: true }).waitFor();
-    await page.getByText('Sem internet · trabalhando com dados baixados', { exact: true }).waitFor();
+    await page.getByText('Você está sem internet. Os registros ficam salvos neste aparelho e serão enviados quando a conexão voltar.', { exact: true }).waitFor();
     pass('Recarregar diretório offline mantém sessão e cadastros baixados');
     await page.close();
     page = await context.newPage();
@@ -249,7 +250,8 @@ try {
     await catContext.addInitScript(({ owner }) => { if (localStorage.getItem('@qa-photo'))
         return; localStorage.setItem('@qa-photo', 'yes'); localStorage.setItem('@katu:offline:extra_orders_local', JSON.stringify([{ id: owner + ':photo-legacy-qa', status: 'DRAFT', payload_json: JSON.stringify({ __ownerId: owner, data: { id: 'photo-legacy-qa', status: 'DRAFT', payload: { photos: [{ base64: 'data:image/jpeg;base64,' + 'Q'.repeat(2048) }] } } }), updated_at: new Date().toISOString() }])); }, { owner: ids.catUser.id });
     await catPage.goto('http://127.0.0.1:5180/(catador)/extra-orders');
-    await catPage.getByText('App pronto para reabrir offline', { exact: true }).waitFor({ timeout: 60000 });
+    await catPage.waitForFunction(async()=>{for(const k of await caches.keys())if(await(await caches.open(k)).match('/__katua_ready__'))return true;return false;},{},{timeout:60000});
+    await catPage.waitForFunction(async()=> (await indexedDB.databases()).some(d=>d.name==='katua-offline-v1'));
     await catPage.waitForFunction(async () => { const d = await new Promise(resolve => { const r = indexedDB.open('katua-offline-v1'); r.onsuccess = () => resolve(r.result); }); const rows = await new Promise(resolve => { const r = d.transaction('records').objectStore('records').get('table:extra_orders_local'); r.onsuccess = () => resolve(r.result); }); return rows?.some(r => r.id.endsWith('photo-legacy-qa')) && !localStorage.getItem('@katu:offline:extra_orders_local'); });
     pass('Rascunho legado com foto migra para IndexedDB antes de remover armazenamento antigo');
     await catPage.goto('http://127.0.0.1:5180/(catador)/collect?highlightCollectionId=' + ids.collection);
@@ -281,7 +283,7 @@ try {
     await catPage.evaluate(({ token, user }) => { localStorage.setItem('@katu:token', token); localStorage.setItem('@katu:user', JSON.stringify(user)); }, { token: fixture.token, user: fixture.owner });
     await secondTab.waitForURL(/\/home$/);
     await secondTab.goto('http://127.0.0.1:5180/offline');
-    await secondTab.getByText('Nenhum rascunho de cadastro nesta conta.', { exact: true }).waitFor();
+    await secondTab.getByText('Nenhum rascunho nesta conta.', { exact: true }).waitFor();
     assert.equal(await secondTab.getByText('Registro de campo da coleta', { exact: true }).count(), 0);
     pass('Troca de conta em outra aba atualiza perfil e não expõe rascunhos do catador');
     await catPage.evaluate(() => { localStorage.removeItem('@katu:token'); localStorage.removeItem('@katu:user'); });
@@ -301,6 +303,7 @@ catch (e) {
     process.exitCode = 1;
 }
 finally {
+    for(const context of browser?.contexts()||[])await context.unrouteAll({behavior:"ignoreErrors"});
     await browser?.close();
     staticServer.close();
 }

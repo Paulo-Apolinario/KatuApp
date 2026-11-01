@@ -278,10 +278,18 @@ export async function listFieldRoutes(id: string, raw: unknown) {
       inField: "",
       status: q.status === "IN_FIELD" ? "" : q.status,
     });
+  const emptyAreas: Prisma.RouteWhereInput[]=[];
+  if(!q.generator&&q.dateField!=="collected"&&!["COLLECTED","RECEIVED","SORTING"].includes(q.status)){
+    const area:Prisma.RouteWhereInput={coverageMode:"AREA",collections:{none:{}},
+      ...(q.route?{id:q.route}:{}),...(q.driver?{driverId:q.driver}:{}),...(q.vehicle?{vehicleId:q.vehicle}:{}),...(q.collector?{collectorIds:{has:q.collector}}:{}),
+      ...(q.status?{status:q.status==="PENDING"?"SCHEDULED":q.status==="IN_FIELD"?"IN_PROGRESS":q.status as any}:{}),
+      ...(q.start||q.end?{[q.dateField==="created"?"createdAt":"scheduledDate"]:{...(q.start?{gte:new Date(q.start+"T00:00:00-03:00")}:{}),...(q.end?{lte:new Date(q.end+"T23:59:59.999-03:00")}: {})}}:{}),
+      ...(q.q?{OR:[{name:{contains:q.q,mode:"insensitive"}},{coverageArea:{contains:q.q,mode:"insensitive"}},{id:{contains:q.q.replace(/^#/,""),mode:"insensitive"}}]}:{})};
+    emptyAreas.push(area);
+  }
   const where: Prisma.RouteWhereInput = {
     cooperativeId: id,
-    ...fixedExecutionWhere,
-    collections: { some: point },
+    AND:[fixedExecutionWhere,{OR:[{collections:{some:point}},...emptyAreas]}],
     ...(q.inField === "true" || q.status === "IN_FIELD"
       ? { status: "IN_PROGRESS" }
       : {}),
@@ -300,6 +308,8 @@ export async function listFieldRoutes(id: string, raw: unknown) {
     name: true,
     status: true,
     planId: true,
+    coverageMode: true,
+    coverageArea: true,
     executionDate: true,
     closureOutcome: true,
     scheduledDate: true,

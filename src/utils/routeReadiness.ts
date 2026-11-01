@@ -13,7 +13,7 @@ export function routeStartIssues(route: RouteItem): string[] {
   else if (route.vehicle?.status && route.vehicle.status !== "ACTIVE")
     issues.push("Disponibilizar um veículo ativo, fora de manutenção");
   if (
-    !(route.collections || []).some(
+    route.coverageMode !== "AREA" && !(route.collections || []).some(
       (c) => c.status === "PENDING" || c.status === "IN_PROGRESS",
     )
   )

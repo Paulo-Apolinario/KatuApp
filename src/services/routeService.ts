@@ -58,6 +58,8 @@ export interface RouteItem {
   estimatedMinutes?: number | null;
   revision?: number;
   planId?: string | null;
+  coverageMode?: string;
+  coverageArea?: string | null;
   operationalEvents?: RouteOperationEvent[];
   closureOutcome?: string | null;
   stops: string[];
@@ -118,6 +120,8 @@ type BackendRoute = {
   estimatedMinutes?: number | null;
   revision?: number;
   planId?: string | null;
+  coverageMode?: string;
+  coverageArea?: string | null;
   operationalEvents?: RouteOperationEvent[];
   closureOutcome?: string | null;
   id: string;
@@ -427,6 +431,8 @@ function normalizeStats(stats?: Partial<RouteStats> | null): RouteStats {
 function normalizeRoute(route: BackendRoute): RouteItem {
   return {
     id: route.id,
+    coverageMode: route.coverageMode,
+    coverageArea: route.coverageArea,
     collectionOrder: route.collectionOrder,
     collectorIds: route.collectorIds,
     teamId: route.teamId,
@@ -517,6 +523,8 @@ async function saveRoutesToCache(routes: RouteItem[]) {
   await upsertRoutes(
     routes.map((route) => ({
       id: route.id,
+    coverageMode: route.coverageMode,
+    coverageArea: route.coverageArea,
       status: route.status,
       driverId: route.driverId ?? null,
       scheduledDate: route.scheduledDate ?? null,

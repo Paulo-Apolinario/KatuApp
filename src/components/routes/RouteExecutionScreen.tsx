@@ -1,3 +1,4 @@
+import FieldPointForm from "./FieldPointForm";
 import * as Crypto from "expo-crypto";
 import { DataReadNotice } from "@/src/components/DataReadNotice";
 import { initialRouteId, routeStartIssues } from "@/src/utils/routeReadiness";
@@ -333,6 +334,8 @@ export default function RouteExecutionScreen() {
                       "Não definida"}{" "}
                     · Destino: {detail.endPoint?.name || "Não definido"}
                   </Text>
+                  {detail.coverageMode === "AREA" && <Text style={styles.text}>Coleta por bairro / área: {detail.coverageArea}. Os pontos podem ser registrados durante a execução.</Text>}
+                  {["SCHEDULED","IN_PROGRESS"].includes(detail.status)&&<FieldPointForm key={detail.id} routeId={detail.id} onSaved={()=>void load(false)}/>}
                   {detail.description ? (
                     <Text style={styles.text}>{detail.description}</Text>
                   ) : null}

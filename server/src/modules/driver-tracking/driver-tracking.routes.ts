@@ -103,7 +103,8 @@ export async function driverTrackingRoutes(app: FastifyInstance) {
         id: true,
         name: true,
         status: true,
-        scheduledDate: true
+        scheduledDate: true,
+        startedAt: true
       },
       orderBy: {
         scheduledDate: 'asc'
@@ -120,6 +121,7 @@ export async function driverTrackingRoutes(app: FastifyInstance) {
       select: {
         id: true,
         status: true,
+        startedAt: true,
         generator: {
           select: {
             name: true

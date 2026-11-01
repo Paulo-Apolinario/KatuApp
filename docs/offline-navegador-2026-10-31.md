@@ -4,7 +4,7 @@ Implementação de 31/10/2026. Escopo: App Web em HTTPS, com abertura offline ap
 
 ## Comportamento entregue
 
-A perda da conexão não encerra a sessão local. O App preparado pode ser recarregado ou reaberto offline, inclusive em uma rota interna. A faixa superior diferencia preparação, abertura offline pronta, ausência de conexão e pendências de envio. O usuário pode abrir **Dados offline e rascunhos**, preparar dados e retomar formulários salvos.
+A perda da conexão não encerra a sessão local. O App preparado pode ser recarregado ou reaberto offline, inclusive em uma rota interna. A faixa superior diferencia preparação, abertura offline pronta, ausência de conexão e pendências de envio. O preparo e a sincronização são automáticos após o acesso. A interface não exibe faixa de preparação nem exige ação manual. Avisos aparecem durante falta de conexão ou quando há envios pendentes. A rota de recuperação de rascunhos é mantida para preservar trabalhos anteriores.
 
 | Fluxo | Disponibilidade sem internet |
 | --- | --- |
@@ -18,13 +18,13 @@ A perda da conexão não encerra a sessão local. O App preparado pode ser recar
 | Outras alterações de cadastro e solicitações | Não foram convertidas indiscriminadamente em operações offline |
 | Mapa de fundo, CEP, geocodificação e localização ao vivo | Dependem dos serviços/conexão; GPS disponível no aparelho pode marcar coordenadas sem baixar o mapa |
 
-A preparação da cooperativa baixa a primeira página dos quatro diretórios e seus detalhes. Outras páginas e relatórios devem ser abertos online. Para os demais perfis, o centro informa quais trabalhos/resumos foram preparados. Nunca equivale a baixar todo o banco.
+A preparação da cooperativa baixa a primeira página dos quatro diretórios e seus detalhes. Outras páginas e relatórios devem ser abertos online. Para os demais perfis, são preparados os trabalhos/resumos suportados pelo perfil. Nunca equivale a baixar todo o banco.
 
 ## Shell e atualização
 
 `npm run export:web` exporta o Expo e executa `scripts/build-pwa.mjs`. O pós-processamento gera `sw.js`, injeta o identificador da versão em todos os HTMLs e produz `offline-build.json`. A versão depende dos arquivos e do template do worker. Fontes com `@` usam a mesma URL pedida pelo Expo, evitando ícones ausentes offline.
 
-O worker pré-carrega os arquivos estáticos em grupos e só grava o marcador de prontidão após concluir todos. Falha de instalação remove somente o cache incompleto daquela versão. Navegação usa a rede com limite de quatro segundos e, em falha, o shell local. São retidas até três versões de shell. A instalação de nova versão não força recarregamento. A ativação é solicitada pelo usuário, sem operações de envio pendentes e sem gravação local em andamento.
+O worker pré-carrega os arquivos estáticos em grupos e só grava o marcador de prontidão após concluir todos. Falha de instalação remove somente o cache incompleto daquela versão. Navegação usa a rede com limite de quatro segundos e, em falha, o shell local. São retidas até três versões de shell. A instalação de nova versão não força recarregamento. O worker pronto é ativado automaticamente sem gravação local em andamento e sem forçar recarregamento da página.
 
 CacheStorage contém apenas arquivos estáticos. O worker ignora requisições autenticadas, outros domínios e métodos diferentes de GET. Não armazena respostas da API nem posições de motoristas.
 
@@ -35,7 +35,7 @@ CacheStorage contém apenas arquivos estáticos. O worker ignora requisições a
 - Escritas de tabela usam transações de leitura/modificação/gravação. Dados de uma conta são filtrados pelo proprietário. O login corrente do navegador prevalece sobre o snapshot antigo de sessão, inclusive após troca de conta em outra aba.
 - Perda de conexão ou erro 5xx não desloga o usuário. Rejeição de autenticação confirmada mantém a fila no aparelho, mas exige novo acesso autorizado para envio.
 - Rascunhos indicam gravação em andamento, gravação concluída ou erro. Não anuncia sucesso quando falta espaço. O navegador avisa antes de sair enquanto há gravações locais iniciadas.
-- O centro solicita armazenamento persistente quando o navegador disponibiliza a função. A concessão depende do navegador. Limpar os dados do site ou remoção do armazenamento pelo sistema pode apagar operações ainda não enviadas.
+- O sistema solicita armazenamento persistente automaticamente quando o navegador disponibiliza a função. A concessão depende do navegador. Limpar os dados do site ou remoção do armazenamento pelo sistema pode apagar operações ainda não enviadas.
 
 ## Protocolo de cadastro offline
 
@@ -67,8 +67,8 @@ Servir `dist` no domínio `https://app.katua.com.br`. O endereço `/sw.js` deve 
 
 ## Aceitação no aparelho
 
-1. Abrir o App com internet, entrar na conta e aguardar **App pronto para reabrir offline**.
-2. Em **Dados offline e rascunhos**, preparar os dados e abrir o trabalho que será executado.
+1. Abrir o App com internet e entrar na conta. O shell e os dados são preparados automaticamente.
+2. Abrir o trabalho que será executado e deixar a conexão concluir o carregamento inicial. Não há botão de preparação.
 3. Ativar modo avião, recarregar a página e fechar/reabrir a aba. Conferir sessão e dados baixados.
 4. Preencher observações/cadastro; aguardar a confirmação de salvamento no aparelho; recarregar e conferir o rascunho.
 5. Salvar uma operação offline e conferir **aguardando envio**. Não confundir com confirmação do servidor.

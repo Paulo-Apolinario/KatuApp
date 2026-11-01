@@ -360,7 +360,7 @@ export class RoutePlanningService {
             if (
               !runsOn(plan, r.executionDate!) ||
               !plan.active ||
-              (!dayPoints.length &&
+              (plan.coverageMode !== "AREA" && !dayPoints.length &&
                 !r.collections.some(
                   (c) =>
                     c.status === "PENDING" &&
@@ -386,6 +386,8 @@ export class RoutePlanningService {
               where: { id: r.id },
               data: {
                 name: plan.name,
+                coverageMode: plan.coverageMode,
+                coverageArea: plan.coverageArea,
                 description: plan.description,
                 collectorIds: plan.collectorIds,
                 teamId: plan.teamId,
@@ -470,7 +472,7 @@ export class RoutePlanningService {
                 !p.weekdays?.length ||
                 p.weekdays.includes(new Date(day + "T12:00:00Z").getUTCDay()),
             );
-            if (!points.length) return;
+            if (!points.length && plan.coverageMode !== "AREA") return;
             await validateTeam(tx, plan.cooperativeId, plan);
             const route = await tx.route.create({
               data: {
@@ -478,6 +480,8 @@ export class RoutePlanningService {
                 executionDate: day,
                 cooperativeId: plan.cooperativeId,
                 name: plan.name,
+                coverageMode: plan.coverageMode,
+                coverageArea: plan.coverageArea,
                 description: plan.description,
                 scheduledDate: dayDate(day, plan.departureTime),
                 departureTime: plan.departureTime,

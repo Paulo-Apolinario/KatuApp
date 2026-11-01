@@ -1,8 +1,8 @@
 import { FastifyInstance } from "fastify";
 import { z, ZodError } from "zod";
 import { prisma } from "../../lib/prisma";
-import { planSchema, optimizeSchema } from "./planning.schemas";
-import { RoutePlanningService } from "./planning.service";
+import { planSchema, optimizeSchema, pointSchema } from "./planning.schemas";
+import { addPlannedPoints, RoutePlanningService } from "./planning.service";
 import { optimizeRoad } from "./road-routing";
 import { RouteService } from "./route.service";
 import { RouteLifecycleService, resolutionSchema, reportSchema } from "./lifecycle.service";
@@ -155,6 +155,17 @@ export async function routePlanningRoutes(app: FastifyInstance) {
   );
   app.post("/routes/:id/request-closure", safe(async r => lifecycle.report(r.user.sub, r.user.role, r.params.id, null, reportSchema.parse(r.body)), ["COLLECTOR", "DRIVER"]));
   app.post("/routes/:id/resolve-pending", safe(async r => lifecycle.resolve(r.user.sub, r.params.id, resolutionSchema.parse(r.body))));
+  app.get("/routes/:id/point-sources",safe(async r=>{const rs=new RouteService();const route=await rs.findById(r.user.sub,r.user.role,r.params.id);if(!["SCHEDULED","IN_PROGRESS"].includes(route.status))throw Error("Esta rota já foi encerrada.");const where={cooperativeId:route.cooperativeId};const [generators,bins]=await Promise.all([prisma.generator.findMany({where,take:100,orderBy:{name:"asc"},select:{id:true,name:true,address:true,street:true,number:true,city:true,state:true,latitude:true,longitude:true}}),prisma.bin.findMany({where:{...where,status:{notIn:["INACTIVE","MAINTENANCE"]}},take:100,orderBy:{name:"asc"},select:{id:true,name:true,street:true,number:true,city:true,state:true,latitude:true,longitude:true}})]);return {generators,bins};},["COOPERATIVE","COLLECTOR","DRIVER"]));
+  app.post("/routes/:id/field-points",safe(async r=>{
+    const point=pointSchema.parse(r.body),rs=new RouteService();await rs.findById(r.user.sub,r.user.role,r.params.id);
+    return prisma.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM "Route" WHERE id=${r.params.id} FOR UPDATE`;const route=await tx.route.findUniqueOrThrow({where:{id:r.params.id},include:{cooperative:{select:{userId:true}}}});if(!["SCHEDULED","IN_PROGRESS"].includes(route.status))throw Error("A rota está encerrada.");
+      if(r.user.role==="COOPERATIVE"&&route.cooperative.userId!==r.user.sub)throw Error("Sem acesso a esta rota.");
+      if(r.user.role==="DRIVER"&&!(await tx.driver.findFirst({where:{id:route.driverId||"",userId:r.user.sub,cooperativeId:route.cooperativeId,status:{not:"INACTIVE"}}})))throw Error("Esta rota não está atribuída ao motorista.");
+      if(r.user.role==="COLLECTOR"&&!(await tx.collector.findFirst({where:{userId:r.user.sub,cooperativeId:route.cooperativeId,id:{in:route.collectorIds},status:{not:"INACTIVE"}}})))throw Error("Esta rota não está atribuída ao catador.");
+      const old=await tx.collection.findFirst({where:{routeId:route.id,routePointKey:point.key}});if(old){if(!Object.entries(point).every(([key,value])=>JSON.stringify((old.routePoint as any)?.[key])===JSON.stringify(value)))throw Error("Identificador já usado. Confira os pontos da rota.");return {collectionId:old.id,replayed:true};}
+      const ids=await addPlannedPoints(tx,route,[point],route.cooperative.userId);await tx.route.update({where:{id:route.id},data:{collectionOrder:{push:ids[0]},revision:{increment:1}}});return {collectionId:ids[0],replayed:false};
+    });
+  },["COOPERATIVE","COLLECTOR","DRIVER"]));
   app.post(
     "/routes/:id/field-status",
     safe(

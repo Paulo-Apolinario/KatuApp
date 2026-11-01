@@ -1,3 +1,4 @@
+import {notifyCooperative} from "../inbox/inbox.service";
 import { snapshotRouteTeam } from "../collector-teams/team.service";
 import {
   addPlannedPoints,
@@ -773,7 +774,7 @@ export class RouteService {
               status: { in: fieldPendingStatuses },
             },
           });
-          if (!driverId || !vehicleId || !scheduledDate || !count)
+          if (!driverId || !vehicleId || !scheduledDate || (!count && route.coverageMode !== "AREA"))
             throw new Error(
               actor
                 ? "A rota aguarda preparação pela cooperativa. Solicite a definição da data, do motorista e do veículo, com ao menos uma coleta pendente ou em andamento. Atualize a rota após a liberação."
@@ -858,6 +859,7 @@ export class RouteService {
               : {}),
           },
         });
+        if(data.status === "IN_PROGRESS" && route.status !== "IN_PROGRESS")await notifyCooperative(transaction,cooperative.id,`route-started:${route.id}`,"Rota iniciada",`${route.name}: a equipe confirmou a saída.`,{routeId:route.id,driverId:driverId||null});
         await snapshotRouteTeam(transaction, route.id);
         const updated = await transaction.route.findUniqueOrThrow({
           where: { id: route.id },

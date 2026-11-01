@@ -40,8 +40,11 @@ export default function CreatePlace({ pev = false }: {
     const draft = useDurableDraft('create:' + operationId, pev ? 'Novo PEV' : 'Novo gerador', { form, type, point, confirmed, pev }, v => { setForm(v.form); setType(v.type); setPoint(v.point); setConfirmed(v.confirmed); }, JSON.stringify(form) !== JSON.stringify(initial) || point !== null);
     useEffect(() => { if (params.draft !== operationId)
         router.setParams({ draft: operationId }); }, [operationId, params.draft]);
-    const guard = useRef(false), revision = useRef(0);
+    const guard = useRef(false), revision = useRef(0), latest = useRef(form), autoCep=useRef(''), autoAddress=useRef('');
+    latest.current=form;
     const address = [form.street, form.number, form.neighborhood, form.city, form.state, form.zipCode].filter(Boolean).join(', ');
+    useEffect(()=>{const zip=form.zipCode.replace(/\D/g,'');if((typeof navigator!=='undefined'&&navigator.onLine===false)||(point&&confirmed)||!draft.ready||lookup||zip.length!==8||autoCep.current===zip)return;const timer=setTimeout(()=>{autoCep.current=zip;void cep();},500);return()=>clearTimeout(timer);},[form.zipCode,lookup,draft.ready]);
+    useEffect(()=>{if((typeof navigator!=='undefined'&&navigator.onLine===false)||(point&&confirmed)||!draft.ready||lookup||!form.street.trim()||!form.city.trim()||!form.number.trim()||form.zipCode.replace(/\D/g,'').length!==8)return;const key=address;if(autoAddress.current===key)return;const timer=setTimeout(()=>{if(autoAddress.current===key)return;autoAddress.current=key;void locate(false);},900);return()=>clearTimeout(timer);},[address,lookup,draft.ready]);
     const update = (key: keyof typeof initial, value: string) => {
         if (['zipCode', 'street', 'number', 'neighborhood', 'city', 'state'].includes(key)) {
             revision.current++;
@@ -60,20 +63,19 @@ export default function CreatePlace({ pev = false }: {
             setError('Informe um CEP com 8 dígitos.');
             return;
         }
-        const current = revision.current;
         setLookup(true);
         setError('');
         try {
             const data = await api.getExternalJson<any>('https://viacep.com.br/ws/' + value + '/json/');
             if (data.erro)
                 throw Error('CEP não encontrado.');
-            if (current !== revision.current)
+            if (latest.current.zipCode.replace(/\D/g,'') !== value)
                 return;
             setForm(f => ({
                 ...f,
-                street: data.logradouro || f.street,
-                neighborhood: data.bairro || f.neighborhood,
-                city: data.localidade || f.city,
+                street: f.street===form.street ? data.logradouro || f.street : f.street,
+                neighborhood: f.neighborhood===form.neighborhood ? data.bairro || f.neighborhood : f.neighborhood,
+                city: f.city===form.city ? data.localidade || f.city : f.city,
                 state: data.uf || f.state
             }));
             revision.current++;
@@ -118,6 +120,7 @@ export default function CreatePlace({ pev = false }: {
             }
             if (current !== revision.current)
                 return;
+            autoAddress.current=address;
             setPoint(p);
             setConfirmed(false);
         }
@@ -191,7 +194,7 @@ export default function CreatePlace({ pev = false }: {
         })}<FieldButton secondary label="Buscar CEP" disabled={busy || lookup} onPress={() => void cep()}/>{input('street', 'Rua *')}{input('number', 'Número')}{input('neighborhood', 'Bairro')}{input('city', 'Cidade *')}{input('state', 'UF *', {
             maxLength: 2,
             autoCapitalize: 'characters'
-        })}<FieldButton secondary label="Buscar endereço no mapa" busy={lookup} disabled={busy} onPress={() => void locate()}/><FieldButton secondary label="Usar minha localização" disabled={lookup || busy} onPress={() => void locate(true)}/></View><View style={ui.card}><Text style={ui.heading}>Confirmar localização</Text><Text style={ui.muted}>Confira o ponto. Toque no mapa para corrigir a posição antes de confirmar.</Text><View style={{
+        })}<FieldButton secondary label="Buscar endereço no mapa" busy={lookup} disabled={busy} onPress={() => void locate()}/><FieldButton secondary label="Usar minha localização" disabled={lookup || busy} onPress={() => void locate(true)}/></View><View style={ui.card}><Text style={ui.heading}>Confirmar localização</Text><Text style={ui.muted}>O CEP preenche a rua e o número aciona a busca do endereço completo. A posição depende da base de mapas: confira o ponto e corrija no mapa antes de confirmar.</Text><View style={{
             height: 320,
             overflow: 'hidden',
             borderRadius: 14

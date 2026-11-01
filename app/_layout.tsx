@@ -1,3 +1,5 @@
+import DriverLocationPrompt from "../src/components/DriverLocationPrompt";
+import PrivacyGate from "../src/components/PrivacyGate";
 import BrowserOfflineStatus from "../src/components/BrowserOfflineStatus";
 import "../src/services/driverTrackingTask";
 import { InboxProvider } from "../src/contexts/InboxContext";
@@ -139,6 +141,8 @@ export default function RootLayout() {
           <AuthProvider>
             <InboxProvider>
               <BrowserOfflineStatus />
+              <PrivacyGate />
+              <DriverLocationPrompt />
               <Stack screenOptions={{ headerShown: false }} />
             </InboxProvider>
           </AuthProvider>

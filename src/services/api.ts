@@ -137,6 +137,7 @@ async function request<T>(
   }
 
   if(readOwner&&requestToken===(await sessionService.getToken())){try{await saveRead(readOwner,normalizedEndpoint,data);clearLocalRead(readOwner,normalizedEndpoint);}catch(e:any){markCacheFault(e.message||"Não foi possível guardar estes dados para uso offline.");}}
+  if(Platform.OS==='web'&&method!=='GET'&&(/\/start$/.test(normalizedEndpoint)||normalizedEndpoint.includes('/field-status')||normalizedEndpoint.includes('/status')))window.dispatchEvent(new Event('katua:field-started'));
   return data as T;
 }
 

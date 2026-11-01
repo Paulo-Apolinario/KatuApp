@@ -1,0 +1,227 @@
+{
+  "date": "2026-10-31",
+  "scope": [
+    "App Web",
+    "Painel",
+    "Servidor"
+  ],
+  "environment": "API e banco descartáveis locais; Chromium real com viewport móvel. Sem dados de produção.",
+  "api": {
+    "passed": 112,
+    "checks": [
+      "Migração preserva execução histórica e seu ponto sem inventar data de saída",
+      "Antes da saída não existe operação em campo",
+      "Saída registra início da execução e preserva pontos aguardando atendimento",
+      "Painel conta uma rota fixa em campo sem contar suas três paradas novamente",
+      "Agenda e registros do painel identificam saída em campo sem confundir com atendimento do ponto",
+      "Repetir confirmação não modifica a primeira saída",
+      "Execuções são paginadas inteiras por data crescente, sem transferir todos os detalhes",
+      "Datas de execução permanecem em tópicos separados e em ordem entre páginas",
+      "Pontos seguem a sequência da rota com paginação própria e contexto em campo",
+      "Coletas normais excluem pontos de rotas fixas, inclusive plano histórico removido",
+      "Busca por um ponto encontra sua execução completa",
+      "Endereço avulso sem cadastro de gerador conserva identificação e pode ser pesquisado",
+      "Filtro de programação distingue os dias de execução no fuso do Ceará",
+      "Iniciar ponto dentro da rota não duplica a operação em campo",
+      "Coleta delegada individual iniciada entra no mesmo indicador",
+      "Rotas avulsas e fixas e coleta individual são contadas sem sobreposição",
+      "Pontos com saída confirmada não ficam na fila de pendentes sem saída",
+      "Recebimento de um ponto preserva os demais e sua entrada de material individual",
+      "Filtro por colaborador reconhece sua participação em equipe",
+      "Detalhes e consultas respeitam cooperativa proprietária e perfil autorizado",
+      "Paginação, etapa e período inválidos são rejeitados",
+      "Ordenação global cruza meses e páginas, ignora prioridade por status, desempata por ID e coloca sem data ao final",
+      "Comprovantes paginam 25 + 4 sem duplicar datas iguais e preservam crédito do catador",
+      "Histórico de coleta mantém escopo do motorista e isolamento entre cooperativas",
+      "Clientes legados continuam recebendo a lista de operações com todas as etapas",
+      "Paginação inválida é rejeitada antes da consulta",
+      "Solicitações de PF têm paginação estável e cada conta vê somente seus registros",
+      "Ocorrências do motorista paginam sem vazamento para outro perfil",
+      "Data de corte impede que novos registros desloquem as páginas do histórico",
+      "API real aceita reenvios com a mesma operação sem duplicar material ou regredir recebimento",
+      "Migração aditiva preserva execução antiga e inicia histórico vazio",
+      "Catador relata ponto não atendido com autor/data/motivo sem cancelar a coleta ou o agendamento",
+      "Relato é idempotente e rejeita reutilização do identificador com outro conteúdo",
+      "Bloqueia relato em coleta realizada, acesso entre cooperativas e decisão do catador",
+      "Solicitação exige motivo em todos os pontos e notifica a cooperativa sem encerrar a rota",
+      "Cancelamento preserva integralmente três coletas feitas e cancela somente dois pontos, encerrando como parcial",
+      "Reenvio após perda de resposta não duplica decisão nem notificações",
+      "Execução sem coletas realizadas é cancelada com os pontos e sem gerar produção",
+      "Reagendamento parcial cria somente dois atendimentos novos sem peso, preserva histórico e próximas recorrências, com repetição segura",
+      "Reagendamento antes da saída valida data, preserva data anterior e atualiza todos os agendamentos sem duplicar coletas",
+      "Impede reescrever execução iniciada e cancelação com materiais inconsistentes, com rollback integral",
+      "Duas decisões simultâneas resultam em somente um encerramento, sem duplicação de histórico",
+      "Execução encerrada e acesso da cooperativa estrangeira permanecem bloqueados",
+      "Solicitação gera um aviso à cooperativa, inclusive após reenvio da mesma operação",
+      "Delegação avisa somente o solicitante e a equipe atribuída",
+      "Início individual notifica sem duplicar o aviso ao repetir a confirmação",
+      "Central pagina avisos, marca leitura de forma idempotente e impede leitura entre contas",
+      "O.C. e pedido de complementação geram avisos com protocolo e sem duplicação após reenvio",
+      "Aceite e recusa de O.C. notificam o catador com decisão persistida e repetição segura",
+      "Falha ao registrar aviso provoca rollback da delegação, sem confirmação parcial",
+      "Rotas ativas e histórico têm paginação independente e resumos sem transferir pontos",
+      "Consultas novas respeitam perfil e cooperativa sem alterar o contrato legado de rotas",
+      "Termos do App e servidor coincidem; checkbox obrigatório, versão, titular e horários são registrados sem duplicação",
+      "Cooperativa consulta aceite real do titular e outra cooperativa não acessa o registro",
+      "Entrada direta aceita material sem pesagem ou cadastros, não inventa equipe e repete protocolo sem duplicar",
+      "Pesagem avulsa cria entradas rastreáveis uma vez, mantém litros separados e não credita catador fictício",
+      "Entrada avulsa percorre destinações existentes e conclui sem perder origem nem gerar saldo artificial",
+      "Coleta em endereço avulso registra origem sem gerador permanente; pesagem exige chegada física",
+      "Rota fixa por bairro gera execução sem pontos e aparece nas listas; modalidade por pontos continua exigindo pontos em português",
+      "Saída de rota por bairro exige recursos; início avisa cooperativa uma vez com atalho para acompanhar motorista",
+      "Equipe inclui ponto durante a rota com repetição segura, sem permitir outra cooperativa nem trocar conteúdo do protocolo",
+      "Cadastro offline de gerador possui protocolo atômico; repetição após perda de resposta devolve o mesmo registro",
+      "Mesmo protocolo com conteúdo ou conta diferente não altera cadastro e não vaza confirmação de outra cooperativa",
+      "Dois envios simultâneos de PEV criam um único ponto e um único evento de cadastro",
+      "Falha de validação ou unicidade não deixa protocolo confirmado nem criação parcial",
+      "Diretórios e detalhe do gerador trazem coletas, solicitações, pendências e quantidades em litros",
+      "Trabalhos reconhecem colaboradores; PEVs são buscados por código e fornecem coordenadas confirmadas",
+      "Dados de campo respeitam cooperativa, perfil e paginação",
+      "Compartilhamento depende de motorista ativo, serviço próprio e contexto único; gestor não inicia GPS alheio",
+      "Gestor recebe posição real, horário e precisão; outras cooperativas e perfis não acessam a localização",
+      "Coordenadas inválidas, pontos antigos/futuros e reenvios fora de ordem não deslocam o motorista",
+      "Sinal atrasado fica desatualizado, nova sessão invalida aparelho anterior e encerramento remove coordenadas",
+      "Finalizar ou cancelar o serviço impede novas posições e oculta localização do gestor",
+      "Coleta individual também compartilha posição e relatórios reutilizam cálculos e permissões do painel",
+      "Paginação e busca de geradores atravessam páginas sem perda ou duplicação",
+      "Busca de endereço inclui número e cidade; falha externa orienta marcação manual e coordenadas impossíveis são rejeitadas",
+      "Uma O.S. por execução de rota, três pontos no documento emitido após a transação e numeração única",
+      "Alterações geram nova versão e preservam a emissão original; gravação repetida não duplica documento",
+      "Coleta, recebimento, encerramento e cancelamento preservam os atendimentos e o óleo em litros",
+      "Cooperativas isoladas, perfis de campo sem acesso, autenticação e filtros de período validados",
+      "Rollback da coleta não deixa O.S. ou comprovante órfão",
+      "Banco bloqueia alteração ou exclusão de documento emitido",
+      "Migração identifica operações antigas como reconstrução atual, sem inventar autorização retroativa",
+      "Saída parcial gera comprovante interno com O.S. automática; repetição idempotente não duplica saldo nem documento",
+      "Saída de lote manual aparece na central sem inventar coleta ou autorização de origem",
+      "Coleta individual possui O.S. própria e busca aceita código curto com #",
+      "Filtro por situação usa o serviço atual, datas impossíveis são rejeitadas e horários mantêm UTC explícito",
+      "Destino direto emite registros internos de encaminhamento e transporte; cancelamento preserva emissão e informa situação atual",
+      "Reatribuição de coleta preserva O.S. anterior e vincula comprovante de saída a todas as referências de origem",
+      "Material e lotes recebem códigos automáticos ao omitir ou deixar o código vazio",
+      "Edição preserva códigos existentes e preenche o código de um cadastro antigo ainda sem identificação",
+      "Criações simultâneas recebem códigos de lote distintos",
+      "Material criado durante a destinação também recebe código; lote rastreável continua automático",
+      "Migração mantém lote antigo disponível, sua quantidade, unidade e versão inicial sem inventar saídas",
+      "Recebimento e conferência de óleo preservam 50 L, sem exigir pesagem fictícia nem converter volume em peso",
+      "Reserva, liberação, processamento e saída parcial preservam origem, saldo e unidade; repetição da mesma operação não duplica saída",
+      "Saída excessiva, descarte sem motivo, destinatário ausente, versão antiga e acesso indevido são bloqueados",
+      "Duas saídas simultâneas da mesma versão não gastam o mesmo saldo",
+      "Saída total conclui lote, preserva destinatários das partes, mantém histórico e não reabre saldo por edição antiga",
+      "Histórico do catador contém a coleta de óleo com 50 litros; peso zero não apaga a coleta nem converte litros em kg",
+      "Destino direto é retornado na lista sem saldo; salvamento sem mudança não cria auditoria redundante e alteração de documento é auditada",
+      "Lote antigo de catálogo inativo pode sair; toneladas, unidades e m³ preservam quantidade; histórico paginado mantém isolamento",
+      "DIRECT_DESTINATION: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "REJECT: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "DISPOSAL: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "STOCK: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "TRIAGE: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "RESERVATION: conclui coleta sem saldo; material mantém seu fluxo e histórico corretos",
+      "Material dividido entre triagem e destino final preserva pendência; conversão em estoque cria um único lote após concluir a coleta",
+      "Saldo parcial, conferência ausente, ocorrência aberta e acesso indevido continuam bloqueados",
+      "Busca por código curto com/sem #, ID completo e solicitação vinculada funciona em quatro listas e respeita cooperativa",
+      "Lista retorna referência da solicitação e filtro A concluir encontra material todo encaminhado"
+    ]
+  },
+  "integratedBrowser": {
+    "checks": [
+      "Preparação offline automática sem faixa de configuração ou ação manual",
+      "App reabre offline com aviso operacional discreto e sessão preservada",
+      "CEP preenche rua automaticamente e número consulta endereço completo sem dispensar confirmação do ponto",
+      "Gerador vê termo completo, checkbox desmarcado bloqueia confirmação e aceite é gravado pelo próprio titular",
+      "Serviço em campo apresenta solicitação; GPS negado explica como ativar sem iniciar compartilhamento",
+      "Motorista autoriza GPS e envia posição recente vinculada à rota",
+      "Motorista inclui ponto avulso com GPS durante execução de rota por bairro",
+      "Painel acompanha motorista no mapa, com horário, precisão e atalho da rota",
+      "Mesmo compartilhamento está disponível no App da cooperativa e painel",
+      "Entrada direta pelo painel aceita material misturado, registra pesagem e abre destinações filtradas pela origem",
+      "Painel apresenta comprovante de aceite do motorista sem permitir que administrador aceite pelo titular",
+      "Aviso de início de rota no painel abre acompanhamento do motorista",
+      "Fluxos Web e painel sem erros JavaScript"
+    ],
+    "errors": []
+  },
+  "offlineBrowser": {
+    "checks": [
+      "Shell completo preparado; CacheStorage não contém respostas privadas da API",
+      "Recarregar diretório offline mantém sessão e cadastros baixados",
+      "Fechar e reabrir aba offline recupera App e autenticação local",
+      "Rascunho, endereço e localização sobrevivem ao recarregamento offline",
+      "Salvar offline persiste protocolo e fila antes de qualquer confirmação no servidor",
+      "Reconexão envia uma única criação e mantém confirmação após recarregar",
+      "Tela de 390px sem transbordamento",
+      "Resposta perdida após commit é reenviada com o mesmo protocolo sem duplicar gerador",
+      "Validação inválida permanece salva e correção só abre após conferir ausência no servidor",
+      "Falha de espaço não sinaliza sucesso e preserva o último rascunho confirmado",
+      "Rascunho legado com foto migra para IndexedDB antes de remover armazenamento antigo",
+      "Observações de campo digitadas são recuperadas após recarregar offline",
+      "Catador inicia coleta offline; estado e fila sobrevivem ao reload sem antecipar confirmação remota",
+      "Coleta offline é sincronizada e preserva autoria do catador",
+      "Troca de conta em outra aba atualiza perfil e não expõe rascunhos do catador",
+      "Logout offline não ressuscita sessão antiga ao recarregar",
+      "Fluxos concluídos sem erros JavaScript, inclusive ícones no modo offline"
+    ],
+    "errors": []
+  },
+  "appContracts": {
+    "method": "Funções/serviços reais transpilados, armazenamento e rede controlados; sem aparelho físico.",
+    "results": [
+      {
+        "name": "Data de Fortaleza rejeita calendário impossível e conserva fuso",
+        "status": "PASS"
+      },
+      {
+        "name": "Materiais conservam litros e unidades sem inventar massa",
+        "status": "PASS"
+      },
+      {
+        "name": "PDF escreve 50 L em vez de zero kg",
+        "status": "PASS"
+      },
+      {
+        "name": "Agenda local isola contas inclusive IDs compartilhados",
+        "status": "PASS"
+      },
+      {
+        "name": "401 limpa sessão; erro de rede conserva consulta local",
+        "status": "PASS"
+      },
+      {
+        "name": "Resposta antiga de auth/me não apaga uma sessão nova",
+        "status": "PASS"
+      },
+      {
+        "name": "Cofre nativo migra token legado e remove cópia em texto",
+        "status": "PASS"
+      },
+      {
+        "name": "Origem reconhece PEV, gerador e endereço PF com faixa válida",
+        "status": "PASS"
+      },
+      {
+        "name": "Rota serializa IDs de coleta e conserva PEV e ordem recebidos",
+        "status": "PASS"
+      },
+      {
+        "name": "Saída aguarda preparação da cooperativa e distingue veículo em manutenção",
+        "status": "PASS"
+      },
+      {
+        "name": "Seleção inicial prioriza execução em andamento e programação atual do Ceará",
+        "status": "PASS"
+      }
+    ]
+  },
+  "builds": {
+    "appTypescript": "PASS",
+    "serverTypescript": "PASS",
+    "appWebExport": "PASS",
+    "panelBuild": "PASS"
+  },
+  "nativeBuilds": "Não executados; Android e iOS fora do escopo solicitado.",
+  "limits": [
+    "GPS exige autorização do motorista; navegador aberto e visível.",
+    "Geocodificação não garante posição exata: ponto deve ser conferido.",
+    "Texto do termo e política devem ser validados pelo responsável jurídico/privacidade da operação."
+  ]
+}

@@ -121,7 +121,8 @@ function InboxContent({ userId }: { userId: string }) {
         ),
       );
       if (!item.readAt) setUnread((n) => Math.max(0, n - 1));
-      if (
+      if(item.data?.driverId && user?.role === "COOPERATIVE"){router.push({pathname:"/(cooperativa)/motoristas/localizacao",params:{id:item.data.driverId}});}
+      else if (
         item.data?.pevRequestId &&
         ["PF", "COLLECTOR", "COOPERATIVE"].includes(user?.role || "")
       ) {
@@ -594,7 +595,7 @@ function NoticeCard({
       ) : (
         <Text style={styles.message}>{item.message}</Text>
       )}
-      {(item.collectionId || item.data?.routeId || item.data?.pevRequestId) && (
+      {(item.collectionId || item.data?.routeId || item.data?.pevRequestId || item.data?.driverId) && (
         <View style={styles.cardFooter}>
           <Text style={styles.link}>
             {item.data?.pevRequestId
