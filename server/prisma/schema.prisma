@@ -8,6 +8,9 @@ datasource db {
 }
 
 model User {
+  agentRuns AgentRun[]
+  agentConversations AgentConversation[]
+  agentAudits AgentAuditEvent[]
   id                     String        @id @default(cuid())
   email                  String        @unique
   passwordHash           String
@@ -55,6 +58,11 @@ model User {
 }
 
 model Cooperative {
+  agentConfigs AgentConfig[]
+  agentRuns AgentRun[]
+  agentConversations AgentConversation[]
+  agentProposals AgentProposal[]
+  agentAudits AgentAuditEvent[]
   intakeDeliverers IntakeDeliverer[]
   serviceOrders ServiceOrder[]
   internalDocuments InternalDocument[]
@@ -1782,4 +1790,135 @@ model IntakeDeliverer {
  collections Collection[]
  @@unique([cooperativeId, cpf])
  @@index([cooperativeId, normalizedName, id])
+}
+
+
+// Agents v1: análise consultiva, sem executor de operações.
+enum AgentKey {
+  COLLECTIONS
+  ROUTES
+  MANAGER
+}
+enum AgentRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+enum AgentOrigin {
+  MANUAL
+  COMMAND
+  SCHEDULED
+}
+enum AgentProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+  FAILED
+}
+enum AgentMessageRole {
+  USER
+  ASSISTANT
+}
+model AgentConfig {
+  id String @id @default(cuid())
+  cooperativeId String
+  agent AgentKey
+  enabled Boolean @default(false)
+  intervalMinutes Int @default(60)
+  nextRunAt DateTime @default(now())
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+  @@unique([cooperativeId,agent])
+  @@index([enabled,nextRunAt])
+}
+model AgentConversation {
+  id String @id @default(cuid())
+  cooperativeId String
+  userId String?
+  title String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+  user User? @relation(fields:[userId],references:[id],onDelete:SetNull)
+  messages AgentMessage[]
+  runs AgentRun[]
+  @@unique([cooperativeId,id])
+  @@index([cooperativeId,createdAt,id])
+}
+model AgentRun {
+  id String @id @default(cuid())
+  cooperativeId String
+  actorId String?
+  conversationId String?
+  agent AgentKey
+  command String
+  origin AgentOrigin
+  eventKey String
+  inputHash String
+  status AgentRunStatus @default(RUNNING)
+  result Json?
+  errorCode String?
+  startedAt DateTime @default(now())
+  finishedAt DateTime?
+  expiresAt DateTime
+  cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+  actor User? @relation(fields:[actorId],references:[id],onDelete:SetNull)
+  conversation AgentConversation? @relation(fields:[cooperativeId,conversationId],references:[cooperativeId,id])
+  messages AgentMessage[]
+  proposals AgentProposal[]
+  @@unique([cooperativeId,eventKey])
+  @@unique([cooperativeId,id])
+  @@index([cooperativeId,startedAt,id])
+  @@index([cooperativeId,status,expiresAt])
+  @@index([status,expiresAt])
+}
+model AgentMessage {
+  id String @id @default(cuid())
+  cooperativeId String
+  conversationId String
+  runId String
+  role AgentMessageRole
+  content String
+  data Json?
+  createdAt DateTime @default(now())
+  conversation AgentConversation @relation(fields:[cooperativeId,conversationId],references:[cooperativeId,id],onDelete:Cascade)
+  run AgentRun @relation(fields:[cooperativeId,runId],references:[cooperativeId,id],onDelete:Cascade)
+  @@unique([runId,role])
+  @@index([cooperativeId,conversationId,createdAt,id])
+}
+model AgentProposal {
+  id String @id @default(cuid())
+  cooperativeId String
+  runId String
+  fingerprint String
+  kind String
+  title String
+  description String
+  evidence Json
+  status AgentProposalStatus @default(PENDING)
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  decidedAt DateTime?
+  cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+  run AgentRun @relation(fields:[cooperativeId,runId],references:[cooperativeId,id])
+  @@unique([cooperativeId,fingerprint])
+  @@index([cooperativeId,status,createdAt,id])
+}
+model AgentAuditEvent {
+  id String @id @default(cuid())
+  cooperativeId String
+  actorId String?
+  eventKey String
+  action String
+  targetId String
+  data Json
+  createdAt DateTime @default(now())
+  cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+  actor User? @relation(fields:[actorId],references:[id],onDelete:SetNull)
+  @@unique([cooperativeId,eventKey])
+  @@index([cooperativeId,createdAt,id])
 }

@@ -1,0 +1,315 @@
+{
+  "date": "2026-11-04",
+  "passed": 62,
+  "failed": 0,
+  "migrationPreservation": true,
+  "environment": "PGlite local descartável; Fastify inject + Prisma reais",
+  "cases": [
+    {
+      "name": "auth: ausência de JWT retorna 401",
+      "status": "PASS"
+    },
+    {
+      "name": "auth: JWT inválido retorna 401",
+      "status": "PASS"
+    },
+    {
+      "name": "RBAC: COLLECTOR bloqueado",
+      "status": "PASS"
+    },
+    {
+      "name": "RBAC: DRIVER bloqueado",
+      "status": "PASS"
+    },
+    {
+      "name": "RBAC: PF bloqueado",
+      "status": "PASS"
+    },
+    {
+      "name": "RBAC: GENERATOR_SMALL bloqueado",
+      "status": "PASS"
+    },
+    {
+      "name": "RBAC: GENERATOR_LARGE bloqueado",
+      "status": "PASS"
+    },
+    {
+      "name": "RBAC: MUNICIPAL_MANAGER bloqueado",
+      "status": "PASS"
+    },
+    {
+      "name": "feature flag global bloqueia uso sem remover rotas antigas",
+      "status": "PASS"
+    },
+    {
+      "name": "catálogo de três agentes, sete comandos e configurações desativadas",
+      "status": "PASS"
+    },
+    {
+      "name": "agente desativado não executa nem cria histórico",
+      "status": "PASS"
+    },
+    {
+      "name": "validação: agente desconhecido, corpo extra e intervalo inválido",
+      "status": "PASS"
+    },
+    {
+      "name": "habilitar COLLECTIONS com versão e auditoria",
+      "status": "PASS"
+    },
+    {
+      "name": "habilitar ROUTES com versão e auditoria",
+      "status": "PASS"
+    },
+    {
+      "name": "habilitar MANAGER com versão e auditoria",
+      "status": "PASS"
+    },
+    {
+      "name": "configuração idempotente e evento conflitante",
+      "status": "PASS"
+    },
+    {
+      "name": "comando: PENDING_COLLECTIONS, pontuação e acentos",
+      "status": "PASS"
+    },
+    {
+      "name": "comando: OVERDUE_REQUESTS, pontuação e acentos",
+      "status": "PASS"
+    },
+    {
+      "name": "comando: COLLECTION_PRIORITIES, pontuação e acentos",
+      "status": "PASS"
+    },
+    {
+      "name": "comando: SCHEDULED_ROUTES, pontuação e acentos",
+      "status": "PASS"
+    },
+    {
+      "name": "comando: ROUTES_ATTENTION, pontuação e acentos",
+      "status": "PASS"
+    },
+    {
+      "name": "comando: OPERATIONAL_SUMMARY, pontuação e acentos",
+      "status": "PASS"
+    },
+    {
+      "name": "comando: ATTENTION_OCCURRENCES, pontuação e acentos",
+      "status": "PASS"
+    },
+    {
+      "name": "texto desconhecido, injeção e ordens de mutação retornam orientação",
+      "status": "PASS"
+    },
+    {
+      "name": "comando inválido/ambíguo e texto longo rejeitados",
+      "status": "PASS"
+    },
+    {
+      "name": "análise vazia de coletas não inventa registros",
+      "status": "PASS"
+    },
+    {
+      "name": "análise vazia de rotas retorna lista vazia",
+      "status": "PASS"
+    },
+    {
+      "name": "prioridades reais, proposta de agrupamento e isolamento",
+      "status": "PASS"
+    },
+    {
+      "name": "histórico idempotente não repete mensagens/propostas/avisos",
+      "status": "PASS"
+    },
+    {
+      "name": "nova execução sobre mesma evidência não duplica proposta nem sino",
+      "status": "PASS"
+    },
+    {
+      "name": "solicitações atrasadas usam datas reais e filtro reconhecido",
+      "status": "PASS"
+    },
+    {
+      "name": "conversa e duas mensagens persistidas com resposta estruturada",
+      "status": "PASS"
+    },
+    {
+      "name": "continuar conversa existente sem duplicar no replay",
+      "status": "PASS"
+    },
+    {
+      "name": "rotas detectam conflito existente e falta de equipe sem alterá-las",
+      "status": "PASS"
+    },
+    {
+      "name": "prioridades incluem ordens extras e relatos de PEV sem misturar contagens",
+      "status": "PASS"
+    },
+    {
+      "name": "rotas reutilizam otimizador sem acesso a serviço externo e sem aplicar a ordem",
+      "status": "PASS"
+    },
+    {
+      "name": "rotas programadas aceita variação textual",
+      "status": "PASS"
+    },
+    {
+      "name": "gestor reutiliza dashboard e alertas, sem somar unidades",
+      "status": "PASS"
+    },
+    {
+      "name": "ocorrências reutilizam SystemAlert e respeitam adiamento",
+      "status": "PASS"
+    },
+    {
+      "name": "aprovação humana registra decisão sem executor operacional",
+      "status": "PASS"
+    },
+    {
+      "name": "versão, decisão conflitante e execução operacional bloqueadas",
+      "status": "PASS"
+    },
+    {
+      "name": "rejeição de proposta pendente preserva evidências e auditoria",
+      "status": "PASS"
+    },
+    {
+      "name": "isolamento por id: runs",
+      "status": "PASS"
+    },
+    {
+      "name": "isolamento por id: proposals",
+      "status": "PASS"
+    },
+    {
+      "name": "isolamento por id: conversations",
+      "status": "PASS"
+    },
+    {
+      "name": "isolamento de listas: histórico, conversas, propostas, auditoria e ocorrências",
+      "status": "PASS"
+    },
+    {
+      "name": "cooperativa alheia não decide proposta nem reutiliza conversa",
+      "status": "PASS"
+    },
+    {
+      "name": "FK composta impede mensagem em conversa de outra cooperativa",
+      "status": "PASS"
+    },
+    {
+      "name": "paginações com cursor local e alheio, filtros e limites",
+      "status": "PASS"
+    },
+    {
+      "name": "notificações no sino existente pertencem à cooperativa correta",
+      "status": "PASS"
+    },
+    {
+      "name": "falha de ferramenta fica registrada e não vaza detalhes técnicos",
+      "status": "PASS"
+    },
+    {
+      "name": "desativação durante análise impede persistir novas propostas",
+      "status": "PASS"
+    },
+    {
+      "name": "execução concorrente por cooperativa e replay em andamento",
+      "status": "PASS"
+    },
+    {
+      "name": "lease vencido é encerrado sem repetir operação",
+      "status": "PASS"
+    },
+    {
+      "name": "limite por minuto persistido bloqueia a décima primeira análise",
+      "status": "PASS"
+    },
+    {
+      "name": "limite diário persistido resiste a reinício/processo novo",
+      "status": "PASS"
+    },
+    {
+      "name": "gatilho automático executa sem painel e não duplica no segundo tick",
+      "status": "PASS"
+    },
+    {
+      "name": "recuperação de análise interrompida independe de nova execução",
+      "status": "PASS"
+    },
+    {
+      "name": "gatilho desativado e conta inativa não executam",
+      "status": "PASS"
+    },
+    {
+      "name": "segurança: análises e decisões preservam coletas, rotas e estoque",
+      "status": "PASS"
+    },
+    {
+      "name": "histórico e trilha sem endpoints de edição/exclusão",
+      "status": "PASS"
+    },
+    {
+      "name": "worker fecha sem deixar timer ou tarefa em execução",
+      "status": "PASS"
+    }
+  ],
+  "migration": {
+    "name": "20261104020000_agents_v1",
+    "status": "PASS",
+    "preserved": [
+      "Cooperative",
+      "SystemAlert"
+    ],
+    "environment": "PGlite descartável, schema anterior + migração incremental"
+  },
+  "regression": {
+    "passed": 35,
+    "failed": 0,
+    "cases": [
+      "Migração preserva execução histórica e seu ponto sem inventar data de saída",
+      "Antes da saída não existe operação em campo",
+      "Saída registra início da execução e preserva pontos aguardando atendimento",
+      "Painel conta uma rota fixa em campo sem contar suas três paradas novamente",
+      "Agenda e registros do painel identificam saída em campo sem confundir com atendimento do ponto",
+      "Repetir confirmação não modifica a primeira saída",
+      "Execuções são paginadas inteiras por data crescente, sem transferir todos os detalhes",
+      "Datas de execução permanecem em tópicos separados e em ordem entre páginas",
+      "Pontos seguem a sequência da rota com paginação própria e contexto em campo",
+      "Coletas normais excluem pontos de rotas fixas, inclusive plano histórico removido",
+      "Busca por um ponto encontra sua execução completa",
+      "Endereço avulso sem cadastro de gerador conserva identificação e pode ser pesquisado",
+      "Filtro de programação distingue os dias de execução no fuso do Ceará",
+      "Iniciar ponto dentro da rota não duplica a operação em campo",
+      "Coleta delegada individual iniciada entra no mesmo indicador",
+      "Rotas avulsas e fixas e coleta individual são contadas sem sobreposição",
+      "Pontos com saída confirmada não ficam na fila de pendentes sem saída",
+      "Recebimento de um ponto preserva os demais e sua entrada de material individual",
+      "Filtro por colaborador reconhece sua participação em equipe",
+      "Detalhes e consultas respeitam cooperativa proprietária e perfil autorizado",
+      "Paginação, etapa e período inválidos são rejeitados",
+      "Ordenação global cruza meses e páginas, ignora prioridade por status, desempata por ID e coloca sem data ao final",
+      "Migração aditiva preserva execução antiga e inicia histórico vazio",
+      "Catador relata ponto não atendido com autor/data/motivo sem cancelar a coleta ou o agendamento",
+      "Relato é idempotente e rejeita reutilização do identificador com outro conteúdo",
+      "Bloqueia relato em coleta realizada, acesso entre cooperativas e decisão do catador",
+      "Solicitação exige motivo em todos os pontos e notifica a cooperativa sem encerrar a rota",
+      "Cancelamento preserva integralmente três coletas feitas e cancela somente dois pontos, encerrando como parcial",
+      "Reenvio após perda de resposta não duplica decisão nem notificações",
+      "Execução sem coletas realizadas é cancelada com os pontos e sem gerar produção",
+      "Reagendamento parcial cria somente dois atendimentos novos sem peso, preserva histórico e próximas recorrências, com repetição segura",
+      "Reagendamento antes da saída valida data, preserva data anterior e atualiza todos os agendamentos sem duplicar coletas",
+      "Impede reescrever execução iniciada e cancelação com materiais inconsistentes, com rollback integral",
+      "Duas decisões simultâneas resultam em somente um encerramento, sem duplicação de histórico",
+      "Execução encerrada e acesso da cooperativa estrangeira permanecem bloqueados"
+    ]
+  },
+  "checks": {
+    "prismaValidate": "PASS",
+    "typescript": "PASS",
+    "build": "PASS"
+  },
+  "branch": "work/agents-v1-backend-20261104",
+  "productionChanged": false,
+  "frontendChanged": false
+}

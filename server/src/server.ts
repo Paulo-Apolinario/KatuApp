@@ -1,3 +1,4 @@
+import { registerAgentWorker } from "./modules/agents/agents.triggers";
 import { RoutePlanningService } from "./modules/routes/planning.service";
 import { buildApp } from "./app";
 import { env } from "./config/env";
@@ -5,6 +6,7 @@ import { prisma } from "./lib/prisma";
 
 async function start() {
   const app = await buildApp();
+  registerAgentWorker(app);
   let generating = false;
   const generateRoutes = async () => {
     if (generating) return;
