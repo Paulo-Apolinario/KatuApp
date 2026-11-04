@@ -1,0 +1,3119 @@
+{
+  "date": "2026-11-04",
+  "scope": "Painel da cooperativa e serviços consumidos por ele; sem execução em produção ou testes nativos",
+  "environment": "Chromium desktop/celular, build Vite real, Fastify/Prisma e PGlite descartável; mapa controlado no cadastro de gerador",
+  "coverage": {
+    "screens": 56,
+    "checksPerScreen": 5,
+    "registrationFamilies": 19,
+    "checksPerRegistrationFamily": 5,
+    "adverseGroups": 4,
+    "checksPerAdverseGroup": 5,
+    "operationalGroups": 6,
+    "checksPerOperationalGroup": 10,
+    "categoryCounts": {
+      "abas": 280,
+      "cadastros": 95,
+      "adversos": 20,
+      "operacionais": 60,
+      "fluxos-ui": 17,
+      "exportacoes": 6,
+      "gestoes": 1,
+      "relatorios": 25,
+      "sessao": 5
+    }
+  },
+  "matrix": {
+    "passed": 509,
+    "failed": 0,
+    "cases": [
+      {
+        "id": "TAB01-1",
+        "category": "abas",
+        "name": "Painel Geral — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB01-2",
+        "category": "abas",
+        "name": "Painel Geral — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB01-3",
+        "category": "abas",
+        "name": "Painel Geral — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB01-4",
+        "category": "abas",
+        "name": "Painel Geral — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB01-5",
+        "category": "abas",
+        "name": "Painel Geral — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB02-1",
+        "category": "abas",
+        "name": "Central de avisos — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB02-2",
+        "category": "abas",
+        "name": "Central de avisos — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB02-3",
+        "category": "abas",
+        "name": "Central de avisos — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB02-4",
+        "category": "abas",
+        "name": "Central de avisos — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB02-5",
+        "category": "abas",
+        "name": "Central de avisos — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB03-1",
+        "category": "abas",
+        "name": "Entregadores avulsos — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB03-2",
+        "category": "abas",
+        "name": "Entregadores avulsos — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB03-3",
+        "category": "abas",
+        "name": "Entregadores avulsos — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB03-4",
+        "category": "abas",
+        "name": "Entregadores avulsos — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB03-5",
+        "category": "abas",
+        "name": "Entregadores avulsos — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB04-1",
+        "category": "abas",
+        "name": "Entradas e coletas avulsas — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB04-2",
+        "category": "abas",
+        "name": "Entradas e coletas avulsas — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB04-3",
+        "category": "abas",
+        "name": "Entradas e coletas avulsas — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB04-4",
+        "category": "abas",
+        "name": "Entradas e coletas avulsas — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB04-5",
+        "category": "abas",
+        "name": "Entradas e coletas avulsas — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB05-1",
+        "category": "abas",
+        "name": "Ordens de Serviço — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB05-2",
+        "category": "abas",
+        "name": "Ordens de Serviço — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB05-3",
+        "category": "abas",
+        "name": "Ordens de Serviço — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB05-4",
+        "category": "abas",
+        "name": "Ordens de Serviço — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB05-5",
+        "category": "abas",
+        "name": "Ordens de Serviço — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB06-1",
+        "category": "abas",
+        "name": "Lista de Coletas — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB06-2",
+        "category": "abas",
+        "name": "Lista de Coletas — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB06-3",
+        "category": "abas",
+        "name": "Lista de Coletas — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB06-4",
+        "category": "abas",
+        "name": "Lista de Coletas — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB06-5",
+        "category": "abas",
+        "name": "Lista de Coletas — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB07-1",
+        "category": "abas",
+        "name": "Coletas Solicitadas — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB07-2",
+        "category": "abas",
+        "name": "Coletas Solicitadas — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB07-3",
+        "category": "abas",
+        "name": "Coletas Solicitadas — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB07-4",
+        "category": "abas",
+        "name": "Coletas Solicitadas — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB07-5",
+        "category": "abas",
+        "name": "Coletas Solicitadas — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB08-1",
+        "category": "abas",
+        "name": "Ordens de coleta extras — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB08-2",
+        "category": "abas",
+        "name": "Ordens de coleta extras — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB08-3",
+        "category": "abas",
+        "name": "Ordens de coleta extras — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB08-4",
+        "category": "abas",
+        "name": "Ordens de coleta extras — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB08-5",
+        "category": "abas",
+        "name": "Ordens de coleta extras — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB09-1",
+        "category": "abas",
+        "name": "Lista de PEVs — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB09-2",
+        "category": "abas",
+        "name": "Lista de PEVs — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB09-3",
+        "category": "abas",
+        "name": "Lista de PEVs — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB09-4",
+        "category": "abas",
+        "name": "Lista de PEVs — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB09-5",
+        "category": "abas",
+        "name": "Lista de PEVs — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB10-1",
+        "category": "abas",
+        "name": "Cadastrar PEV — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB10-2",
+        "category": "abas",
+        "name": "Cadastrar PEV — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB10-3",
+        "category": "abas",
+        "name": "Cadastrar PEV — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB10-4",
+        "category": "abas",
+        "name": "Cadastrar PEV — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB10-5",
+        "category": "abas",
+        "name": "Cadastrar PEV — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB11-1",
+        "category": "abas",
+        "name": "Listar Geradores — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB11-2",
+        "category": "abas",
+        "name": "Listar Geradores — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB11-3",
+        "category": "abas",
+        "name": "Listar Geradores — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB11-4",
+        "category": "abas",
+        "name": "Listar Geradores — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB11-5",
+        "category": "abas",
+        "name": "Listar Geradores — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB12-1",
+        "category": "abas",
+        "name": "Cadastrar Gerador — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB12-2",
+        "category": "abas",
+        "name": "Cadastrar Gerador — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB12-3",
+        "category": "abas",
+        "name": "Cadastrar Gerador — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB12-4",
+        "category": "abas",
+        "name": "Cadastrar Gerador — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB12-5",
+        "category": "abas",
+        "name": "Cadastrar Gerador — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB13-1",
+        "category": "abas",
+        "name": "Documentos dos geradores — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB13-2",
+        "category": "abas",
+        "name": "Documentos dos geradores — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB13-3",
+        "category": "abas",
+        "name": "Documentos dos geradores — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB13-4",
+        "category": "abas",
+        "name": "Documentos dos geradores — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB13-5",
+        "category": "abas",
+        "name": "Documentos dos geradores — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB14-1",
+        "category": "abas",
+        "name": "Histórico dos geradores — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB14-2",
+        "category": "abas",
+        "name": "Histórico dos geradores — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB14-3",
+        "category": "abas",
+        "name": "Histórico dos geradores — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB14-4",
+        "category": "abas",
+        "name": "Histórico dos geradores — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB14-5",
+        "category": "abas",
+        "name": "Histórico dos geradores — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB15-1",
+        "category": "abas",
+        "name": "Veículos — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB15-2",
+        "category": "abas",
+        "name": "Veículos — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB15-3",
+        "category": "abas",
+        "name": "Veículos — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB15-4",
+        "category": "abas",
+        "name": "Veículos — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB15-5",
+        "category": "abas",
+        "name": "Veículos — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB16-1",
+        "category": "abas",
+        "name": "Cadastrar Veículo — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB16-2",
+        "category": "abas",
+        "name": "Cadastrar Veículo — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB16-3",
+        "category": "abas",
+        "name": "Cadastrar Veículo — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB16-4",
+        "category": "abas",
+        "name": "Cadastrar Veículo — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB16-5",
+        "category": "abas",
+        "name": "Cadastrar Veículo — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB17-1",
+        "category": "abas",
+        "name": "Documentos dos veículos — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB17-2",
+        "category": "abas",
+        "name": "Documentos dos veículos — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB17-3",
+        "category": "abas",
+        "name": "Documentos dos veículos — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB17-4",
+        "category": "abas",
+        "name": "Documentos dos veículos — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB17-5",
+        "category": "abas",
+        "name": "Documentos dos veículos — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB18-1",
+        "category": "abas",
+        "name": "Histórico dos veículos — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB18-2",
+        "category": "abas",
+        "name": "Histórico dos veículos — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB18-3",
+        "category": "abas",
+        "name": "Histórico dos veículos — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB18-4",
+        "category": "abas",
+        "name": "Histórico dos veículos — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB18-5",
+        "category": "abas",
+        "name": "Histórico dos veículos — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB19-1",
+        "category": "abas",
+        "name": "Manutenções — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB19-2",
+        "category": "abas",
+        "name": "Manutenções — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB19-3",
+        "category": "abas",
+        "name": "Manutenções — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB19-4",
+        "category": "abas",
+        "name": "Manutenções — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB19-5",
+        "category": "abas",
+        "name": "Manutenções — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB20-1",
+        "category": "abas",
+        "name": "Rotas cadastradas — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB20-2",
+        "category": "abas",
+        "name": "Rotas cadastradas — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB20-3",
+        "category": "abas",
+        "name": "Rotas cadastradas — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB20-4",
+        "category": "abas",
+        "name": "Rotas cadastradas — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB20-5",
+        "category": "abas",
+        "name": "Rotas cadastradas — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB21-1",
+        "category": "abas",
+        "name": "Rotas fixas — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB21-2",
+        "category": "abas",
+        "name": "Rotas fixas — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB21-3",
+        "category": "abas",
+        "name": "Rotas fixas — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB21-4",
+        "category": "abas",
+        "name": "Rotas fixas — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB21-5",
+        "category": "abas",
+        "name": "Rotas fixas — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB22-1",
+        "category": "abas",
+        "name": "Central ambiental — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB22-2",
+        "category": "abas",
+        "name": "Central ambiental — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB22-3",
+        "category": "abas",
+        "name": "Central ambiental — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB22-4",
+        "category": "abas",
+        "name": "Central ambiental — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB22-5",
+        "category": "abas",
+        "name": "Central ambiental — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB23-1",
+        "category": "abas",
+        "name": "Calendário Operacional — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB23-2",
+        "category": "abas",
+        "name": "Calendário Operacional — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB23-3",
+        "category": "abas",
+        "name": "Calendário Operacional — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB23-4",
+        "category": "abas",
+        "name": "Calendário Operacional — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB23-5",
+        "category": "abas",
+        "name": "Calendário Operacional — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB24-1",
+        "category": "abas",
+        "name": "Criar Rota — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB24-2",
+        "category": "abas",
+        "name": "Criar Rota — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB24-3",
+        "category": "abas",
+        "name": "Criar Rota — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB24-4",
+        "category": "abas",
+        "name": "Criar Rota — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB24-5",
+        "category": "abas",
+        "name": "Criar Rota — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB25-1",
+        "category": "abas",
+        "name": "Motoristas — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB25-2",
+        "category": "abas",
+        "name": "Motoristas — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB25-3",
+        "category": "abas",
+        "name": "Motoristas — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB25-4",
+        "category": "abas",
+        "name": "Motoristas — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB25-5",
+        "category": "abas",
+        "name": "Motoristas — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB26-1",
+        "category": "abas",
+        "name": "Acompanhar coletas — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB26-2",
+        "category": "abas",
+        "name": "Acompanhar coletas — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB26-3",
+        "category": "abas",
+        "name": "Acompanhar coletas — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB26-4",
+        "category": "abas",
+        "name": "Acompanhar coletas — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB26-5",
+        "category": "abas",
+        "name": "Acompanhar coletas — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB27-1",
+        "category": "abas",
+        "name": "Adicionar motorista — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB27-2",
+        "category": "abas",
+        "name": "Adicionar motorista — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB27-3",
+        "category": "abas",
+        "name": "Adicionar motorista — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB27-4",
+        "category": "abas",
+        "name": "Adicionar motorista — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB27-5",
+        "category": "abas",
+        "name": "Adicionar motorista — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB28-1",
+        "category": "abas",
+        "name": "Documentos dos motoristas — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB28-2",
+        "category": "abas",
+        "name": "Documentos dos motoristas — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB28-3",
+        "category": "abas",
+        "name": "Documentos dos motoristas — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB28-4",
+        "category": "abas",
+        "name": "Documentos dos motoristas — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB28-5",
+        "category": "abas",
+        "name": "Documentos dos motoristas — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB29-1",
+        "category": "abas",
+        "name": "Histórico dos motoristas — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB29-2",
+        "category": "abas",
+        "name": "Histórico dos motoristas — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB29-3",
+        "category": "abas",
+        "name": "Histórico dos motoristas — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB29-4",
+        "category": "abas",
+        "name": "Histórico dos motoristas — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB29-5",
+        "category": "abas",
+        "name": "Histórico dos motoristas — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB30-1",
+        "category": "abas",
+        "name": "Catadores — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB30-2",
+        "category": "abas",
+        "name": "Catadores — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB30-3",
+        "category": "abas",
+        "name": "Catadores — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB30-4",
+        "category": "abas",
+        "name": "Catadores — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB30-5",
+        "category": "abas",
+        "name": "Catadores — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB31-1",
+        "category": "abas",
+        "name": "Adicionar catador — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB31-2",
+        "category": "abas",
+        "name": "Adicionar catador — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB31-3",
+        "category": "abas",
+        "name": "Adicionar catador — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB31-4",
+        "category": "abas",
+        "name": "Adicionar catador — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB31-5",
+        "category": "abas",
+        "name": "Adicionar catador — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB32-1",
+        "category": "abas",
+        "name": "Equipes de catadores — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB32-2",
+        "category": "abas",
+        "name": "Equipes de catadores — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB32-3",
+        "category": "abas",
+        "name": "Equipes de catadores — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB32-4",
+        "category": "abas",
+        "name": "Equipes de catadores — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB32-5",
+        "category": "abas",
+        "name": "Equipes de catadores — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB33-1",
+        "category": "abas",
+        "name": "Documentos dos catadores — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB33-2",
+        "category": "abas",
+        "name": "Documentos dos catadores — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB33-3",
+        "category": "abas",
+        "name": "Documentos dos catadores — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB33-4",
+        "category": "abas",
+        "name": "Documentos dos catadores — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB33-5",
+        "category": "abas",
+        "name": "Documentos dos catadores — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB34-1",
+        "category": "abas",
+        "name": "Histórico dos catadores — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB34-2",
+        "category": "abas",
+        "name": "Histórico dos catadores — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB34-3",
+        "category": "abas",
+        "name": "Histórico dos catadores — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB34-4",
+        "category": "abas",
+        "name": "Histórico dos catadores — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB34-5",
+        "category": "abas",
+        "name": "Histórico dos catadores — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB35-1",
+        "category": "abas",
+        "name": "Resíduos Coletados — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB35-2",
+        "category": "abas",
+        "name": "Resíduos Coletados — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB35-3",
+        "category": "abas",
+        "name": "Resíduos Coletados — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB35-4",
+        "category": "abas",
+        "name": "Resíduos Coletados — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB35-5",
+        "category": "abas",
+        "name": "Resíduos Coletados — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB36-1",
+        "category": "abas",
+        "name": "Movimentações e Destinações — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB36-2",
+        "category": "abas",
+        "name": "Movimentações e Destinações — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB36-3",
+        "category": "abas",
+        "name": "Movimentações e Destinações — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB36-4",
+        "category": "abas",
+        "name": "Movimentações e Destinações — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB36-5",
+        "category": "abas",
+        "name": "Movimentações e Destinações — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB37-1",
+        "category": "abas",
+        "name": "Estoque e Lotes — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB37-2",
+        "category": "abas",
+        "name": "Estoque e Lotes — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB37-3",
+        "category": "abas",
+        "name": "Estoque e Lotes — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB37-4",
+        "category": "abas",
+        "name": "Estoque e Lotes — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB37-5",
+        "category": "abas",
+        "name": "Estoque e Lotes — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB38-1",
+        "category": "abas",
+        "name": "Catálogo de Resíduos — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB38-2",
+        "category": "abas",
+        "name": "Catálogo de Resíduos — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB38-3",
+        "category": "abas",
+        "name": "Catálogo de Resíduos — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB38-4",
+        "category": "abas",
+        "name": "Catálogo de Resíduos — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB38-5",
+        "category": "abas",
+        "name": "Catálogo de Resíduos — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB39-1",
+        "category": "abas",
+        "name": "Painel de Indicadores — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB39-2",
+        "category": "abas",
+        "name": "Painel de Indicadores — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB39-3",
+        "category": "abas",
+        "name": "Painel de Indicadores — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB39-4",
+        "category": "abas",
+        "name": "Painel de Indicadores — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB39-5",
+        "category": "abas",
+        "name": "Painel de Indicadores — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB40-1",
+        "category": "abas",
+        "name": "Relatórios de Coletas — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB40-2",
+        "category": "abas",
+        "name": "Relatórios de Coletas — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB40-3",
+        "category": "abas",
+        "name": "Relatórios de Coletas — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB40-4",
+        "category": "abas",
+        "name": "Relatórios de Coletas — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB40-5",
+        "category": "abas",
+        "name": "Relatórios de Coletas — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB41-1",
+        "category": "abas",
+        "name": "Relatórios de Resíduos — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB41-2",
+        "category": "abas",
+        "name": "Relatórios de Resíduos — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB41-3",
+        "category": "abas",
+        "name": "Relatórios de Resíduos — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB41-4",
+        "category": "abas",
+        "name": "Relatórios de Resíduos — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB41-5",
+        "category": "abas",
+        "name": "Relatórios de Resíduos — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB42-1",
+        "category": "abas",
+        "name": "Impacto ambiental — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB42-2",
+        "category": "abas",
+        "name": "Impacto ambiental — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB42-3",
+        "category": "abas",
+        "name": "Impacto ambiental — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB42-4",
+        "category": "abas",
+        "name": "Impacto ambiental — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB42-5",
+        "category": "abas",
+        "name": "Impacto ambiental — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB43-1",
+        "category": "abas",
+        "name": "Relatórios de Equipe — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB43-2",
+        "category": "abas",
+        "name": "Relatórios de Equipe — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB43-3",
+        "category": "abas",
+        "name": "Relatórios de Equipe — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB43-4",
+        "category": "abas",
+        "name": "Relatórios de Equipe — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB43-5",
+        "category": "abas",
+        "name": "Relatórios de Equipe — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB44-1",
+        "category": "abas",
+        "name": "Relatórios de Veículos — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB44-2",
+        "category": "abas",
+        "name": "Relatórios de Veículos — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB44-3",
+        "category": "abas",
+        "name": "Relatórios de Veículos — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB44-4",
+        "category": "abas",
+        "name": "Relatórios de Veículos — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB44-5",
+        "category": "abas",
+        "name": "Relatórios de Veículos — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB45-1",
+        "category": "abas",
+        "name": "Dados da cooperativa — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB45-2",
+        "category": "abas",
+        "name": "Dados da cooperativa — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB45-3",
+        "category": "abas",
+        "name": "Dados da cooperativa — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB45-4",
+        "category": "abas",
+        "name": "Dados da cooperativa — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB45-5",
+        "category": "abas",
+        "name": "Dados da cooperativa — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB46-1",
+        "category": "abas",
+        "name": "Minha conta e segurança — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB46-2",
+        "category": "abas",
+        "name": "Minha conta e segurança — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB46-3",
+        "category": "abas",
+        "name": "Minha conta e segurança — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB46-4",
+        "category": "abas",
+        "name": "Minha conta e segurança — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB46-5",
+        "category": "abas",
+        "name": "Minha conta e segurança — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB47-1",
+        "category": "abas",
+        "name": "Preferências operacionais — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB47-2",
+        "category": "abas",
+        "name": "Preferências operacionais — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB47-3",
+        "category": "abas",
+        "name": "Preferências operacionais — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB47-4",
+        "category": "abas",
+        "name": "Preferências operacionais — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB47-5",
+        "category": "abas",
+        "name": "Preferências operacionais — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB48-1",
+        "category": "abas",
+        "name": "Histórico de alterações — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB48-2",
+        "category": "abas",
+        "name": "Histórico de alterações — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB48-3",
+        "category": "abas",
+        "name": "Histórico de alterações — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB48-4",
+        "category": "abas",
+        "name": "Histórico de alterações — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB48-5",
+        "category": "abas",
+        "name": "Histórico de alterações — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB49-1",
+        "category": "abas",
+        "name": "Configuração SMTP — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB49-2",
+        "category": "abas",
+        "name": "Configuração SMTP — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB49-3",
+        "category": "abas",
+        "name": "Configuração SMTP — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB49-4",
+        "category": "abas",
+        "name": "Configuração SMTP — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB49-5",
+        "category": "abas",
+        "name": "Configuração SMTP — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB50-1",
+        "category": "abas",
+        "name": "Central de Pendências — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB50-2",
+        "category": "abas",
+        "name": "Central de Pendências — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB50-3",
+        "category": "abas",
+        "name": "Central de Pendências — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB50-4",
+        "category": "abas",
+        "name": "Central de Pendências — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB50-5",
+        "category": "abas",
+        "name": "Central de Pendências — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB51-1",
+        "category": "abas",
+        "name": "Cadastrar material — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB51-2",
+        "category": "abas",
+        "name": "Cadastrar material — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB51-3",
+        "category": "abas",
+        "name": "Cadastrar material — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB51-4",
+        "category": "abas",
+        "name": "Cadastrar material — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB51-5",
+        "category": "abas",
+        "name": "Cadastrar material — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB52-1",
+        "category": "abas",
+        "name": "Adicionar lote — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB52-2",
+        "category": "abas",
+        "name": "Adicionar lote — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB52-3",
+        "category": "abas",
+        "name": "Adicionar lote — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB52-4",
+        "category": "abas",
+        "name": "Adicionar lote — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB52-5",
+        "category": "abas",
+        "name": "Adicionar lote — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB53-1",
+        "category": "abas",
+        "name": "Cadastrar manutenção — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB53-2",
+        "category": "abas",
+        "name": "Cadastrar manutenção — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB53-3",
+        "category": "abas",
+        "name": "Cadastrar manutenção — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB53-4",
+        "category": "abas",
+        "name": "Cadastrar manutenção — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB53-5",
+        "category": "abas",
+        "name": "Cadastrar manutenção — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB54-1",
+        "category": "abas",
+        "name": "Cadastrar documento do veículo — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB54-2",
+        "category": "abas",
+        "name": "Cadastrar documento do veículo — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB54-3",
+        "category": "abas",
+        "name": "Cadastrar documento do veículo — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB54-4",
+        "category": "abas",
+        "name": "Cadastrar documento do veículo — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB54-5",
+        "category": "abas",
+        "name": "Cadastrar documento do veículo — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB55-1",
+        "category": "abas",
+        "name": "Registros documentais dos veículos — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB55-2",
+        "category": "abas",
+        "name": "Registros documentais dos veículos — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB55-3",
+        "category": "abas",
+        "name": "Registros documentais dos veículos — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB55-4",
+        "category": "abas",
+        "name": "Registros documentais dos veículos — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB55-5",
+        "category": "abas",
+        "name": "Registros documentais dos veículos — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB56-1",
+        "category": "abas",
+        "name": "Perfil da conta — abrir dados e controles no desktop",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB56-2",
+        "category": "abas",
+        "name": "Perfil da conta — links e ações internas têm telas registradas",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB56-3",
+        "category": "abas",
+        "name": "Perfil da conta — recarregar endereço direto mantém tela utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB56-4",
+        "category": "abas",
+        "name": "Perfil da conta — celular sem transbordamento e menu utilizável",
+        "status": "PASS"
+      },
+      {
+        "id": "TAB56-5",
+        "category": "abas",
+        "name": "Perfil da conta — falha de consulta permanece identificada e recuperação funciona",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-gerador-1",
+        "category": "cadastros",
+        "name": "Gerador residencial cadastrado por CPF — criar e consultar persistência (API do painel)",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-gerador-2",
+        "category": "cadastros",
+        "name": "Gerador residencial cadastrado por CPF — dados inválidos não criam registro",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-gerador-3",
+        "category": "cadastros",
+        "name": "Gerador residencial cadastrado por CPF — duplicidade ou vínculo repetido é tratado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-gerador-4",
+        "category": "cadastros",
+        "name": "Gerador residencial cadastrado por CPF — corrigir dados e preservar campos existentes",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-gerador-5",
+        "category": "cadastros",
+        "name": "Gerador residencial cadastrado por CPF — impedir consulta por outra cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-catador-1",
+        "category": "cadastros",
+        "name": "Catador — criar e consultar persistência (API do painel)",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-catador-2",
+        "category": "cadastros",
+        "name": "Catador — dados inválidos não criam registro",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-catador-3",
+        "category": "cadastros",
+        "name": "Catador — duplicidade ou vínculo repetido é tratado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-catador-4",
+        "category": "cadastros",
+        "name": "Catador — corrigir dados e preservar campos existentes",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-catador-5",
+        "category": "cadastros",
+        "name": "Catador — impedir consulta por outra cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-motorista-1",
+        "category": "cadastros",
+        "name": "Motorista — criar e consultar persistência (API do painel)",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-motorista-2",
+        "category": "cadastros",
+        "name": "Motorista — dados inválidos não criam registro",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-motorista-3",
+        "category": "cadastros",
+        "name": "Motorista — duplicidade ou vínculo repetido é tratado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-motorista-4",
+        "category": "cadastros",
+        "name": "Motorista — corrigir dados e preservar campos existentes",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-motorista-5",
+        "category": "cadastros",
+        "name": "Motorista — impedir consulta por outra cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-veiculo-1",
+        "category": "cadastros",
+        "name": "Veículo — criar e consultar persistência (API do painel)",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-veiculo-2",
+        "category": "cadastros",
+        "name": "Veículo — dados inválidos não criam registro",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-veiculo-3",
+        "category": "cadastros",
+        "name": "Veículo — duplicidade ou vínculo repetido é tratado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-veiculo-4",
+        "category": "cadastros",
+        "name": "Veículo — corrigir dados e preservar campos existentes",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-veiculo-5",
+        "category": "cadastros",
+        "name": "Veículo — impedir consulta por outra cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-pev-1",
+        "category": "cadastros",
+        "name": "PEV — criar e consultar persistência (API do painel)",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-pev-2",
+        "category": "cadastros",
+        "name": "PEV — dados inválidos não criam registro",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-pev-3",
+        "category": "cadastros",
+        "name": "PEV — duplicidade ou vínculo repetido é tratado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-pev-4",
+        "category": "cadastros",
+        "name": "PEV — corrigir dados e preservar campos existentes",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-pev-5",
+        "category": "cadastros",
+        "name": "PEV — impedir consulta por outra cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-rota-1",
+        "category": "cadastros",
+        "name": "Rota programada — criar e consultar persistência (API do painel)",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-rota-2",
+        "category": "cadastros",
+        "name": "Rota programada — dados inválidos não criam registro",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-rota-3",
+        "category": "cadastros",
+        "name": "Rota programada — duplicidade ou vínculo repetido é tratado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-rota-4",
+        "category": "cadastros",
+        "name": "Rota programada — corrigir dados e preservar campos existentes",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-rota-5",
+        "category": "cadastros",
+        "name": "Rota programada — impedir consulta por outra cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-catalogo-1",
+        "category": "cadastros",
+        "name": "Material do catálogo — criar e consultar persistência (API do painel)",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-catalogo-2",
+        "category": "cadastros",
+        "name": "Material do catálogo — dados inválidos não criam registro",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-catalogo-3",
+        "category": "cadastros",
+        "name": "Material do catálogo — duplicidade ou vínculo repetido é tratado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-catalogo-4",
+        "category": "cadastros",
+        "name": "Material do catálogo — corrigir dados e preservar campos existentes",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-catalogo-5",
+        "category": "cadastros",
+        "name": "Material do catálogo — impedir consulta por outra cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-gerador-cnpj-1",
+        "category": "cadastros",
+        "name": "Pequeno gerador por CNPJ — criar e consultar persistência (API do painel)",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-gerador-cnpj-2",
+        "category": "cadastros",
+        "name": "Pequeno gerador por CNPJ — dados inválidos não criam registro",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-gerador-cnpj-3",
+        "category": "cadastros",
+        "name": "Pequeno gerador por CNPJ — duplicidade ou vínculo repetido é tratado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-gerador-cnpj-4",
+        "category": "cadastros",
+        "name": "Pequeno gerador por CNPJ — corrigir dados e preservar campos existentes",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-gerador-cnpj-5",
+        "category": "cadastros",
+        "name": "Pequeno gerador por CNPJ — impedir consulta por outra cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-grande-gerador-1",
+        "category": "cadastros",
+        "name": "Grande gerador por CNPJ — criar e consultar persistência (API do painel)",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-grande-gerador-2",
+        "category": "cadastros",
+        "name": "Grande gerador por CNPJ — dados inválidos não criam registro",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-grande-gerador-3",
+        "category": "cadastros",
+        "name": "Grande gerador por CNPJ — duplicidade ou vínculo repetido é tratado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-grande-gerador-4",
+        "category": "cadastros",
+        "name": "Grande gerador por CNPJ — corrigir dados e preservar campos existentes",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-grande-gerador-5",
+        "category": "cadastros",
+        "name": "Grande gerador por CNPJ — impedir consulta por outra cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-plano-1",
+        "category": "cadastros",
+        "name": "Rota fixa diária — criar cadastro completo",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-plano-2",
+        "category": "cadastros",
+        "name": "Rota fixa diária — rejeitar mínimo obrigatório ausente",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-plano-3",
+        "category": "cadastros",
+        "name": "Rota fixa diária — repetição segura ou participantes/pontos duplicados",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-plano-4",
+        "category": "cadastros",
+        "name": "Rota fixa diária — editar usando versão atual",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-plano-5",
+        "category": "cadastros",
+        "name": "Rota fixa diária — rejeitar versão antiga sem sobrescrever",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-equipe-1",
+        "category": "cadastros",
+        "name": "Equipe de catadores — criar cadastro completo",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-equipe-2",
+        "category": "cadastros",
+        "name": "Equipe de catadores — rejeitar mínimo obrigatório ausente",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-equipe-3",
+        "category": "cadastros",
+        "name": "Equipe de catadores — repetição segura ou participantes/pontos duplicados",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-equipe-4",
+        "category": "cadastros",
+        "name": "Equipe de catadores — editar usando versão atual",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-equipe-5",
+        "category": "cadastros",
+        "name": "Equipe de catadores — rejeitar versão antiga sem sobrescrever",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-entregador-1",
+        "category": "cadastros",
+        "name": "Entregador avulso — criar cadastro completo",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-entregador-2",
+        "category": "cadastros",
+        "name": "Entregador avulso — rejeitar mínimo obrigatório ausente",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-entregador-3",
+        "category": "cadastros",
+        "name": "Entregador avulso — repetição segura ou participantes/pontos duplicados",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-entregador-4",
+        "category": "cadastros",
+        "name": "Entregador avulso — editar usando versão atual",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-entregador-5",
+        "category": "cadastros",
+        "name": "Entregador avulso — rejeitar versão antiga sem sobrescrever",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-lote-1",
+        "category": "cadastros",
+        "name": "Lote — entrada manual gera código e saldo",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-lote-2",
+        "category": "cadastros",
+        "name": "Lote — quantidade negativa é rejeitada",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-lote-3",
+        "category": "cadastros",
+        "name": "Lote — unidade incompatível com catálogo é rejeitada",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-lote-4",
+        "category": "cadastros",
+        "name": "Lote — editar localização sem alterar origem/quantidade",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-lote-5",
+        "category": "cadastros",
+        "name": "Lote — outra cooperativa não acessa entrada",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-manutencao-1",
+        "category": "cadastros",
+        "name": "Manutenção — criar data, custo e observação",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-manutencao-2",
+        "category": "cadastros",
+        "name": "Manutenção — custo negativo é bloqueado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-manutencao-3",
+        "category": "cadastros",
+        "name": "Manutenção — próxima data anterior à manutenção é bloqueada",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-manutencao-4",
+        "category": "cadastros",
+        "name": "Manutenção — editar observação preserva data e veículo",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-manutencao-5",
+        "category": "cadastros",
+        "name": "Manutenção — outra cooperativa não acessa registro",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-documento-veiculo-1",
+        "category": "cadastros",
+        "name": "Registro documental do veículo — criar identificação, emissão e validade",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-documento-veiculo-2",
+        "category": "cadastros",
+        "name": "Registro documental do veículo — número obrigatório",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-documento-veiculo-3",
+        "category": "cadastros",
+        "name": "Registro documental do veículo — validade anterior à emissão é rejeitada",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-documento-veiculo-4",
+        "category": "cadastros",
+        "name": "Registro documental do veículo — edição preserva titular e número",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-documento-veiculo-5",
+        "category": "cadastros",
+        "name": "Registro documental do veículo — outra cooperativa não acessa registro",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-collector-1",
+        "category": "cadastros",
+        "name": "Documento collector — enviar PDF para o titular correto",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-collector-2",
+        "category": "cadastros",
+        "name": "Documento collector — título obrigatório é validado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-collector-3",
+        "category": "cadastros",
+        "name": "Documento collector — vencimento anterior à emissão é rejeitado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-collector-4",
+        "category": "cadastros",
+        "name": "Documento collector — arquivo retorna PDF autenticado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-collector-5",
+        "category": "cadastros",
+        "name": "Documento collector — outra cooperativa não consulta metadados",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-driver-1",
+        "category": "cadastros",
+        "name": "Documento driver — enviar PDF para o titular correto",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-driver-2",
+        "category": "cadastros",
+        "name": "Documento driver — título obrigatório é validado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-driver-3",
+        "category": "cadastros",
+        "name": "Documento driver — vencimento anterior à emissão é rejeitado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-driver-4",
+        "category": "cadastros",
+        "name": "Documento driver — arquivo retorna PDF autenticado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-driver-5",
+        "category": "cadastros",
+        "name": "Documento driver — outra cooperativa não consulta metadados",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-generator-1",
+        "category": "cadastros",
+        "name": "Documento generator — enviar PDF para o titular correto",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-generator-2",
+        "category": "cadastros",
+        "name": "Documento generator — título obrigatório é validado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-generator-3",
+        "category": "cadastros",
+        "name": "Documento generator — vencimento anterior à emissão é rejeitado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-generator-4",
+        "category": "cadastros",
+        "name": "Documento generator — arquivo retorna PDF autenticado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-generator-5",
+        "category": "cadastros",
+        "name": "Documento generator — outra cooperativa não consulta metadados",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-vehicle-1",
+        "category": "cadastros",
+        "name": "Documento vehicle — enviar PDF para o titular correto",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-vehicle-2",
+        "category": "cadastros",
+        "name": "Documento vehicle — título obrigatório é validado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-vehicle-3",
+        "category": "cadastros",
+        "name": "Documento vehicle — vencimento anterior à emissão é rejeitado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-vehicle-4",
+        "category": "cadastros",
+        "name": "Documento vehicle — arquivo retorna PDF autenticado",
+        "status": "PASS"
+      },
+      {
+        "id": "CAD-doc-vehicle-5",
+        "category": "cadastros",
+        "name": "Documento vehicle — outra cooperativa não consulta metadados",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-recebimento-1",
+        "category": "adversos",
+        "name": "Recebimento — Pesagem sem materiais",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-recebimento-2",
+        "category": "adversos",
+        "name": "Recebimento — Quantidade negativa",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-recebimento-3",
+        "category": "adversos",
+        "name": "Recebimento — Entrada direta com rota indevida",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-recebimento-4",
+        "category": "adversos",
+        "name": "Recebimento — Coleta avulsa sem endereço",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-recebimento-5",
+        "category": "adversos",
+        "name": "Recebimento — Coordenada incompleta",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-destino-1",
+        "category": "adversos",
+        "name": "Destinação — Saldo excedido",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-destino-2",
+        "category": "adversos",
+        "name": "Destinação — Quantidade zero",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-destino-3",
+        "category": "adversos",
+        "name": "Destinação — Unidade incompatível",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-destino-4",
+        "category": "adversos",
+        "name": "Destinação — Destinatário ausente",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-destino-5",
+        "category": "adversos",
+        "name": "Destinação — Protocolo ausente",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-cadastro-1",
+        "category": "adversos",
+        "name": "Cadastro — CPF inválido",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-cadastro-2",
+        "category": "adversos",
+        "name": "Cadastro — CNPJ inválido",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-cadastro-3",
+        "category": "adversos",
+        "name": "Cadastro — Coordenada impossível",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-cadastro-4",
+        "category": "adversos",
+        "name": "Cadastro — Capacidade negativa",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-cadastro-5",
+        "category": "adversos",
+        "name": "Cadastro — E-mail inválido",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-solicitacao-1",
+        "category": "adversos",
+        "name": "Solicitação — Sem material",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-solicitacao-2",
+        "category": "adversos",
+        "name": "Solicitação — Quantidade negativa",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-solicitacao-3",
+        "category": "adversos",
+        "name": "Solicitação — Data textual inválida",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-solicitacao-4",
+        "category": "adversos",
+        "name": "Solicitação — Coordenada incompleta",
+        "status": "PASS"
+      },
+      {
+        "id": "ADV-solicitacao-5",
+        "category": "adversos",
+        "name": "Solicitação — Gerador inexistente",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-geradores-1",
+        "category": "operacionais",
+        "name": "geradores — CPF classifica residencial sem conta PF",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-geradores-2",
+        "category": "operacionais",
+        "name": "geradores — CNPJ distingue pequeno gerador no mesmo cadastro",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-geradores-3",
+        "category": "operacionais",
+        "name": "geradores — Sem acesso ativo não impede cooperativa registrar pedido",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-geradores-4",
+        "category": "operacionais",
+        "name": "geradores — Documentação do gerador fica no titular selecionado",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-geradores-5",
+        "category": "operacionais",
+        "name": "geradores — Alterar endereço exige coordenadas em par",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-geradores-6",
+        "category": "operacionais",
+        "name": "geradores — CPF duplicado não cria segundo gerador",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-geradores-7",
+        "category": "operacionais",
+        "name": "geradores — Cadastro não aparece para outra cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-geradores-8",
+        "category": "operacionais",
+        "name": "geradores — Consulta por identificação curta da coleta",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-geradores-9",
+        "category": "operacionais",
+        "name": "geradores — Histórico não atribui entrada anônima ao gerador",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-geradores-10",
+        "category": "operacionais",
+        "name": "geradores — Editar nome conserva documento e e-mail",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-solicitacoes-1",
+        "category": "operacionais",
+        "name": "solicitacoes — Solicitação com data e material gera registro",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-solicitacoes-2",
+        "category": "operacionais",
+        "name": "solicitacoes — Delegação vincula equipe, motorista e veículo",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-solicitacoes-3",
+        "category": "operacionais",
+        "name": "solicitacoes — Pedido delegado não pode ser cancelado isoladamente",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-solicitacoes-4",
+        "category": "operacionais",
+        "name": "solicitacoes — Duplicar delegação não cria segunda coleta",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-solicitacoes-5",
+        "category": "operacionais",
+        "name": "solicitacoes — Outro perfil não delega solicitação",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-solicitacoes-6",
+        "category": "operacionais",
+        "name": "solicitacoes — Cooperativa filtra solicitação por ID",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-solicitacoes-7",
+        "category": "operacionais",
+        "name": "solicitacoes — Estado concluído não pode ser forçado no pedido",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-solicitacoes-8",
+        "category": "operacionais",
+        "name": "solicitacoes — ID inexistente não revela dados",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-solicitacoes-9",
+        "category": "operacionais",
+        "name": "solicitacoes — Outra cooperativa não acessa solicitação",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-solicitacoes-10",
+        "category": "operacionais",
+        "name": "solicitacoes — Sem catador a delegação é rejeitada",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-catadores-1",
+        "category": "operacionais",
+        "name": "catadores — Nome e inscrição persistem no cadastro",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-catadores-2",
+        "category": "operacionais",
+        "name": "catadores — Sem vínculo não se atribui produção avulsa",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-catadores-3",
+        "category": "operacionais",
+        "name": "catadores — Catador inválido é rejeitado na delegação",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-catadores-4",
+        "category": "operacionais",
+        "name": "catadores — Equipe com integrante repetido é rejeitada",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-catadores-5",
+        "category": "operacionais",
+        "name": "catadores — Equipe inativa não pode assumir atendimento",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-catadores-6",
+        "category": "operacionais",
+        "name": "catadores — Alterar categoria preserva cadastro e inscrição",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-catadores-7",
+        "category": "operacionais",
+        "name": "catadores — Versão antiga da equipe não sobrescreve participantes",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-catadores-8",
+        "category": "operacionais",
+        "name": "catadores — Catador não edita dados administrativos de outro",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-catadores-9",
+        "category": "operacionais",
+        "name": "catadores — Histórico do participante inclui trabalho em equipe",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-catadores-10",
+        "category": "operacionais",
+        "name": "catadores — Documentos do catador exigem autenticação",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-rotas-1",
+        "category": "operacionais",
+        "name": "rotas — Rota diária gera execuções independentes",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-rotas-2",
+        "category": "operacionais",
+        "name": "rotas — Modalidade por pontos rejeita roteiro vazio",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-rotas-3",
+        "category": "operacionais",
+        "name": "rotas — Modalidade por bairro permite começar sem pontos",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-rotas-4",
+        "category": "operacionais",
+        "name": "rotas — Saída sem motorista e veículo é bloqueada",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-rotas-5",
+        "category": "operacionais",
+        "name": "rotas — Cancelar rota não apaga coletas realizadas",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-rotas-6",
+        "category": "operacionais",
+        "name": "rotas — Próximo dia mantém todos os pontos",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-rotas-7",
+        "category": "operacionais",
+        "name": "rotas — Pontos duplicados impedem plano recorrente",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-rotas-8",
+        "category": "operacionais",
+        "name": "rotas — Intervalo de dias inválido é rejeitado",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-rotas-9",
+        "category": "operacionais",
+        "name": "rotas — Motorista não replaneja a rota administrativa",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-rotas-10",
+        "category": "operacionais",
+        "name": "rotas — Outra cooperativa não altera recursos da rota",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-motoristas-1",
+        "category": "operacionais",
+        "name": "motoristas — Motorista ativo pode ser associado a veículo",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-motoristas-2",
+        "category": "operacionais",
+        "name": "motoristas — Dados de contato podem ser corrigidos",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-motoristas-3",
+        "category": "operacionais",
+        "name": "motoristas — Motorista não consulta localização de colega",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-motoristas-4",
+        "category": "operacionais",
+        "name": "motoristas — Gestor não inicia compartilhamento em nome do motorista",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-motoristas-5",
+        "category": "operacionais",
+        "name": "motoristas — Posição impossível é rejeitada",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-motoristas-6",
+        "category": "operacionais",
+        "name": "motoristas — Relato exige descrição útil",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-motoristas-7",
+        "category": "operacionais",
+        "name": "motoristas — Relato de atraso é registrado no serviço",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-motoristas-8",
+        "category": "operacionais",
+        "name": "motoristas — Histórico do motorista mantém relato registrado",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-motoristas-9",
+        "category": "operacionais",
+        "name": "motoristas — Outra cooperativa não altera disponibilidade",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-motoristas-10",
+        "category": "operacionais",
+        "name": "motoristas — Disponibilidade pode ser atualizada sem apagar CNH",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-veiculos-1",
+        "category": "operacionais",
+        "name": "veiculos — Capacidade e vínculo são preservados na edição",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-veiculos-2",
+        "category": "operacionais",
+        "name": "veiculos — Placa duplicada é rejeitada mesmo em outra grafia",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-veiculos-3",
+        "category": "operacionais",
+        "name": "veiculos — Ano fora do intervalo é rejeitado",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-veiculos-4",
+        "category": "operacionais",
+        "name": "veiculos — Veículo de outra cooperativa não pode ser delegado",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-veiculos-5",
+        "category": "operacionais",
+        "name": "veiculos — Documento vinculado preserva titular",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-veiculos-6",
+        "category": "operacionais",
+        "name": "veiculos — Manutenção fica no histórico do próprio veículo",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-veiculos-7",
+        "category": "operacionais",
+        "name": "veiculos — Estado de manutenção pode ser consultado",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-veiculos-8",
+        "category": "operacionais",
+        "name": "veiculos — Operação não inicia usando veículo em manutenção",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-veiculos-9",
+        "category": "operacionais",
+        "name": "veiculos — Liberação do veículo preserva modelo e placa",
+        "status": "PASS"
+      },
+      {
+        "id": "OP-veiculos-10",
+        "category": "operacionais",
+        "name": "veiculos — Outra cooperativa não apaga ou troca placa",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-cadastro-catador",
+        "category": "fluxos-ui",
+        "name": "Catador — criar e editar cadastro pelo formulário do painel",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-cadastro-motorista",
+        "category": "fluxos-ui",
+        "name": "Motorista — criar e corrigir telefone pelo painel",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-cadastro-veiculo",
+        "category": "fluxos-ui",
+        "name": "Veículo — criar com motorista, editar capacidade e consultar",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-cadastro-gerador",
+        "category": "fluxos-ui",
+        "name": "Gerador — CPF e CNPJ classificam cadastro criado pelo painel",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-cadastro-pev",
+        "category": "fluxos-ui",
+        "name": "PEV — salvar identificação e ponto confirmado pelo formulário",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-cadastro-equipe",
+        "category": "fluxos-ui",
+        "name": "Equipe — escolher dois participantes e confirmar vínculo no painel",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-cadastro-material",
+        "category": "fluxos-ui",
+        "name": "Material — cadastro gera código interno e preserva unidade em português",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-cadastro-lote",
+        "category": "fluxos-ui",
+        "name": "Lote — entrada manual cria código e saldo pelo formulário",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-cadastro-manutencao",
+        "category": "fluxos-ui",
+        "name": "Manutenção — formulário preserva custo zero e observações",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-cadastro-entregador",
+        "category": "fluxos-ui",
+        "name": "Entregador — cadastrar somente nome e corrigir telefone",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-destino-DIRECT_DESTINATION",
+        "category": "fluxos-ui",
+        "name": "Destinação — executar DIRECT_DESTINATION pelo modal do painel",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-destino-STOCK",
+        "category": "fluxos-ui",
+        "name": "Destinação — executar STOCK pelo modal do painel",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-destino-TRIAGE",
+        "category": "fluxos-ui",
+        "name": "Destinação — executar TRIAGE pelo modal do painel",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-destino-RESERVATION",
+        "category": "fluxos-ui",
+        "name": "Destinação — executar RESERVATION pelo modal do painel",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-destino-REJECT",
+        "category": "fluxos-ui",
+        "name": "Destinação — executar REJECT pelo modal do painel",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-destino-DISPOSAL",
+        "category": "fluxos-ui",
+        "name": "Destinação — executar DISPOSAL pelo modal do painel",
+        "status": "PASS"
+      },
+      {
+        "id": "PDF-collectors-one",
+        "category": "exportacoes",
+        "name": "PDF de collectors — one",
+        "status": "PASS"
+      },
+      {
+        "id": "PDF-collectors-all",
+        "category": "exportacoes",
+        "name": "PDF de collectors — all",
+        "status": "PASS"
+      },
+      {
+        "id": "PDF-generators-one",
+        "category": "exportacoes",
+        "name": "PDF de generators — one",
+        "status": "PASS"
+      },
+      {
+        "id": "PDF-generators-all",
+        "category": "exportacoes",
+        "name": "PDF de generators — all",
+        "status": "PASS"
+      },
+      {
+        "id": "PDF-drivers-one",
+        "category": "exportacoes",
+        "name": "PDF de drivers — one",
+        "status": "PASS"
+      },
+      {
+        "id": "PDF-drivers-all",
+        "category": "exportacoes",
+        "name": "PDF de drivers — all",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-recebimento-destinacao",
+        "category": "fluxos-ui",
+        "name": "Entrada anônima — receber, separar, pesar e abrir rastreabilidade",
+        "status": "PASS"
+      },
+      {
+        "id": "UI-gestao-busca",
+        "category": "gestoes",
+        "name": "Cinco gestões — filtros vazios e busca sem resultado não misturam entidades",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-overview-1",
+        "category": "relatorios",
+        "name": "Relatório overview — aplicar período com dados reais da cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-overview-2",
+        "category": "relatorios",
+        "name": "Relatório overview — exportar PDF do recorte completo",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-overview-3",
+        "category": "relatorios",
+        "name": "Relatório overview — exportar planilha Excel válida",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-overview-4",
+        "category": "relatorios",
+        "name": "Relatório overview — salvar e restaurar filtros do próprio usuário",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-overview-5",
+        "category": "relatorios",
+        "name": "Relatório overview — período invertido não permite exportação",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-collections-1",
+        "category": "relatorios",
+        "name": "Relatório collections — aplicar período com dados reais da cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-collections-2",
+        "category": "relatorios",
+        "name": "Relatório collections — exportar PDF do recorte completo",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-collections-3",
+        "category": "relatorios",
+        "name": "Relatório collections — exportar planilha Excel válida",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-collections-4",
+        "category": "relatorios",
+        "name": "Relatório collections — salvar e restaurar filtros do próprio usuário",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-collections-5",
+        "category": "relatorios",
+        "name": "Relatório collections — período invertido não permite exportação",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-waste-1",
+        "category": "relatorios",
+        "name": "Relatório waste — aplicar período com dados reais da cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-waste-2",
+        "category": "relatorios",
+        "name": "Relatório waste — exportar PDF do recorte completo",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-waste-3",
+        "category": "relatorios",
+        "name": "Relatório waste — exportar planilha Excel válida",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-waste-4",
+        "category": "relatorios",
+        "name": "Relatório waste — salvar e restaurar filtros do próprio usuário",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-waste-5",
+        "category": "relatorios",
+        "name": "Relatório waste — período invertido não permite exportação",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-staff-1",
+        "category": "relatorios",
+        "name": "Relatório staff — aplicar período com dados reais da cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-staff-2",
+        "category": "relatorios",
+        "name": "Relatório staff — exportar PDF do recorte completo",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-staff-3",
+        "category": "relatorios",
+        "name": "Relatório staff — exportar planilha Excel válida",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-staff-4",
+        "category": "relatorios",
+        "name": "Relatório staff — salvar e restaurar filtros do próprio usuário",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-staff-5",
+        "category": "relatorios",
+        "name": "Relatório staff — período invertido não permite exportação",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-vehicles-1",
+        "category": "relatorios",
+        "name": "Relatório vehicles — aplicar período com dados reais da cooperativa",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-vehicles-2",
+        "category": "relatorios",
+        "name": "Relatório vehicles — exportar PDF do recorte completo",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-vehicles-3",
+        "category": "relatorios",
+        "name": "Relatório vehicles — exportar planilha Excel válida",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-vehicles-4",
+        "category": "relatorios",
+        "name": "Relatório vehicles — salvar e restaurar filtros do próprio usuário",
+        "status": "PASS"
+      },
+      {
+        "id": "REL-vehicles-5",
+        "category": "relatorios",
+        "name": "Relatório vehicles — período invertido não permite exportação",
+        "status": "PASS"
+      },
+      {
+        "id": "AUTH-guest",
+        "category": "sessao",
+        "name": "Sessão — guest",
+        "status": "PASS"
+      },
+      {
+        "id": "AUTH-expired",
+        "category": "sessao",
+        "name": "Sessão — expired",
+        "status": "PASS"
+      },
+      {
+        "id": "AUTH-temporary",
+        "category": "sessao",
+        "name": "Sessão — temporary",
+        "status": "PASS"
+      },
+      {
+        "id": "AUTH-role",
+        "category": "sessao",
+        "name": "Sessão — role",
+        "status": "PASS"
+      },
+      {
+        "id": "AUTH-mid-session",
+        "category": "sessao",
+        "name": "Sessão — mid-session",
+        "status": "PASS"
+      }
+    ]
+  },
+  "additionalRegressions": [
+    {
+      "name": "Conclusão, conversão de reserva e buscas",
+      "passed": 6,
+      "checks": [
+        "Destinação direta finaliza o material e permite concluir coleta recebida, com confirmação explícita e sem triagem artificial",
+        "Resíduos coletados encontra código curto, #código, identificador completo e número da solicitação",
+        "Solicitações permite pesquisar seu protocolo e o código da coleta vinculada",
+        "Reserva de coleta concluída pode virar destino direto, mantém conclusão e histórico e impede alteração após etapa final",
+        "Filtro de materiais em acompanhamento permanece acessível e sem transbordamento em 390 px",
+        "Sem erros JavaScript nos fluxos completos de conclusão, conversão e busca"
+      ]
+    },
+    {
+      "name": "Ordens de serviço e documentos internos",
+      "passed": 6,
+      "checks": [
+        "Central acessível pelo menu, O.S. agrupada com três pontos, situações e motivo do cancelamento",
+        "Visualização e download da O.S. usam a versão preservada, com programação e documentos internos",
+        "Filtro por tipo, comprovante de saída em litros, destinatário e O.S. de origem",
+        "Consulta por lote encontra o documento vinculado à saída",
+        "Comprovante de coleta disponível na referência da coleta",
+        "Tela adaptada a 390 px e navegação sem erros JavaScript"
+      ]
+    }
+  ],
+  "totalPassed": 521,
+  "browserErrors": [],
+  "builds": {
+    "panel": "PASS",
+    "serverTypeScript": "PASS",
+    "serverBundle": "PASS"
+  }
+}

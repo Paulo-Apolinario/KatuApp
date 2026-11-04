@@ -119,14 +119,17 @@ export const vehicleDocumentsService = {
       }
     }
 
+    const issueDate = toDate(data.issue_date), expiryDate = toDate(data.expiry_date);
+    if (issueDate && expiryDate && expiryDate < issueDate)
+      throw new Error("O vencimento não pode ser anterior à emissão do documento.");
     const document = await prisma.vehicleDocument.create({
       data: {
         cooperativeId,
         vehicleId: data.vehicle_id || null,
         documentType: data.document_type,
         documentNumber: data.document_number,
-        issueDate: toDate(data.issue_date),
-        expiryDate: toDate(data.expiry_date),
+        issueDate,
+        expiryDate,
         notes: data.notes || null,
         fileUrl: fileUrl || null,
       },
@@ -167,6 +170,10 @@ export const vehicleDocumentsService = {
       }
     }
 
+    const issueDate = data.issue_date === undefined ? current.issueDate : toDate(data.issue_date);
+    const expiryDate = data.expiry_date === undefined ? current.expiryDate : toDate(data.expiry_date);
+    if (issueDate && expiryDate && expiryDate < issueDate)
+      throw new Error("O vencimento não pode ser anterior à emissão do documento.");
     const updated = await prisma.vehicleDocument.update({
       where: { id },
       data: {

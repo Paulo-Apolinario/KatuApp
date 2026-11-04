@@ -143,6 +143,9 @@ export const maintenanceLogsService = {
       throw new Error("Data da manutenção inválida.");
     }
 
+    const nextMaintenanceDate = toDate(data.next_maintenance_date);
+    if (nextMaintenanceDate && nextMaintenanceDate < maintenanceDate)
+      throw new Error("A próxima manutenção não pode ser anterior à data desta manutenção.");
     return prisma.maintenanceLog.create({
       data: {
         cooperativeId,
@@ -150,9 +153,9 @@ export const maintenanceLogsService = {
         maintenanceType: data.maintenance_type,
         maintenanceDate,
         location: data.location || null,
-        cost: data.cost || null,
+        cost: data.cost ?? null,
         performedBy: data.performed_by || null,
-        nextMaintenanceDate: toDate(data.next_maintenance_date),
+        nextMaintenanceDate,
         notes: data.notes || null,
         fileUrl: fileUrl || null,
         status: normalizeStatus(data.status),
@@ -192,6 +195,11 @@ export const maintenanceLogsService = {
       }
     }
 
+    const maintenanceDate = data.maintenance_date === undefined ? current.maintenanceDate : toDate(data.maintenance_date);
+    const nextMaintenanceDate = data.next_maintenance_date === undefined ? current.nextMaintenanceDate : toDate(data.next_maintenance_date);
+    if (!maintenanceDate) throw new Error("Data da manutenção inválida.");
+    if (nextMaintenanceDate && nextMaintenanceDate < maintenanceDate)
+      throw new Error("A próxima manutenção não pode ser anterior à data desta manutenção.");
     return prisma.maintenanceLog.update({
       where: { id },
       data: {
@@ -202,7 +210,7 @@ export const maintenanceLogsService = {
             ? current.maintenanceDate
             : toDate(data.maintenance_date) || current.maintenanceDate,
         location: data.location === undefined ? current.location : data.location || null,
-        cost: data.cost === undefined ? current.cost : data.cost || null,
+        cost: data.cost === undefined ? current.cost : data.cost,
         performedBy:
           data.performed_by === undefined ? current.performedBy : data.performed_by || null,
         nextMaintenanceDate:

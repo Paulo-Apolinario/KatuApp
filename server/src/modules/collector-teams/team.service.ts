@@ -89,7 +89,7 @@ export async function teamMembers(
       id: { in: team.memberIds },
       cooperativeId: coopId,
       status: { not: "INACTIVE" },
-      user: { isActive: true, accountStatus: "ACTIVE" },
+      OR: [{ userId: null }, { user: { isActive: true, accountStatus: "ACTIVE" } }],
     },
     select: { id: true, name: true },
   });
@@ -266,7 +266,7 @@ export const teamService = {
           id: { in: input.memberIds },
           cooperativeId: coopId,
           status: { not: "INACTIVE" },
-          user: { isActive: true, accountStatus: "ACTIVE" },
+          OR: [{ userId: null }, { user: { isActive: true, accountStatus: "ACTIVE" } }],
         },
       });
       if (input.active && count !== input.memberIds.length)

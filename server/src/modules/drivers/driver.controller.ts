@@ -5,6 +5,7 @@ import {
   createDriverSchema,
   driverIdParamsSchema,
   updateDriverStatusSchema,
+  updateDriverSchema,
   updateMyDriverProfileSchema,
 } from "./driver.schemas";
 import { DriverService } from "./driver.service";
@@ -88,6 +89,18 @@ export class DriverController {
         success: false,
         error: error.message || "Erro ao buscar motorista.",
       });
+    }
+  }
+
+  async update(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const authUser = request.user as { sub: string; role: string };
+      if (authUser.role !== "COOPERATIVE") return reply.status(403).send({ error: "Apenas cooperativas podem editar motoristas." });
+      const { id } = driverIdParamsSchema.parse(request.params);
+      const body = updateDriverSchema.parse(request.body);
+      return reply.send({ success: true, driver: await driverService.update(authUser.sub, id, body) });
+    } catch (error: any) {
+      return reply.status(error.message === "Motorista não encontrado." ? 404 : 400).send({ success: false, error: error.issues?.[0]?.message || error.message || "Não foi possível atualizar o motorista." });
     }
   }
 

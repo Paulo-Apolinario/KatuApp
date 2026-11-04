@@ -5,6 +5,7 @@ import {
   CreateDriverInput,
   CreateDriverReportInput,
   UpdateDriverStatusInput,
+  UpdateDriverInput,
   UpdateMyDriverProfileInput,
 } from "./driver.schemas";
 
@@ -121,6 +122,25 @@ export class DriverService {
     }
 
     return driver;
+  }
+
+  async update(cooperativeUserId: string, driverId: string, input: UpdateDriverInput) {
+    const driver = await this.findById(cooperativeUserId, driverId);
+    const cpf = input.cpf === undefined ? undefined : sanitizeDigits(input.cpf) || null;
+    return prisma.$transaction(async tx => {
+      if (cpf && await tx.driver.findFirst({ where: { cooperativeId: driver.cooperativeId, cpf, id: { not: driver.id } } }))
+        throw new Error("Já existe um motorista com este CPF nesta cooperativa.");
+      const data: Prisma.DriverUpdateInput = {};
+      if (input.name !== undefined) data.name = input.name.trim();
+      for (const key of ['phone', 'cnh', 'cnhCategory', 'notes'] as const)
+        if (input[key] !== undefined) data[key] = (key === 'cnhCategory' ? input[key]!.trim().toUpperCase() : input[key]!.trim()) || null;
+      if (cpf !== undefined) data.cpf = cpf;
+      if (input.status !== undefined) data.status = DriverStatus[input.status];
+      const updated = await tx.driver.update({ where: { id: driver.id }, data });
+      if (driver.userId && input.name !== undefined)
+        await tx.user.update({ where: { id: driver.userId }, data: { displayName: updated.name } });
+      return updated;
+    });
   }
 
   async updateStatus(

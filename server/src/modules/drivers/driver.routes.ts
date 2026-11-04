@@ -21,5 +21,6 @@ export async function driverRoutes(app: FastifyInstance) {
   app.post("/", driverController.create);
   app.get("/", driverController.listMine);
   app.get("/:id", driverController.findById);
+  app.patch("/:id", driverController.update);
   app.patch("/:id/status", driverController.updateStatus);
 }

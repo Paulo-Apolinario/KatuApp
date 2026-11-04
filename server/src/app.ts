@@ -157,6 +157,10 @@ export async function buildApp() {
   app.decorate("authenticate", async function (request: any, reply: any) {
     try {
       await request.jwtVerify();
+    } catch {
+      return reply.unauthorized("Token inválido ou ausente.");
+    }
+    try {
       const user = await prisma.user.findUnique({
         where: { id: request.user.sub },
         select: {
@@ -185,8 +189,9 @@ export async function buildApp() {
         return reply.forbidden(
           "Perfil municipal restrito à central ambiental.",
         );
-    } catch {
-      return reply.unauthorized("Token inválido ou ausente.");
+    } catch (error: any) {
+      request.log.error({ code: error.code }, "Não foi possível conferir a sessão no banco");
+      return reply.serviceUnavailable("Não foi possível confirmar a sessão agora. Tente novamente.");
     }
   });
 

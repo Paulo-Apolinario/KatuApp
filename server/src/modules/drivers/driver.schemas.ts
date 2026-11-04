@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const createDriverSchema = z.object({
-  name: z.string().min(2, "Nome inválido"),
-  email: z.string().email("E-mail inválido"),
+  name: z.string().trim().min(2, "Nome inválido").max(150),
+  email: z.string().trim().email("E-mail inválido"),
   phone: z.string().optional(),
   cpf: z.string().optional(),
   cnh: z.string().optional(),
@@ -47,3 +47,9 @@ export type UpdateMyDriverProfileInput = z.infer<
   typeof updateMyDriverProfileSchema
 >;
 export type CreateDriverReportInput = z.infer<typeof createDriverReportSchema>;
+
+export const updateDriverSchema = createDriverSchema.omit({ email: true }).partial().strict().refine(
+  data => Object.values(data).some(value => value !== undefined),
+  { message: "Informe ao menos um dado do motorista para atualizar." },
+);
+export type UpdateDriverInput = z.infer<typeof updateDriverSchema>;

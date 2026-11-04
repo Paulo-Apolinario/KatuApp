@@ -580,16 +580,37 @@ async function main() {
     const { checkWasteCompletion } = await import("../waste-completion/api");
     wasteCompletion = await checkWasteCompletion(app, p, users, coop, pass);
   }
+  if (process.env.PANEL_AUDIT_UI === "1" || process.env.PANEL_AUDIT_API === "1") {
+    const original = p.user.findUnique;
+    try {
+      (p.user as any).findUnique = async () => { throw Object.assign(Error("Banco indisponível simulado"), { code: "P1001" }); };
+      const unavailable = await app.inject({ method: "GET", url: "/auth/me", headers: { authorization: "Bearer " + app.jwt.sign({ sub: users.owner.id, role: "COOPERATIVE" }) } });
+      assert.equal(unavailable.statusCode, 503);
+      pass("Banco indisponível durante autenticação retorna 503 e não transforma falha temporária em sessão inválida");
+    } finally { (p.user as any).findUnique = original; }
+    const noAccount = await p.collector.create({ data: { cooperativeId: coop.id, name: "Catador sem conta equipe QA", email: "team-no-app@panel.test.invalid", status: "AVAILABLE" } });
+    const teamRequest = async (memberIds: string[]) => app.inject({ method: "POST", url: "/collector-teams", headers: { authorization: "Bearer " + app.jwt.sign({ sub: users.owner.id, role: "COOPERATIVE" }) }, payload: { name: "Equipe conferência de elegibilidade QA", active: true, memberIds } });
+    assert.equal((await teamRequest([cat.id, noAccount.id])).statusCode, 200);
+    await p.collector.update({ where: { id: noAccount.id }, data: { status: "INACTIVE" } });
+    assert.equal((await teamRequest([cat.id, noAccount.id])).statusCode, 400);
+    await p.collector.update({ where: { id: noAccount.id }, data: { status: "AVAILABLE" } });
+    await p.user.update({ where: { id: users.cat.id }, data: { isActive: false } });
+    try { assert.equal((await teamRequest([cat.id, noAccount.id])).statusCode, 400); }
+    finally { await p.user.update({ where: { id: users.cat.id }, data: { isActive: true } }); }
+    pass("Equipe aceita cadastro sem conta no App, mas mantém bloqueio de catador inativo e de conta desativada");
+
+  }
   const tools = process.env.KATUA_VALIDATION_TOOLS || "/tmp";
   fs.writeFileSync(
     path.join(tools, "field-operations-api-results.json"),
     JSON.stringify({ passed: checks.length, checks }, null, 2),
   );
   if (process.env.RESIDENTIAL === "1") fs.writeFileSync(path.join(tools, "residential-api-results.json"), JSON.stringify({ passed: checks.length, checks }, null, 2));
-  if (process.env.APP_SCENARIOS_UI === "1" || process.env.DELIVERER_UI === "1" || process.env.FIELD_MEETING_UI === "1" || process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1" || process.env.WASTE_USABILITY_UI === "1" || process.env.BROWSER_OFFLINE_UI === "1" || process.env.COOPERATIVE_FIELD_UI === "1" || process.env.SERVICE_DOCUMENTS_UI === "1" || process.env.STOCK_CODES_UI === "1") {
+  if (process.env.PANEL_AUDIT_UI === "1" || process.env.APP_SCENARIOS_UI === "1" || process.env.DELIVERER_UI === "1" || process.env.FIELD_MEETING_UI === "1" || process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1" || process.env.WASTE_USABILITY_UI === "1" || process.env.BROWSER_OFFLINE_UI === "1" || process.env.COOPERATIVE_FIELD_UI === "1" || process.env.SERVICE_DOCUMENTS_UI === "1" || process.env.STOCK_CODES_UI === "1") {
     fs.writeFileSync(
       path.join(tools, "field-operations-fixture.json"),
       JSON.stringify({
+        audit: { foreignToken: app.jwt.sign({sub:users.foreign.id,role:"COOPERATIVE"}), collectorIds:[cat.id,member.id], vehicleId:vehicle.id },
         intakeDeliverers,
         fieldMeeting,
         wasteCompletion,

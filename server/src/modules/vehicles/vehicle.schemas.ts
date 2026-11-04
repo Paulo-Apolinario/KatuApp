@@ -2,8 +2,8 @@ import { z } from "zod";
 
 export const createVehicleSchema = z.object({
   driverId: z.string().optional(),
-  plate: z.string().min(3, "Placa inválida"),
-  model: z.string().min(2, "Modelo inválido"),
+  plate: z.string().transform(value => value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "")).pipe(z.string().min(3, "Placa inválida")),
+  model: z.string().trim().min(2, "Modelo inválido"),
   brand: z.string().optional(),
   year: z.number().int().min(1900).max(2100).optional(),
   capacityKg: z.number().nonnegative("Capacidade inválida").optional(),
