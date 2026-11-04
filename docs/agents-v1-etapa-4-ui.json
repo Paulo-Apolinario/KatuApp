@@ -1,0 +1,117 @@
+{
+  "date": "2026-11-04",
+  "environment": "Chromium desktop/tablet/celular + build Vite real + API local + PGlite descartável; falhas de transporte controladas",
+  "passed": 27,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Central usa três agentes e últimas execuções reais",
+      "status": "PASS"
+    },
+    {
+      "name": "Teclado abre, minimiza e devolve foco sem bloquear a página",
+      "status": "PASS"
+    },
+    {
+      "name": "Chat acompanha navegação e preserva rascunho",
+      "status": "PASS"
+    },
+    {
+      "name": "Formulário operacional continua editável com conversa aberta",
+      "status": "PASS"
+    },
+    {
+      "name": "Comando desconhecido orienta sem simular conversa livre",
+      "status": "PASS"
+    },
+    {
+      "name": "Comando rápido identifica o agente e persiste duas mensagens reais",
+      "status": "PASS"
+    },
+    {
+      "name": "Reabertura e recarregamento recuperam conversa do servidor",
+      "status": "PASS"
+    },
+    {
+      "name": "Comando de rotas é atendido pelo Agente de Rotas",
+      "status": "PASS"
+    },
+    {
+      "name": "Sino abre aviso do agente e contexto validado sem resolver ou ler automaticamente",
+      "status": "PASS"
+    },
+    {
+      "name": "Nova análise de mesma evidência não duplica notificações",
+      "status": "PASS"
+    },
+    {
+      "name": "Perda de resposta recupera o mesmo evento sem duplicar execução",
+      "status": "PASS"
+    },
+    {
+      "name": "Falha do backend fica no assistente e permite recuperar sem apagar rascunho",
+      "status": "PASS"
+    },
+    {
+      "name": "Layout desktop e tablet, sem sobrepor campos ou transbordar",
+      "status": "PASS"
+    },
+    {
+      "name": "Celular apresenta controles e formulário acessíveis sem travar rolagem",
+      "status": "PASS"
+    },
+    {
+      "name": "Configurações gravam preferências reais de aviso e automação",
+      "status": "PASS"
+    },
+    {
+      "name": "Central executa análise manual real com resultado no histórico",
+      "status": "PASS"
+    },
+    {
+      "name": "Central mostra ocorrências reais e abre contexto do Gestor",
+      "status": "PASS"
+    },
+    {
+      "name": "Propostas permitem decisão humana e não exibem execução operacional",
+      "status": "PASS"
+    },
+    {
+      "name": "Histórico apresenta análises e atividades com detalhes reais",
+      "status": "PASS"
+    },
+    {
+      "name": "Central informa indisponibilidade e recupera dados sem resultados fictícios",
+      "status": "PASS"
+    },
+    {
+      "name": "Eventos operacionais exibem fila persistente e tentativas reais",
+      "status": "PASS"
+    },
+    {
+      "name": "Aviso aberto após mudança da rota informa contexto histórico sem executar",
+      "status": "PASS"
+    },
+    {
+      "name": "Outra cooperativa não acessa conversa, proposta ou contexto alheio",
+      "status": "PASS"
+    },
+    {
+      "name": "Perfil municipal não recebe ChatBox nem Central de Agentes",
+      "status": "PASS"
+    },
+    {
+      "name": "Logout remove conversa, rascunho e controles da cooperativa",
+      "status": "PASS"
+    },
+    {
+      "name": "Expiração durante consulta encerra sessão e limpa a interface",
+      "status": "PASS"
+    },
+    {
+      "name": "Nenhum erro JavaScript nos fluxos da interface principal",
+      "status": "PASS"
+    }
+  ],
+  "errors": []
+}
