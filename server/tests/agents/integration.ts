@@ -1102,7 +1102,7 @@ async function main() {
             failed: 0,
             migrationPreservation: true,
             environment:
-              "PGlite local descartável; Fastify inject + Prisma reais",
+              process.env.KATUA_NATIVE_POSTGRES_BIN ? "PostgreSQL nativo descartável; Fastify inject + Prisma reais" : "PGlite local descartável; Fastify inject + Prisma reais",
             cases: results,
           },
           null,

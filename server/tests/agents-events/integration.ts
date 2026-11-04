@@ -1096,7 +1096,7 @@ export async function runEventScenarios(app: FastifyInstance) {
         pending: results.filter((r) => r.status === "PENDING").length,
         failed: 0,
         environment:
-          "PGlite/socket descartável + Fastify/Prisma reais; testes com dois processos; indisponibilidade por falha injetada",
+          process.env.KATUA_NATIVE_POSTGRES_BIN ? "PostgreSQL nativo descartável + Fastify/Prisma reais; dois processos concorrentes; indisponibilidade por falha injetada" : "PGlite/socket descartável + Fastify/Prisma reais; concorrência nativa pendente; indisponibilidade por falha injetada",
         cases: results,
         performance: performanceResult,
       },

@@ -1,0 +1,68 @@
+name: Agents - PostgreSQL 16 validation
+on:
+  push:
+    branches: ['work/agents-v1-release-*']
+  pull_request:
+    branches: [main]
+    paths: ['server/**', '.github/workflows/agents-validation.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54329/postgres?connection_limit=1
+      NODE_ENV: test
+      JWT_SECRET: agents-ci-disposable-secret-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install backend
+        run: npm --prefix server ci --include=dev --no-audit --no-fund
+      - name: Prepare isolated validation tools
+        shell: bash
+        run: |
+          validation_dir="$RUNNER_TEMP/katua-agents-validation"
+          mkdir -p "$validation_dir"
+          npm install --prefix "$validation_dir" --no-package-lock --no-audit --no-fund @electric-sql/pglite@0.5.13 @electric-sql/pglite-socket@0.2.16 @embedded-postgres/linux-x64@16.13.0-beta.17
+          printf 'KATUA_VALIDATION_TOOLS=%s\n' "$validation_dir" >> "$GITHUB_ENV"
+          printf 'KATUA_NATIVE_POSTGRES_BIN=%s\n' "$validation_dir/node_modules/@embedded-postgres/linux-x64/native/bin" >> "$GITHUB_ENV"
+          printf 'LD_LIBRARY_PATH=%s\n' "$validation_dir/node_modules/@embedded-postgres/linux-x64/native/lib" >> "$GITHUB_ENV"
+      - name: Validate schema and backend
+        run: |
+          npm --prefix server run prisma:generate
+          npm --prefix server run check
+          npm --prefix server run build
+          cd server
+          npx --no-install prisma validate
+      - name: Test disposable native PostgreSQL and competing backend processes
+        env:
+          AGENTS_EVENTS: '1'
+        run: node server/tests/agents/run.mjs
+      - name: Require complete native coverage
+        run: |
+          node - <<'JS'
+          const fs=require('fs'),path=require('path'),assert=require('assert/strict');
+          const root=process.env.KATUA_VALIDATION_TOOLS;
+          const base=JSON.parse(fs.readFileSync(path.join(root,'agents-v1-results.json')));
+          const events=JSON.parse(fs.readFileSync(path.join(root,'agents-events-results.json')));
+          assert.equal(base.passed,66);assert.equal(base.failed,0);
+          assert.equal(events.passed,28);assert.equal(events.pending,0);assert.equal(events.failed,0);
+          assert.match(events.environment,/PostgreSQL nativo/);
+          JS
+      - name: Save validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agents-native-postgres-evidence
+          if-no-files-found: warn
+          path: |
+            ${{ env.KATUA_VALIDATION_TOOLS }}/agents-v1-results.json
+            ${{ env.KATUA_VALIDATION_TOOLS }}/agents-events-results.json
+            ${{ env.KATUA_VALIDATION_TOOLS }}/agents-events-db-runtime.json
