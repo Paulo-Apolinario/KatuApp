@@ -8,6 +8,10 @@ export const commandKey = z.enum([
   "ROUTES_ATTENTION",
   "OPERATIONAL_SUMMARY",
   "ATTENTION_OCCURRENCES",
+  "TODAY_COLLECTIONS",
+  "ROUTES_WITHOUT_RESOURCES",
+  "PENDING_PROPOSALS",
+  "AUTOMATION_HEALTH",
 ]);
 export const id = z.string().trim().min(1).max(100);
 export const eventId = z

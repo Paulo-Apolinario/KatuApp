@@ -1,3 +1,4 @@
+import { additionalAnalysis } from "./agents.queries";
 import { analyzeCollections } from "./agents.collections";
 import { analyzeRoutes } from "./agents.routes-analysis";
 import { analyzeManager } from "./agents.manager";
@@ -8,7 +9,9 @@ export interface AgentTools {
   analyze(cooperativeId: string, command: Command): Promise<Analysis>;
 }
 export const readOnlyTools: AgentTools = {
-  analyze(cooperativeId, command) {
+  async analyze(cooperativeId, command) {
+    const extra = await additionalAnalysis(cooperativeId, command);
+    if (extra) return extra;
     const agent = commandAgent(command);
     if (agent === "COLLECTIONS")
       return analyzeCollections(cooperativeId, command);

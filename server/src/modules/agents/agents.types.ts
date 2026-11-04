@@ -6,7 +6,11 @@ export type Command =
   | "SCHEDULED_ROUTES"
   | "ROUTES_ATTENTION"
   | "OPERATIONAL_SUMMARY"
-  | "ATTENTION_OCCURRENCES";
+  | "ATTENTION_OCCURRENCES"
+  | "TODAY_COLLECTIONS"
+  | "ROUTES_WITHOUT_RESOURCES"
+  | "PENDING_PROPOSALS"
+  | "AUTOMATION_HEALTH";
 export interface Finding {
   kind: string;
   id: string;

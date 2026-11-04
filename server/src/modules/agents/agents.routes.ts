@@ -4,12 +4,8 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z, ZodError } from "zod";
 import { prisma } from "../../lib/prisma";
 import { agentScope, requireAgentsEnabled } from "./agents.permissions";
-import { AGENTS, AgentError } from "./agents.types";
-import {
-  COMMANDS,
-  structuredInterpreter,
-  defaultCommand,
-} from "./agents.commands";
+import { AgentError } from "./agents.types";
+import { resolveCommandText, defaultCommand } from "./agents.commands";
 import { listAgents, configureAgent } from "./agents.config";
 import { executeAnalysis } from "./agents.execution";
 import { decideProposal } from "./agents.proposals";
@@ -100,16 +96,32 @@ export async function agentsRoutes(app: FastifyInstance) {
   app.post(
     "/agents/commands",
     handle(async (r, p, coop) => {
-      const input = chatSchema.parse(r.body),
-        command = input.command || structuredInterpreter.interpret(input.text!);
-      if (!command)
+      const input = chatSchema.parse(r.body);
+      const interpretation = input.command
+        ? null
+        : resolveCommandText(input.text!);
+      const command = input.command || interpretation?.command;
+      if (!command) {
+        const catalog = await listAgents(coop.id);
+        const available = catalog.commands.filter((c) =>
+          catalog.agents.some((a) => a.key === c.agent && a.enabled),
+        );
+        const clarificationNeeded = interpretation?.method === "CLARIFICATION";
         return {
           recognized: false,
-          message:
-            "Não reconheci este comando. Use uma das opções disponíveis; este assistente utiliza regras e não IA generativa.",
-          commands: COMMANDS.map(({ key, example }) => ({ key, example })),
-          agents: AGENTS.map(({ key, label }) => ({ key, label })),
+          clarificationNeeded,
+          message: clarificationNeeded
+            ? "Encontrei mais de uma consulta possível. Escolha uma opção para esclarecer; nenhuma análise foi executada."
+            : "Não reconheci este comando. Use uma das opções disponíveis; este assistente utiliza regras e não IA generativa. Datas, pessoas ou filtros adicionais precisam de um comando específico.",
+          suggestions: clarificationNeeded
+            ? available.filter((c) => interpretation.candidates.includes(c.key))
+            : [],
+          commands: available,
+          agents: catalog.agents
+            .filter((a) => a.enabled)
+            .map(({ key, label }) => ({ key, label })),
         };
+      }
       const result = await executeAnalysis({
         cooperativeId: coop.id,
         actorId: r.user.sub,
@@ -159,12 +171,10 @@ export async function agentsRoutes(app: FastifyInstance) {
     const data =
       model === "agentProposal"
         ? await Promise.all(
-            rows
-              .slice(0, q.limit)
-              .map(async (row: any) => ({
-                ...row,
-                freshness: await proposalFreshness(row),
-              })),
+            rows.slice(0, q.limit).map(async (row: any) => ({
+              ...row,
+              freshness: await proposalFreshness(row),
+            })),
           )
         : rows.slice(0, q.limit);
     return {

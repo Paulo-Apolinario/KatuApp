@@ -1,3 +1,4 @@
+import { keywordCandidates } from "./agents.keywords";
 import type { AgentKey } from "@prisma/client";
 import type { Command } from "./agents.types";
 export const COMMANDS: {
@@ -72,6 +73,34 @@ export const COMMANDS: {
       "alertas pendentes",
     ],
   },
+  {
+    key: "TODAY_COLLECTIONS",
+    agent: "COLLECTIONS",
+    example: "Quais coletas estão previstas para hoje?",
+    aliases: ["coletas de hoje", "agenda de coletas de hoje"],
+  },
+  {
+    key: "ROUTES_WITHOUT_RESOURCES",
+    agent: "ROUTES",
+    example: "Quais rotas estão sem motorista ou veículo?",
+    aliases: ["rotas sem motorista", "rotas sem veiculo", "rotas sem recursos"],
+  },
+  {
+    key: "PENDING_PROPOSALS",
+    agent: "MANAGER",
+    example: "Quais recomendações aguardam revisão?",
+    aliases: [
+      "recomendacoes pendentes",
+      "propostas pendentes",
+      "propostas para revisao",
+    ],
+  },
+  {
+    key: "AUTOMATION_HEALTH",
+    agent: "MANAGER",
+    example: "Existem análises com falha ou eventos pendentes?",
+    aliases: ["saude dos agentes", "falhas dos agentes", "fila de eventos"],
+  },
 ];
 export const normalizeCommand = (value: string) =>
   value
@@ -85,14 +114,32 @@ export const normalizeCommand = (value: string) =>
 export interface CommandInterpreter {
   interpret(text: string): Command | null;
 }
+export function resolveCommandText(text: string): {
+  command: Command | null;
+  candidates: Command[];
+  method: "EXACT" | "KEYWORDS" | "CLARIFICATION" | "UNKNOWN";
+} {
+  const normal = normalizeCommand(text);
+  const exact = COMMANDS.find((c) =>
+    [c.example, ...c.aliases].some((a) => normalizeCommand(a) === normal),
+  );
+  if (exact)
+    return { command: exact.key, candidates: [exact.key], method: "EXACT" };
+  const candidates = keywordCandidates(normal);
+  return {
+    command: candidates.length === 1 ? candidates[0] : null,
+    candidates,
+    method:
+      candidates.length === 1
+        ? "KEYWORDS"
+        : candidates.length > 1
+          ? "CLARIFICATION"
+          : "UNKNOWN",
+  };
+}
 export const structuredInterpreter: CommandInterpreter = {
   interpret(text) {
-    const normal = normalizeCommand(text);
-    return (
-      COMMANDS.find((c) =>
-        [c.example, ...c.aliases].some((a) => normalizeCommand(a) === normal),
-      )?.key ?? null
-    );
+    return resolveCommandText(text).command;
   },
 };
 export function commandAgent(command: Command): AgentKey {

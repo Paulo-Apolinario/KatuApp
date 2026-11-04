@@ -1,7 +1,7 @@
 name: Agents - PostgreSQL 16 validation
 on:
   push:
-    branches: ['work/agents-v1-release-*']
+    branches: ['work/agents-v1-release-*', 'work/agents-keywords-*']
   pull_request:
     branches: [main]
     paths: ['server/**', '.github/workflows/agents-validation.yml']
@@ -53,7 +53,7 @@ jobs:
           const root=process.env.KATUA_VALIDATION_TOOLS;
           const base=JSON.parse(fs.readFileSync(path.join(root,'agents-v1-results.json')));
           const events=JSON.parse(fs.readFileSync(path.join(root,'agents-events-results.json')));
-          assert.equal(base.passed,66);assert.equal(base.failed,0);
+          assert.equal(base.passed,96);assert.equal(base.failed,0);
           assert.equal(events.passed,28);assert.equal(events.pending,0);assert.equal(events.failed,0);
           assert.match(events.environment,/PostgreSQL nativo/);
           JS

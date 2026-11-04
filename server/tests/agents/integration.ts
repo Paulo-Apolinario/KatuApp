@@ -120,11 +120,11 @@ async function main() {
       expectStatus(await get("/notifications"), 200);
       process.env.AGENTS_ENABLED = "true";
     });
-    await test("catálogo de três agentes, sete comandos e configurações desativadas", async () => {
+    await test("catálogo de três agentes, onze comandos e configurações desativadas", async () => {
       const r = await get("/agents");
       expectStatus(r, 200);
       assert.equal(r.body.agents.length, 3);
-      assert.equal(r.body.commands.length, 7);
+      assert.equal(r.body.commands.length, 11);
       assert.ok(r.body.agents.every((x: any) => !x.enabled && x.version === 0));
     });
     await test("agente desativado não executa nem cria histórico", async () => {
@@ -205,7 +205,7 @@ async function main() {
         });
         expectStatus(r, 200);
         assert.equal(r.body.recognized, false);
-        assert.equal(r.body.commands.length, 7);
+        assert.equal(r.body.commands.length, 11);
       }
       assert.equal(await prisma.agentRun.count(), 0);
     });
@@ -1091,6 +1091,8 @@ async function main() {
         await import("../agents-events/integration");
       await runEventScenarios(app);
     }
+    const { runCommandScenarios } = await import("./commands-scenarios");
+    await runCommandScenarios(app, test);
     console.log(`AGENTS_V1_RESULT ${results.length} passed, 0 failed`);
     if (process.env.KATUA_VALIDATION_TOOLS)
       writeFileSync(
