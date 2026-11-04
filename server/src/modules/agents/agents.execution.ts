@@ -71,7 +71,8 @@ async function claim(input: RunInput) {
         );
       if (
         input.origin === "SCHEDULED" &&
-        (config.nextRunAt > now ||
+        (!config.automationsEnabled ||
+          config.nextRunAt > now ||
           input.eventId !== `scheduled_${config.id}_${+config.nextRunAt}`)
       )
         throw new AgentError(
@@ -231,6 +232,7 @@ export async function executeAnalysis(
           input.cooperativeId,
           run.id,
           result.proposals,
+          config.notificationsEnabled,
         );
         const payload = json({
           ...result,

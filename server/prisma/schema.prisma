@@ -1821,6 +1821,8 @@ enum AgentMessageRole {
   ASSISTANT
 }
 model AgentConfig {
+  automationsEnabled Boolean @default(true)
+  notificationsEnabled Boolean @default(true)
   id String @id @default(cuid())
   cooperativeId String
   agent AgentKey

@@ -19,6 +19,7 @@ export async function persistProposals(
   cooperativeId: string,
   runId: string,
   drafts: ProposalDraft[],
+  notificationsEnabled = true,
 ) {
   const ids: string[] = [];
   for (const draft of drafts.slice(0, LIMITS.proposals)) {
@@ -46,26 +47,27 @@ export async function persistProposals(
         { runId, kind: row.kind },
       );
       // Reuse the existing inbox with a valid existing panel destination. Future UI can use proposalId.
-      await notifyCooperative(
-        tx,
-        cooperativeId,
-        `agent:proposal:${row.id}`,
-        "Nova recomendação dos agentes",
-        row.title,
-        {
-          proposalId: row.id,
-          agentRunId: runId,
-          href: "/notifications",
-          advisoryOnly: true,
-          ...(typeof draft.evidence.routeId === "string"
-            ? { routeId: draft.evidence.routeId }
-            : {}),
-          ...(draft.kind === "GROUP_COLLECTIONS" &&
-          Array.isArray(draft.evidence.records)
-            ? { scheduleId: draft.evidence.records[0]?.id }
-            : {}),
-        },
-      );
+      if (notificationsEnabled)
+        await notifyCooperative(
+          tx,
+          cooperativeId,
+          `agent:proposal:${row.id}`,
+          "Nova recomendação dos agentes",
+          row.title,
+          {
+            proposalId: row.id,
+            agentRunId: runId,
+            href: "/notifications",
+            advisoryOnly: true,
+            ...(typeof draft.evidence.routeId === "string"
+              ? { routeId: draft.evidence.routeId }
+              : {}),
+            ...(draft.kind === "GROUP_COLLECTIONS" &&
+            Array.isArray(draft.evidence.records)
+              ? { scheduleId: draft.evidence.records[0]?.id }
+              : {}),
+          },
+        );
     }
     ids.push(row.id);
   }

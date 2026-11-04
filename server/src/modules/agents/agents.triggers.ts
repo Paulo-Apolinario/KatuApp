@@ -13,6 +13,7 @@ export async function agentTick(
   const due = await prisma.agentConfig.findMany({
     where: {
       enabled: true,
+      automationsEnabled: true,
       nextRunAt: { lte: new Date() },
       cooperative: {
         user: { isActive: true, accountStatus: "ACTIVE", role: "COOPERATIVE" },

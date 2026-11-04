@@ -19,6 +19,8 @@ export const eventId = z
 export const configSchema = z
   .object({
     enabled: z.boolean(),
+    automationsEnabled: z.boolean().optional(),
+    notificationsEnabled: z.boolean().optional(),
     intervalMinutes: z.number().int().min(15).max(1440).optional(),
     expectedVersion: z.number().int().min(0),
     eventId,

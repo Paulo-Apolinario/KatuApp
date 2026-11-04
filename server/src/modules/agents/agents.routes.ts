@@ -40,25 +40,21 @@ export async function agentsRoutes(app: FastifyInstance) {
         return await fn(r, p, coop);
       } catch (e: any) {
         if (e instanceof ZodError)
-          return p
-            .code(400)
-            .send({
-              code: "VALIDATION_ERROR",
-              error: e.issues.map((x) => x.message).join(" "),
-            });
+          return p.code(400).send({
+            code: "VALIDATION_ERROR",
+            error: e.issues.map((x) => x.message).join(" "),
+          });
         if (e instanceof AgentError)
           return p.code(e.statusCode).send({ code: e.code, error: e.message });
         r.log.error(
           { code: e.code || "AGENTS_ERROR" },
           "Falha no módulo de agentes",
         );
-        return p
-          .code(503)
-          .send({
-            code: "AGENTS_UNAVAILABLE",
-            error:
-              "Não foi possível consultar os agentes agora. Confira a disponibilidade e as migrações do módulo.",
-          });
+        return p.code(503).send({
+          code: "AGENTS_UNAVAILABLE",
+          error:
+            "Não foi possível consultar os agentes agora. Confira a disponibilidade e as migrações do módulo.",
+        });
       }
     };
   app.get(
@@ -283,6 +279,18 @@ export async function agentsRoutes(app: FastifyInstance) {
         source: "SystemAlert",
         refreshedBy: "AgentManager ou central de alertas existente",
       };
+    }),
+  );
+  app.get(
+    "/agents/occurrences/:id",
+    handle(async (r, _p, coop) => {
+      const key = z.object({ id }).parse(r.params);
+      const occurrence = await prisma.systemAlert.findFirst({
+        where: { id: key.id, cooperativeId: coop.id },
+      });
+      if (!occurrence)
+        throw new AgentError(404, "NOT_FOUND", "Ocorrência não encontrada.");
+      return { occurrence, agent: "MANAGER", advisoryOnly: true };
     }),
   );
   app.get(

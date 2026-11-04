@@ -1001,6 +1001,91 @@ async function main() {
       await isolated.ready();
       await isolated.close();
     });
+    await test("preferências: desligar automação preserva execução manual", async () => {
+      await prisma.agentConfig.updateMany({
+        data: { nextRunAt: new Date(Date.now() + 86400000) },
+      });
+      const cfg = await prisma.agentConfig.findUniqueOrThrow({
+        where: {
+          cooperativeId_agent: { cooperativeId: a.id, agent: "COLLECTIONS" },
+        },
+      });
+      expectStatus(
+        await call("PATCH", "/agents/COLLECTIONS/config", {
+          enabled: true,
+          automationsEnabled: false,
+          notificationsEnabled: false,
+          expectedVersion: cfg.version,
+          eventId: "ui_preferences_001",
+        }),
+        200,
+      );
+      await prisma.agentConfig.update({
+        where: { id: cfg.id },
+        data: { nextRunAt: new Date(Date.now() - 1000) },
+      });
+      const before = await prisma.agentRun.count();
+      await agentTick({ info: () => {}, error: () => {} } as any);
+      assert.equal(await prisma.agentRun.count(), before);
+      expectStatus(await run("COLLECTIONS"), 200);
+    });
+    await test("preferências: recomendação sem aviso e sem duplicidade posterior", async () => {
+      await prisma.schedule.update({
+        where: { id: "agents-schedule-0" },
+        data: { updatedAt: new Date() },
+      });
+      const notices = await prisma.inboxNotification.count(),
+        proposals = await prisma.agentProposal.count();
+      expectStatus(await run("COLLECTIONS"), 200);
+      assert.equal(await prisma.inboxNotification.count(), notices);
+      assert.ok((await prisma.agentProposal.count()) > proposals);
+      expectStatus(await run("COLLECTIONS"), 200);
+      assert.equal(await prisma.inboxNotification.count(), notices);
+    });
+    await test("preferências: campos inválidos e versão antiga rejeitados", async () => {
+      expectStatus(
+        await call("PATCH", "/agents/COLLECTIONS/config", {
+          enabled: true,
+          automationsEnabled: "sim",
+          expectedVersion: 1,
+          eventId: "invalid_ui_preference",
+        }),
+        400,
+      );
+      expectStatus(
+        await call("PATCH", "/agents/COLLECTIONS/config", {
+          enabled: true,
+          notificationsEnabled: true,
+          expectedVersion: 0,
+          eventId: "old_ui_preference",
+        }),
+        409,
+      );
+    });
+    await test("contexto de ocorrência autentica cooperativa e não resolve aviso", async () => {
+      await prisma.user.update({
+        where: { id: b.userId },
+        data: { isActive: true },
+      });
+      const alert = await prisma.systemAlert.findFirstOrThrow({
+        where: { cooperativeId: a.id },
+      });
+      const response = await get(`/agents/occurrences/${alert.id}`);
+      expectStatus(response, 200);
+      assert.equal(response.body.agent, "MANAGER");
+      expectStatus(
+        await get(`/agents/occurrences/${alert.id}`, tokens[1]),
+        404,
+      );
+      assert.equal(
+        (
+          await prisma.systemAlert.findUniqueOrThrow({
+            where: { id: alert.id },
+          })
+        ).status,
+        alert.status,
+      );
+    });
     console.log(`AGENTS_V1_RESULT ${results.length} passed, 0 failed`);
     if (process.env.KATUA_VALIDATION_TOOLS)
       writeFileSync(
@@ -1019,6 +1104,49 @@ async function main() {
           2,
         ),
       );
+    if (process.env.AGENTS_UI === "1") {
+      await prisma.bin.update({
+        where: { id: pev.id },
+        data: { needsPickup: true },
+      });
+      await run("MANAGER");
+      await prisma.agentRun.updateMany({
+        data: { startedAt: new Date(Date.now() - 2 * 86400000) },
+      });
+      await prisma.agentConfig.updateMany({
+        data: {
+          notificationsEnabled: true,
+          automationsEnabled: false,
+          nextRunAt: new Date(Date.now() + 86400000),
+        },
+      });
+      await app.listen({ port: 3339, host: "127.0.0.1" });
+      writeFileSync(
+        path.join(
+          process.env.KATUA_VALIDATION_TOOLS!,
+          "agents-ui-fixture.json",
+        ),
+        JSON.stringify({
+          token: tokens[0],
+          otherToken: tokens[1],
+          municipalToken: tokens[7],
+          user: { id: a.userId, role: "COOPERATIVE", displayName: "Conta 0" },
+          otherUser: {
+            id: b.userId,
+            role: "COOPERATIVE",
+            displayName: "Conta 1",
+          },
+          proposalId: proposal.id,
+          routeId: r1.id,
+          conversationId: chat.body.run.conversationId,
+        }),
+      );
+      console.log("AGENTS_UI_READY");
+      await new Promise<void>((resolve) => {
+        process.once("SIGTERM", () => resolve());
+        process.once("SIGINT", () => resolve());
+      });
+    }
   } finally {
     await app.close();
     await prisma.$disconnect();

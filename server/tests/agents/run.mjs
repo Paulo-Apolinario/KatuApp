@@ -55,6 +55,30 @@ try {
       "utf8",
     ),
   );
+  await db.exec(
+    `INSERT INTO "AgentConfig" (id,"cooperativeId",agent,enabled,"intervalMinutes",version,"nextRunAt","updatedAt") VALUES ('preserved-agent-config','preserved-coop','COLLECTIONS',false,90,7,now(),now());`,
+  );
+  await db.exec(
+    fs.readFileSync(
+      root +
+        "/prisma/migrations/20261104030000_agents_ui_preferences/migration.sql",
+      "utf8",
+    ),
+  );
+  const preservedConfig = await db.query(
+    `SELECT enabled,"intervalMinutes",version,"automationsEnabled","notificationsEnabled" FROM "AgentConfig" WHERE id='preserved-agent-config'`,
+  );
+  if (
+    JSON.stringify(preservedConfig.rows[0]) !==
+    JSON.stringify({
+      enabled: false,
+      intervalMinutes: 90,
+      version: 7,
+      automationsEnabled: true,
+      notificationsEnabled: true,
+    })
+  )
+    throw Error("Preferências alteraram a configuração anterior");
   const after = await db.query(
     "SELECT * FROM \"SystemAlert\" WHERE id='preserved-alert'",
   );
@@ -81,14 +105,37 @@ try {
         DATABASE_URL:
           "postgresql://postgres:postgres@127.0.0.1:54329/postgres?connection_limit=1",
       },
-      stdio: "inherit",
+      stdio: ["ignore", "pipe", "inherit"],
     },
   );
+  let uiPromise;
+  child.stdout.on("data", (chunk) => {
+    process.stdout.write(chunk);
+    if (
+      process.env.AGENTS_UI === "1" &&
+      !uiPromise &&
+      chunk.toString().includes("AGENTS_UI_READY")
+    ) {
+      if (!process.env.KATUA_AGENTS_UI_RUNNER)
+        throw Error("Informe KATUA_AGENTS_UI_RUNNER.");
+      uiPromise = new Promise((resolve) => {
+        const ui = spawn(
+          process.execPath,
+          [process.env.KATUA_AGENTS_UI_RUNNER],
+          { env: process.env, stdio: "inherit" },
+        );
+        ui.on("exit", (code) => {
+          child.kill("SIGTERM");
+          resolve(code);
+        });
+      });
+    }
+  });
   const code = await new Promise((resolve, reject) => {
     child.once("exit", resolve);
     child.once("error", reject);
   });
-  process.exitCode = code || 0;
+  process.exitCode = (uiPromise ? await uiPromise : code) || 0;
 } finally {
   if (server) await server.stop();
   await db.close();

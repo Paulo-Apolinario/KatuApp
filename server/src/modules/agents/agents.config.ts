@@ -12,6 +12,8 @@ export async function listAgents(cooperativeId: string) {
       ...a,
       ...(configs.find((c) => c.agent === a.key) || {
         enabled: false,
+        automationsEnabled: true,
+        notificationsEnabled: true,
         intervalMinutes: 60,
         version: 0,
         nextRunAt: null,
@@ -31,6 +33,8 @@ export async function configureAgent(
   agent: AgentKey,
   input: {
     enabled: boolean;
+    automationsEnabled?: boolean;
+    notificationsEnabled?: boolean;
     intervalMinutes?: number;
     expectedVersion: number;
     eventId: string;
@@ -67,11 +71,19 @@ export async function configureAgent(
         cooperativeId,
         agent,
         enabled: input.enabled,
+        automationsEnabled:
+          input.automationsEnabled ?? old?.automationsEnabled ?? true,
+        notificationsEnabled:
+          input.notificationsEnabled ?? old?.notificationsEnabled ?? true,
         intervalMinutes: input.intervalMinutes || 60,
         nextRunAt: new Date(Date.now() + 60000),
       },
       update: {
         enabled: input.enabled,
+        automationsEnabled:
+          input.automationsEnabled ?? old?.automationsEnabled ?? true,
+        notificationsEnabled:
+          input.notificationsEnabled ?? old?.notificationsEnabled ?? true,
         intervalMinutes: input.intervalMinutes || old?.intervalMinutes || 60,
         nextRunAt: new Date(Date.now() + 60000),
         version: { increment: 1 },
