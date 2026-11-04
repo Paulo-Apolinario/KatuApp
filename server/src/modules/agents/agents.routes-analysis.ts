@@ -46,6 +46,8 @@ export async function analyzeRoutes(
       take: LIMITS.records + 1,
       select: {
         id: true,
+        driver: { select: { updatedAt: true } },
+        vehicle: { select: { updatedAt: true } },
         cooperativeId: true,
         name: true,
         status: true,
@@ -92,6 +94,20 @@ export async function analyzeRoutes(
       },
     }),
   ]);
+  const collectors = await prisma.collector.findMany({
+    where: {
+      cooperativeId,
+      id: {
+        in: [
+          ...new Set(
+            rows.slice(0, LIMITS.records).flatMap((r) => r.collectorIds),
+          ),
+        ],
+      },
+    },
+    orderBy: { id: "asc" },
+    select: { id: true, updatedAt: true },
+  });
   const items: Finding[] = [],
     proposals: ProposalDraft[] = [];
   let geometriesSkipped = 0;
@@ -180,6 +196,16 @@ export async function analyzeRoutes(
               evidence: {
                 routeId: r.id,
                 revisionAt: r.updatedAt.toISOString(),
+                resources: {
+                  driver: r.driver?.updatedAt.toISOString() || null,
+                  vehicle: r.vehicle?.updatedAt.toISOString() || null,
+                  collectors: collectors
+                    .filter((c) => r.collectorIds.includes(c.id))
+                    .map((c) => ({
+                      id: c.id,
+                      version: c.updatedAt.toISOString(),
+                    })),
+                },
                 collectionIds: order,
                 method: "GEOMETRIC_NEAREST_2OPT",
                 href: `/edit-route/${encodeURIComponent(r.id)}`,
@@ -206,6 +232,13 @@ export async function analyzeRoutes(
         evidence: {
           routeId: r.id,
           revisionAt: r.updatedAt.toISOString(),
+          resources: {
+            driver: r.driver?.updatedAt.toISOString() || null,
+            vehicle: r.vehicle?.updatedAt.toISOString() || null,
+            collectors: collectors
+              .filter((c) => r.collectorIds.includes(c.id))
+              .map((c) => ({ id: c.id, version: c.updatedAt.toISOString() })),
+          },
           reasons,
           href: `/edit-route/${encodeURIComponent(r.id)}`,
         },

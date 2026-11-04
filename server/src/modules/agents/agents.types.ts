@@ -67,6 +67,9 @@ export const AGENTS = [
 ] as const;
 export const LIMITS = {
   globalConcurrency: 1,
+  durationMs: 45000,
+  eventBatch: 20,
+  eventAttempts: 3,
   perMinute: 10,
   perDay: 100,
   leaseMinutes: 15,

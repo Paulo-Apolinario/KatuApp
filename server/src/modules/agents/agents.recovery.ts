@@ -1,3 +1,4 @@
+import { settleEventDeliveries } from "./agents.event-lifecycle";
 import { prisma } from "../../lib/prisma";
 import { audit, lockCooperative } from "./agents.audit";
 /** Recover interrupted metadata independently of new-run quotas or configuration state. No operational replay. */
@@ -11,7 +12,12 @@ export async function recoverExpiredRuns(cooperativeId?: string) {
     },
     orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
     take: 20,
-    select: { id: true, cooperativeId: true, conversationId: true },
+    select: {
+      id: true,
+      cooperativeId: true,
+      conversationId: true,
+      origin: true,
+    },
   });
   for (const run of rows) {
     await prisma.$transaction(async (tx) => {
@@ -26,6 +32,7 @@ export async function recoverExpiredRuns(cooperativeId?: string) {
         data: { status: "FAILED", errorCode: "LEASE_EXPIRED", finishedAt: now },
       });
       if (!changed.count) return;
+      await settleEventDeliveries(tx, run, false, "LEASE_EXPIRED");
       if (run.conversationId)
         await tx.agentMessage.createMany({
           data: [

@@ -1,3 +1,9 @@
+import {
+  validateEventBatch,
+  reserveEventBatch,
+  settleEventDeliveries,
+} from "./agents.event-lifecycle";
+import { requireAgentsEnabled } from "./agents.permissions";
 import type { AgentOrigin } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { audit, fingerprint, json, lockCooperative } from "./agents.audit";
@@ -14,6 +20,7 @@ export interface RunInput {
   eventId: string;
   conversationId?: string;
   text?: string;
+  deliveryIds?: string[];
 }
 async function claim(input: RunInput) {
   return prisma.$transaction(
@@ -80,6 +87,15 @@ async function claim(input: RunInput) {
           "STALE_TRIGGER",
           "Gatilho agendado desatualizado.",
         );
+      if (input.origin === "EVENT")
+        await validateEventBatch(
+          tx,
+          input.cooperativeId,
+          config,
+          input.eventId,
+          input.deliveryIds || [],
+          now,
+        );
       if (
         await tx.agentRun.count({
           where: { cooperativeId: input.cooperativeId, status: "RUNNING" },
@@ -92,7 +108,13 @@ async function claim(input: RunInput) {
         );
       if (
         (await tx.agentRun.count({
-          where: { status: "RUNNING", expiresAt: { gt: now } },
+          where: {
+            expiresAt: { gt: now },
+            OR: [
+              { status: "RUNNING" },
+              { status: "FAILED", errorCode: "TIME_BUDGET_EXCEEDED" },
+            ],
+          },
         })) >= LIMITS.globalConcurrency
       )
         throw new AgentError(
@@ -153,10 +175,13 @@ async function claim(input: RunInput) {
           origin: input.origin,
           eventKey,
           inputHash: hash,
+          eventDeliveryIds: input.deliveryIds || [],
           conversationId,
           expiresAt: new Date(+now + LIMITS.leaseMinutes * 60000),
         },
       });
+      if (input.origin === "EVENT")
+        await reserveEventBatch(tx, run, config, input.deliveryIds!, now);
       if (conversationId) {
         await tx.agentMessage.create({
           data: {
@@ -184,7 +209,12 @@ async function claim(input: RunInput) {
         `started:${run.id}`,
         "RUN_STARTED",
         run.id,
-        { agent, origin: input.origin, command: input.command },
+        {
+          agent,
+          origin: input.origin,
+          command: input.command,
+          deliveryIds: input.deliveryIds || [],
+        },
       );
       return { run, replayed: false };
     },
@@ -194,13 +224,54 @@ async function claim(input: RunInput) {
 export async function executeAnalysis(
   input: RunInput,
   tools: AgentTools = readOnlyTools,
+  options: { budgetMs?: number } = {},
 ) {
+  requireAgentsEnabled();
   await recoverExpiredRuns(input.cooperativeId);
   const claimed = await claim(input);
   if (claimed.replayed) return claimed;
   const { run } = claimed;
+  let analysisSettled = false;
   try {
-    const result = await tools.analyze(input.cooperativeId, input.command);
+    let timedOut = false;
+    const analysis = tools.analyze(input.cooperativeId, input.command);
+    let timer: ReturnType<typeof setTimeout>;
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(
+        () => {
+          timedOut = true;
+          reject(
+            new AgentError(
+              503,
+              "TIME_BUDGET_EXCEEDED",
+              "A análise excedeu o tempo permitido.",
+            ),
+          );
+        },
+        Math.max(
+          1,
+          Math.min(LIMITS.durationMs, options.budgetMs ?? LIMITS.durationMs),
+        ),
+      );
+    });
+    // A late read cannot commit results. Keep the global resource slot fenced while it is still running.
+    void analysis
+      .finally(async () => {
+        analysisSettled = true;
+        if (timedOut)
+          await prisma.agentRun.updateMany({
+            where: {
+              id: run.id,
+              status: "FAILED",
+              errorCode: "TIME_BUDGET_EXCEEDED",
+            },
+            data: { expiresAt: new Date() },
+          });
+      })
+      .catch(() => {});
+    const result = await Promise.race([analysis, deadline]).finally(() =>
+      clearTimeout(timer),
+    );
     return await prisma.$transaction(
       async (tx) => {
         await lockCooperative(tx, input.cooperativeId);
@@ -221,7 +292,29 @@ export async function executeAnalysis(
             },
           },
         });
-        if (!config?.enabled)
+        const owner = await tx.cooperative.findFirst({
+          where: {
+            id: input.cooperativeId,
+            user: {
+              isActive: true,
+              accountStatus: "ACTIVE",
+              role: "COOPERATIVE",
+            },
+          },
+          select: { userId: true },
+        });
+        if (!owner || (input.actorId && owner.userId !== input.actorId))
+          throw new AgentError(
+            403,
+            "COOPERATIVE_UNAVAILABLE",
+            "O acesso da cooperativa foi desativado durante a análise.",
+          );
+        requireAgentsEnabled();
+        if (
+          !config?.enabled ||
+          ((input.origin === "EVENT" || input.origin === "SCHEDULED") &&
+            !config.automationsEnabled)
+        )
           throw new AgentError(
             409,
             "AGENT_DISABLED",
@@ -234,11 +327,30 @@ export async function executeAnalysis(
           result.proposals,
           config.notificationsEnabled,
         );
+        const eventSources =
+          input.origin === "EVENT"
+            ? await tx.agentEventDelivery.findMany({
+                where: { cooperativeId: run.cooperativeId, runId: run.id },
+                take: LIMITS.eventBatch,
+                select: {
+                  event: {
+                    select: {
+                      id: true,
+                      source: true,
+                      entityId: true,
+                      kind: true,
+                      occurredAt: true,
+                    },
+                  },
+                },
+              })
+            : [];
         const payload = json({
           ...result,
           proposals: undefined,
           proposalIds,
           advisoryOnly: true,
+          eventSources: eventSources.map((x) => x.event),
         });
         const updated = await tx.agentRun.update({
           where: { id: run.id },
@@ -248,6 +360,7 @@ export async function executeAnalysis(
             finishedAt: new Date(),
           },
         });
+        await settleEventDeliveries(tx, run, true);
         if (run.conversationId)
           await tx.agentMessage.create({
             data: {
@@ -283,9 +396,17 @@ export async function executeAnalysis(
           cooperativeId: input.cooperativeId,
           status: "RUNNING",
         },
-        data: { status: "FAILED", finishedAt: new Date(), errorCode: code },
+        data: {
+          status: "FAILED",
+          finishedAt: new Date(),
+          errorCode: code,
+          ...(code === "TIME_BUDGET_EXCEEDED" && analysisSettled
+            ? { expiresAt: new Date() }
+            : {}),
+        },
       });
       if (updated.count) {
+        await settleEventDeliveries(tx, run, false, code);
         if (run.conversationId)
           await tx.agentMessage.create({
             data: {

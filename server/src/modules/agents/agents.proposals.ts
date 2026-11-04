@@ -1,3 +1,4 @@
+import { proposalFreshness } from "./agents.freshness";
 import type { AgentProposalStatus, Prisma } from "@prisma/client";
 import { notifyCooperative } from "../inbox/inbox.service";
 import { audit, fingerprint, json, lockCooperative } from "./agents.audit";
@@ -116,6 +117,15 @@ export async function decideProposal(
         "A proposta foi alterada. Consulte novamente.",
       );
     assertProposalTransition(row.status, input.status);
+    if (
+      input.status === "APPROVED" &&
+      !(await proposalFreshness(row, tx)).current
+    )
+      throw new AgentError(
+        409,
+        "STALE_PROPOSAL",
+        "Os dados desta proposta mudaram. Solicite uma nova análise antes de aprovar.",
+      );
     const proposal = await tx.agentProposal.update({
       where: { id: row.id },
       data: {

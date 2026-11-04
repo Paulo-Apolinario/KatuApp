@@ -1,3 +1,5 @@
+import { proposalFreshness } from "./agents.freshness";
+import { eventQuery } from "./agents.schemas";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z, ZodError } from "zod";
 import { prisma } from "../../lib/prisma";
@@ -154,7 +156,17 @@ export async function agentsRoutes(app: FastifyInstance) {
       take: q.limit + 1,
       ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
     });
-    const data = rows.slice(0, q.limit);
+    const data =
+      model === "agentProposal"
+        ? await Promise.all(
+            rows
+              .slice(0, q.limit)
+              .map(async (row: any) => ({
+                ...row,
+                freshness: await proposalFreshness(row),
+              })),
+          )
+        : rows.slice(0, q.limit);
     return {
       data,
       nextCursor: rows.length > q.limit ? data[data.length - 1].id : null,
@@ -234,7 +246,10 @@ export async function agentsRoutes(app: FastifyInstance) {
       });
       if (!proposal)
         throw new AgentError(404, "NOT_FOUND", "Proposta não encontrada.");
-      return { proposal, operationalExecutionEnabled: false };
+      return {
+        proposal: { ...proposal, freshness: await proposalFreshness(proposal) },
+        operationalExecutionEnabled: false,
+      };
     }),
   );
   app.post(
@@ -291,6 +306,57 @@ export async function agentsRoutes(app: FastifyInstance) {
       if (!occurrence)
         throw new AgentError(404, "NOT_FOUND", "Ocorrência não encontrada.");
       return { occurrence, agent: "MANAGER", advisoryOnly: true };
+    }),
+  );
+  app.get(
+    "/agents/events",
+    handle(async (r, _p, coop) => {
+      const { agent, status, ...q } = eventQuery.parse(r.query);
+      const where = {
+        cooperativeId: coop.id,
+        ...(agent ? { agent } : {}),
+        ...(status ? { status } : {}),
+      };
+      if (
+        q.cursor &&
+        !(await prisma.agentEventDelivery.findFirst({
+          where: { ...where, id: q.cursor },
+          select: { id: true },
+        }))
+      )
+        throw new AgentError(404, "NOT_FOUND", "Página não encontrada.");
+      const [rows, counts] = await Promise.all([
+        prisma.agentEventDelivery.findMany({
+          where,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: q.limit + 1,
+          ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
+          include: {
+            event: {
+              select: {
+                id: true,
+                source: true,
+                entityId: true,
+                kind: true,
+                occurredAt: true,
+              },
+            },
+          },
+        }),
+        prisma.agentEventDelivery.groupBy({
+          by: ["status"],
+          where: { cooperativeId: coop.id },
+          _count: { _all: true },
+        }),
+      ]);
+      const data = rows.slice(0, q.limit);
+      return {
+        data,
+        nextCursor: rows.length > q.limit ? data[data.length - 1].id : null,
+        counts: Object.fromEntries(
+          counts.map((c) => [c.status, c._count._all]),
+        ),
+      };
     }),
   );
   app.get(

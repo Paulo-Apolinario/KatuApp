@@ -39,7 +39,12 @@ const ddl = spawnSync(
   },
 );
 if (ddl.status !== 0) throw Error(ddl.stderr);
-const db = await PGlite.create();
+const nativeBin = process.env.KATUA_NATIVE_POSTGRES_BIN;
+const db = nativeBin
+  ? await (
+      await import("../agents-events/native-db.mjs")
+    ).createNativeDatabase(nativeBin, tmp)
+  : await PGlite.create();
 let server;
 try {
   await db.exec(ddl.stdout);
@@ -65,6 +70,13 @@ try {
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      root +
+        "/prisma/migrations/20261104040000_agents_operational_events/migration.sql",
+      "utf8",
+    ),
+  );
   const preservedConfig = await db.query(
     `SELECT enabled,"intervalMinutes",version,"automationsEnabled","notificationsEnabled" FROM "AgentConfig" WHERE id='preserved-agent-config'`,
   );
@@ -87,7 +99,14 @@ try {
   console.log(
     "PASS migration: schema anterior + migração incremental preservam alertas e cooperativa",
   );
-  server = new PGLiteSocketServer({ db, port: 54329, host: "127.0.0.1" });
+  server = nativeBin
+    ? { start: async () => {}, stop: async () => {} }
+    : new PGLiteSocketServer({
+        db,
+        port: 54329,
+        host: "127.0.0.1",
+        maxConnections: 1,
+      });
   await server.start();
   const child = spawn(
     process.execPath,
@@ -136,6 +155,7 @@ try {
     child.once("error", reject);
   });
   process.exitCode = (uiPromise ? await uiPromise : code) || 0;
+  if(process.env.AGENTS_EVENTS==='1')fs.writeFileSync(path.join(process.env.KATUA_VALIDATION_TOOLS,'agents-events-db-runtime.json'),JSON.stringify({environment:nativeBin?'PostgreSQL nativo temporário':'PGlite processo do banco descartável',peakRssMiB:Math.round(process.resourceUsage().maxRSS/1024),cpuUserMs:Math.round(process.cpuUsage().user/1000),cpuSystemMs:Math.round(process.cpuUsage().system/1000)},null,2));
 } finally {
   if (server) await server.stop();
   await db.close();

@@ -15,6 +15,7 @@ export async function listAgents(cooperativeId: string) {
         automationsEnabled: true,
         notificationsEnabled: true,
         intervalMinutes: 60,
+        eventIntervalMinutes: 5,
         version: 0,
         nextRunAt: null,
       }),
@@ -36,6 +37,7 @@ export async function configureAgent(
     automationsEnabled?: boolean;
     notificationsEnabled?: boolean;
     intervalMinutes?: number;
+    eventIntervalMinutes?: number;
     expectedVersion: number;
     eventId: string;
   },
@@ -71,6 +73,8 @@ export async function configureAgent(
         cooperativeId,
         agent,
         enabled: input.enabled,
+        eventIntervalMinutes:
+          input.eventIntervalMinutes ?? old?.eventIntervalMinutes ?? 5,
         automationsEnabled:
           input.automationsEnabled ?? old?.automationsEnabled ?? true,
         notificationsEnabled:
@@ -80,6 +84,8 @@ export async function configureAgent(
       },
       update: {
         enabled: input.enabled,
+        eventIntervalMinutes:
+          input.eventIntervalMinutes ?? old?.eventIntervalMinutes ?? 5,
         automationsEnabled:
           input.automationsEnabled ?? old?.automationsEnabled ?? true,
         notificationsEnabled:

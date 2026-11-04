@@ -1,3 +1,5 @@
+import { LIMITS } from "./agents.types";
+import { processAgentEvents } from "./agents.events";
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../../lib/prisma";
 import { defaultCommand } from "./agents.commands";
@@ -9,7 +11,9 @@ export async function agentTick(
   log: Pick<FastifyInstance["log"], "info" | "error">,
 ) {
   if (!agentsEnabled()) return;
+  const cycleStarted = Date.now();
   await recoverExpiredRuns();
+  await processAgentEvents(log);
   const due = await prisma.agentConfig.findMany({
     where: {
       enabled: true,
@@ -23,6 +27,7 @@ export async function agentTick(
     take: 3,
   });
   for (const config of due) {
+    if (Date.now() - cycleStarted > Math.min(5000, LIMITS.durationMs)) break;
     try {
       const result = await executeAnalysis({
         cooperativeId: config.cooperativeId,

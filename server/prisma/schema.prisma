@@ -58,6 +58,7 @@ model User {
 }
 
 model Cooperative {
+  agentEvents AgentEvent[]
   agentConfigs AgentConfig[]
   agentRuns AgentRun[]
   agentConversations AgentConversation[]
@@ -1805,6 +1806,7 @@ enum AgentRunStatus {
   FAILED
 }
 enum AgentOrigin {
+  EVENT
   MANUAL
   COMMAND
   SCHEDULED
@@ -1821,6 +1823,9 @@ enum AgentMessageRole {
   ASSISTANT
 }
 model AgentConfig {
+  eventIntervalMinutes Int @default(5)
+  nextEventAt DateTime @default(now())
+  eventDeliveries AgentEventDelivery[]
   automationsEnabled Boolean @default(true)
   notificationsEnabled Boolean @default(true)
   id String @id @default(cuid())
@@ -1851,6 +1856,8 @@ model AgentConversation {
   @@index([cooperativeId,createdAt,id])
 }
 model AgentRun {
+  eventDeliveryIds String[] @default([])
+  eventDeliveries AgentEventDelivery[]
   id String @id @default(cuid())
   cooperativeId String
   actorId String?
@@ -1923,4 +1930,51 @@ model AgentAuditEvent {
   actor User? @relation(fields:[actorId],references:[id],onDelete:SetNull)
   @@unique([cooperativeId,eventKey])
   @@index([cooperativeId,createdAt,id])
+}
+
+
+// Durable operational outbox. No operational executor.
+enum AgentDeliveryStatus {
+  PENDING
+  PROCESSING
+  DONE
+  DEAD
+  SKIPPED
+}
+model AgentEvent {
+  id String @id
+  cooperativeId String
+  eventKey String
+  source String
+  entityId String
+  kind String
+  sourceHash String
+  occurredAt DateTime @default(now())
+  deliveries AgentEventDelivery[]
+  cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+  @@unique([cooperativeId,eventKey])
+  @@unique([cooperativeId,id])
+  @@index([cooperativeId,occurredAt,id])
+}
+model AgentEventDelivery {
+  id String @id
+  cooperativeId String
+  eventId String
+  agent AgentKey
+  status AgentDeliveryStatus @default(PENDING)
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  expiresAt DateTime
+  runId String?
+  errorCode String?
+  finishedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event AgentEvent @relation(fields:[cooperativeId,eventId],references:[cooperativeId,id],onDelete:Cascade)
+  config AgentConfig @relation(fields:[cooperativeId,agent],references:[cooperativeId,agent])
+  run AgentRun? @relation(fields:[cooperativeId,runId],references:[cooperativeId,id])
+  @@unique([eventId,agent])
+  @@index([status,availableAt,createdAt,id])
+  @@index([cooperativeId,agent,status,availableAt])
+  @@index([cooperativeId,runId,status])
 }

@@ -3,7 +3,7 @@ import { prisma } from "../../lib/prisma";
 import { defaults } from "./settings.schemas";
 import { deliver } from "./settings.mail";
 const DAY = 86400000;
-export async function refreshAlerts(id: string) {
+export async function refreshAlerts(id: string, options: { fromAgent?: boolean } = {}) {
   const row = await prisma.cooperativeSettings.findUnique({
       where: { cooperativeId: id },
     }),
@@ -178,6 +178,7 @@ export async function refreshAlerts(id: string) {
   );
   await prisma.$transaction(
     async (tx) => {
+      if (options.fromAgent) await tx.$queryRaw`SELECT set_config('katua.agent_analysis','true',true)`;
       const existing = await tx.systemAlert.findMany({
         where: { cooperativeId: id },
       });

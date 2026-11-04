@@ -8,7 +8,7 @@ export async function analyzeManager(
   now = new Date(),
 ): Promise<Analysis> {
   // Same alert engine as the existing central. This refreshes alert metadata, never domain operations or email delivery.
-  const refreshed = await refreshAlerts(cooperativeId);
+  const refreshed = await refreshAlerts(cooperativeId, { fromAgent: true });
   const [overview, alerts, total] = await Promise.all([
     operationalOverview(cooperativeId),
     prisma.systemAlert.findMany({
@@ -80,15 +80,47 @@ export async function analyzeManager(
     ],
     method:
       "Resumo consolidado do dashboard existente e motor de alertas existente.",
-    proposals: ordered
-      .filter((a) => a.priority === "CRITICAL")
+    proposals: [
+      ...new Set(
+        ordered.filter((a) => a.priority === "CRITICAL").map((a) => a.category),
+      ),
+    ]
       .slice(0, LIMITS.proposals)
-      .map((a) => ({
-        kind: "REVIEW_OCCURRENCE",
-        title: a.title,
-        description:
-          "Conferir a ocorrência na central existente; nenhuma ação operacional será executada pelo agente.",
-        evidence: { alertId: a.id, cycle: a.cycle, href: a.link },
-      })),
+      .map((category) => {
+        const group = ordered
+          .filter((a) => a.priority === "CRITICAL" && a.category === category)
+          .sort((a, b) => a.id.localeCompare(b.id));
+        if (group.length === 1)
+          return {
+            kind: "REVIEW_OCCURRENCE",
+            title: group[0].title,
+            description:
+              "Conferir a ocorrência na central existente; nenhuma ação operacional será executada pelo agente.",
+            evidence: {
+              alertId: group[0].id,
+              cycle: group[0].cycle,
+              href: group[0].link,
+            },
+          };
+        const label =
+          {
+            DOCUMENT: "documentos",
+            SMTP: "envio de e-mails",
+            COLLECTION: "coletas",
+            WASTE: "materiais",
+            MAINTENANCE: "manutenções",
+          }[category] || "operação";
+        return {
+          kind: "REVIEW_OCCURRENCES",
+          title: `${group.length} ocorrências críticas de ${label}`,
+          description:
+            "Ocorrências semelhantes agrupadas para revisão na central existente. Nenhuma operação foi executada.",
+          evidence: {
+            category,
+            alerts: group.map((a) => ({ id: a.id, cycle: a.cycle })),
+            href: group[0].link,
+          },
+        };
+      }),
   };
 }

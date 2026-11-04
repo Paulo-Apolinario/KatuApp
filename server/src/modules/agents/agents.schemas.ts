@@ -21,6 +21,7 @@ export const configSchema = z
     enabled: z.boolean(),
     automationsEnabled: z.boolean().optional(),
     notificationsEnabled: z.boolean().optional(),
+    eventIntervalMinutes: z.number().int().min(1).max(60).optional(),
     intervalMinutes: z.number().int().min(15).max(1440).optional(),
     expectedVersion: z.number().int().min(0),
     eventId,
@@ -60,5 +61,12 @@ export const runQuery = pageSchema.extend({
 export const proposalQuery = pageSchema.extend({
   status: z
     .enum(["PENDING", "APPROVED", "REJECTED", "EXECUTED", "FAILED"])
+    .optional(),
+});
+
+export const eventQuery = pageSchema.extend({
+  agent: agentKey.optional(),
+  status: z
+    .enum(["PENDING", "PROCESSING", "DONE", "DEAD", "SKIPPED"])
     .optional(),
 });

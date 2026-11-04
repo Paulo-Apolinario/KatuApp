@@ -1086,6 +1086,11 @@ async function main() {
         alert.status,
       );
     });
+    if (process.env.AGENTS_EVENTS === "1") {
+      const { runEventScenarios } =
+        await import("../agents-events/integration");
+      await runEventScenarios(app);
+    }
     console.log(`AGENTS_V1_RESULT ${results.length} passed, 0 failed`);
     if (process.env.KATUA_VALIDATION_TOOLS)
       writeFileSync(
@@ -1105,6 +1110,7 @@ async function main() {
         ),
       );
     if (process.env.AGENTS_UI === "1") {
+      if(process.env.AGENTS_EVENTS_UI==='1')await prisma.route.update({where:{id:r1.id},data:{description:'Rota alterada depois da recomendação QA'}});
       await prisma.bin.update({
         where: { id: pev.id },
         data: { needsPickup: true },
