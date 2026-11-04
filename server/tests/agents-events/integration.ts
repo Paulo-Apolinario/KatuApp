@@ -201,7 +201,12 @@ export async function runEventScenarios(app: FastifyInstance) {
     );
     const run = await consume();
     assert.equal(run.status, "SUCCEEDED");
-    assert.ok((run.result as any).items.some((x: any) => x.id === scheduleId));
+    assert.equal((run.result as any).command, "COLLECTION_PRIORITIES");
+    assert.equal((run.result as any).counts.priorityRecordsInSample, 0);
+    assert.ok(!(run.result as any).items.some((x: any) => x.id === scheduleId), "Pedido novo sem sinal de revisão não deve virar prioridade artificial");
+    const { analyzeCollections } = await import("../../src/modules/agents/agents.collections");
+    const pending = await analyzeCollections(a.coop.id, "PENDING_COLLECTIONS");
+    assert.ok(pending.items.some((x) => x.id === scheduleId), "Pedido recebido continua visível na consulta de pendências");
     const cfg = await prisma.agentConfig.findUniqueOrThrow({
       where: {
         cooperativeId_agent: { cooperativeId: a.coop.id, agent: "COLLECTIONS" },
@@ -327,7 +332,7 @@ export async function runEventScenarios(app: FastifyInstance) {
         cooperativeId: b.coop.id,
         generatorId: b.generator.id,
         requestedByUserId: b.user.id,
-        preferredDate: future,
+        preferredDate: past,
       },
     });
     const run = await consume(b.coop.id);
