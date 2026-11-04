@@ -1,0 +1,603 @@
+{
+  "date": "2026-11-04",
+  "backend": {
+    "date": "2026-11-04",
+    "passed": 112,
+    "failed": 0,
+    "migrationPreservation": true,
+    "environment": "PGlite local descartável; Fastify inject + Prisma reais",
+    "cases": [
+      {
+        "name": "auth: ausência de JWT retorna 401",
+        "status": "PASS"
+      },
+      {
+        "name": "auth: JWT inválido retorna 401",
+        "status": "PASS"
+      },
+      {
+        "name": "RBAC: COLLECTOR bloqueado",
+        "status": "PASS"
+      },
+      {
+        "name": "RBAC: DRIVER bloqueado",
+        "status": "PASS"
+      },
+      {
+        "name": "RBAC: PF bloqueado",
+        "status": "PASS"
+      },
+      {
+        "name": "RBAC: GENERATOR_SMALL bloqueado",
+        "status": "PASS"
+      },
+      {
+        "name": "RBAC: GENERATOR_LARGE bloqueado",
+        "status": "PASS"
+      },
+      {
+        "name": "RBAC: MUNICIPAL_MANAGER bloqueado",
+        "status": "PASS"
+      },
+      {
+        "name": "feature flag global bloqueia uso sem remover rotas antigas",
+        "status": "PASS"
+      },
+      {
+        "name": "catálogo de três agentes, onze comandos e configurações desativadas",
+        "status": "PASS"
+      },
+      {
+        "name": "agente desativado não executa nem cria histórico",
+        "status": "PASS"
+      },
+      {
+        "name": "validação: agente desconhecido, corpo extra e intervalo inválido",
+        "status": "PASS"
+      },
+      {
+        "name": "habilitar COLLECTIONS com versão e auditoria",
+        "status": "PASS"
+      },
+      {
+        "name": "habilitar ROUTES com versão e auditoria",
+        "status": "PASS"
+      },
+      {
+        "name": "habilitar MANAGER com versão e auditoria",
+        "status": "PASS"
+      },
+      {
+        "name": "configuração idempotente e evento conflitante",
+        "status": "PASS"
+      },
+      {
+        "name": "comando: PENDING_COLLECTIONS, pontuação e acentos",
+        "status": "PASS"
+      },
+      {
+        "name": "comando: OVERDUE_REQUESTS, pontuação e acentos",
+        "status": "PASS"
+      },
+      {
+        "name": "comando: COLLECTION_PRIORITIES, pontuação e acentos",
+        "status": "PASS"
+      },
+      {
+        "name": "comando: SCHEDULED_ROUTES, pontuação e acentos",
+        "status": "PASS"
+      },
+      {
+        "name": "comando: ROUTES_ATTENTION, pontuação e acentos",
+        "status": "PASS"
+      },
+      {
+        "name": "comando: OPERATIONAL_SUMMARY, pontuação e acentos",
+        "status": "PASS"
+      },
+      {
+        "name": "comando: ATTENTION_OCCURRENCES, pontuação e acentos",
+        "status": "PASS"
+      },
+      {
+        "name": "comando: TODAY_COLLECTIONS, pontuação e acentos",
+        "status": "PASS"
+      },
+      {
+        "name": "comando: ROUTES_WITHOUT_RESOURCES, pontuação e acentos",
+        "status": "PASS"
+      },
+      {
+        "name": "comando: PENDING_PROPOSALS, pontuação e acentos",
+        "status": "PASS"
+      },
+      {
+        "name": "comando: AUTOMATION_HEALTH, pontuação e acentos",
+        "status": "PASS"
+      },
+      {
+        "name": "texto desconhecido, injeção e ordens de mutação retornam orientação",
+        "status": "PASS"
+      },
+      {
+        "name": "comando inválido/ambíguo e texto longo rejeitados",
+        "status": "PASS"
+      },
+      {
+        "name": "análise vazia de coletas não inventa registros",
+        "status": "PASS"
+      },
+      {
+        "name": "análise vazia de rotas retorna lista vazia",
+        "status": "PASS"
+      },
+      {
+        "name": "prioridades reais, proposta de agrupamento e isolamento",
+        "status": "PASS"
+      },
+      {
+        "name": "histórico idempotente não repete mensagens/propostas/avisos",
+        "status": "PASS"
+      },
+      {
+        "name": "nova execução sobre mesma evidência não duplica proposta nem sino",
+        "status": "PASS"
+      },
+      {
+        "name": "solicitações atrasadas usam datas reais e filtro reconhecido",
+        "status": "PASS"
+      },
+      {
+        "name": "conversa e duas mensagens persistidas com resposta estruturada",
+        "status": "PASS"
+      },
+      {
+        "name": "continuar conversa existente sem duplicar no replay",
+        "status": "PASS"
+      },
+      {
+        "name": "rotas detectam conflito existente e falta de equipe sem alterá-las",
+        "status": "PASS"
+      },
+      {
+        "name": "prioridades incluem ordens extras e relatos de PEV sem misturar contagens",
+        "status": "PASS"
+      },
+      {
+        "name": "rotas reutilizam otimizador sem acesso a serviço externo e sem aplicar a ordem",
+        "status": "PASS"
+      },
+      {
+        "name": "rotas programadas aceita variação textual",
+        "status": "PASS"
+      },
+      {
+        "name": "gestor reutiliza dashboard e alertas, sem somar unidades",
+        "status": "PASS"
+      },
+      {
+        "name": "ocorrências reutilizam SystemAlert e respeitam adiamento",
+        "status": "PASS"
+      },
+      {
+        "name": "aprovação humana registra decisão sem executor operacional",
+        "status": "PASS"
+      },
+      {
+        "name": "versão, decisão conflitante e execução operacional bloqueadas",
+        "status": "PASS"
+      },
+      {
+        "name": "rejeição de proposta pendente preserva evidências e auditoria",
+        "status": "PASS"
+      },
+      {
+        "name": "isolamento por id: runs",
+        "status": "PASS"
+      },
+      {
+        "name": "isolamento por id: proposals",
+        "status": "PASS"
+      },
+      {
+        "name": "isolamento por id: conversations",
+        "status": "PASS"
+      },
+      {
+        "name": "isolamento de listas: histórico, conversas, propostas, auditoria e ocorrências",
+        "status": "PASS"
+      },
+      {
+        "name": "cooperativa alheia não decide proposta nem reutiliza conversa",
+        "status": "PASS"
+      },
+      {
+        "name": "FK composta impede mensagem em conversa de outra cooperativa",
+        "status": "PASS"
+      },
+      {
+        "name": "paginações com cursor local e alheio, filtros e limites",
+        "status": "PASS"
+      },
+      {
+        "name": "notificações no sino existente pertencem à cooperativa correta",
+        "status": "PASS"
+      },
+      {
+        "name": "falha de ferramenta fica registrada e não vaza detalhes técnicos",
+        "status": "PASS"
+      },
+      {
+        "name": "desativação durante análise impede persistir novas propostas",
+        "status": "PASS"
+      },
+      {
+        "name": "execução concorrente por cooperativa e replay em andamento",
+        "status": "PASS"
+      },
+      {
+        "name": "lease vencido é encerrado sem repetir operação",
+        "status": "PASS"
+      },
+      {
+        "name": "limite por minuto persistido bloqueia a décima primeira análise",
+        "status": "PASS"
+      },
+      {
+        "name": "limite diário persistido resiste a reinício/processo novo",
+        "status": "PASS"
+      },
+      {
+        "name": "gatilho automático executa sem painel e não duplica no segundo tick",
+        "status": "PASS"
+      },
+      {
+        "name": "recuperação de análise interrompida independe de nova execução",
+        "status": "PASS"
+      },
+      {
+        "name": "gatilho desativado e conta inativa não executam",
+        "status": "PASS"
+      },
+      {
+        "name": "segurança: análises e decisões preservam coletas, rotas e estoque",
+        "status": "PASS"
+      },
+      {
+        "name": "histórico e trilha sem endpoints de edição/exclusão",
+        "status": "PASS"
+      },
+      {
+        "name": "worker fecha sem deixar timer ou tarefa em execução",
+        "status": "PASS"
+      },
+      {
+        "name": "preferências: desligar automação preserva execução manual",
+        "status": "PASS"
+      },
+      {
+        "name": "preferências: recomendação sem aviso e sem duplicidade posterior",
+        "status": "PASS"
+      },
+      {
+        "name": "preferências: campos inválidos e versão antiga rejeitados",
+        "status": "PASS"
+      },
+      {
+        "name": "contexto de ocorrência autentica cooperativa e não resolve aviso",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: Por favor, me mostre as coletas pendentes",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: preciso consultar as solicitações atrasadas",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: quais coletas são urgentes",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: gostaria de ver as coletas de hoje",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: quero saber quais rotas estão programadas",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: me ajuda a verificar rotas com problemas",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: tem alguma rota sem motorista ou veículo",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: por favor mostre o resumo operacional",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: preciso consultar os alertas pendentes",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: quero ver propostas aguardando revisão",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: existe algum agente com erro de processamento",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: há eventos pendentes na fila",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: mutações, negação, filtros ausentes e injeção nunca viram consulta ampla",
+        "status": "PASS"
+      },
+      {
+        "name": "palavras-chave: múltiplas intenções não são resolvidas automaticamente",
+        "status": "PASS"
+      },
+      {
+        "name": "novas consultas: banco vazio retorna zeros sem inventar registros",
+        "status": "PASS"
+      },
+      {
+        "name": "coletas de hoje: fronteiras UTC-3, vínculo sem duplicar, canceladas e data desejada",
+        "status": "PASS"
+      },
+      {
+        "name": "rotas sem recursos: conta uma rota uma vez e não inclui outra cooperativa ou encerradas",
+        "status": "PASS"
+      },
+      {
+        "name": "recomendações pendentes: lista somente pendentes sem mudar decisão nem confirmar atualidade",
+        "status": "PASS"
+      },
+      {
+        "name": "saúde dos agentes: 24h para falhas, estados da fila, sem retentativa e sem dados de outro tenant",
+        "status": "PASS"
+      },
+      {
+        "name": "novas consultas: limite da lista não reduz contagem total e informa truncamento",
+        "status": "PASS"
+      },
+      {
+        "name": "comando ambíguo retorna opções habilitadas sem análise, proposta ou notificação",
+        "status": "PASS"
+      },
+      {
+        "name": "API consulta nova TODAY_COLLECTIONS: resultado real e mesmo evento idempotente",
+        "status": "PASS"
+      },
+      {
+        "name": "API consulta nova ROUTES_WITHOUT_RESOURCES: resultado real e mesmo evento idempotente",
+        "status": "PASS"
+      },
+      {
+        "name": "API consulta nova PENDING_PROPOSALS: resultado real e mesmo evento idempotente",
+        "status": "PASS"
+      },
+      {
+        "name": "API consulta nova AUTOMATION_HEALTH: resultado real e mesmo evento idempotente",
+        "status": "PASS"
+      },
+      {
+        "name": "API palavras-chave mantém RBAC e isolamento; filtros desconhecidos não geram execução",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: PENDING_COLLECTIONS, frases revisadas e variações de você",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: OVERDUE_REQUESTS, frases revisadas e variações de você",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: COLLECTION_PRIORITIES, frases revisadas e variações de você",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: SCHEDULED_ROUTES, frases revisadas e variações de você",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: ROUTES_ATTENTION, frases revisadas e variações de você",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: OPERATIONAL_SUMMARY, frases revisadas e variações de você",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: ATTENTION_OCCURRENCES, frases revisadas e variações de você",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: TODAY_COLLECTIONS, frases revisadas e variações de você",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: ROUTES_WITHOUT_RESOURCES, frases revisadas e variações de você",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: PENDING_PROPOSALS, frases revisadas e variações de você",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: AUTOMATION_HEALTH, frases revisadas e variações de você",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: nenhum exemplo ou alias normalizado aponta para duas consultas",
+        "status": "PASS"
+      },
+      {
+        "name": "vocabulário: arquivo contém exemplos ambíguos e negativos que não executam análise",
+        "status": "PASS"
+      },
+      {
+        "name": "coletas: quatro comandos têm escopos, resumos e indicadores distintos em cenário misto",
+        "status": "PASS"
+      },
+      {
+        "name": "coletas: pedido recente sem outros sinais e coleta saudável não são prioridades artificiais",
+        "status": "PASS"
+      },
+      {
+        "name": "atrasos: filtro de datas é aplicado antes do limite e contagem total coincide com o escopo",
+        "status": "PASS"
+      }
+    ]
+  },
+  "interface": {
+    "date": "2026-11-04",
+    "environment": "Chromium desktop/tablet/celular + build Vite real + API local + PGlite descartável; falhas de transporte controladas",
+    "passed": 31,
+    "failed": 0,
+    "results": [
+      {
+        "name": "Central usa três agentes e últimas execuções reais",
+        "status": "PASS"
+      },
+      {
+        "name": "Teclado abre, minimiza e devolve foco sem bloquear a página",
+        "status": "PASS"
+      },
+      {
+        "name": "Comandos rápidos mostram apenas agentes habilitados e atualizam com a configuração",
+        "status": "PASS"
+      },
+      {
+        "name": "Sem agente habilitado há orientação e nenhum envio disponível",
+        "status": "PASS"
+      },
+      {
+        "name": "Chat acompanha navegação e preserva rascunho",
+        "status": "PASS"
+      },
+      {
+        "name": "Formulário operacional continua editável com conversa aberta",
+        "status": "PASS"
+      },
+      {
+        "name": "Comando desconhecido orienta sem simular conversa livre",
+        "status": "PASS"
+      },
+      {
+        "name": "Comando rápido identifica o agente e persiste duas mensagens reais",
+        "status": "PASS"
+      },
+      {
+        "name": "Reabertura e recarregamento recuperam conversa do servidor",
+        "status": "PASS"
+      },
+      {
+        "name": "Comando de rotas é atendido pelo Agente de Rotas",
+        "status": "PASS"
+      },
+      {
+        "name": "Sino abre aviso do agente e contexto validado sem resolver ou ler automaticamente",
+        "status": "PASS"
+      },
+      {
+        "name": "Nova análise de mesma evidência não duplica notificações",
+        "status": "PASS"
+      },
+      {
+        "name": "Perda de resposta recupera o mesmo evento sem duplicar execução",
+        "status": "PASS"
+      },
+      {
+        "name": "Falha do backend fica no assistente e permite recuperar sem apagar rascunho",
+        "status": "PASS"
+      },
+      {
+        "name": "Assistente sobreposto preserva largura e posição da página em desktop e tablet",
+        "status": "PASS"
+      },
+      {
+        "name": "Celular apresenta controles e formulário acessíveis sem travar rolagem",
+        "status": "PASS"
+      },
+      {
+        "name": "Configurações gravam preferências reais de aviso e automação",
+        "status": "PASS"
+      },
+      {
+        "name": "Central executa análise manual real com resultado no histórico",
+        "status": "PASS"
+      },
+      {
+        "name": "Central mostra ocorrências reais e abre contexto do Gestor",
+        "status": "PASS"
+      },
+      {
+        "name": "Propostas permitem decisão humana e não exibem execução operacional",
+        "status": "PASS"
+      },
+      {
+        "name": "Histórico apresenta análises e atividades com detalhes reais",
+        "status": "PASS"
+      },
+      {
+        "name": "Central informa indisponibilidade e recupera dados sem resultados fictícios",
+        "status": "PASS"
+      },
+      {
+        "name": "Eventos operacionais exibem fila persistente e tentativas reais",
+        "status": "PASS"
+      },
+      {
+        "name": "Aviso aberto após mudança da rota informa contexto histórico sem executar",
+        "status": "PASS"
+      },
+      {
+        "name": "Outra cooperativa não acessa conversa, proposta ou contexto alheio",
+        "status": "PASS"
+      },
+      {
+        "name": "Perfil municipal não recebe ChatBox nem Central de Agentes",
+        "status": "PASS"
+      },
+      {
+        "name": "Frase por palavras-chave consulta dados reais e mostra o novo comando de hoje",
+        "status": "PASS"
+      },
+      {
+        "name": "Frase ambígua pede escolha sem criar análise e oferece somente consultas habilitadas",
+        "status": "PASS"
+      },
+      {
+        "name": "Logout remove conversa, rascunho e controles da cooperativa",
+        "status": "PASS"
+      },
+      {
+        "name": "Expiração durante consulta encerra sessão e limpa a interface",
+        "status": "PASS"
+      },
+      {
+        "name": "Nenhum erro JavaScript nos fluxos da interface principal",
+        "status": "PASS"
+      }
+    ],
+    "errors": []
+  },
+  "native": {
+    "workflowRun": 41933037307,
+    "url": "https://github.com/Paulo-Apolinario/KatuApp/actions/runs/41933037307",
+    "backendPassed": 112,
+    "eventsPassed": 28,
+    "pending": 0,
+    "failed": 0
+  },
+  "uniqueTotalPassed": 171,
+  "migrationsAdded": []
+}
