@@ -1,3 +1,4 @@
+import {intakeDelivererRoutes} from "./modules/intake-deliverers/intake-deliverers.routes";
 import {privacyRoutes} from "./modules/privacy/privacy.routes";
 import {materialIntakeRoutes} from "./modules/material-intakes/material-intakes.routes";
 import "./lib/validation-pt";
@@ -246,6 +247,7 @@ export async function buildApp() {
   await app.register(mobileOfflineRoutes);
   await app.register(privacyRoutes);
   await app.register(materialIntakeRoutes);
+  await app.register(intakeDelivererRoutes);
   await app.register(driverTrackingRoutes);
   await app.register(vehicleDocumentsRoutes);
   await app.register(ownerDocumentsRoutes);

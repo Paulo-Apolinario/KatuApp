@@ -542,7 +542,11 @@ async function main() {
     const { checkGeneratorDocument } = await import("../generator-document/api");
     await checkGeneratorDocument(app, p, users, coop, pass);
   }
-  let browserOffline,fieldMeeting;
+  let browserOffline,fieldMeeting,intakeDeliverers;
+  if(process.env.INTAKE_DELIVERERS === "1"){
+    const {checkIntakeDeliverers}=await import("../intake-deliverers/api");
+    intakeDeliverers=await checkIntakeDeliverers(app,p,users,coop,pass);
+  }
   if (process.env.FIELD_MEETING === "1") {
     const {checkFieldMeeting}=await import("../field-meeting/api");
     fieldMeeting=await checkFieldMeeting(app,p,users,coop,pass);
@@ -582,10 +586,11 @@ async function main() {
     JSON.stringify({ passed: checks.length, checks }, null, 2),
   );
   if (process.env.RESIDENTIAL === "1") fs.writeFileSync(path.join(tools, "residential-api-results.json"), JSON.stringify({ passed: checks.length, checks }, null, 2));
-  if (process.env.FIELD_MEETING_UI === "1" || process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1" || process.env.WASTE_USABILITY_UI === "1" || process.env.BROWSER_OFFLINE_UI === "1" || process.env.COOPERATIVE_FIELD_UI === "1" || process.env.SERVICE_DOCUMENTS_UI === "1" || process.env.STOCK_CODES_UI === "1") {
+  if (process.env.DELIVERER_UI === "1" || process.env.FIELD_MEETING_UI === "1" || process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1" || process.env.WASTE_USABILITY_UI === "1" || process.env.BROWSER_OFFLINE_UI === "1" || process.env.COOPERATIVE_FIELD_UI === "1" || process.env.SERVICE_DOCUMENTS_UI === "1" || process.env.STOCK_CODES_UI === "1") {
     fs.writeFileSync(
       path.join(tools, "field-operations-fixture.json"),
       JSON.stringify({
+        intakeDeliverers,
         fieldMeeting,
         wasteCompletion,
         wasteUsability,

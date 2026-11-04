@@ -174,6 +174,7 @@ type BackendCollection = {
   routePointKey?: string | null;
   bin?: Collection["bin"];
   id: string;
+  attendanceOutcome?: string | null;
   cooperativeId?: string;
   generatorId?: string | null;
   collectorId?: string | null;
@@ -315,6 +316,7 @@ function normalizeCollectionStatus(status?: string): CollectionStatus {
 function normalizeCollection(collection: BackendCollection): Collection {
   return {
     id: collection.id,
+    attendanceOutcome: collection.attendanceOutcome,
     participants: Array.isArray(collection.participants) ? collection.participants : [],
     bin: collection.bin,
     routePoint: collection.routePoint,

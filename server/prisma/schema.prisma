@@ -55,6 +55,7 @@ model User {
 }
 
 model Cooperative {
+  intakeDeliverers IntakeDeliverer[]
   serviceOrders ServiceOrder[]
   internalDocuments InternalDocument[]
   collectorTeams CollectorTeam[]
@@ -392,6 +393,10 @@ model CollectorDocument {
 }
 
 model Collection {
+  attendanceOutcome String?
+  intakeDelivererId String?
+  intakeDeliverer IntakeDeliverer? @relation(fields:[intakeDelivererId], references:[id], onDelete:SetNull)
+  @@index([cooperativeId, intakeDelivererId, createdAt])
   intakeKind String?
   intakeOrigin Json?
   intakeOperationId String? @unique
@@ -1758,4 +1763,23 @@ model PrivacyAcceptance {
  receivedAt DateTime @default(now())
  @@unique([userId, version])
  @@index([userId, receivedAt])
+}
+
+model IntakeDeliverer {
+ id String @id
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+ cooperativeId String
+ name String
+ normalizedName String
+ cpf String?
+ phone String?
+ version Int @default(0)
+ creationHash String
+ createdByUserId String
+ updatedByUserId String
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ collections Collection[]
+ @@unique([cooperativeId, cpf])
+ @@index([cooperativeId, normalizedName, id])
 }

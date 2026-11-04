@@ -378,6 +378,8 @@ export class CollectionService {
       await tx.$queryRaw`SELECT id FROM "Cooperative" WHERE id=${ctx.cooperativeId} FOR UPDATE`;
       const old=await tx.collection.findUnique({where:{intakeOperationId:input.operationId}});
       if(old){if(old.cooperativeId!==ctx.cooperativeId||old.intakeHash!==hash)throw new CollectionDomainError("Protocolo já usado com outros dados.",{statusCode:409,code:"INTAKE_CONFLICT"});return old;}
+      let origin={...input.origin};
+      if(input.delivererId){const person=await tx.intakeDeliverer.findFirst({where:{id:input.delivererId,cooperativeId:ctx.cooperativeId}});if(!person)throw new CollectionDomainError("Entregador não encontrado nesta cooperativa.",{statusCode:404,code:"DELIVERER_NOT_FOUND"});if(input.delivererVersion!==undefined&&person.version!==input.delivererVersion)throw new CollectionDomainError("O cadastro do entregador mudou. Selecione novamente antes de registrar a entrega.",{statusCode:409,code:"DELIVERER_VERSION"});origin={...origin,name:person.name,document:person.cpf||undefined,phone:person.phone||undefined};}
       let route:any=null;
       if(input.routeId){route=await tx.route.findFirst({where:{id:input.routeId,cooperativeId:ctx.cooperativeId,status:{in:["SCHEDULED","IN_PROGRESS"]}}});if(!route)throw new CollectionDomainError("Rota não disponível.",{statusCode:404,code:"INTAKE_ROUTE"});}
       if(route&&((input.driverId&&input.driverId!==route.driverId)||(input.vehicleId&&input.vehicleId!==route.vehicleId)||(input.collectorId&&!route.collectorIds.includes(input.collectorId))))throw new CollectionDomainError("A equipe e o veículo devem corresponder à rota selecionada.",{statusCode:400,code:"INTAKE_ROUTE_TEAM"});
@@ -385,9 +387,9 @@ export class CollectionService {
       for(const [table,id] of [["driver",driverId],["vehicle",vehicleId],["collector",collectorId]] as const)if(id&&!(await (tx[table] as any).findFirst({where:{id,cooperativeId:ctx.cooperativeId,...(table==="vehicle"?{status:"ACTIVE"}:{status:{not:"INACTIVE"}})}})))throw new CollectionDomainError("Colaborador ou veículo indisponível para esta cooperativa.",{statusCode:403,code:"INTAKE_SCOPE"});
       if(vehicleId&&driverId){const assigned=await tx.vehicle.findUniqueOrThrow({where:{id:vehicleId},select:{driverId:true}});if(assigned.driverId&&assigned.driverId!==driverId)throw new CollectionDomainError("O veículo está vinculado a outro motorista.",{statusCode:400,code:"INTAKE_VEHICLE_DRIVER"});}
       const direct=input.kind==="DIRECT",now=new Date();
-      const c=await tx.collection.create({data:{cooperativeId:ctx.cooperativeId,intakeKind:input.kind,intakeOrigin:input.origin,intakeOperationId:input.operationId,intakeHash:hash,notes:input.notes||null,
+      const c=await tx.collection.create({data:{cooperativeId:ctx.cooperativeId,intakeKind:input.kind,intakeDelivererId:input.delivererId||null,intakeOrigin:origin,intakeOperationId:input.operationId,intakeHash:hash,notes:input.notes||null,
         collectorId:direct?null:collectorId,driverId:direct?null:driverId,vehicleId:direct?null:vehicleId,routeId:direct?null:route?.id||null,
-        routePoint:{kind:"ADDRESS",key:input.operationId,name:input.origin.name|| (direct?"Entrega avulsa":"Coleta em endereço avulso"),address:input.origin.address||"Entrega na sede da cooperativa",latitude:input.origin.latitude??null,longitude:input.origin.longitude??null},
+        routePoint:{kind:"ADDRESS",key:input.operationId,name:origin.name|| (direct?"Entrega avulsa":"Coleta em endereço avulso"),address:input.origin.address||"Entrega na sede da cooperativa",latitude:input.origin.latitude??null,longitude:input.origin.longitude??null},
         status:direct?"RECEIVED":"PENDING",receivedAt:direct?now:null,receivedByUserId:direct?userId:null}});
       if(!direct&&route?.teamId)await snapshotCollectionTeam(tx,c.id,ctx.cooperativeId!,route.teamId,route.collectorIds);
       if(!direct&&route)await tx.route.update({where:{id:route.id},data:{collectionOrder:{push:c.id},revision:{increment:1}}});

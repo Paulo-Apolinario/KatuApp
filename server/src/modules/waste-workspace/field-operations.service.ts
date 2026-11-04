@@ -45,6 +45,7 @@ function fail(message: string, statusCode = 400): never {
 export const fieldPointSelect = {
   id: true,
   status: true,
+  attendanceOutcome: true,
   createdAt: true,
   startedAt: true,
   collectedAt: true,

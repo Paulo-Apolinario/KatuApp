@@ -274,6 +274,7 @@ export interface CollectionQuantityReview {
   }[];
 }
 export interface Collection {
+  attendanceOutcome?: string | null;
   teamId?: string | null;
   teamNameSnapshot?: string | null;
   participants?: { id: string; collectorId: string; nameSnapshot: string; allocations?: { materialId: string; name: string; unit: WasteUnit; quantity: number }[] | null }[];

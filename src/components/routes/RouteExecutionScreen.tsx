@@ -481,7 +481,7 @@ export default function RouteExecutionScreen() {
                       {collectionOrigin(c)?.address || "Endereço não informado"}
                     </Text>
                     <Text style={styles.chipText}>
-                      {translateCollectionStatus(c.status)}
+                      {translateCollectionStatus(c.status,c.attendanceOutcome)}
                     </Text>
                     {(detail.operationalEvents || []).filter(e => e.kind === "NOT_SERVED" && e.collectionId === c.id).map((e, n) => <Text key={e.id || n} style={styles.text}>Relato de ponto não atendido: {e.reason} · {e.actorName || "Equipe"}{e.at ? ` · ${new Date(e.at).toLocaleString("pt-BR", {timeZone:"America/Fortaleza"})}` : ""}{pending(c) ? " · Aguardando decisão da cooperativa" : ""}</Text>)}
                     {c.cancellationReason ? (

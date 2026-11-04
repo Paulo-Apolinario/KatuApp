@@ -92,7 +92,7 @@ export class RouteLifecycleService {
         if (input.action === "RESCHEDULE_REMAINING") {
           // A new execution retains the original execution and each original visit as history.
           await validateTeam(tx, r.cooperativeId, r);
-          const next = await tx.route.create({ data: { cooperativeId: r.cooperativeId, name: r.name, description: `Reagendamento dos pontos pendentes da execução ${r.id}. ${input.reason}`, scheduledDate: date, departureTime: input.time, driverId: r.driverId, vehicleId: r.vehicleId, collectorIds: r.collectorIds, teamId: r.teamId, startPoint: r.startPoint ?? Prisma.JsonNull, endPoint: r.endPoint ?? Prisma.JsonNull, estimatedMinutes: r.estimatedMinutes, stops: r.stops, operationalEvents: [{ kind: "ORIGIN", routeId, at: new Date().toISOString(), userId, reason: input.reason }] } });
+          const next = await tx.route.create({ data: { cooperativeId: r.cooperativeId, coverageMode:r.coverageMode, coverageArea:r.coverageArea, name: r.name, description: `Reagendamento dos pontos pendentes da execução ${r.id}. ${input.reason}`, scheduledDate: date, departureTime: input.time, driverId: r.driverId, vehicleId: r.vehicleId, collectorIds: r.collectorIds, teamId: r.teamId, startPoint: r.startPoint ?? Prisma.JsonNull, endPoint: r.endPoint ?? Prisma.JsonNull, estimatedMinutes: r.estimatedMinutes, stops: r.stops, operationalEvents: [{ kind: "ORIGIN", routeId, at: new Date().toISOString(), userId, reason: input.reason }] } });
           nextRouteId = next.id;
           const newIds: string[] = [];
           const order = [...remaining].sort((a, b) => r.collectionOrder.indexOf(a.id) - r.collectionOrder.indexOf(b.id));
@@ -107,7 +107,7 @@ export class RouteLifecycleService {
         for (const c of remaining) {
           const report = [...events].reverse().find(e => e.kind === "NOT_SERVED" && e.collectionId === c.id);
           const message = `${nextRouteId ? "Não atendida; reagendada" : "Não atendida"}: ${report?.reason || input.reason}. Decisão da cooperativa: ${input.reason}${nextRouteId ? `. Nova execução: ${nextRouteId}` : ""}`;
-          await tx.collection.update({ where: { id: c.id }, data: { status: "CANCELLED", cancelledAt: new Date(), cancelledByUserId: userId, cancellationReason: message } });
+          await tx.collection.update({ where: { id: c.id }, data: { status: "CANCELLED", attendanceOutcome: "NOT_COLLECTED", cancelledAt: new Date(), cancelledByUserId: userId, cancellationReason: message } });
           if (c.scheduleId) await tx.schedule.update({ where: { id: c.scheduleId }, data: { status: "CANCELLED" } });
           await notifyCollection(tx, c.id, `route-resolution:${input.operationId}:${c.id}`, "VISIT_NOT_COMPLETED", nextRouteId ? "Atendimento reagendado" : "Atendimento não realizado", message);
         }

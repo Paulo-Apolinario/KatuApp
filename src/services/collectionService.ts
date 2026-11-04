@@ -1041,7 +1041,8 @@ export const collectionService = {
 
 export default collectionService;
 
-export function translateCollectionStatus(status: string) {
+export function translateCollectionStatus(status: string, attendanceOutcome?: string | null) {
+  if(attendanceOutcome === "NOT_COLLECTED")return "Sem coleta no dia";
   return (
     (
       {
