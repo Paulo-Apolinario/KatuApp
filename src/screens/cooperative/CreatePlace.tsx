@@ -1,5 +1,5 @@
 import { useAuth } from "@/src/contexts/AuthContext";
-import { useLocalSearchParams } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { useDurableDraft } from "@/src/hooks/useDurableDraft";
 import { queueCooperativeCreate, newCreateOperation } from "@/src/offline/cooperativeCreate";
 import { useEffect, useRef, useState } from 'react';
@@ -28,110 +28,127 @@ const initial = {
 export default function CreatePlace({ pev = false }: {
     pev?: boolean;
 }) {
+    const params = useLocalSearchParams<{ draft?: string }>();
+    const [newId] = useState(newCreateOperation);
+    const operationId = typeof params.draft === 'string' && /^[a-f0-9-]{36}$/i.test(params.draft) ? params.draft : null;
+    // Mount the editable form only after its durable reference is in the URL.
+    // Redirecting after typing can remount the screen and discard the first changes.
+    if (!operationId) return <Redirect href={{ pathname: pev ? '/(cooperativa)/pevs/novo' : '/(cooperativa)/geradores/novo', params: { draft: newId } } as any} />;
+    return <CreatePlaceForm key={operationId} pev={pev} operationId={operationId} />;
+}
+function CreatePlaceForm({ pev, operationId }: { pev: boolean; operationId: string }) {
     const { user } = useAuth();
-    const params = useLocalSearchParams<{
-        draft?: string;
-    }>();
-    const [operationId] = useState(() => typeof params.draft === 'string' && /^[a-f0-9-]{36}$/i.test(params.draft) ? params.draft : newCreateOperation());
     const [form, setForm] = useState(initial), [type, setType] = useState<'SMALL' | 'LARGE'>('SMALL'), [point, setPoint] = useState<{
         latitude: number;
         longitude: number;
     } | null>(null), [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [lookup, setLookup] = useState(false), [error, setError] = useState('');
-    const draft = useDurableDraft('create:' + operationId, pev ? 'Novo PEV' : 'Novo gerador', { form, type, point, confirmed, pev }, v => { setForm(v.form); setType(v.type); setPoint(v.point); setConfirmed(v.confirmed); }, JSON.stringify(form) !== JSON.stringify(initial) || point !== null);
-    useEffect(() => { if (params.draft !== operationId)
-        router.setParams({ draft: operationId }); }, [operationId, params.draft]);
-    const guard = useRef(false), revision = useRef(0), latest = useRef(form), autoCep=useRef(''), autoAddress=useRef('');
+    const guard = useRef(false), lookupGuard = useRef(false), revision = useRef(0), latest = useRef(form), autoCep=useRef(''), resolvedCep=useRef(''), autoAddress=useRef('');
+    const draft = useDurableDraft('create:' + operationId, pev ? 'Novo PEV' : 'Novo gerador', { form, type, point, confirmed, pev, resolvedCep: resolvedCep.current }, v => { latest.current = v.form; resolvedCep.current = typeof v.resolvedCep === 'string' ? v.resolvedCep : v.point && v.confirmed ? v.form.zipCode.replace(/\D/g, '') : '';  autoCep.current = resolvedCep.current; autoAddress.current = [v.form.street, v.form.number, v.form.neighborhood, v.form.city, v.form.state, v.form.zipCode].filter(Boolean).join(', '); setForm(v.form); setType(v.type); setPoint(v.point); setConfirmed(v.confirmed); }, JSON.stringify(form) !== JSON.stringify(initial) || point !== null);
     latest.current=form;
     const address = [form.street, form.number, form.neighborhood, form.city, form.state, form.zipCode].filter(Boolean).join(', ');
     useEffect(()=>{const zip=form.zipCode.replace(/\D/g,'');if((typeof navigator!=='undefined'&&navigator.onLine===false)||(point&&confirmed)||!draft.ready||lookup||zip.length!==8||autoCep.current===zip)return;const timer=setTimeout(()=>{autoCep.current=zip;void cep();},500);return()=>clearTimeout(timer);},[form.zipCode,lookup,draft.ready]);
-    useEffect(()=>{if((typeof navigator!=='undefined'&&navigator.onLine===false)||(point&&confirmed)||!draft.ready||lookup||!form.street.trim()||!form.city.trim()||!form.number.trim()||form.zipCode.replace(/\D/g,'').length!==8)return;const key=address;if(autoAddress.current===key)return;const timer=setTimeout(()=>{if(autoAddress.current===key)return;autoAddress.current=key;void locate(false);},900);return()=>clearTimeout(timer);},[address,lookup,draft.ready]);
+    useEffect(()=>{if((typeof navigator!=='undefined'&&navigator.onLine===false)||(point&&confirmed)||!draft.ready||lookup||!form.street.trim()||!form.city.trim()||!form.number.trim()||form.zipCode.replace(/\D/g,'').length!==8||resolvedCep.current!==form.zipCode.replace(/\D/g,''))return;const key=address;if(autoAddress.current===key)return;const timer=setTimeout(()=>{if(autoAddress.current===key)return;autoAddress.current=key;void locate(false);},900);return()=>clearTimeout(timer);},[address,lookup,draft.ready]);
     const update = (key: keyof typeof initial, value: string) => {
+        if (latest.current[key] === value) return;
         if (['zipCode', 'street', 'number', 'neighborhood', 'city', 'state'].includes(key)) {
             revision.current++;
             setConfirmed(false);
+            setPoint(null);
+            autoAddress.current = '';
+            if (key === 'zipCode') {
+                resolvedCep.current = '';
+                autoCep.current = '';
+            }
         }
-        setForm(f => ({
-            ...f,
-            [key]: key === 'documentNumber' ? fieldDocument(value) : value
-        }));
+        const next = { ...latest.current, [key]: key === 'documentNumber' ? fieldDocument(value) : value };
+        latest.current = next;
+        setForm(next);
     };
     async function cep() {
-        if (lookup)
-            return;
-        const value = form.zipCode.replace(/\D/g, '');
+        if (lookupGuard.current) return;
+        const snapshot = { ...latest.current }, current = revision.current;
+        const value = snapshot.zipCode.replace(/\D/g, '');
         if (value.length !== 8) {
             setError('Informe um CEP com 8 dígitos.');
             return;
         }
+        lookupGuard.current = true;
+        autoCep.current = value;
         setLookup(true);
         setError('');
+        setPoint(null);
+        setConfirmed(false);
+        resolvedCep.current = '';
         try {
             const data = await api.getExternalJson<any>('https://viacep.com.br/ws/' + value + '/json/');
-            if (data.erro)
-                throw Error('CEP não encontrado.');
-            if (latest.current.zipCode.replace(/\D/g,'') !== value)
-                return;
-            setForm(f => ({
-                ...f,
-                street: f.street===form.street ? data.logradouro || f.street : f.street,
-                neighborhood: f.neighborhood===form.neighborhood ? data.bairro || f.neighborhood : f.neighborhood,
-                city: f.city===form.city ? data.localidade || f.city : f.city,
-                state: data.uf || f.state
-            }));
+            if (current !== revision.current) return;
+            if (data.erro) throw Error('CEP não encontrado.');
+            const next = {
+                ...latest.current,
+                // A new CEP must replace the previous address, including empty street fields.
+                street: data.logradouro || '',
+                neighborhood: data.bairro || '',
+                city: data.localidade || '',
+                state: data.uf || ''
+            };
+            latest.current = next;
+            setForm(next);
             revision.current++;
-            setConfirmed(false);
+            resolvedCep.current = value;
+            autoAddress.current = '';
         }
         catch (e: any) {
-            setError(e.message || 'Não foi possível consultar o CEP. Preencha o endereço.');
+            if (current === revision.current)
+                setError(e.message || 'Não foi possível consultar o CEP. Preencha o endereço.');
         }
         finally {
+            lookupGuard.current = false;
             setLookup(false);
         }
     }
     async function locate(gps = false) {
-        if (lookup)
-            return;
-        const current = revision.current;
+        if (lookupGuard.current) return;
+        const current = revision.current, snapshot = { ...latest.current };
+        const requestedAddress = [snapshot.street, snapshot.number, snapshot.neighborhood, snapshot.city, snapshot.state, snapshot.zipCode].filter(Boolean).join(', ');
+        lookupGuard.current = true;
         setLookup(true);
         setError('');
+        setPoint(null);
+        setConfirmed(false);
         try {
             let p;
             if (gps) {
                 const permission = await Location.requestForegroundPermissionsAsync();
                 if (!permission.granted)
                     throw Error('Permita o acesso à localização ou marque o ponto no mapa.');
-                const v = await Location.getCurrentPositionAsync({
-                    accuracy: Location.Accuracy.High
-                });
-                p = {
-                    latitude: v.coords.latitude,
-                    longitude: v.coords.longitude
-                };
+                const v = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+                p = { latitude: v.coords.latitude, longitude: v.coords.longitude };
             }
             else {
-                if (!form.street || !form.city || !form.number)
+                if (!snapshot.street.trim() || !snapshot.city.trim() || !snapshot.number.trim())
                     throw Error('Informe rua, número e cidade para buscar o endereço completo.');
-                p = await api.post<{
-                    latitude: number;
-                    longitude: number;
-                }>('/cooperative-field/geocode', {
-                    address
-                }, true);
+                if (snapshot.zipCode.replace(/\D/g, '').length && resolvedCep.current !== snapshot.zipCode.replace(/\D/g, ''))
+                    throw Error('Busque o novo CEP antes de localizar o endereço no mapa.');
+                p = await api.post<{ latitude: number; longitude: number }>('/cooperative-field/geocode', { address: requestedAddress }, true);
             }
-            if (current !== revision.current)
-                return;
-            autoAddress.current=address;
+            if (current !== revision.current) return;
+            autoAddress.current = requestedAddress;
             setPoint(p);
-            setConfirmed(false);
         }
         catch (e: any) {
-            setError(e.message || 'Não foi possível localizar. Marque o ponto no mapa.');
+            if (current === revision.current)
+                setError(e.message || 'Não foi possível localizar. Marque o ponto no mapa.');
         }
         finally {
+            lookupGuard.current = false;
             setLookup(false);
         }
     }
     async function save() {
+        if (draft.error) {
+            setError('O rascunho ainda não foi salvo neste aparelho. Resolva o aviso de armazenamento e tente novamente.');
+            return;
+        }
         if (!draft.ready || draft.saving) {
             setError("Aguarde o salvamento do rascunho no aparelho.");
             return;
@@ -205,13 +222,16 @@ export default function CreatePlace({ pev = false }: {
                 kind: pev ? 'pev' : 'collection'
             }] : []} onPick={(latitude, longitude) => {
             if (!busy) {
+                revision.current++;
+                autoAddress.current = address;
+                setError('');
                 setPoint({
                     latitude,
                     longitude
                 });
                 setConfirmed(false);
             }
-        }} showPointList={false}/></View>{point && <Text style={ui.small}>Latitude {point.latitude.toFixed(6)} · Longitude {point.longitude.toFixed(6)}</Text>}<View style={ui.row}><Switch accessibilityLabel="Confirmo a localização do cadastro" value={confirmed} disabled={!point || busy} onValueChange={setConfirmed}/><Text style={[ui.body, {
+        }} showPointList={false}/></View>{point && <Text style={ui.small}>Latitude {point.latitude.toFixed(6)} · Longitude {point.longitude.toFixed(6)}</Text>}<View style={ui.row}><Switch accessibilityLabel="Confirmo a localização do cadastro" value={confirmed} disabled={!point || busy || lookup} onValueChange={setConfirmed}/><Text style={[ui.body, {
                 flex: 1
             }]}>Confirmo a localização deste cadastro.</Text></View></View>{pev && <View style={ui.card}>{input('acceptedMaterials', 'Materiais aceitos (separados por vírgula)')}{input('notes', 'Orientações / observações', {
                 multiline: true

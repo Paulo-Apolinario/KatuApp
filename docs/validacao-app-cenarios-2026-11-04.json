@@ -1,0 +1,139 @@
+{
+  "date": "2026-11-04",
+  "scope": "App Web; sem painel ou builds nativos",
+  "builds": {
+    "appTypeScript": "PASS",
+    "expoWebExport": "PASS",
+    "pwaVersion": "60a97471c2eca927"
+  },
+  "useCases": {
+    "date": "2026-11-04",
+    "passed": 10,
+    "cases": [
+      {
+        "id": "UC01",
+        "name": "Cooperativa corrige CEP depois de selecionar e confirmar o ponto",
+        "status": "PASS"
+      },
+      {
+        "id": "UC02",
+        "name": "Respostas atrasadas de CEP e mapa não sobrescrevem endereço mais recente",
+        "status": "PASS"
+      },
+      {
+        "id": "UC03",
+        "name": "CEP inexistente invalida o ponto; correção manual e rascunho recuperado permanecem seguros",
+        "status": "PASS"
+      },
+      {
+        "id": "UC04",
+        "name": "PEV troca CEP e grava somente as coordenadas do endereço corrigido",
+        "status": "PASS"
+      },
+      {
+        "id": "UC05",
+        "name": "Cooperativa pesquisa geradores, pagina resultados e abre atendimentos e mapa",
+        "status": "PASS"
+      },
+      {
+        "id": "UC06",
+        "name": "Relatórios validam datas e recuperam falha sem apresentar período inválido como resultado",
+        "status": "PASS"
+      },
+      {
+        "id": "UC07",
+        "name": "Motorista recusa GPS, autoriza envio, cooperativa acompanha e encerramento oculta posição",
+        "status": "PASS"
+      },
+      {
+        "id": "UC08",
+        "name": "Catador inicia offline, recupera observações no reload e sincroniza sem antecipar registro remoto",
+        "status": "PASS"
+      },
+      {
+        "id": "UC09",
+        "name": "Catador consulta coleta de óleo em litros e cooperativa vê o mesmo trabalho",
+        "status": "PASS"
+      },
+      {
+        "id": "UC10",
+        "name": "Gerador aceita termo, corrige data e envia solicitação com material e quantidade",
+        "status": "PASS"
+      }
+    ],
+    "errors": [],
+    "environment": "App Web export + API local + banco descartável. CEP, geocodificação e GPS simulados; nenhum acesso à produção. Sem testes nativos."
+  },
+  "offlineRegression": {
+    "passed": 17,
+    "checks": [
+      "Shell completo preparado; CacheStorage não contém respostas privadas da API",
+      "Recarregar diretório offline mantém sessão e cadastros baixados",
+      "Fechar e reabrir aba offline recupera App e autenticação local",
+      "Rascunho, endereço e localização sobrevivem ao recarregamento offline",
+      "Salvar offline persiste protocolo e fila antes de qualquer confirmação no servidor",
+      "Reconexão envia uma única criação e mantém confirmação após recarregar",
+      "Tela de 390px sem transbordamento",
+      "Resposta perdida após commit é reenviada com o mesmo protocolo sem duplicar gerador",
+      "Validação inválida permanece salva e correção só abre após conferir ausência no servidor",
+      "Falha de espaço não sinaliza sucesso e preserva o último rascunho confirmado",
+      "Rascunho legado com foto migra para IndexedDB antes de remover armazenamento antigo",
+      "Observações de campo digitadas são recuperadas após recarregar offline",
+      "Catador inicia coleta offline; estado e fila sobrevivem ao reload sem antecipar confirmação remota",
+      "Coleta offline é sincronizada e preserva autoria do catador",
+      "Troca de conta em outra aba atualiza perfil e não expõe rascunhos do catador",
+      "Logout offline não ressuscita sessão antiga ao recarregar",
+      "Fluxos concluídos sem erros JavaScript, inclusive ícones no modo offline"
+    ],
+    "errors": []
+  },
+  "appContracts": {
+    "method": "Funções/serviços reais transpilados, armazenamento e rede controlados; sem aparelho físico.",
+    "results": [
+      {
+        "name": "Data de Fortaleza rejeita calendário impossível e conserva fuso",
+        "status": "PASS"
+      },
+      {
+        "name": "Materiais conservam litros e unidades sem inventar massa",
+        "status": "PASS"
+      },
+      {
+        "name": "PDF escreve 50 L em vez de zero kg",
+        "status": "PASS"
+      },
+      {
+        "name": "Agenda local isola contas inclusive IDs compartilhados",
+        "status": "PASS"
+      },
+      {
+        "name": "401 limpa sessão; erro de rede conserva consulta local",
+        "status": "PASS"
+      },
+      {
+        "name": "Resposta antiga de auth/me não apaga uma sessão nova",
+        "status": "PASS"
+      },
+      {
+        "name": "Cofre nativo migra token legado e remove cópia em texto",
+        "status": "PASS"
+      },
+      {
+        "name": "Origem reconhece PEV, gerador e endereço PF com faixa válida",
+        "status": "PASS"
+      },
+      {
+        "name": "Rota serializa IDs de coleta e conserva PEV e ordem recebidos",
+        "status": "PASS"
+      },
+      {
+        "name": "Saída aguarda preparação da cooperativa e distingue veículo em manutenção",
+        "status": "PASS"
+      },
+      {
+        "name": "Seleção inicial prioriza execução em andamento e programação atual do Ceará",
+        "status": "PASS"
+      }
+    ]
+  }
+}

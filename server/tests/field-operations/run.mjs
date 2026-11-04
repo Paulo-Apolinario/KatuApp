@@ -103,14 +103,14 @@ try {
   child.stdout.on("data", (b) => {
     process.stdout.write(b);
     if (
-      (process.env.DELIVERER_UI === "1" || process.env.FIELD_MEETING_UI === "1" || process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1" || process.env.WASTE_USABILITY_UI === "1" || process.env.BROWSER_OFFLINE_UI === "1" || process.env.COOPERATIVE_FIELD_UI === "1" || process.env.SERVICE_DOCUMENTS_UI === "1" || process.env.STOCK_CODES_UI === "1") &&
+      (process.env.APP_SCENARIOS_UI === "1" || process.env.DELIVERER_UI === "1" || process.env.FIELD_MEETING_UI === "1" || process.env.FIELD_UI === "1" || process.env.RESIDENTIAL_UI === "1" || process.env.GENERATOR_DOCUMENT_UI === "1" || process.env.WASTE_COMPLETION_UI === "1" || process.env.WASTE_USABILITY_UI === "1" || process.env.BROWSER_OFFLINE_UI === "1" || process.env.COOPERATIVE_FIELD_UI === "1" || process.env.SERVICE_DOCUMENTS_UI === "1" || process.env.STOCK_CODES_UI === "1") &&
       !uiPromise &&
       b.toString().includes("FIELD_UI_READY")
     )
       uiPromise = new Promise((resolve) => {
         const ui = spawn(
           process.execPath,
-          [process.env.DELIVERER_UI === "1" ? "tests/intake-deliverers/browser.mjs" : process.env.FIELD_MEETING_UI === "1" ? "tests/field-meeting/browser.mjs" : process.env.BROWSER_OFFLINE_UI === "1" ? "tests/browser-offline/browser.mjs" : process.env.COOPERATIVE_FIELD_UI === "1" ? "tests/cooperative-field/browser.mjs" : process.env.SERVICE_DOCUMENTS_UI === "1" ? "tests/service-documents/browser.mjs" : process.env.STOCK_CODES_UI === "1" ? "tests/stock-codes/browser.mjs" : process.env.WASTE_USABILITY_UI === "1" ? "tests/waste-usability/browser.mjs" : process.env.WASTE_COMPLETION_UI === "1" ? "tests/waste-completion/browser.mjs" : process.env.GENERATOR_DOCUMENT_UI === "1" ? "tests/generator-document/browser.mjs" : process.env.RESIDENTIAL_UI === "1" ? "tests/residential/browser.mjs" : "tests/field-operations/browser.mjs"],
+          [process.env.APP_SCENARIOS_UI === "1" ? "tests/app-scenarios/browser.mjs" : process.env.DELIVERER_UI === "1" ? "tests/intake-deliverers/browser.mjs" : process.env.FIELD_MEETING_UI === "1" ? "tests/field-meeting/browser.mjs" : process.env.BROWSER_OFFLINE_UI === "1" ? "tests/browser-offline/browser.mjs" : process.env.COOPERATIVE_FIELD_UI === "1" ? "tests/cooperative-field/browser.mjs" : process.env.SERVICE_DOCUMENTS_UI === "1" ? "tests/service-documents/browser.mjs" : process.env.STOCK_CODES_UI === "1" ? "tests/stock-codes/browser.mjs" : process.env.WASTE_USABILITY_UI === "1" ? "tests/waste-usability/browser.mjs" : process.env.WASTE_COMPLETION_UI === "1" ? "tests/waste-completion/browser.mjs" : process.env.GENERATOR_DOCUMENT_UI === "1" ? "tests/generator-document/browser.mjs" : process.env.RESIDENTIAL_UI === "1" ? "tests/residential/browser.mjs" : "tests/field-operations/browser.mjs"],
           { cwd: root, env: process.env, stdio: "inherit" },
         );
         ui.on("exit", (code) => {

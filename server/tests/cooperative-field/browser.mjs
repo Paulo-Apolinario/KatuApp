@@ -316,6 +316,9 @@ try {
     exact: true
   }).fill('124');
   assert.equal(await confirmation.isChecked(), false);
+  assert(await confirmation.isDisabled());
+  await page.getByRole('button', { name: 'Usar minha localização', exact: true }).click();
+  await page.getByText('Latitude -3.730200 · Longitude -38.520200', { exact: true }).waitFor();
   await confirmation.check();
   await page.getByRole('button', {
     name: 'Salvar gerador',

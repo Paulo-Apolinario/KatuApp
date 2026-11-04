@@ -44,6 +44,7 @@ export default function OperationalMapWeb({
     fitKey = useRef(""),
     gpsCentered = useRef(false),
     lastSelection = useRef<string | null>(null),
+    lastSelectedPosition = useRef(""),
     lastFocus = useRef<number | undefined>(undefined);
   const [localId, setLocalId] = useState<string | null>(null);
   const activeId = localId ?? selectedPointId;
@@ -229,9 +230,11 @@ export default function OperationalMapWeb({
       gpsCentered.current = true;
     }
     const selected = valid.find((p) => p.id === activeId);
+    const selectedPosition = selected ? `${selected.latitude}:${selected.longitude}` : "";
     if (selected) {
       if (
         lastSelection.current !== activeId ||
+        lastSelectedPosition.current !== selectedPosition ||
         lastFocus.current !== focusRequest
       )
         map.panTo([selected.latitude, selected.longitude], { animate: false });
@@ -246,6 +249,7 @@ export default function OperationalMapWeb({
       fitKey.current = signature;
     }
     lastSelection.current = activeId ?? null;
+    lastSelectedPosition.current = selectedPosition;
     lastFocus.current = focusRequest;
     const timer = setTimeout(() => map.invalidateSize(), 0);
     return () => clearTimeout(timer);

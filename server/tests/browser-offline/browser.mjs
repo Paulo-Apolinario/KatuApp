@@ -256,6 +256,7 @@ try {
     pass('Rascunho legado com foto migra para IndexedDB antes de remover armazenamento antigo');
     await catPage.goto('http://127.0.0.1:5180/(catador)/collect?highlightCollectionId=' + ids.collection);
     await catPage.getByText('Iniciar coleta', { exact: true }).waitFor();
+    await catPage.waitForFunction(() => !!navigator.serviceWorker.controller);
     await catContext.setOffline(true);
     await catPage.reload();
     await catPage.getByText('Iniciar coleta', { exact: true }).waitFor();
@@ -281,15 +282,16 @@ try {
     await secondTab.getByText('Registro de campo da coleta', { exact: true }).waitFor();
     await catContext.setOffline(true);
     await catPage.evaluate(({ token, user }) => { localStorage.setItem('@katu:token', token); localStorage.setItem('@katu:user', JSON.stringify(user)); }, { token: fixture.token, user: fixture.owner });
-    await secondTab.waitForURL(/\/home$/);
+    // Account change may keep a shared screen or redirect home; verify data scope after either outcome.
+    await secondTab.getByText('Registro de campo da coleta', { exact: true }).waitFor({ state: 'hidden' });
     await secondTab.goto('http://127.0.0.1:5180/offline');
     await secondTab.getByText('Nenhum rascunho nesta conta.', { exact: true }).waitFor();
     assert.equal(await secondTab.getByText('Registro de campo da coleta', { exact: true }).count(), 0);
     pass('Troca de conta em outra aba atualiza perfil e não expõe rascunhos do catador');
     await catPage.evaluate(() => { localStorage.removeItem('@katu:token'); localStorage.removeItem('@katu:user'); });
-    await secondTab.waitForURL(/access-type/);
+    await secondTab.getByText('Rascunhos e envios', { exact: true }).waitFor({ state: 'hidden' });
     await secondTab.reload();
-    await secondTab.waitForURL(/access-type/);
+    await secondTab.waitForFunction(() => location.pathname.includes('access-type'));
     assert.equal(await secondTab.evaluate(() => localStorage.getItem('@katu:token')), null);
     pass('Logout offline não ressuscita sessão antiga ao recarregar');
     await catContext.close();
@@ -300,6 +302,7 @@ try {
 }
 catch (e) {
     console.error(e);
+    const snapshots=[];for(const c of browser?.contexts()||[])for(const p of c.pages())snapshots.push({url:p.url(),body:await p.locator('body').innerText().catch(()=>''),auth:await p.evaluate(()=>JSON.parse(localStorage.getItem('@katu:user')||'null')?.role).catch(()=>null)});fs.writeFileSync(out+'/failure-debug.json',JSON.stringify({checks,errors,snapshots},null,2));
     process.exitCode = 1;
 }
 finally {
