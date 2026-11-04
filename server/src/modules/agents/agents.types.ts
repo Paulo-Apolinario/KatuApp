@@ -13,6 +13,8 @@ export type Command =
   | "AUTOMATION_HEALTH";
 export interface Finding {
   kind: string;
+  priorityScore?: number;
+  priority?: "HIGH" | "MEDIUM";
   id: string;
   title: string;
   href: string;
@@ -29,6 +31,7 @@ export interface ProposalDraft {
 export interface Analysis {
   agent: AgentKey;
   command: Command;
+  title?: string;
   generatedAt: string;
   summary: string;
   counts: Record<string, number>;

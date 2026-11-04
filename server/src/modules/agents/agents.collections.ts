@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { otherRequestSources } from "./agents.request-sources";
 import { prisma } from "../../lib/prisma";
 import { defaults } from "../settings/settings.schemas";
@@ -28,7 +29,7 @@ export async function analyzeCollections(
       ? hours
       : defaults.preferences.collectionOverdueHours;
   const before = new Date(+now - overdueHours * 3600000);
-  const where = {
+  const where: Prisma.ScheduleWhereInput = {
     cooperativeId,
     status: {
       in: ["REQUESTED", "SCHEDULED", "IN_PROGRESS"] as (
@@ -36,6 +37,13 @@ export async function analyzeCollections(
       )[],
     },
   };
+  const overdueOnly = command === "OVERDUE_REQUESTS";
+  if (overdueOnly)
+    where.OR = [
+      { scheduledDate: { lt: before } },
+      { scheduledDate: null, preferredDate: { lt: before } },
+      { scheduledDate: null, preferredDate: null, createdAt: { lt: before } },
+    ];
   const [rows, total, collections, collectionTotal] = await Promise.all([
     prisma.schedule.findMany({
       where,
@@ -56,40 +64,47 @@ export async function analyzeCollections(
       },
     }),
     prisma.schedule.count({ where }),
-    prisma.collection.findMany({
-      where: { cooperativeId, status: { in: ["PENDING", "IN_PROGRESS"] } },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      take: LIMITS.records + 1,
-      select: {
-        id: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-        collectorId: true,
-        driverId: true,
-        vehicleId: true,
-        routeId: true,
-        schedule: { select: { scheduledDate: true } },
-        route: { select: { scheduledDate: true, status: true } },
-      },
-    }),
-    prisma.collection.count({
-      where: { cooperativeId, status: { in: ["PENDING", "IN_PROGRESS"] } },
-    }),
+    overdueOnly
+      ? Promise.resolve([])
+      : prisma.collection.findMany({
+          where: { cooperativeId, status: { in: ["PENDING", "IN_PROGRESS"] } },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          take: LIMITS.records + 1,
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            collectorId: true,
+            driverId: true,
+            vehicleId: true,
+            routeId: true,
+            schedule: { select: { scheduledDate: true } },
+            route: { select: { scheduledDate: true, status: true } },
+          },
+        }),
+    overdueOnly
+      ? Promise.resolve(0)
+      : prisma.collection.count({
+          where: { cooperativeId, status: { in: ["PENDING", "IN_PROGRESS"] } },
+        }),
   ]);
   const overdue = (x: (typeof rows)[number]) =>
     +(x.scheduledDate || x.preferredDate || x.createdAt) < +before;
   const items: Finding[] = [];
   for (const x of rows.slice(0, LIMITS.records)) {
     const reasons: string[] = [];
+    let priorityScore = overdue(x) ? 6 : 0;
     if (overdue(x))
       reasons.push(
         `Referência de data ultrapassou ${overdueHours} hora(s); confirmar atendimento.`,
       );
     if (x.status === "REQUESTED")
       reasons.push("Solicitação aguardando análise da cooperativa.");
-    if (x.status === "SCHEDULED" && !x.collections.length)
+    if (x.status === "SCHEDULED" && !x.collections.length) {
       reasons.push("Agendamento sem coleta operacional vinculada.");
+      priorityScore += 3;
+    }
     if (
       x.status === "IN_PROGRESS" &&
       !x.collections.some((c) =>
@@ -97,17 +112,24 @@ export async function analyzeCollections(
           c.status,
         ),
       )
-    )
+    ) {
       reasons.push("Solicitação em andamento sem coleta ativa correspondente.");
+      priorityScore += 5;
+    }
     if (
       x.collections.some((c) => ["COMPLETED", "CANCELLED"].includes(c.status))
-    )
+    ) {
       reasons.push(
         "Solicitação ativa possui coleta encerrada; revisar consistência de status.",
       );
-    if (command === "OVERDUE_REQUESTS" && !overdue(x)) continue;
+      priorityScore += 5;
+    }
+    if (command === "COLLECTION_PRIORITIES" && !priorityScore) continue;
     items.push({
       kind: "SCHEDULE",
+      priorityScore,
+      priority:
+        priorityScore >= 5 ? "HIGH" : priorityScore > 0 ? "MEDIUM" : undefined,
       id: x.id,
       title: x.generator?.name || "Solicitação avulsa",
       status: x.status,
@@ -120,17 +142,29 @@ export async function analyzeCollections(
     for (const c of collections.slice(0, LIMITS.records)) {
       const reasons: string[] = [];
       const date = c.schedule?.scheduledDate || c.route?.scheduledDate;
+      let priorityScore = date && +date < +before ? 6 : 0;
       if (date && +date < +before)
         reasons.push("Programação vencida e etapa de campo pendente.");
-      if (!c.collectorId && !c.routeId)
+      if (!c.collectorId && !c.routeId) {
         reasons.push("Coleta individual sem catador definido.");
-      if (c.route && ["COMPLETED", "CANCELLED"].includes(c.route.status))
+        priorityScore += 3;
+      }
+      if (c.route && ["COMPLETED", "CANCELLED"].includes(c.route.status)) {
         reasons.push(
           "Coleta pendente em rota encerrada; conferir o desfecho do ponto.",
         );
+        priorityScore += 5;
+      }
       if (command === "COLLECTION_PRIORITIES" && !reasons.length) continue;
       items.push({
         kind: "COLLECTION",
+        priorityScore,
+        priority:
+          priorityScore >= 5
+            ? "HIGH"
+            : priorityScore > 0
+              ? "MEDIUM"
+              : undefined,
         id: c.id,
         title: "Coleta operacional",
         status: c.status,
@@ -144,10 +178,17 @@ export async function analyzeCollections(
     before,
     command === "OVERDUE_REQUESTS",
   );
-  items.push(...other.items);
+  items.push(
+    ...other.items.filter(
+      (item) =>
+        command !== "COLLECTION_PRIORITIES" || (item.priorityScore || 0) > 0,
+    ),
+  );
   items.sort(
     (a, b) =>
-      b.reasons.length - a.reasons.length ||
+      (command === "COLLECTION_PRIORITIES"
+        ? (b.priorityScore || 0) - (a.priorityScore || 0)
+        : 0) ||
       (a.date || "9999").localeCompare(b.date || "9999") ||
       a.id.localeCompare(b.id),
   );
@@ -194,17 +235,37 @@ export async function analyzeCollections(
     agent: "COLLECTIONS",
     command,
     generatedAt: now.toISOString(),
-    summary: items.length
-      ? "Pendências encontradas; priorização por sinais explícitos e antiguidade."
-      : "Nenhuma pendência encontrada no recorte consultado.",
-    counts: {
-      activeRequests: total,
-      extraOrdersAwaitingReview: other.extraTotal,
-      pevReportsAwaitingCollection: other.pevTotal,
-      fieldPendingCollections: collectionTotal,
-      overdueRequestsInSample: rows.slice(0, LIMITS.records).filter(overdue)
-        .length,
-    },
+    title: overdueOnly
+      ? "Solicitações atrasadas"
+      : command === "COLLECTION_PRIORITIES"
+        ? "Prioridades de atendimento"
+        : "Pendências de coleta",
+    summary: overdueOnly
+      ? `${total} solicitação(ões), ${other.extraTotal} ordem(ns) extra(s) e ${other.pevTotal} relato(s) de PEV ultrapassaram a referência de ${overdueHours} hora(s). A lista contém somente solicitações atrasadas.`
+      : command === "COLLECTION_PRIORITIES"
+        ? `${items.length} registro(s) com sinais de revisão no recorte: ${items.filter((x) => x.priority === "HIGH").length} de atenção alta e ${items.filter((x) => x.priority === "MEDIUM").length} de atenção média. ${proposals.slice(0, LIMITS.proposals).length} possibilidade(s) de agrupamento para conferir.`
+        : `${total} solicitação(ões) ativa(s), ${collectionTotal} coleta(s) pendente(s) em campo, ${other.extraTotal} ordem(ns) extra(s) e ${other.pevTotal} relato(s) de PEV aguardando atendimento.`,
+    counts: overdueOnly
+      ? {
+          overdueRequests: total,
+          overdueExtraOrders: other.extraTotal,
+          overduePevReports: other.pevTotal,
+        }
+      : command === "COLLECTION_PRIORITIES"
+        ? {
+            priorityRecordsInSample: items.length,
+            highPriorityInSample: items.filter((x) => x.priority === "HIGH")
+              .length,
+            mediumPriorityInSample: items.filter((x) => x.priority === "MEDIUM")
+              .length,
+            groupingSuggestions: proposals.slice(0, LIMITS.proposals).length,
+          }
+        : {
+            activeRequests: total,
+            fieldPendingCollections: collectionTotal,
+            extraOrdersAwaitingReview: other.extraTotal,
+            pevReportsAwaitingCollection: other.pevTotal,
+          },
     items: items.slice(0, LIMITS.records),
     truncated:
       other.truncated ||
@@ -213,6 +274,12 @@ export async function analyzeCollections(
       items.length > LIMITS.records,
     warnings: [
       "Solicitações e coletas são contagens distintas e não devem ser somadas como atendimentos únicos.",
+      ...(command === "COLLECTION_PRIORITIES"
+        ? [
+            "Atenção alta: atraso ou inconsistência de status. Atenção média: vínculo operacional ausente ou informações incompletas. Uma solicitação recente aguardando análise, sem outro sinal, não é classificada como prioritária. Os números são do recorte por fonte.",
+            "Um registro pode estar pendente, atrasado e precisar de atenção ao mesmo tempo. Coincidência entre listas não significa que os comandos sejam iguais.",
+          ]
+        : []),
       "Data desejada e antiguidade são sinais de revisão, não confirmação de prazo contratual.",
     ],
     method: `Regras determinísticas; limite de ${LIMITS.records} registros por fonte, atraso após ${overdueHours} hora(s).`,

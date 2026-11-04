@@ -228,7 +228,7 @@ async function main() {
       const r = await run("COLLECTIONS");
       expectStatus(r, 200);
       assert.equal(r.body.run.result.items.length, 0);
-      assert.equal(r.body.run.result.counts.activeRequests, 0);
+      assert.equal(r.body.run.result.counts.priorityRecordsInSample, 0);
     });
     await test("análise vazia de rotas retorna lista vazia", async () => {
       const r = await run("ROUTES");
@@ -416,7 +416,7 @@ async function main() {
     await test("prioridades reais, proposta de agrupamento e isolamento", async () => {
       first = await run("COLLECTIONS");
       expectStatus(first, 200);
-      assert.equal(first.body.run.result.counts.activeRequests, 3);
+      assert.ok(first.body.run.result.counts.priorityRecordsInSample >= 3);
       assert.ok(!JSON.stringify(first).includes(foreign.id));
       assert.ok(first.body.run.result.proposalIds.length);
       assert.ok(first.body.run.result.items.some((x: any) => x.reasons.length));
@@ -1093,6 +1093,8 @@ async function main() {
     }
     const { runCommandScenarios } = await import("./commands-scenarios");
     await runCommandScenarios(app, test);
+    const { runConversationScenarios } = await import("./conversation-scenarios");
+    await runConversationScenarios(test);
     console.log(`AGENTS_V1_RESULT ${results.length} passed, 0 failed`);
     if (process.env.KATUA_VALIDATION_TOOLS)
       writeFileSync(

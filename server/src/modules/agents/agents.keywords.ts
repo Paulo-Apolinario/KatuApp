@@ -1,17 +1,9 @@
+import { CONNECTOR_WORDS, DOMAIN_WORDS } from "./agents.vocabulary";
+const allowed = new Set([...CONNECTOR_WORDS, ...DOMAIN_WORDS]);
 import type { Command } from "./agents.types";
 /** Deliberately bounded Portuguese vocabulary. Unsupported filters and mutations never become a broader query. */
 export function keywordCandidates(normal: string): Command[] {
   const tokens = normal.split(/\s+/);
-  const allowed = new Set(
-    (
-      "a as o os um uma uns umas de da das do dos em no na nos nas por para pra pro com sem e ou que quais qual quanto quantas quantos " +
-      "me mim voce ajuda ajude favor porfavor bom boa dia tarde noite ola oi preciso quero gostaria queria saber ver veja ve verificar verifique mostrar mostre mostra listar liste consultar consulte analisar analise conferir confira tem temos ha existe existem alguma algumas algum alguns todas todos esta estao ta tao sao ser foram foi sendo ainda mais " +
-      "coleta coletas solicitacao solicitacoes pedido pedidos atendimento atendimentos pendente pendentes atrasada atrasadas atrasado atrasados atraso atrasos vencida vencidas vencido vencidos prioridade prioridades prioritaria prioritarias urgente urgentes hoje " +
-      "rota rotas programada programadas programado programados agendada agendadas agendamento agendamentos atencao problema problemas conflito conflitos motorista motoristas veiculo veiculos faltando falta definido definidos definida definidas " +
-      "resumo operacional operacao operacoes indicadores situacao ocorrencia ocorrencias alerta alertas recomendacao recomendacoes proposta propostas revisao aprovacao aguardando " +
-      "agente agentes analise analises automacao automacoes processamento fila evento eventos falha falhas falhou erro erros"
-    ).split(/\s+/),
-  );
   if (tokens.some((t) => !allowed.has(t))) return [];
   const has = (...words: string[]) =>
     words.some((word) => tokens.includes(word));
@@ -56,7 +48,13 @@ export function keywordCandidates(normal: string): Command[] {
     "vencido",
     "vencidos",
   );
-  const pending = has("pendente", "pendentes", "aguardando");
+  const pending = has(
+    "pendente",
+    "pendentes",
+    "pendencia",
+    "pendencias",
+    "aguardando",
+  );
   const resource = has("motorista", "motoristas", "veiculo", "veiculos");
   const missing = has("sem", "faltando", "falta");
   const result: Command[] = [];
@@ -160,5 +158,18 @@ export function keywordCandidates(normal: string): Command[] {
       "ROUTES_WITHOUT_RESOURCES",
     );
   if (recommendation && !result.includes("PENDING_PROPOSALS")) return [];
+  if (
+    pending &&
+    !collection &&
+    !route &&
+    !recommendation &&
+    !automation &&
+    !result.length
+  )
+    result.push(
+      "PENDING_COLLECTIONS",
+      "PENDING_PROPOSALS",
+      "AUTOMATION_HEALTH",
+    );
   return [...new Set(result)];
 }

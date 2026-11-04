@@ -1,3 +1,4 @@
+import { COMMAND_PHRASES, MANAGER_WORD_VARIANTS } from "./agents.vocabulary";
 import { keywordCandidates } from "./agents.keywords";
 import type { AgentKey } from "@prisma/client";
 import type { Command } from "./agents.types";
@@ -109,7 +110,10 @@ export const normalizeCommand = (value: string) =>
     .toLowerCase()
     .replace(/[?!.,;:]/g, "")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    .split(/\s+/)
+    .map((word) => MANAGER_WORD_VARIANTS[word] || word)
+    .join(" ");
 /** Interpretation may be replaced; execution always uses the closed Command union. No SQL, code or tool names from text. */
 export interface CommandInterpreter {
   interpret(text: string): Command | null;
@@ -121,7 +125,9 @@ export function resolveCommandText(text: string): {
 } {
   const normal = normalizeCommand(text);
   const exact = COMMANDS.find((c) =>
-    [c.example, ...c.aliases].some((a) => normalizeCommand(a) === normal),
+    [c.example, ...c.aliases, ...COMMAND_PHRASES[c.key]].some(
+      (a) => normalizeCommand(a) === normal,
+    ),
   );
   if (exact)
     return { command: exact.key, candidates: [exact.key], method: "EXACT" };

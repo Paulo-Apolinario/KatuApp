@@ -9,12 +9,14 @@ export async function otherRequestSources(
   const extraWhere = {
     cooperativeId,
     status: { in: ["PENDING_REVIEW", "NEEDS_INFO"] },
+    ...(overdueOnly ? { createdAt: { lt: before } } : {}),
   };
   const pevWhere = {
     cooperativeId,
     status: "OPEN",
     collectionId: null,
     bin: { cooperativeId },
+    ...(overdueOnly ? { createdAt: { lt: before } } : {}),
   };
   const [extraTotal, pevTotal, extras, pevs] = await Promise.all([
     prisma.extraCollectionOrder.count({ where: extraWhere }),
@@ -39,40 +41,46 @@ export async function otherRequestSources(
     }),
   ]);
   const items: Finding[] = [
-    ...extras
-      .slice(0, LIMITS.records)
-      .map((x) => ({
-        kind: "EXTRA_ORDER",
-        id: x.id,
-        title: "Ordem de coleta extra",
-        status: x.status,
-        date: x.createdAt.toISOString(),
-        href: `/extra-collection-orders?ordem=${encodeURIComponent(x.id)}`,
-        reasons: [
-          x.status === "NEEDS_INFO"
-            ? "Aguardando complemento das informações."
-            : "Aguardando análise da cooperativa.",
-          ...(+x.createdAt < +before
-            ? ["Solicitação antiga; conferir prioridade."]
-            : []),
-        ],
-      })),
-    ...pevs
-      .slice(0, LIMITS.records)
-      .map((x) => ({
-        kind: "PEV_REQUEST",
-        id: x.id,
-        title: x.binName,
-        status: "OPEN",
-        date: x.createdAt.toISOString(),
-        href: `/bin-list/${encodeURIComponent(x.binId)}`,
-        reasons: [
-          "PEV com solicitação de retirada ainda sem coleta vinculada.",
-          ...(+x.createdAt < +before
-            ? ["Relato antigo; conferir as condições atuais do PEV."]
-            : []),
-        ],
-      })),
+    ...extras.slice(0, LIMITS.records).map((x) => ({
+      kind: "EXTRA_ORDER",
+      priorityScore:
+        +x.createdAt < +before ? 6 : x.status === "NEEDS_INFO" ? 3 : 0,
+      priority:
+        +x.createdAt < +before
+          ? ("HIGH" as const)
+          : x.status === "NEEDS_INFO"
+            ? ("MEDIUM" as const)
+            : undefined,
+      id: x.id,
+      title: "Ordem de coleta extra",
+      status: x.status,
+      date: x.createdAt.toISOString(),
+      href: `/extra-collection-orders?ordem=${encodeURIComponent(x.id)}`,
+      reasons: [
+        x.status === "NEEDS_INFO"
+          ? "Aguardando complemento das informações."
+          : "Aguardando análise da cooperativa.",
+        ...(+x.createdAt < +before
+          ? ["Solicitação antiga; conferir prioridade."]
+          : []),
+      ],
+    })),
+    ...pevs.slice(0, LIMITS.records).map((x) => ({
+      kind: "PEV_REQUEST",
+      priorityScore: +x.createdAt < +before ? 6 : 0,
+      priority: +x.createdAt < +before ? ("HIGH" as const) : undefined,
+      id: x.id,
+      title: x.binName,
+      status: "OPEN",
+      date: x.createdAt.toISOString(),
+      href: `/bin-list/${encodeURIComponent(x.binId)}`,
+      reasons: [
+        "PEV com solicitação de retirada ainda sem coleta vinculada.",
+        ...(+x.createdAt < +before
+          ? ["Relato antigo; conferir as condições atuais do PEV."]
+          : []),
+      ],
+    })),
   ];
   return {
     items,
