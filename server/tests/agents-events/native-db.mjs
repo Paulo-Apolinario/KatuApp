@@ -39,7 +39,7 @@ export async function createNativeDatabase(bin, tmp) {
   ]);
   const psql = (sql) =>
     execFileSync(
-      path.join(bin, "psql"),
+      process.env.KATUA_NATIVE_PSQL || "psql",
       [
         "-h",
         "127.0.0.1",

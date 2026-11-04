@@ -14,6 +14,7 @@ jobs:
     timeout-minutes: 12
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54329/postgres?connection_limit=1
+      KATUA_NATIVE_PSQL: /usr/bin/psql
       NODE_ENV: test
       JWT_SECRET: agents-ci-disposable-secret-at-least-32-characters
     steps:
