@@ -26,7 +26,10 @@ const json = (v: unknown) =>
 const include = {
   collector: { select: { id: true, name: true } },
   collection: {
-    select: { id: true, status: true, collectedAt: true, receivedAt: true },
+    select: { id: true, status: true, collectedAt: true, receivedAt: true,
+      quantityReviewVersion: true, quantitiesReviewedAt: true,
+      collectionMaterials: { select: { id: true, nameSnapshot: true, quantity: true, unit: true } },
+    },
   },
   events: { orderBy: { createdAt: "asc" as const } },
 };

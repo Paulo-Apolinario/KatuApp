@@ -288,7 +288,7 @@ async function main() {
         `/collections/${col.id}/review-quantities`,
         {
           expectedVersion: 0,
-          reason: "Pesagem inicial realizada na cooperativa.",
+          reason: "",
           items: [{ materialId: col.collectionMaterials[0].id, quantity: 8 }],
         },
         manager,
@@ -300,6 +300,13 @@ async function main() {
       assert.equal(updated.totalWeightKg, 8);
       assert.equal((updated.materials as any)[0].quantityPending, undefined);
       assert.equal(updated.quantityReviewVersion, 1);
+      const latest = await call("GET", `/extra-collection-orders/${id}`);
+      ok(latest, 200);
+      assert.equal(latest.body.order.collection.quantityReviewVersion, 1);
+      assert.equal(
+        Number(latest.body.order.collection.collectionMaterials[0].quantity),
+        8,
+      );
       assert.equal(
         (
           await prisma.collector.findUniqueOrThrow({
@@ -340,6 +347,27 @@ async function main() {
         where: { id: approved.body.order.collectionId },
       });
       assert.equal(col.totalWeightKg, 3);
+      ok(
+        await call("POST", `/collections/${col.id}/receive`, {}, manager),
+        200,
+      );
+      const current = await prisma.collection.findUniqueOrThrow({
+        where: { id: col.id },
+        include: { collectionMaterials: true },
+      });
+      const diverged = await call(
+        "POST",
+        `/collections/${col.id}/review-quantities`,
+        {
+          expectedVersion: 0,
+          reason: "",
+          items: [
+            { materialId: current.collectionMaterials[0].id, quantity: 4 },
+          ],
+        },
+        manager,
+      );
+      ok(diverged, 400);
     });
     console.log(`${count} testes de integração aprovados`);
   } finally {

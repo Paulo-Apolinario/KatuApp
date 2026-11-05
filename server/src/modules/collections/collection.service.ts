@@ -1711,7 +1711,10 @@ export class CollectionService {
         const changed = items.some(
           (item) => item.previousQuantity !== item.confirmedQuantity,
         );
-        if (changed && data.reason.trim().length < 5)
+        const initialUnweighed = (m: typeof materials[number]) =>
+          !collection.quantityReviewVersion && m.reportedQuantity == null && Number(m.quantity) === 0;
+        const diverged = materials.some(m => !initialUnweighed(m) && Number(m.quantity) !== quantities.get(m.id));
+        if (diverged && data.reason.trim().length < 5)
           throw new CollectionDomainError(
             "Descreva a justificativa da diferença (mínimo de 5 caracteres).",
             { statusCode: 400, code: "REVIEW_REASON_REQUIRED" },
@@ -1738,7 +1741,7 @@ export class CollectionService {
             where: { id: m.id },
             data: {
               quantity,
-              reportedQuantity: m.reportedQuantity ?? m.quantity,
+              reportedQuantity: m.reportedQuantity,
             },
           });
           await tx.collectionWasteEntry.update({
@@ -1768,7 +1771,9 @@ export class CollectionService {
           select: { displayName: true },
         });
         const reason =
-          data.reason.trim() || "Conferência sem divergência de quantidade.";
+          data.reason.trim() || (materials.some(initialUnweighed)
+            ? "Pesagem inicial na cooperativa; quantidade não informada em campo."
+            : "Conferência sem divergência de quantidade.");
         await tx.collectionQuantityReview.create({
           data: {
             collectionId,

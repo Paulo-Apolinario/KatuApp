@@ -62,6 +62,7 @@ const user = {
   collector: { id: "member", name: "Integrante QA", cooperativeId: "coop" },
 };
 await context.addInitScript((user) => {
+  user = JSON.parse(localStorage.getItem("qaUserOverride") || "null") || user;
   localStorage.setItem("@katu:token", "local-ui-fixture");
   localStorage.setItem("@katu:user", JSON.stringify(user));
   localStorage.setItem(
@@ -437,6 +438,97 @@ try {
     assert.equal(p.reasonNotes, "ok");
     assert(p.preferredDate);
     assert.equal(p.generatorId, undefined);
+  });
+  await test("ordem concluída mostra estado em português e a quantidade conferida atual", async () => {
+    orders[0].status = "ACCEPTED";
+    orders[0].collection = {
+      id: "linked",
+      status: "COMPLETED",
+      quantityReviewVersion: 1,
+      collectionMaterials: [
+        {
+          id: "m",
+          nameSnapshot: "Papelão conferido",
+          quantity: "8",
+          unit: "KG",
+        },
+      ],
+    };
+    await page.goto(base + "/(catador)/extra-orders?orderId=" + orders[0].id);
+    await page
+      .getByText("Coleta vinculada: linked · Concluída", { exact: true })
+      .waitFor();
+    await page.getByText("Papelão conferido: 8 kg", { exact: true }).waitFor();
+    assert.equal(await page.getByText("COMPLETED", { exact: true }).count(), 0);
+  });
+  await test("cooperativa acessa diretamente o atendimento da coleta no painel", async () => {
+    user.role = "COOPERATIVE";
+    user.cooperative = { id: "coop", name: "Coop QA" };
+    await page.evaluate((user) => {
+      localStorage.setItem("qaUserOverride", JSON.stringify(user));
+      localStorage.setItem("@katu:user", JSON.stringify(user));
+      localStorage.setItem(
+        "@katu:offline:session_local",
+        JSON.stringify([
+          {
+            id: 1,
+            token: "local-ui-fixture",
+            user_id: user.id,
+            payload_json: JSON.stringify(user),
+            updated_at: new Date().toISOString(),
+          },
+        ]),
+      );
+    }, user);
+    await page.goto(
+      base + "/(cooperativa)/extra-orders?orderId=" + orders[0].id,
+    );
+    await page
+      .getByRole("button", {
+        name: "Continuar atendimento no painel",
+        exact: true,
+      })
+      .waitFor();
+    await page.evaluate(() => {
+      window.open = (url) => {
+        window.qaPanelUrl = String(url);
+        return null;
+      };
+    });
+    await page
+      .getByRole("button", {
+        name: "Continuar atendimento no painel",
+        exact: true,
+      })
+      .click();
+    assert.equal(
+      await page.evaluate(() => window.qaPanelUrl),
+      "https://painel.katua.com.br/waste-list?coleta=linked",
+    );
+    assert.equal(
+      await page
+        .getByLabel("Observações da análise ou conferência", { exact: true })
+        .count(),
+      0,
+    );
+    user.role = "COLLECTOR";
+    delete user.cooperative;
+    await page.evaluate((user) => {
+      localStorage.removeItem("qaUserOverride");
+      localStorage.setItem("@katu:user", JSON.stringify(user));
+      localStorage.setItem(
+        "@katu:offline:session_local",
+        JSON.stringify([
+          {
+            id: 1,
+            token: "local-ui-fixture",
+            user_id: user.id,
+            payload_json: JSON.stringify(user),
+            updated_at: new Date().toISOString(),
+          },
+        ]),
+      );
+    }, user);
   });
   await test("desktop adapta ações e tela não transborda", async () => {
     await page.setViewportSize({ width: 1366, height: 900 });

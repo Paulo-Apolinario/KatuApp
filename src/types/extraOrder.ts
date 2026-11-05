@@ -48,7 +48,18 @@ export type ExtraOrder = {
   custodyNotes: string;
   routeNameSnapshot?: string;
   collectionId?: string;
-  collection?: { id: string; status: string };
+  collection?: {
+    id: string;
+    status: string;
+    quantityReviewVersion?: number;
+    quantitiesReviewedAt?: string | null;
+    collectionMaterials?: {
+      id: string;
+      nameSnapshot: string;
+      quantity: string | number;
+      unit: ExtraUnit;
+    }[];
+  };
   events?: {
     id: string;
     kind: string;

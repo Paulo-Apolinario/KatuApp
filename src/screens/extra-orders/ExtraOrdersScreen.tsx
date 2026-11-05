@@ -1,7 +1,8 @@
+import { translateCollectionStatus } from "../../services/collectionService";
 import { useActiveReadRefresh } from "@/src/hooks/useActiveReadRefresh";
 import { useCallback, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { Image, Platform, Text, View } from "react-native";
+import { Image, Linking, Platform, Text, View } from "react-native";
 import {
   Workspace,
   Card,
@@ -31,12 +32,16 @@ export default function ExtraOrdersScreen() {
   const { user } = useAuth(),
     cooperative = user?.role === "COOPERATIVE",
     simple = Platform.OS === "web" && user?.role === "COLLECTOR",
+    simplifyCoop = Platform.OS === "web" && cooperative,
     { isOffline } = useConnectivity(),
     params = useLocalSearchParams<{
       routeId?: string;
       create?: string;
       orderId?: string;
     }>();
+  const [originalMaterials, setOriginalMaterials] = useState(false);
+  const [reviewOptions, setReviewOptions] = useState(false);
+  const [rejection, setRejection] = useState(false);
   const [orders, setOrders] = useState<ExtraOrder[]>([]),
     [context, setContext] = useState<ExtraContext | null>(null),
     [selected, setSelected] = useState<ExtraOrder | null>(null),
@@ -133,7 +138,7 @@ export default function ExtraOrdersScreen() {
     useCallback(() => {
       void load();
       if (
-        user?.role === "COLLECTOR" &&
+        ["COLLECTOR", "COOPERATIVE"].includes(user?.role || "") &&
         params.orderId &&
         linkedOrder.current !== params.orderId
       ) {
@@ -366,7 +371,9 @@ export default function ExtraOrdersScreen() {
             <Text>
               Contato: {selected.payload.contactPhone || "Não informado"}
             </Text>
-            <Text>Motivo: {selected.payload.reasonNotes}</Text>
+            {!!selected.payload.reasonNotes && (
+              <Text>Motivo: {selected.payload.reasonNotes}</Text>
+            )}
             <Text>
               Rota de contexto:{" "}
               {selected.routeNameSnapshot ||
@@ -399,20 +406,47 @@ export default function ExtraOrdersScreen() {
             <Text>
               Guarda: {custodyLabel(selected.custody)} · {selected.custodyNotes}
             </Text>
-            {selected.payload.materials.map((m, i) => (
-              <Text key={i}>
-                {m.nameSnapshot ||
-                  m.proposedMaterial?.name ||
-                  context?.catalog.find((c) => c.id === m.wasteTypeId)?.name ||
-                  "Material do catálogo"}
-                :{" "}
-                {m.quantity == null
-                  ? selected.payload.mode === "COLLECTED"
-                    ? "Quantidade a conferir"
-                    : "Estimativa não informada"
-                  : materialQuantity(m as any)}
-              </Text>
-            ))}
+            {!!selected.collection?.quantityReviewVersion && (
+              <>
+                <Text style={{ fontWeight: "700" }}>
+                  Quantidades conferidas pela cooperativa
+                </Text>
+                {selected.collection.collectionMaterials?.map((m) => (
+                  <Text key={m.id}>
+                    {m.nameSnapshot}: {materialQuantity(m as any)}
+                  </Text>
+                ))}
+                <Action
+                  secondary
+                  label={
+                    originalMaterials
+                      ? "Ocultar quantidades originais"
+                      : "Ver quantidades originalmente informadas"
+                  }
+                  onPress={() => setOriginalMaterials(!originalMaterials)}
+                />
+              </>
+            )}
+            {(!selected.collection?.quantityReviewVersion ||
+              originalMaterials) && (
+              <>
+                {selected.payload.materials.map((m, i) => (
+                  <Text key={i}>
+                    {m.nameSnapshot ||
+                      m.proposedMaterial?.name ||
+                      context?.catalog.find((c) => c.id === m.wasteTypeId)
+                        ?.name ||
+                      "Material do catálogo"}
+                    :{" "}
+                    {m.quantity == null
+                      ? selected.payload.mode === "COLLECTED"
+                        ? "Quantidade a conferir"
+                        : "Estimativa não informada"
+                      : materialQuantity(m as any)}
+                  </Text>
+                ))}
+              </>
+            )}
             {selected.payload.photos?.map((uri, i) => (
               <Image
                 key={i}
@@ -425,22 +459,26 @@ export default function ExtraOrdersScreen() {
             {selected.collection && (
               <>
                 <Notice
-                  text={`Coleta vinculada: ${selected.collection.id} · ${selected.collection.status}`}
+                  text={`Coleta vinculada: ${selected.collection.id} · ${translateCollectionStatus(selected.collection.status)}`}
                 />
                 <Action
                   secondary
                   label={
                     cooperative
-                      ? "Abrir recebimento e triagem"
+                      ? "Continuar atendimento no painel"
                       : "Abrir minhas coletas"
                   }
-                  onPress={() =>
-                    router.push(
-                      cooperative
-                        ? "/(cooperativa)/operations"
-                        : "/(catador)/collect",
-                    )
-                  }
+                  onPress={() => {
+                    if (cooperative)
+                      void Linking.openURL(
+                        `https://painel.katua.com.br/waste-list?coleta=${encodeURIComponent(selected.collection!.id)}`,
+                      ).catch(() =>
+                        setError(
+                          "Não foi possível abrir o painel. Tente novamente.",
+                        ),
+                      );
+                    else router.push("/(catador)/collect");
+                  }}
                 />
               </>
             )}
@@ -472,7 +510,8 @@ export default function ExtraOrdersScreen() {
           </Card>
           {cooperative &&
             (["PENDING_REVIEW", "NEEDS_INFO"].includes(selected.status) ||
-              (selected.payload.mode === "COLLECTED" &&
+              (!simplifyCoop &&
+                selected.payload.mode === "COLLECTED" &&
                 !selected.receivedAt &&
                 selected.status !== "REJECTED")) && (
               <Card>
@@ -494,42 +533,58 @@ export default function ExtraOrdersScreen() {
                 />
                 {["PENDING_REVIEW", "NEEDS_INFO"].includes(selected.status) && (
                   <>
-                    <Field
-                      label="Programar para (DD/MM/AAAA, opcional)"
-                      value={scheduleDate}
-                      onChangeText={setScheduleDate}
-                      maxLength={10}
-                    />
-                    <Text>
-                      Motorista e veículo para a coleta vinculada (opcionais)
-                    </Text>
-                    <Action
-                      secondary
-                      label="Sem recursos definidos"
-                      onPress={() => {
-                        setDriverId("");
-                        setVehicleId("");
-                      }}
-                    />
-                    {context?.drivers.map((d) => (
+                    {simplifyCoop && (
                       <Action
-                        key={d.id}
-                        secondary={driverId !== d.id}
-                        label={d.name}
-                        onPress={() => setDriverId(d.id)}
+                        secondary
+                        label={
+                          reviewOptions
+                            ? "Fechar programação e recursos"
+                            : "Programação e recursos (opcional)"
+                        }
+                        onPress={() => setReviewOptions(!reviewOptions)}
                       />
-                    ))}
-                    {context?.vehicles.map((v) => (
-                      <Action
-                        key={v.id}
-                        secondary={vehicleId !== v.id}
-                        label={v.plate}
-                        onPress={() => {
-                          setVehicleId(v.id);
-                          if (v.driverId) setDriverId(v.driverId);
-                        }}
-                      />
-                    ))}
+                    )}
+                    {(!simplifyCoop || reviewOptions) && (
+                      <>
+                        <Field
+                          label="Programar para (DD/MM/AAAA, opcional)"
+                          value={scheduleDate}
+                          onChangeText={setScheduleDate}
+                          maxLength={10}
+                        />
+                        <Text>
+                          Motorista e veículo para a coleta vinculada
+                          (opcionais)
+                        </Text>
+                        <Action
+                          secondary
+                          label="Sem recursos definidos"
+                          onPress={() => {
+                            setDriverId("");
+                            setVehicleId("");
+                          }}
+                        />
+                        {context?.drivers.map((d) => (
+                          <Action
+                            key={d.id}
+                            secondary={driverId !== d.id}
+                            label={d.name}
+                            onPress={() => setDriverId(d.id)}
+                          />
+                        ))}
+                        {context?.vehicles.map((v) => (
+                          <Action
+                            key={v.id}
+                            secondary={vehicleId !== v.id}
+                            label={v.plate}
+                            onPress={() => {
+                              setVehicleId(v.id);
+                              if (v.driverId) setDriverId(v.driverId);
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
                     <Action
                       label="Aceitar O.C. e vincular coleta"
                       disabled={!confirmed || busy || isOffline || offlineData}
@@ -541,29 +596,49 @@ export default function ExtraOrdersScreen() {
                       disabled={!confirmed || busy || isOffline || offlineData}
                       onPress={() => void act("NEEDS_INFO")}
                     />
-                    <Text>Encaminhamento obrigatório para recusar</Text>
-                    {(
-                      ["ORIGIN", "COLLECTOR", "COOPERATIVE", "OTHER"] as const
-                    ).map((c) => (
+                    {simplifyCoop && (
                       <Action
-                        key={c}
-                        secondary={custody !== c}
-                        label={custodyLabel(c)}
-                        onPress={() => setCustody(c)}
+                        secondary
+                        label={
+                          rejection ? "Fechar recusa" : "Recusar esta ordem"
+                        }
+                        onPress={() => setRejection(!rejection)}
                       />
-                    ))}
-                    <Field
-                      label="Onde está o material e qual encaminhamento foi dado"
-                      value={custodyNotes}
-                      onChangeText={setCustodyNotes}
-                      maxLength={1000}
-                    />
-                    <Action
-                      secondary
-                      label="Recusar com justificativa e encaminhamento"
-                      disabled={!confirmed || busy || isOffline || offlineData}
-                      onPress={() => void act("REJECT")}
-                    />
+                    )}
+                    {(!simplifyCoop || rejection) && (
+                      <>
+                        <Text>Encaminhamento obrigatório para recusar</Text>
+                        {(
+                          [
+                            "ORIGIN",
+                            "COLLECTOR",
+                            "COOPERATIVE",
+                            "OTHER",
+                          ] as const
+                        ).map((c) => (
+                          <Action
+                            key={c}
+                            secondary={custody !== c}
+                            label={custodyLabel(c)}
+                            onPress={() => setCustody(c)}
+                          />
+                        ))}
+                        <Field
+                          label="Onde está o material e qual encaminhamento foi dado"
+                          value={custodyNotes}
+                          onChangeText={setCustodyNotes}
+                          maxLength={1000}
+                        />
+                        <Action
+                          secondary
+                          label="Recusar com justificativa e encaminhamento"
+                          disabled={
+                            !confirmed || busy || isOffline || offlineData
+                          }
+                          onPress={() => void act("REJECT")}
+                        />{" "}
+                      </>
+                    )}
                   </>
                 )}
                 {selected.payload.mode === "COLLECTED" &&
