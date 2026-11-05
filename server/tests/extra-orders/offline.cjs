@@ -18,6 +18,8 @@ const offline = Object.assign(Error("Sem conexão controlada"), {
 });
 const storage = {
   getItem: (k) => values.get(k) || null,
+  removeItem: (k) => values.delete(k),
+  getAllKeys: () => [...values.keys()],
   setItem: (k, v) => {
     if (storageFails) throw Error("Armazenamento cheio");
     values.set(k, v);
@@ -91,6 +93,9 @@ function runtime() {
     new Function("require", "module", "exports", "localStorage", code)(
       (name) => {
         if (name === "expo-crypto") return crypto;
+        if (name === "react-native") return { Platform: { OS: "web" } };
+        if (name === "@react-native-async-storage/async-storage") return storage;
+        if (name === "expo-secure-store") return {};
         if (name === "./api" || name.endsWith("/services/api"))
           return {
             api,

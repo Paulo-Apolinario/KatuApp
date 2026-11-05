@@ -80,6 +80,14 @@ export class ExtraOrderService {
           select: {
             id: true,
             name: true,
+            companyName: true,
+            phone: true,
+            zipCode: true,
+            street: true,
+            number: true,
+            neighborhood: true,
+            city: true,
+            state: true,
             address: true,
             latitude: true,
             longitude: true,
@@ -530,6 +538,9 @@ export class ExtraOrderService {
           reporterUserId: o.reporterUserId,
           reporterName: o.reporterName,
           estimatedQuantities: p.materials.map((m) => m.quantity),
+          unweighedMaterialIndexes: p.mode === "COLLECTED"
+            ? p.materials.flatMap((m, i) => m.quantity == null ? [i] : [])
+            : [],
           materials: p.materials.map((m) =>
             collectionMaterialSchema.parse({ ...m, quantity: m.quantity || 1 }),
           ),

@@ -589,7 +589,7 @@ export class CollectionService {
           subcategorySnapshot: material.subcategory,
           unit: material.unit,
           quantity: new Prisma.Decimal(material.quantity),
-          reportedQuantity: new Prisma.Decimal(material.quantity),
+          reportedQuantity: material.quantityPending ? null : new Prisma.Decimal(material.quantity),
         },
       });
 
@@ -713,6 +713,7 @@ export class CollectionService {
       reporterUserId: string;
       reporterName: string;
       estimatedQuantities?: (number | undefined)[];
+      unweighedMaterialIndexes?: number[];
       materials: CollectionMaterialSchemaInput[];
     },
   ) {
@@ -722,10 +723,17 @@ export class CollectionService {
       data.driverId || null,
       data.vehicleId || null,
     );
-    const normalized = await this.normalizeMaterials(
+    const prepared = await this.normalizeMaterials(
       transaction,
       data.cooperativeId,
       data.materials,
+    );
+    // Unknown quantities remain zero until cooperative weighing; never persist the
+    // placeholder used only to validate/catalog the material metadata above.
+    const normalized = prepared.map((m, index) =>
+      data.unweighedMaterialIndexes?.includes(index)
+        ? { ...m, quantity: 0, quantityKg: 0, quantityPending: true, notes: "Quantidade a conferir na cooperativa." }
+        : m,
     );
     if (
       !data.collectedAt &&

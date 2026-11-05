@@ -66,6 +66,14 @@ export type ExtraContext = {
   generators: {
     id: string;
     name: string;
+    companyName?: string | null;
+    phone?: string | null;
+    zipCode?: string | null;
+    street?: string | null;
+    number?: string | null;
+    neighborhood?: string | null;
+    city?: string | null;
+    state?: string | null;
     address?: string;
     latitude?: number;
     longitude?: number;

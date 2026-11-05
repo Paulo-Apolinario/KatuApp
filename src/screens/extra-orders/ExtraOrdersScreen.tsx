@@ -1,7 +1,7 @@
 import { useActiveReadRefresh } from "@/src/hooks/useActiveReadRefresh";
 import { useCallback, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { Image, Text, View } from "react-native";
+import { Image, Platform, Text, View } from "react-native";
 import {
   Workspace,
   Card,
@@ -30,8 +30,13 @@ import ExtraOrderForm from "./ExtraOrderForm";
 export default function ExtraOrdersScreen() {
   const { user } = useAuth(),
     cooperative = user?.role === "COOPERATIVE",
+    simple = Platform.OS === "web" && user?.role === "COLLECTOR",
     { isOffline } = useConnectivity(),
-    params = useLocalSearchParams<{ routeId?: string; create?: string; orderId?: string }>();
+    params = useLocalSearchParams<{
+      routeId?: string;
+      create?: string;
+      orderId?: string;
+    }>();
   const [orders, setOrders] = useState<ExtraOrder[]>([]),
     [context, setContext] = useState<ExtraContext | null>(null),
     [selected, setSelected] = useState<ExtraOrder | null>(null),
@@ -127,9 +132,16 @@ export default function ExtraOrdersScreen() {
   useFocusEffect(
     useCallback(() => {
       void load();
-      if (user?.role === "COLLECTOR" && params.orderId && linkedOrder.current !== params.orderId) {
+      if (
+        user?.role === "COLLECTOR" &&
+        params.orderId &&
+        linkedOrder.current !== params.orderId
+      ) {
         linkedOrder.current = params.orderId;
-        void extraOrderService.get(params.orderId).then(setSelected).catch((e: Error) => setError(e.message));
+        void extraOrderService
+          .get(params.orderId)
+          .then(setSelected)
+          .catch((e: Error) => setError(e.message));
       }
     }, [load, params.orderId, user?.role]),
   );
@@ -270,7 +282,9 @@ export default function ExtraOrdersScreen() {
       subtitle={
         cooperative
           ? "Analise relatos e solicitações fora do planejamento, mantendo o recebimento físico separado da decisão administrativa."
-          : "Registre solicitações e coletas extras, inclusive paradas fora dos pontos programados da rota."
+          : simple
+            ? "Registre uma retirada ou peça uma coleta."
+            : "Registre solicitações e coletas extras, inclusive paradas fora dos pontos programados da rota."
       }
     >
       {(isOffline || offlineData) && (
@@ -278,7 +292,7 @@ export default function ExtraOrdersScreen() {
       )}
       {!cooperative && (
         <Action
-          label="Abrir nova O.C."
+          label={simple ? "Nova coleta extra" : "Abrir nova O.C."}
           onPress={() => {
             setSelected(null);
             setEditing(null);
@@ -290,7 +304,7 @@ export default function ExtraOrdersScreen() {
         secondary
         busy={loading}
         disabled={busy}
-        label="Atualizar ordens e sincronização"
+        label={simple ? "Atualizar lista" : "Atualizar ordens e sincronização"}
         onPress={() =>
           void extraOrderService
             .sync(user?.role === "COOPERATIVE" ? undefined : { manual: true })
@@ -393,7 +407,9 @@ export default function ExtraOrdersScreen() {
                   "Material do catálogo"}
                 :{" "}
                 {m.quantity == null
-                  ? "Estimativa não informada"
+                  ? selected.payload.mode === "COLLECTED"
+                    ? "Quantidade a conferir"
+                    : "Estimativa não informada"
                   : materialQuantity(m as any)}
               </Text>
             ))}

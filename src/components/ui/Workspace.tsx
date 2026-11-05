@@ -16,10 +16,12 @@ export function Workspace({
   title,
   subtitle,
   children,
+  onBack,
 }: {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  onBack?: () => void;
 }) {
   return (
     <ScrollView
@@ -31,7 +33,7 @@ export function Workspace({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Voltar"
-          onPress={() => router.back()}
+          onPress={onBack || (() => router.back())}
           style={styles.back}
         >
           <Text style={{ color: colors.primary }}>← Voltar</Text>

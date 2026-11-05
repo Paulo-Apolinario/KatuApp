@@ -76,6 +76,7 @@ export type CollectionMaterialInput = {
  * Este formato é utilizado internamente pelo service.
  */
 export type NormalizedCollectionMaterial = {
+  quantityPending?: boolean;
   wasteTypeId: string | null;
 
   name: string;

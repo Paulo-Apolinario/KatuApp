@@ -22,14 +22,16 @@ export const extraOrderPayload = z
   .object({
     recordedAt: z.string().datetime({ offset: true }).optional(),
     mode: z.enum(["REQUESTED", "COLLECTED"]),
-    reason: z.enum([
-      "UNPLANNED_STOP",
-      "EXTRA_REQUEST",
-      "OUTSIDE_SCHEDULE",
-      "WEEKEND",
-      "OTHER",
-    ]),
-    reasonNotes: text(5, 2000),
+    reason: z
+      .enum([
+        "UNPLANNED_STOP",
+        "EXTRA_REQUEST",
+        "OUTSIDE_SCHEDULE",
+        "WEEKEND",
+        "OTHER",
+      ])
+      .default("EXTRA_REQUEST"),
+    reasonNotes: text(0, 2000).default(""),
     originType: z.enum(["PF", "GENERATOR"]),
     originName: text(2, 180),
     contactPhone: text(0, 40).optional(),
@@ -43,7 +45,7 @@ export const extraOrderPayload = z
     occurredAt: z.string().datetime({ offset: true }).optional(),
     preferredDate: z.string().datetime({ offset: true }).optional(),
     custody: z.enum(["ORIGIN", "COLLECTOR", "COOPERATIVE", "OTHER"]),
-    custodyNotes: text(5, 1000),
+    custodyNotes: text(0, 1000).default(""),
     materials: z.array(material).min(1).max(50),
     photos: z
       .array(
@@ -70,12 +72,9 @@ export const extraOrderPayload = z
         "Selecione a rota em que ocorreu a parada extra.",
         "contextRouteId",
       );
-    if (
-      p.mode === "COLLECTED" &&
-      (!p.occurredAt || p.materials.some((m) => !m.quantity))
-    )
+    if (p.mode === "COLLECTED" && !p.occurredAt)
       issue(
-        "Coleta realizada exige data e quantidades efetivas.",
+        "Informe a data real da coleta. A quantidade pode ser conferida na cooperativa.",
         "occurredAt",
       );
     if (p.occurredAt && new Date(p.occurredAt).getTime() > Date.now() + 300000)
@@ -89,6 +88,11 @@ export const extraOrderPayload = z
       issue(
         "Material ainda não coletado deve permanecer na origem.",
         "custody",
+      );
+    if (p.custody === "OTHER" && p.custodyNotes.trim().length < 5)
+      issue(
+        "Informe onde o material está e quem está responsável.",
+        "custodyNotes",
       );
     const keys = new Set<string>();
     for (const m of p.materials) {
