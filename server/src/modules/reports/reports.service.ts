@@ -32,6 +32,7 @@ const pointSelect = {
   longitude: true,
 };
 const collectionSelect = {
+  quantitiesReviewedAt: true,
   id: true,
   cooperativeId: true,
   generatorId: true,
@@ -63,6 +64,7 @@ const collectionSelect = {
       wasteTypeId: true,
       nameSnapshot: true,
       categorySnapshot: true,
+      identificationSnapshot: true,
       quantity: true,
       unit: true,
       wasteEntry: { select: { id: true, remainingQuantity: true, unit: true } },
@@ -700,31 +702,18 @@ export async function saveConfig(coop: any, userId: string, input: unknown) {
     );
   const { version, ...payload } = v;
   try {
-    if (version === 0) {
-      const created = await prisma.reportConfiguration.createMany({
-        data: [{ cooperativeId: coop.id, payload, updatedBy: userId }],
-        skipDuplicates: true,
-      });
-      if (!created.count)
-        throw new ReportError(
-          "A configuração mudou. Recarregue antes de salvar.",
-          409,
-        );
-      return await prisma.reportConfiguration.findUniqueOrThrow({
-        where: { cooperativeId: coop.id },
-      });
-    }
-    const r = await prisma.reportConfiguration.updateMany({
-      where: { cooperativeId: coop.id, version },
-      data: { payload, version: { increment: 1 }, updatedBy: userId },
-    });
-    if (!r.count)
-      throw new ReportError(
-        "A configuração mudou. Recarregue antes de salvar.",
-        409,
-      );
-    return await prisma.reportConfiguration.findUniqueOrThrow({
-      where: { cooperativeId: coop.id },
+    return await prisma.$transaction(async tx => {
+      const before=await tx.reportConfiguration.findUnique({where:{cooperativeId:coop.id}});
+      if(version===0){
+        const created=await tx.reportConfiguration.createMany({data:[{cooperativeId:coop.id,payload,updatedBy:userId}],skipDuplicates:true});
+        if(!created.count)throw new ReportError("A configuração mudou. Recarregue antes de salvar.",409);
+      } else {
+        const updated=await tx.reportConfiguration.updateMany({where:{cooperativeId:coop.id,version},data:{payload,version:{increment:1},updatedBy:userId}});
+        if(!updated.count)throw new ReportError("A configuração mudou. Recarregue antes de salvar.",409);
+      }
+      const current=await tx.reportConfiguration.findUniqueOrThrow({where:{cooperativeId:coop.id}});
+      await tx.reportConfigurationRevision.createMany({data:[...(before?[{cooperativeId:coop.id,version:before.version,payload:before.payload as any,updatedBy:before.updatedBy,createdAt:before.updatedAt}]:[]),{cooperativeId:coop.id,version:current.version,payload:current.payload as any,updatedBy:userId}],skipDuplicates:true});
+      return current;
     });
   } catch (e: any) {
     if (e.code === "P2002")

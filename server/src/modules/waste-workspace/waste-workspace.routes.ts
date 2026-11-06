@@ -44,6 +44,7 @@ const query = z
   })
   .strict();
 const itemSelect = {
+  technicalProfile: true,
   id: true,
   name: true,
   category: true,

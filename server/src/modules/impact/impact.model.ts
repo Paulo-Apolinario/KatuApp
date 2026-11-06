@@ -14,7 +14,7 @@ const factors = {
   energyKwh: "energyPerKg",
   treesEquivalent: "treesPerKg",
 } as const;
-function impactMaterials(c: any): any[] {
+export function impactMaterials(c: any): any[] {
   const normalized = materials(c);
   if (normalized.length || !EXECUTED.has(c.status)) return normalized;
   let legacy = c.materials;

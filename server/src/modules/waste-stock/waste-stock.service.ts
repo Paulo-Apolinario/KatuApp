@@ -720,6 +720,7 @@ export class WasteStockService {
         cooperativeId: cooperative.id,
 
         name,
+        technicalProfile: data.technicalProfile as any,
         normalizedName: catalogNameKey(name),
         category: normalizeRequiredText(data.category),
 
@@ -809,6 +810,7 @@ export class WasteStockService {
         },
 
         data: {
+          ...(data.technicalProfile !== undefined ? { technicalProfile: data.technicalProfile as any } : {}),
           ...(data.name !== undefined
             ? {
                 name: normalizeRequiredText(data.name),

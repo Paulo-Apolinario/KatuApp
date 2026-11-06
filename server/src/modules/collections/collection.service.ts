@@ -1,3 +1,4 @@
+import { catalogDeclaration } from "../impact/material-profile";
 import { type HistoryPage, pageResult } from "../../shared/history-page";
 import { creditedKg } from "../collector-teams/team.model";
 import { snapshotCollectionTeam, refreshTeamTotals } from "../collector-teams/team.service";
@@ -455,6 +456,7 @@ export class CollectionService {
               subcategory: true,
               unit: true,
               defaultUnit: true,
+              technicalProfile: true,
             },
           })
         : [];
@@ -525,6 +527,7 @@ export class CollectionService {
 
         return {
           wasteTypeId: catalogItem?.id || null,
+          identificationSnapshot: catalogDeclaration(catalogItem?.technicalProfile),
           name,
           category: catalogItem?.category || normalizeText(proposed?.category),
           subcategory:
@@ -583,6 +586,7 @@ export class CollectionService {
       const collectionMaterial = await transaction.collectionMaterial.create({
         data: {
           collectionId: collection.id,
+          identificationSnapshot: material.identificationSnapshot,
           wasteTypeId: material.wasteTypeId,
           nameSnapshot: material.name,
           categorySnapshot: material.category,

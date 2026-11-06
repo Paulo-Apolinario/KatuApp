@@ -1,3 +1,4 @@
+import { eligibleImpactFactor } from "../impact/impact-factor";
 import { creditedMaterials } from "../collector-teams/team.model";
 export const EXECUTED = new Set([
   "COLLECTED",
@@ -194,9 +195,7 @@ export function buildCharts(collections: any[], q: any, config: any) {
       b.quantity += m.quantity || 0;
       b.collections.add(c.id);
       byMaterial.set(key, b);
-      const factor = config.methodology?.factors?.find(
-        (f: any) => f.materialId === m.materialId,
-      );
+      const factor = eligibleImpactFactor(c,m,config.methodology);
       if (typeof factor?.co2PerKg === "number" && ["KG", "TON"].includes(m.unit) && m.quantity != null) {
         const kg = m.quantity * (m.unit === "TON" ? 1000 : 1);
         coveredMass += kg;
@@ -238,7 +237,7 @@ export function buildCharts(collections: any[], q: any, config: any) {
       totalMassKg: summarize(collections, q).massKg,
       methodology: config.methodology,
       description:
-        "Potencial estimado dos materiais coletados com fator cadastrado; não comprova reciclagem ou crédito ambiental.",
+        "Potencial estimado dos materiais conferidos, com identificação conferida e metodologia validada; não comprova reciclagem ou crédito ambiental.",
     },
   };
 }

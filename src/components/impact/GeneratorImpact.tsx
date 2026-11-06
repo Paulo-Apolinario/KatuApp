@@ -15,15 +15,25 @@ type Impact = {
   requests: number;
   pendingRequests: number;
   totalMassKg: number;
-  co2Kg: number;
-  waterLiters: number;
-  energyKwh: number;
-  treesEquivalent: number;
+  units?: Record<string, number>;
+  co2Kg: number | null;
+  waterLiters: number | null;
+  energyKwh: number | null;
+  treesEquivalent: number | null;
   description: string;
   reference: { label: string; version: string };
 };
-const num = (n: number) =>
-  n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+const num = (n: number | null | undefined) =>
+  n == null
+    ? "Sem estimativa"
+    : n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+const unitLabels: Record<string, string> = {
+  KG: "kg",
+  LITER: "L",
+  UNIT: "un.",
+  CUBIC_METER: "m³",
+  TON: "t",
+};
 export default function GeneratorImpact({
   collector = false,
 }: {
@@ -94,7 +104,11 @@ export default function GeneratorImpact({
             <View style={s.stat}>
               <Text style={s.text}>Coletas concluídas em campo</Text>
               <Text style={s.value}>{data.collections}</Text>
-              <Text style={s.small}>{num(data.totalMassKg)} kg coletados</Text>
+              <Text style={s.small}>
+                {Object.entries(data.units || { KG: data.totalMassKg })
+                  .map(([unit, q]) => `${num(q)} ${unitLabels[unit] || unit}`)
+                  .join(" · ")}
+              </Text>
             </View>
           </View>
           <View style={s.grid}>
@@ -110,14 +124,17 @@ export default function GeneratorImpact({
                 <Ionicons name={icon} size={22} color="#047857" />
                 <Text style={s.text}>{label}</Text>
                 <Text style={s.value}>
-                  {`${num(data[key])} ${unit}`.trim()}
+                  {data[key] == null
+                    ? "Sem estimativa"
+                    : `${num(data[key])} ${unit}`.trim()}
                 </Text>
               </View>
             ))}
           </View>
           <Text style={s.small}>
-            Base automática de referência do sistema, calculada sobre o peso
-            coletado. Solicitações ainda pendentes não geram impacto realizado.
+            Estimativas dependem de quantidade e identificação conferidas e de
+            metodologia validada. Solicitações pendentes não geram benefício
+            realizado.
           </Text>
           <Text style={s.small}>
             Indicadores aproximados; não representam comprovação de reciclagem

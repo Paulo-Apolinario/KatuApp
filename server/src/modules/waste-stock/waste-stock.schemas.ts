@@ -1,3 +1,4 @@
+import { materialProfileSchema } from "../impact/material-profile";
 import { z } from "zod";
 
 /**
@@ -210,6 +211,7 @@ const optionalEnumValue = <T extends z.ZodTypeAny>(
  * Esta operação não exige lote.
  */
 export const createWasteStockItemSchema = z.object({
+  technicalProfile: materialProfileSchema.optional(),
   name: requiredTrimmedString(
     "O nome do resíduo",
     2,

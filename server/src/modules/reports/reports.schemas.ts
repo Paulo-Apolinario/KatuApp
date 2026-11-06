@@ -1,3 +1,4 @@
+import { materialCodes } from "../impact/material-profile";
 import { z } from "zod";
 export const kinds = [
   "overview",
@@ -102,6 +103,12 @@ export const configSchema = z
       .strict(),
     methodology: z
       .object({
+        approved: z.boolean().default(false),
+        approvedBy: z.string().trim().max(200).default(""),
+        region: z.string().trim().max(200).default(""),
+        processScenario: z.string().trim().max(1000).default(""),
+        validFrom: z.union([z.literal(""), day]).default(""),
+        validUntil: z.union([z.literal(""), day]).default(""),
         label: z.string().trim().max(180),
         source: z.string().trim().max(500),
         url: z.union([z.literal(""), z.string().url().max(1000)]),
@@ -111,10 +118,11 @@ export const configSchema = z
             z
               .object({
                 materialId: z.string().min(1).max(100),
+                materialCode: z.enum(materialCodes).default("UNKNOWN"),
                 co2PerKg: z
                   .number()
                   .finite()
-                  .nonnegative()
+                  .min(-1e6)
                   .max(1e6)
                   .nullable()
                   .optional(),
@@ -148,6 +156,9 @@ export const configSchema = z
   })
   .strict()
   .superRefine((v, c) => {
+    if (v.methodology.approved && (!v.methodology.label || !v.methodology.source || !v.methodology.version || !v.methodology.approvedBy || !v.methodology.region || !v.methodology.processScenario || !v.methodology.validFrom)) c.addIssue({code:"custom",message:"Validação exige nome, fonte, versão, responsável, região, cenário e início de aplicação."});
+    if(v.methodology.approved && v.methodology.factors.some(f=>f.materialCode === "UNKNOWN")) c.addIssue({code:"custom",message:"Informe o material padronizado de cada fator antes de validar a metodologia."});
+    if(v.methodology.validUntil && (!v.methodology.validFrom || v.methodology.validUntil < v.methodology.validFrom)) c.addIssue({code:"custom",message:"Verifique as datas de aplicação da metodologia."});
     if (
       v.methodology.factors.length &&
       (!v.methodology.label || !v.methodology.source || !v.methodology.version)
