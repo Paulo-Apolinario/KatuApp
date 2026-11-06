@@ -11,3 +11,13 @@ A listagem de O.S. mantém o documento SERVICE_ORDER da programação e agrega c
 Validação: TypeScript/build do backend e 40 casos de integração Fastify/Prisma em banco descartável com os gatilhos reais de documentos; incluem oito cenários específicos de contexto, busca, lotes consolidados, filtros/paginação, O.S., segurança/isolamento, caracteres especiais e documentos legados. Sem alterações no schema ou nos documentos históricos. Não é necessária migração.
 
 Atualizar backend antes do painel: versões anteriores rejeitam os novos filtros. Preservar SHA/build anteriores para rollback; esta atualização faz apenas consultas e não reemite nem modifica documentos ou saldos. Não houve acesso à VPS.
+
+## Destinação agrupada
+
+O painel envia `grouped=1`: cada saída consolidada é um item de lista. Comprovantes individuais relacionados são identificados exclusivamente pelo `movementId` preservado em cada alocação do consolidado, sem inferências por material, destinatário ou horário. A exclusão visual dos filhos é feita antes da contagem/paginação; saídas sem consolidado continuam independentes. A busca pelo número de um comprovante individual encontra o consolidado correspondente. Filtros explícitos pelo tipo TRANSPORT_RECORD continuam permitindo a consulta individual; clientes sem grouped mantêm a resposta plana anterior.
+
+`GET /internal-documents/:id/lots` retorna todas as alocações e as referências dos comprovantes individuais da cooperativa proprietária. Inclui código, quantidade retirada, saldos na emissão, unidade e origem preservada. A expansão não usa o limite de seis lotes do resumo. O endpoint é somente leitura e restrito à cooperativa autenticada.
+
+Detalhes de O.S. aceitam `grouped=1`, mantendo os filhos dentro do consolidado quando o pai está vinculado à ordem. O campo `stockOperationCount` diferencia a contagem de saídas da contagem de documentos. Não há exclusão ou reemissão de evidências, movimentação de estoque ou migração.
+
+Validação atual: 48 casos de integração, incluindo agrupamento exato, operações com atributos iguais, paginação, busca de filho, expansão completa (mais de seis lotes), contagens da O.S., compatibilidade e isolamento/autenticação.

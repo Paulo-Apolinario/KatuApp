@@ -1,3 +1,4 @@
+import { stockDocumentGroups } from "./document-groups";
 import {
   matchingDocumentIds,
   operationFilter,
@@ -10,6 +11,7 @@ import { prisma } from "../../lib/prisma";
 import { wasteCooperativeScope } from "../waste-workspace/waste-workspace.routes";
 const query = z
   .object({
+    grouped: z.literal("1").optional(),
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(50).default(20),
     q: z.string().trim().max(100).default(""),
@@ -476,15 +478,32 @@ export async function serviceOrderRoutes(app: FastifyInstance) {
         },
         select: {
           serviceOrderId: true,
-          document: { select: { kind: true, movementId: true } },
+          document: { select: { id: true, kind: true, movementId: true } },
         },
       });
+      const stockGroups = await stockDocumentGroups(cooperativeId);
       return {
         orders: orders.map((o) => {
           const route = routes.find((x) => x.id === o.sourceId),
             c = collections.find((x) => x.id === o.sourceId);
+          const stockDocs = links.filter(
+            (l) =>
+              l.serviceOrderId === o.id &&
+              (l.document.kind === "STOCK_DISPATCH" ||
+                (l.document.kind === "TRANSPORT_RECORD" &&
+                  l.document.movementId)),
+          );
+          const ownIds = new Set(stockDocs.map((l) => l.document.id));
+          const children = new Set(
+            stockGroups
+              .filter((g) => ownIds.has(g.parentId))
+              .map((g) => g.childId),
+          );
           return {
             ...o,
+            stockOperationCount: stockDocs.filter(
+              (l) => !children.has(l.document.id),
+            ).length,
             documentTypes: [
               ...new Set(
                 links
@@ -538,6 +557,12 @@ export async function serviceOrderRoutes(app: FastifyInstance) {
         return p.code(404).send({
           error: "Ordem de serviço não encontrada.",
         });
+      const grouped =
+        z
+          .object({ grouped: z.literal("1").optional() })
+          .strict()
+          .parse(r.query).grouped === "1";
+      const groups = grouped ? await stockDocumentGroups(cooperativeId) : [];
       const documents = await prisma.internalDocument.findMany({
         where: {
           cooperativeId,
@@ -564,7 +589,16 @@ export async function serviceOrderRoutes(app: FastifyInstance) {
       >`SELECT katua_order_snapshot(${cooperativeId},${order.sourceType},${order.sourceId}) AS snapshot`;
       return {
         order,
-        documents: documents.map(withDocumentContext),
+        documents: documents
+          .filter(
+            (d) =>
+              !groups.some(
+                (g) =>
+                  g.childId === d.id &&
+                  documents.some((parent) => parent.id === g.parentId),
+              ),
+          )
+          .map(withDocumentContext),
         current: current[0]?.snapshot,
       };
     }),
@@ -576,10 +610,40 @@ export async function serviceOrderRoutes(app: FastifyInstance) {
         term = q.q.replace(/^#+/, "");
       const searchTerm = term.replace(/[\\%_]/g, "\\$&");
       const matchingIds = await matchingDocumentIds(cooperativeId, term);
+      const grouped =
+        q.grouped === "1" &&
+        (!q.operation || q.operation === "STOCK_EXIT") &&
+        (!q.kind || q.kind === "STOCK_DISPATCH");
+      const groups = grouped ? await stockDocumentGroups(cooperativeId) : [];
+      const scopedParents =
+        grouped && q.serviceOrderId
+          ? new Set(
+              (
+                await prisma.internalDocument.findMany({
+                  where: {
+                    cooperativeId,
+                    kind: "STOCK_DISPATCH",
+                    orders: { some: { serviceOrderId: q.serviceOrderId } },
+                  },
+                  select: { id: true },
+                })
+              ).map((d) => d.id),
+            )
+          : null;
+      const visibleGroups = scopedParents
+        ? groups.filter((g) => scopedParents.has(g.parentId))
+        : groups;
+      const matched = new Set(matchingIds);
+      const matchingParents = groups
+        .filter((g) => matched.has(g.childId))
+        .map((g) => g.parentId);
       const where: Prisma.InternalDocumentWhereInput = {
         cooperativeId,
         AND: [
           operationFilter(q.operation),
+          ...(grouped
+            ? [{ id: { notIn: visibleGroups.map((g) => g.childId) } }]
+            : []),
           ...(q.serviceOrderId
             ? [{ orders: { some: { serviceOrderId: q.serviceOrderId } } }]
             : []),
@@ -649,7 +713,7 @@ export async function serviceOrderRoutes(app: FastifyInstance) {
           : {}),
       };
       if (term && Array.isArray(where.OR))
-        where.OR.push({ id: { in: matchingIds } });
+        where.OR.push({ id: { in: [...matchingIds, ...matchingParents] } });
       const [documents, total] = await prisma.$transaction([
         prisma.internalDocument.findMany({
           where,
@@ -676,6 +740,52 @@ export async function serviceOrderRoutes(app: FastifyInstance) {
           total,
           totalPages: Math.max(1, Math.ceil(total / q.limit)),
         },
+      };
+    }),
+  );
+  app.get(
+    "/internal-documents/:id/lots",
+    guard(async (r: any, p: any, cooperativeId: string) => {
+      const parent = await prisma.internalDocument.findFirst({
+        where: { id: r.params.id, cooperativeId, kind: "STOCK_DISPATCH" },
+        select: { id: true, number: true, snapshot: true },
+      });
+      if (!parent)
+        return p
+          .code(404)
+          .send({ error: "Comprovante consolidado não encontrado." });
+      const dispatch = (parent.snapshot as any)?.dispatch;
+      const allocations: any[] = Array.isArray(dispatch?.allocations)
+        ? dispatch.allocations
+        : [];
+      const movements = allocations
+        .map((a) => a.movementId)
+        .filter((id): id is string => typeof id === "string" && !!id);
+      const children = await prisma.internalDocument.findMany({
+        where: {
+          cooperativeId,
+          kind: "TRANSPORT_RECORD",
+          movementId: { in: movements },
+        },
+        select: summary,
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      });
+      return {
+        documentId: parent.id,
+        number: parent.number,
+        unit: dispatch?.unit || "",
+        lots: allocations.map((a) => ({
+          lotId: a.lotId,
+          lotCode: a.lotCode || a.lotId,
+          quantity: a.quantity,
+          before: a.before,
+          after: a.after,
+          unit: dispatch?.unit || "",
+          originCollectionId: a.originCollectionId || null,
+          documents: children
+            .filter((c) => c.movementId === a.movementId)
+            .map(withDocumentContext),
+        })),
       };
     }),
   );

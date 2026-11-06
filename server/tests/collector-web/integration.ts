@@ -1,3 +1,4 @@
+import { documentGroupTests } from "./document-groups.integration";
 import { documentSearchTests } from "./document-search.integration";
 import { dispatchTests } from "./stock-dispatch.integration";
 import assert from "node:assert/strict";
@@ -524,6 +525,7 @@ async function main() {
     });
     await dispatchTests(call, manager, collector, token("COOPERATIVE", "other-user"), test);
     await documentSearchTests(call, manager, collector, token("COOPERATIVE", "other-user"), test);
+    await documentGroupTests(call, manager, collector, token("COOPERATIVE", "other-user"), test);
     console.log(`${count} testes de integração aprovados`);
   } finally {
     await app.close();
