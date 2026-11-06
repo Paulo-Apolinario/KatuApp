@@ -7,6 +7,7 @@ import { NotificationBell } from "@/src/components/NotificationBell";
 import {
   groupMaterials,
   materialQuantity,
+  materialsTotalLabel,
 } from "@/src/utils/materials";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useMemo, useState } from "react";
@@ -22,6 +23,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
+import ReceiptPreview from "@/src/components/ReceiptPreview";
 import { generateReceiptPDF } from "@/src/services/pdfGenerator";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { collectionService } from "@/src/services/collectionService";
@@ -51,7 +53,6 @@ function formatDate(value?: string | null) {
   return parsed.toLocaleDateString("pt-BR");
 }
 
-
 function getCollectionTotalKg(collection: Collection) {
   const materialsKg = (collection.materials ?? []).reduce(
     (sum, item) => sum + Number(item.quantityKg ?? 0),
@@ -71,47 +72,52 @@ function getMaterialsSummary(materials?: CollectionMaterial[]) {
     .join(", ");
 }
 
-function buildReceiptUserData(currentUser: AuthUser | null, receiptsOrdenados: Collection[]) {
-    const topMaterials = groupMaterials(
-      receiptsOrdenados.flatMap((item) => item.materials || []),
-    );
-    return {
-      name: currentUser?.displayName || currentUser?.name || "Catador",
-      location: currentUser?.location || currentUser?.city || "Não informado",
-      cpf: currentUser?.cpf || "",
-      phone: currentUser?.phone || "",
-      email: currentUser?.email || "",
-      code: currentUser?.id || currentUser?.uid || "",
-      collectionCount: receiptsOrdenados.length,
-      cooperativeName:
-        currentUser?.collector?.cooperative?.name ||
-        currentUser?.cooperative?.name,
-      periodStart: receiptsOrdenados.length
+function buildReceiptUserData(
+  currentUser: AuthUser | null,
+  receiptsOrdenados: Collection[],
+) {
+  const topMaterials = groupMaterials(
+    receiptsOrdenados.flatMap((item) => item.materials || []),
+  );
+  return {
+    name: currentUser?.displayName || currentUser?.name || "Catador",
+    location: currentUser?.location || currentUser?.city || "Não informado",
+    cpf: currentUser?.cpf || "",
+    phone: currentUser?.phone || "",
+    email: currentUser?.email || "",
+    code: currentUser?.id || currentUser?.uid || "",
+    collectionCount: receiptsOrdenados.length,
+    cooperativeName:
+      currentUser?.collector?.cooperative?.name ||
+      currentUser?.cooperative?.name,
+    periodStart: receiptsOrdenados.length
+      ? formatDate(
+          receiptsOrdenados.at(-1)?.collectedAt ||
+            receiptsOrdenados.at(-1)?.createdAt,
+        )
+      : undefined,
+    periodEnd: receiptsOrdenados.length
+      ? formatDate(
+          receiptsOrdenados[0]?.collectedAt || receiptsOrdenados[0]?.createdAt,
+        )
+      : undefined,
+    totalKg: receiptsOrdenados.reduce(
+      (acc, item) =>
+        acc +
+        (item.participants?.length
+          ? Number(item.creditedWeightKg || 0)
+          : getCollectionTotalKg(item)),
+      0,
+    ),
+    since:
+      receiptsOrdenados.length > 0
         ? formatDate(
-            receiptsOrdenados.at(-1)?.collectedAt ||
-              receiptsOrdenados.at(-1)?.createdAt,
+            receiptsOrdenados[receiptsOrdenados.length - 1]?.collectedAt ||
+              receiptsOrdenados[receiptsOrdenados.length - 1]?.createdAt,
           )
-        : undefined,
-      periodEnd: receiptsOrdenados.length
-        ? formatDate(
-            receiptsOrdenados[0]?.collectedAt ||
-              receiptsOrdenados[0]?.createdAt,
-          )
-        : undefined,
-      totalKg: receiptsOrdenados.reduce(
-        (acc, item) => acc + (item.participants?.length ? Number(item.creditedWeightKg || 0) : getCollectionTotalKg(item)),
-        0,
-      ),
-      since:
-        receiptsOrdenados.length > 0
-          ? formatDate(
-              receiptsOrdenados[receiptsOrdenados.length - 1]?.collectedAt ||
-                receiptsOrdenados[receiptsOrdenados.length - 1]?.createdAt,
-            )
-          : "-",
-      topMaterials,
-    };
-
+        : "-",
+    topMaterials,
+  };
 }
 
 export default function ReceiptsScreen() {
@@ -119,35 +125,56 @@ export default function ReceiptsScreen() {
   const currentUser = user as AuthUser | null;
   const { notifyError, notifySuccess } = useNotification();
 
+  const [preview, setPreview] = useState<{
+    uri: string;
+    fileName: string;
+    html?: string;
+  } | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
 
   const [loadingReceipt, setLoadingReceipt] = useState<string | null>(null);
   const history = useHistoryPages(collectionService.history);
   const { items: receipts, loading } = history;
   const isWeb = Platform.OS === "web";
-  const loadRef = useRef(history.load); loadRef.current = history.load;
-  useFocusEffect(useCallback(() => { void loadRef.current(); }, []));
+  const loadRef = useRef(history.load);
+  loadRef.current = history.load;
+  useFocusEffect(
+    useCallback(() => {
+      void loadRef.current();
+    }, []),
+  );
 
-  const receiptsOrdenados = useMemo(() => sortCollectionHistory(receipts), [receipts]);
+  const receiptsOrdenados = useMemo(
+    () => sortCollectionHistory(receipts),
+    [receipts],
+  );
 
-  const userData = useMemo(() => buildReceiptUserData(currentUser, receiptsOrdenados), [currentUser, receiptsOrdenados]);
+  const userData = useMemo(
+    () => buildReceiptUserData(currentUser, receiptsOrdenados),
+    [currentUser, receiptsOrdenados],
+  );
 
-  const getSuccessMessage = (mode?: "share" | "print", label?: string) => {
-    if (mode === "print" && isWeb) {
-      return `${label} preparado com sucesso. Use o diálogo do navegador para salvar em PDF.`;
-    }
-
-    return `${label} gerado com sucesso!`;
-  };
+  const getSuccessMessage = (mode?: "share" | "preview", label?: string) =>
+    mode === "preview"
+      ? `${label} aberto. Use Baixar PDF para salvar o arquivo.`
+      : `${label} gerado com sucesso!`;
 
   const handleGenerateFullReceipt = async () => {
     setLoadingReceipt("full");
 
     try {
       const all = await loadCompleteHistory(collectionService.history);
-      const result = await generateReceiptPDF(buildReceiptUserData(currentUser, sortCollectionHistory(all)));
+      const result = await generateReceiptPDF(
+        buildReceiptUserData(currentUser, sortCollectionHistory(all)),
+      );
 
       if (result.success) {
+        if (result.mode === "preview" && result.filePath && result.fileName)
+          setPreview({
+            uri: result.filePath,
+            fileName: result.fileName,
+            html: result.previewHtml,
+          });
         notifySuccess(
           getSuccessMessage(result.mode, "Comprovante consolidado"),
         );
@@ -181,6 +208,12 @@ export default function ReceiptsScreen() {
       });
 
       if (result.success) {
+        if (result.mode === "preview" && result.filePath && result.fileName)
+          setPreview({
+            uri: result.filePath,
+            fileName: result.fileName,
+            html: result.previewHtml,
+          });
         notifySuccess(
           getSuccessMessage(
             result.mode,
@@ -202,6 +235,14 @@ export default function ReceiptsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+      {preview && (
+        <ReceiptPreview
+          uri={preview.uri}
+          fileName={preview.fileName}
+          html={preview.html}
+          onClose={() => setPreview(null)}
+        />
+      )}
       <LinearGradient
         colors={["#123C35", "#17694F"]}
         start={{ x: 0, y: 0 }}
@@ -254,7 +295,16 @@ export default function ReceiptsScreen() {
         showsVerticalScrollIndicator={false}
         style={{ flex: 1, padding: 20 }}
       >
-        <HistoryStatus count={receipts.length} total={history.meta.total} error={history.error} busy={history.busy} hasMore={history.meta.hasMore} updatedAt={history.updatedAt} onRefresh={() => void history.load()} onMore={() => void history.load(true)} />
+        <HistoryStatus
+          count={receipts.length}
+          total={history.meta.total}
+          error={history.error}
+          busy={history.busy}
+          hasMore={history.meta.hasMore}
+          updatedAt={history.updatedAt}
+          onRefresh={() => void history.load()}
+          onMore={() => void history.load(true)}
+        />
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 40 }}>
             <ActivityIndicator size="large" color="#047857" />
@@ -282,13 +332,14 @@ export default function ReceiptsScreen() {
 
               <Text style={{ color: "#6B7280", marginTop: 6, lineHeight: 21 }}>
                 {isWeb
-                  ? "Na web, o comprovante será aberto no fluxo de impressão do navegador para salvar em PDF."
+                  ? "O comprovante será aberto para visualização. Use Baixar PDF para salvar o arquivo."
                   : "No aplicativo, o comprovante será gerado em PDF e aberto no compartilhamento do dispositivo."}
               </Text>
             </View>
 
             <TouchableOpacity
               activeOpacity={0.9}
+              accessibilityRole="button"
               onPress={handleGenerateFullReceipt}
               disabled={loadingReceipt === "full"}
               style={{
@@ -334,7 +385,9 @@ export default function ReceiptsScreen() {
                   <ActivityIndicator size="small" color="#047857" />
                 ) : (
                   <Ionicons
-                    name={isWeb ? "print-outline" : "share-social-outline"}
+                    name={
+                      isWeb ? "document-text-outline" : "share-social-outline"
+                    }
                     size={24}
                     color="#047857"
                   />
@@ -342,7 +395,8 @@ export default function ReceiptsScreen() {
               </View>
 
               <Text style={{ fontSize: 14, color: "#4B5563", marginBottom: 6 }}>
-                Gerar comprovante consolidado com todas as coletas concluídas. O histórico completo será consultado ao gerar.
+                Gerar comprovante consolidado com todas as coletas concluídas. O
+                histórico completo será consultado ao gerar.
               </Text>
 
               <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
@@ -428,7 +482,10 @@ export default function ReceiptsScreen() {
                             color: "#047857",
                           }}
                         >
-                          {getCollectionTotalKg(receipt).toFixed(1)} kg
+                          {materialsTotalLabel(
+                            receipt.materials,
+                            getCollectionTotalKg(receipt),
+                          )}
                         </Text>
 
                         <Ionicons
@@ -471,7 +528,11 @@ export default function ReceiptsScreen() {
                           marginBottom: 5,
                         }}
                       >
-                        • Peso: {getCollectionTotalKg(receipt).toFixed(1)} kg
+                        • Quantidade:{" "}
+                        {materialsTotalLabel(
+                          receipt.materials,
+                          getCollectionTotalKg(receipt),
+                        )}
                       </Text>
 
                       <Text
@@ -505,6 +566,12 @@ export default function ReceiptsScreen() {
                       </Text>
 
                       <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          isWeb
+                            ? "Abrir comprovante PDF"
+                            : "Gerar e compartilhar PDF"
+                        }
                         onPress={() => handleGenerateReceipt(receipt)}
                         disabled={loadingReceipt === receipt.id}
                         style={{
@@ -535,7 +602,9 @@ export default function ReceiptsScreen() {
                           <>
                             <Ionicons
                               name={
-                                isWeb ? "print-outline" : "share-social-outline"
+                                isWeb
+                                  ? "document-text-outline"
+                                  : "share-social-outline"
                               }
                               size={18}
                               color="#FFFFFF"
@@ -549,7 +618,7 @@ export default function ReceiptsScreen() {
                               }}
                             >
                               {isWeb
-                                ? "GERAR / IMPRIMIR PDF"
+                                ? "ABRIR COMPROVANTE PDF"
                                 : "GERAR / COMPARTILHAR PDF"}
                             </Text>
                           </>
@@ -581,12 +650,15 @@ export default function ReceiptsScreen() {
                     textAlign: "center",
                   }}
                 >
-                  {history.error ? "Comprovantes indisponíveis no momento." : "Nenhuma coleta concluída ainda."}
+                  {history.error
+                    ? "Comprovantes indisponíveis no momento."
+                    : "Nenhuma coleta concluída ainda."}
                 </Text>
               </View>
             )}
 
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={handleGenerateFullReceipt}
               disabled={loadingReceipt === "full"}
               style={{
@@ -618,7 +690,9 @@ export default function ReceiptsScreen() {
               ) : (
                 <>
                   <Ionicons
-                    name={isWeb ? "print-outline" : "document-text-outline"}
+                    name={
+                      isWeb ? "document-text-outline" : "document-text-outline"
+                    }
                     size={20}
                     color="#FFFFFF"
                   />
@@ -632,7 +706,7 @@ export default function ReceiptsScreen() {
                     }}
                   >
                     {isWeb
-                      ? "GERAR / IMPRIMIR COMPROVANTE"
+                      ? "ABRIR COMPROVANTE CONSOLIDADO"
                       : "GERAR / COMPARTILHAR COMPROVANTE"}
                   </Text>
                 </>

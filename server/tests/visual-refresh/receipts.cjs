@@ -53,13 +53,15 @@ const consolidated = buildReceiptHtml(user),
     kg: 50,
     materials: user.topMaterials,
   });
-assert(consolidated.html.includes("50,0"));
+assert(consolidated.html.includes("50 kg · 12 L"));
 assert(consolidated.html.includes("12 L"));
 assert(consolidated.html.includes("3"));
 assert(consolidated.html.includes("01/10/2026 a 22/10/2026"));
 assert(consolidated.html.includes("Cooperativa de Validação"));
 assert(!consolidated.html.includes("destinação adequada"));
 assert(individual.html.includes("collection-qa-full-reference"));
+const oil = buildReceiptHtml(user, {id:"oil",date:"06/11/2026",local:"Origem QA",kg:0,materials:[{type:"Óleo",quantity:80,quantityKg:0,unit:"LITER"}]});
+assert(oil.html.includes("80 L"));assert(!oil.html.includes(">0,0 <small>kg"));assert(!oil.html.includes("Imprimir ou salvar PDF"));
 const hostile = buildReceiptHtml({
   ...user,
   name: "<script>alert(1)</script>",

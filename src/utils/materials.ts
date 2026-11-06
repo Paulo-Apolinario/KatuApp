@@ -57,3 +57,23 @@ export function groupMaterials(materials: unknown): CollectionMaterial[] {
   }
   return [...groups.values()];
 }
+
+/** Totals remain in their source units: never convert volume or pieces to mass. */
+export function materialTotals(materials: unknown) {
+  const totals = new Map<WasteUnit, number>();
+  for (const item of normalizeMaterials(materials)) {
+    totals.set(
+      item.unit!,
+      (totals.get(item.unit!) || 0) + (item.quantity || 0),
+    );
+  }
+  return [...totals].map(([unit, quantity]) => ({ unit, quantity }));
+}
+export function materialsTotalLabel(materials: unknown, fallbackKg = 0) {
+  const totals = materialTotals(materials);
+  return totals.length
+    ? totals.map(materialQuantity).join(" · ")
+    : fallbackKg > 0
+      ? materialQuantity({ quantity: fallbackKg, unit: "KG" })
+      : "Não informado";
+}

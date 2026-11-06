@@ -62,6 +62,7 @@ const user = {
   collector: { id: "member", name: "Integrante QA", cooperativeId: "coop" },
 };
 await context.addInitScript((user) => {
+  if (window.top !== window) return;
   user = JSON.parse(localStorage.getItem("qaUserOverride") || "null") || user;
   localStorage.setItem("@katu:token", "local-ui-fixture");
   localStorage.setItem("@katu:user", JSON.stringify(user));
@@ -126,6 +127,7 @@ const orders = [],
   submissions = [],
   errors = [],
   results = [];
+let pendingSendBarrier = null;
 await context.route("**/*", async (r) => {
   const req = r.request(),
     url = new URL(req.url());
@@ -151,7 +153,10 @@ await context.route("**/*", async (r) => {
       documentHash: "local-test-only",
     };
   else if (url.pathname === "/auth/me") body = { user };
-  else if (url.pathname === "/collections") body = { collections: [] };
+  else if (url.pathname === "/collections") body = { collections: url.searchParams.has("page") ? [
+    {id:"oil-receipt",status:"COMPLETED",collectedAt:"2026-11-06T06:00:00Z",createdAt:"2026-11-06T06:00:00Z",totalWeightKg:0,materials:[{type:"Óleo",quantity:80,unit:"LITER",quantityKg:0}],notes:"Origem Óleo QA"},
+    {id:"mixed-receipt",status:"COMPLETED",collectedAt:"2026-11-05T06:00:00Z",createdAt:"2026-11-05T06:00:00Z",totalWeightKg:25,materials:[{type:"Papelão",quantity:25,unit:"KG",quantityKg:25},{type:"Óleo",quantity:10,unit:"LITER",quantityKg:0}],notes:"Origem Mista QA"}
+  ] : [], pagination:{page:1,limit:25,total:2,hasMore:false} };
   else if (url.pathname === "/environmental-impact")
     body = {
       data: {
@@ -177,6 +182,7 @@ await context.route("**/*", async (r) => {
     url.pathname === "/extra-collection-orders" &&
     req.method() === "POST"
   ) {
+    if (pendingSendBarrier) await pendingSendBarrier;
     const input = req.postDataJSON();
     submissions.push(input);
     let order = orders.find((o) => o.id === input.id);
@@ -390,17 +396,13 @@ try {
     await page.getByRole("button", { name: "Consultar envios pendentes", exact: true }).waitFor();
     await page.getByText("Você está sem internet. Os registros ficam salvos neste aparelho e serão enviados quando a conexão voltar.", { exact: true }).waitFor();
     let releaseSend;
-    const heldSend = new Promise(resolve => { releaseSend = resolve; });
-    await page.route("**/extra-collection-orders", async route => {
-      if (route.request().method() === "POST") await heldSend;
-      await route.fallback();
-    });
+    pendingSendBarrier = new Promise(resolve => { releaseSend = resolve; });
     await context.setOffline(false);
     await page.waitForFunction(() => navigator.onLine);
     await page.getByRole("button", { name: "Consultar envios pendentes", exact: true }).waitFor({ state: "hidden" });
     assert.equal(await page.getByText("Enviando os registros salvos neste aparelho...", { exact: true }).count(), 0);
     releaseSend();
-    await page.unroute("**/extra-collection-orders");
+    pendingSendBarrier = null;
     await page
       .getByRole("button", {
         name: /^(Atualizar lista|Atualizar ordens e sincronização)$/,
@@ -516,6 +518,37 @@ try {
       .waitFor();
     await page.getByText("Papelão conferido: 8 kg", { exact: true }).waitFor();
     assert.equal(await page.getByText("COMPLETED", { exact: true }).count(), 0);
+  });
+  await test("histórico exibe litros e unidades mistas sem apresentar zero kg para óleo", async () => {
+    await page.goto(base + "/(catador)/receipts");
+    await page.getByText("80 L",{exact:true}).waitFor();
+    await page.getByText("25 kg · 10 L",{exact:true}).waitFor();
+    assert.equal(await page.getByText("0.0 kg",{exact:true}).count(),0);
+  });
+  await test("comprovante abre como PDF com download, sem disparar impressão", async () => {
+    await page.evaluate(()=>{window.__qaPrinted=0;window.print=()=>window.__qaPrinted++;Object.defineProperty(navigator,"pdfViewerEnabled",{value:false,configurable:true});});
+    await page.getByText("Óleo (80 L)",{exact:true}).click();
+    await click("Abrir comprovante PDF");
+    const dialog=page.getByRole("dialog",{name:"Comprovante em PDF"});await dialog.waitFor();
+    const frame=dialog.locator("iframe"); const pdfUrl=await dialog.getByRole("link",{name:"Baixar PDF",exact:true}).getAttribute("href");assert(pdfUrl.startsWith("blob:"));
+    if (!await page.evaluate(()=>navigator.pdfViewerEnabled)) assert((await frame.getAttribute("srcdoc")).includes("80 L"));
+    const data=await page.evaluate(async uri=>{const blob=await(await fetch(uri)).blob();return {type:blob.type,bytes:Array.from(new Uint8Array(await blob.arrayBuffer()))};},pdfUrl);
+    assert.equal(data.type,"application/pdf");assert.equal(Buffer.from(data.bytes).subarray(0,4).toString(),"%PDF");
+    fs.writeFileSync(path.join(out,"oil-receipt.pdf"),Buffer.from(data.bytes));
+    const download=page.waitForEvent("download");await dialog.getByRole("link",{name:"Baixar PDF",exact:true}).click();assert((await download).suggestedFilename().endsWith(".pdf"));
+    assert.equal(await page.evaluate(()=>window.__qaPrinted),0);
+    await page.frameLocator('iframe[title="Visualização do comprovante PDF"]').getByText("80 L",{exact:true}).first().waitFor();
+    await page.screenshot({path:path.join(out,"recibo-pdf-mobile.png"),fullPage:true});
+    await dialog.getByRole("button",{name:"Fechar",exact:true}).click();await dialog.waitFor({state:"hidden"});
+  });
+  await test("consolidado PDF inclui litros e kg do histórico completo", async () => {
+    await page.getByText("Comprovante Consolidado",{exact:true}).click();
+    const dialog=page.getByRole("dialog",{name:"Comprovante em PDF"});await dialog.waitFor();
+    const uri=await dialog.getByRole("link",{name:"Baixar PDF",exact:true}).getAttribute("href");
+    const bytes=await page.evaluate(async uri=>Array.from(new Uint8Array(await(await fetch(uri)).arrayBuffer())),uri);
+    fs.writeFileSync(path.join(out,"consolidated-receipt.pdf"),Buffer.from(bytes));
+    await page.setViewportSize({width:1366,height:900});await page.screenshot({path:path.join(out,"recibo-pdf-desktop.png"),fullPage:true});
+    await dialog.getByRole("button",{name:"Fechar",exact:true}).click();
   });
   await test("cooperativa acessa diretamente o atendimento da coleta no painel", async () => {
     user.role = "COOPERATIVE";
