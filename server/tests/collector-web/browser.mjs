@@ -387,8 +387,20 @@ try {
       .first()
       .waitFor();
     assert.equal(submissions.length, before);
+    await page.getByRole("button", { name: "Consultar envios pendentes", exact: true }).waitFor();
+    await page.getByText("Você está sem internet. Os registros ficam salvos neste aparelho e serão enviados quando a conexão voltar.", { exact: true }).waitFor();
+    let releaseSend;
+    const heldSend = new Promise(resolve => { releaseSend = resolve; });
+    await page.route("**/extra-collection-orders", async route => {
+      if (route.request().method() === "POST") await heldSend;
+      await route.fallback();
+    });
     await context.setOffline(false);
     await page.waitForFunction(() => navigator.onLine);
+    await page.getByRole("button", { name: "Consultar envios pendentes", exact: true }).waitFor({ state: "hidden" });
+    assert.equal(await page.getByText("Enviando os registros salvos neste aparelho...", { exact: true }).count(), 0);
+    releaseSend();
+    await page.unroute("**/extra-collection-orders");
     await page
       .getByRole("button", {
         name: /^(Atualizar lista|Atualizar ordens e sincronização)$/,
