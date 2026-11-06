@@ -1,3 +1,4 @@
+import { extraOwner } from "../../database/repositories/extraOrderRepository";
 import { translateCollectionStatus } from "../../services/collectionService";
 import { useActiveReadRefresh } from "@/src/hooks/useActiveReadRefresh";
 import { useCallback, useRef, useState } from "react";
@@ -39,6 +40,7 @@ export default function ExtraOrdersScreen() {
       create?: string;
       orderId?: string;
     }>();
+  const [deletingDraft, setDeletingDraft] = useState<string | null>(null);
   const [originalMaterials, setOriginalMaterials] = useState(false);
   const [reviewOptions, setReviewOptions] = useState(false);
   const [rejection, setRejection] = useState(false);
@@ -185,9 +187,12 @@ export default function ExtraOrdersScreen() {
       );
       return;
     }
-    if (!confirmed || notes.trim().length < 5) {
+    if (
+      !confirmed ||
+      (["REJECT", "NEEDS_INFO"].includes(action) && notes.trim().length < 5)
+    ) {
       setError(
-        "Confirme a conferência e descreva a decisão com pelo menos cinco caracteres.",
+        "Confirme a conferência. Para recusar ou pedir complementação, explique o motivo.",
       );
       return;
     }
@@ -516,7 +521,7 @@ export default function ExtraOrdersScreen() {
                 selected.status !== "REJECTED")) && (
               <Card>
                 <Field
-                  label="Observações da análise ou conferência"
+                  label="Observações (opcionais para aceitar ou receber)"
                   value={notes}
                   onChangeText={setNotes}
                   maxLength={2000}
@@ -716,6 +721,55 @@ export default function ExtraOrdersScreen() {
                 disabled={busy}
                 onPress={() => void open(o)}
               />
+              {o.status === "DRAFT" && (
+                <>
+                  <Action
+                    secondary
+                    label={
+                      deletingDraft === o.id
+                        ? "Cancelar exclusão"
+                        : "Excluir rascunho"
+                    }
+                    disabled={busy}
+                    onPress={() =>
+                      setDeletingDraft(deletingDraft === o.id ? null : o.id)
+                    }
+                  />
+                  {deletingDraft === o.id && (
+                    <>
+                      <Notice text="Excluir este rascunho deste aparelho? Esta ação não pode ser desfeita." />
+                      <Action
+                        label="Confirmar exclusão"
+                        disabled={busy}
+                        onPress={async () => {
+                          if (guard.current) return;
+                          guard.current = true;
+                          setBusy(true);
+                          setError("");
+                          try {
+                            const owner = await extraOwner();
+                            if (!owner)
+                              throw Error("Entre na sua conta para excluir.");
+                            await extraOrderService.deleteDraft(o.id, owner);
+                            setDeletingDraft(null);
+                            await load();
+                            setMessage("Rascunho excluído.");
+                          } catch (e) {
+                            setError(
+                              e instanceof Error
+                                ? e.message
+                                : "Não foi possível excluir o rascunho.",
+                            );
+                          } finally {
+                            guard.current = false;
+                            setBusy(false);
+                          }
+                        }}
+                      />
+                    </>
+                  )}
+                </>
+              )}
             </Card>
           ))}
           {!loading && !filtered.length && (

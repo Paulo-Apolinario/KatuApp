@@ -33,6 +33,27 @@ function project(q: any, old: any) {
     syncError: q.errorMessage || undefined,
   };
 }
+const recordLocks = new Map<string, Promise<unknown>>();
+function serialized<T>(
+  owner: string,
+  id: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  const key = `${owner}:${id}`;
+  const run = () => {
+    const previous = recordLocks.get(key) || Promise.resolve();
+    const task = previous.catch(() => {}).then(work);
+    recordLocks.set(key, task);
+    void task
+      .finally(() => {
+        if (recordLocks.get(key) === task) recordLocks.delete(key);
+      })
+      .catch(() => {});
+    return task;
+  };
+  const locks = (globalThis as any).navigator?.locks;
+  return locks ? locks.request(`katua-extra:${key}`, run) : run();
+}
 const prefix = "/extra-collection-orders";
 export const newExtraId = () => Crypto.randomUUID();
 export const extraOrderService = {
@@ -127,15 +148,39 @@ export const extraOrderService = {
       return cached;
     }
   },
+  async deleteDraft(id: string, expectedOwner: string) {
+    return serialized(expectedOwner, id, async () => {
+      if ((await extraOwner()) !== expectedOwner)
+        throw Error("A conta foi alterada. Atualize a lista.");
+      const record = await getExtraRecord(id);
+      const queued = (await getPendingSyncItems()).some(
+        (q) => q?.entityId === id && q.operationType === "EXTRA_ORDER_WRITE",
+      );
+      if (record?.status !== "DRAFT" || queued)
+        throw Error(
+          "Somente rascunhos ainda não enviados podem ser excluídos.",
+        );
+      await saveExtraRecord(
+        id,
+        { id, status: "DELETED" },
+        "DELETED",
+        expectedOwner,
+      );
+    });
+  },
   async draft(order: ExtraOrder, owner: string) {
-    if (
-      (await getPendingSyncItems()).some(
-        (q) =>
-          q?.entityId === order.id && q.operationType === "EXTRA_ORDER_WRITE",
+    return serialized(owner, order.id, async () => {
+      const current = await getExtraRecord(order.id);
+      if (current && current.status !== "DRAFT") return;
+      if (
+        (await getPendingSyncItems()).some(
+          (q) =>
+            q?.entityId === order.id && q.operationType === "EXTRA_ORDER_WRITE",
+        )
       )
-    )
-      return;
-    await saveExtraRecord(order.id, order, "DRAFT", owner);
+        return;
+      await saveExtraRecord(order.id, order, "DRAFT", owner);
+    });
   },
   async submit(
     id: string,
@@ -146,41 +191,48 @@ export const extraOrderService = {
   ) {
     const owner = await extraOwner();
     if (!owner) throw Error("Entre na sua conta para salvar a O.C.");
-    if(expectedOwner && owner !== expectedOwner) throw Error("A conta foi alterada. Abra novamente o formulário antes de salvar.");
-    const action = revision ? "revise" : "create";
-    const old = (await getPendingSyncItems()).find(
-      (q) => q?.operationType === "EXTRA_ORDER_WRITE" && q.entityId === id,
-    );
-    if (old)
+    if (expectedOwner && owner !== expectedOwner)
       throw Error(
-        "Esta ordem já tem envio pendente. Sincronize e confira o protocolo antes de reenviar.",
+        "A conta foi alterada. Abra novamente o formulário antes de salvar.",
       );
-    const operationId = Crypto.randomUUID();
-    const body = revision
-      ? { operationId, expectedRevision: revision, payload }
-      : { id, cooperativeId, payload };
-    await enqueueSyncItem({
-      id: `oc:${id}:${operationId}`,
-      expectedOwner: owner,
-      operationType: "EXTRA_ORDER_WRITE",
-      entityType: "EXTRA_ORDER",
-      entityId: id,
-      payload: { action, orderId: id, body },
+    return serialized(owner, id, async () => {
+      if ((await getExtraRecord(id))?.status === "DELETED")
+        throw Error("Este rascunho foi excluído. Crie uma nova ordem.");
+      const action = revision ? "revise" : "create";
+      const old = (await getPendingSyncItems()).find(
+        (q) => q?.operationType === "EXTRA_ORDER_WRITE" && q.entityId === id,
+      );
+      if (old)
+        throw Error(
+          "Esta ordem já tem envio pendente. Sincronize e confira o protocolo antes de reenviar.",
+        );
+      const operationId = Crypto.randomUUID();
+      const body = revision
+        ? { operationId, expectedRevision: revision, payload }
+        : { id, cooperativeId, payload };
+      await enqueueSyncItem({
+        id: `oc:${id}:${operationId}`,
+        expectedOwner: owner,
+        operationType: "EXTRA_ORDER_WRITE",
+        entityType: "EXTRA_ORDER",
+        entityId: id,
+        payload: { action, orderId: id, body },
+      });
+      const order: ExtraOrder = {
+        id,
+        cooperativeId,
+        status: "LOCAL_PENDING",
+        revision: revision || 1,
+        payload,
+        createdAt: new Date().toISOString(),
+        custody: payload.custody,
+        custodyNotes: payload.custodyNotes,
+        syncStatus: "PENDING",
+      };
+      await saveExtraRecord(id, order, order.status, owner);
+      await syncManager.runSyncNow();
+      return this.get(id);
     });
-    const order: ExtraOrder = {
-      id,
-      cooperativeId,
-      status: "LOCAL_PENDING",
-      revision: revision || 1,
-      payload,
-      createdAt: new Date().toISOString(),
-      custody: payload.custody,
-      custodyNotes: payload.custodyNotes,
-      syncStatus: "PENDING",
-    };
-    await saveExtraRecord(id, order, order.status, owner);
-    await syncManager.runSyncNow();
-    return this.get(id);
   },
   async recoverFailed(id: string): Promise<ExtraOrder> {
     if (syncManager.isSyncRunning())

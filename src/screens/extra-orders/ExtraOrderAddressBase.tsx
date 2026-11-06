@@ -86,6 +86,9 @@ export default function ExtraOrderAddress({
   function address(text: string) {
     revision.current++;
     setError("");
+    setLoading(false);
+    setOpen(false);
+    setPoint(null);
     onChange({
       ...value,
       pickupAddress: text,
@@ -143,7 +146,7 @@ export default function ExtraOrderAddress({
             : "Não foi possível buscar o CEP. Preencha o endereço manualmente.",
         );
     } finally {
-      setLoading(false);
+      if (request === revision.current) setLoading(false);
     }
   }
   function startMap() {
@@ -188,13 +191,14 @@ export default function ExtraOrderAddress({
             : "Não foi possível obter a localização.",
         );
     } finally {
-      setLoading(false);
+      if (request === revision.current) setLoading(false);
     }
   }
   function cancel() {
     revision.current++;
     setOpen(false);
     setPoint(null);
+    setLoading(false);
     setError("");
   }
   function confirm() {
@@ -213,13 +217,30 @@ export default function ExtraOrderAddress({
   }
   return (
     <>
+      <Field
+        label="Endereço da retirada"
+        value={value.pickupAddress}
+        onChangeText={address}
+        maxLength={500}
+        editable={!disabled}
+        multiline
+      />
+      <Notice text="CEP e localização são opcionais. Digite o endereço da retirada para continuar." />
+      {(loading || open) && (
+        <Action
+          secondary
+          label="Continuar com endereço manual"
+          disabled={disabled}
+          onPress={cancel}
+        />
+      )}
       {compact && (
         <Action
           secondary
           label={
             details
               ? "Fechar endereço detalhado"
-              : "Preencher endereço pelo CEP"
+              : "Preencher endereço pelo CEP (opcional)"
           }
           disabled={disabled || loading}
           onPress={() => setDetails(!details)}
@@ -272,14 +293,7 @@ export default function ExtraOrderAddress({
           ))}
         </>
       )}
-      <Field
-        label="Endereço da retirada"
-        value={value.pickupAddress}
-        onChangeText={address}
-        maxLength={500}
-        editable={!disabled && !loading}
-        multiline
-      />
+
       <Action
         label="Usar localização atual do aparelho"
         secondary

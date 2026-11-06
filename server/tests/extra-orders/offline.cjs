@@ -278,6 +278,33 @@ const payload = {
       assert(remote.has(b));
     },
   );
+  await check("Exclusão só remove rascunho próprio e autosave atrasado não o restaura", async () => {
+    await login("catador-a");
+    const id = crypto.randomUUID(), draft = { id, status: "DRAFT", payload, cooperativeId: "coop-a", createdAt: new Date().toISOString() };
+    await r.service.draft(draft, "catador-a");
+    await assert.rejects(r.service.deleteDraft(id, "catador-b"), /conta/);
+    await r.service.deleteDraft(id, "catador-a");
+    await r.service.draft(draft, "catador-a");
+    assert.equal((await r.repo.getExtraRecord(id)).status, "DELETED");
+    assert(!(await r.service.list()).orders.some(o => o.id === id));
+    await assert.rejects(r.service.submit(id,"coop-a",payload), /excluído/);
+  });
+  await check("Falha de armazenamento ao excluir preserva o rascunho", async () => {
+    const id=crypto.randomUUID();
+    await r.service.draft({id,status:"DRAFT",payload},"catador-a");
+    storageFails=true;
+    try { await assert.rejects(r.service.deleteDraft(id,"catador-a"), /Armazenamento/); }
+    finally { storageFails=false; }
+    assert.equal((await r.repo.getExtraRecord(id)).status,"DRAFT");
+  });
+  await check("Rascunho com envio pendente não pode ser excluído", async () => {
+    failNetwork = true;
+    const id = crypto.randomUUID();
+    await r.service.draft({id,status:"DRAFT",payload,cooperativeId:"coop-a"}, "catador-a");
+    await r.service.submit(id,"coop-a",payload);
+    await assert.rejects(r.service.deleteDraft(id,"catador-a"), /rascunhos/);
+    assert((await r.queue.getPendingSyncItems()).some(q => q.entityId === id));
+  });
   console.log(
     JSON.stringify(
       {

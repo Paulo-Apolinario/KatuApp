@@ -1,3 +1,4 @@
+import { stockDispatchRoutes } from "./stock-dispatch";
 import { stockMovementRoutes } from "./stock-movements";
 import { FastifyInstance } from "fastify";
 
@@ -15,6 +16,7 @@ export async function wasteStockRoutes(
   );
 
   await stockMovementRoutes(app);
+  await stockDispatchRoutes(app);
 
   /*
    * ============================================================

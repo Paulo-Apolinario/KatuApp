@@ -10,7 +10,7 @@ const query = z.object({
   collectionId: z.string().max(100).optional(),
   lotId: z.string().max(100).optional(),
   status: z.enum(['PENDING', 'SCHEDULED', 'IN_PROGRESS', 'COLLECTED', 'RECEIVED', 'SORTING', 'COMPLETED', 'CANCELLED']).optional(),
-  kind: z.enum(['SERVICE_ORDER', 'START_RECORD', 'COLLECTION_RECEIPT', 'RECEIVING_RECEIPT', 'CLOSURE', 'CANCELLATION', 'DESTINATION_RECORD', 'TRANSPORT_RECORD', 'HISTORICAL_RECORD']).optional(),
+  kind: z.enum(['SERVICE_ORDER', 'START_RECORD', 'COLLECTION_RECEIPT', 'RECEIVING_RECEIPT', 'CLOSURE', 'CANCELLATION', 'DESTINATION_RECORD', 'TRANSPORT_RECORD', 'HISTORICAL_RECORD', 'STOCK_DISPATCH']).optional(),
   dateFrom: z.string().date().optional(),
   dateTo: z.string().date().optional()
 }).strict().superRefine((q, c) => {

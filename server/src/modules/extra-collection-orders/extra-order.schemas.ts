@@ -151,7 +151,7 @@ export const reviewExtraOrder = z
     operationId: uuid,
     expectedRevision: z.number().int().positive(),
     decision: z.enum(["ACCEPT", "NEEDS_INFO", "REJECT"]),
-    notes: text(5, 2000),
+    notes: text(0, 2000).default(""),
     scheduledDate: z.string().datetime({ offset: true }).optional(),
     driverId: z.string().min(1).optional(),
     vehicleId: z.string().min(1).optional(),
@@ -159,6 +159,8 @@ export const reviewExtraOrder = z
     custodyNotes: text(5, 1000).optional(),
   })
   .superRefine((v, c) => {
+    if (v.decision !== "ACCEPT" && v.notes.length < 5)
+      c.addIssue({ code: z.ZodIssueCode.custom, message: "Explique a recusa ou o pedido de complementação.", path: ["notes"] });
     if (v.decision === "REJECT" && (!v.custody || !v.custodyNotes))
       c.addIssue({
         code: z.ZodIssueCode.custom,
@@ -170,6 +172,6 @@ export const reviewExtraOrder = z
 export const receiveExtraOrder = z.object({
   operationId: uuid,
   receivedAt: z.string().datetime({ offset: true }),
-  notes: text(5, 1000),
+  notes: text(0, 1000).default(""),
 });
 export type ExtraOrderPayload = z.infer<typeof extraOrderPayload>;

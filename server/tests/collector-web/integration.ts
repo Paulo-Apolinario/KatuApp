@@ -1,3 +1,4 @@
+import { dispatchTests } from "./stock-dispatch.integration";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { prisma } from "../../src/lib/prisma";
@@ -355,7 +356,7 @@ async function main() {
           operationId: randomUUID(),
           expectedRevision: 1,
           decision: "ACCEPT",
-          notes: "Conferir peso na chegada.",
+          notes: "",
         },
         manager,
       );
@@ -384,7 +385,7 @@ async function main() {
         await call("POST", `/extra-collection-orders/${id}/receive`, {
           operationId: randomUUID(),
           receivedAt: new Date().toISOString(),
-          notes: "Material recebido para pesagem.",
+          notes: "",
         }),
         403,
       );
@@ -394,7 +395,7 @@ async function main() {
         {
           operationId: randomUUID(),
           receivedAt: new Date().toISOString(),
-          notes: "Material recebido para pesagem.",
+          notes: "",
         },
         manager,
       );
@@ -499,6 +500,7 @@ async function main() {
       );
       ok(diverged, 400);
     });
+    await dispatchTests(call, manager, collector, token("COOPERATIVE", "other-user"), test);
     console.log(`${count} testes de integração aprovados`);
   } finally {
     await app.close();

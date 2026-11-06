@@ -300,7 +300,7 @@ try {
         .inputValue(),
       "85911112222",
     );
-    await click("Preencher endereço pelo CEP");
+    await click("Preencher endereço pelo CEP (opcional)");
     assert.equal(
       await page.getByLabel("Rua / logradouro", { exact: true }).inputValue(),
       "Rua das Flores",
@@ -438,6 +438,39 @@ try {
     assert.equal(p.reasonNotes, "ok");
     assert(p.preferredDate);
     assert.equal(p.generatorId, undefined);
+  });
+  await test("excluir rascunho exige confirmação e mantém ordens já enviadas", async () => {
+    await newOrder();
+    await page.getByRole("button", { name: "Voltar", exact: true }).click();
+    await page.getByRole("button", {name:"Continuar rascunho",exact:true}).first().waitFor();
+    const count = await page.getByRole("button", {name:"Continuar rascunho",exact:true}).count();
+    assert(count>0);
+    await page.getByRole("button",{name:"Excluir rascunho",exact:true}).first().click();
+    await click("Cancelar exclusão");
+    assert.equal(await page.getByRole("button",{name:"Continuar rascunho",exact:true}).count(),count);
+    await page.getByRole("button",{name:"Excluir rascunho",exact:true}).first().click();
+    await click("Confirmar exclusão");
+    await page.getByText("Rascunho excluído.",{exact:true}).waitFor();
+    assert.equal(await page.getByRole("button",{name:"Continuar rascunho",exact:true}).count(),count-1);
+    assert((await page.getByRole("button",{name:"Abrir ordem",exact:true}).count())>0);
+  });
+  await test("consulta de CEP lenta pode ser cancelada por endereço manual sem bloquear avanço", async () => {
+    await newOrder(); await click("Continuar");
+    await page.getByLabel("Nome da pessoa ou estabelecimento",{exact:true}).fill("Origem manual QA");
+    await click("Preencher endereço pelo CEP (opcional)");
+    await page.getByLabel("CEP da retirada (opcional)",{exact:true}).fill("60000000");
+    let release;
+    const waiting = new Promise(r => { release = r; });
+    await page.route("https://viacep.com.br/**", async route => { await waiting; await route.fulfill({json:{logradouro:"Endereço antigo",localidade:"Fortaleza",uf:"CE"}}).catch(()=>{}); });
+    await click("Buscar endereço pelo CEP");
+    await page.getByLabel("Endereço da retirada",{exact:true}).fill("Rua manual, 50, Centro");
+    release();
+    await page.waitForTimeout(100);
+    assert.equal(await page.getByLabel("Endereço da retirada",{exact:true}).inputValue(),"Rua manual, 50, Centro");
+    await click("Continuar");
+    await page.getByText("Quais materiais?",{exact:true}).waitFor();
+    await page.unroute("https://viacep.com.br/**");
+    await page.getByRole("button",{name:"Voltar",exact:true}).click();
   });
   await test("ordem concluída mostra estado em português e a quantidade conferida atual", async () => {
     orders[0].status = "ACCEPTED";

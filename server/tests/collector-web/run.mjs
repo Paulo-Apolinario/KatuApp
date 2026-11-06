@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -31,11 +33,29 @@ const ddl = spawnSync(
   },
 );
 if (ddl.status !== 0) throw Error(ddl.stderr);
-const db = await PGlite.create();
+const nativeBin = process.env.KATUA_NATIVE_POSTGRES_BIN;
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "katua-collector-tests-"));
+const db = nativeBin
+  ? await (
+      await import("../agents-events/native-db.mjs")
+    ).createNativeDatabase(nativeBin, tmp)
+  : await PGlite.create();
 let socket;
 try {
   await db.exec(ddl.stdout);
-  socket = new PGLiteSocketServer({ db, port: 54329, host: "127.0.0.1" });
+  if (process.env.KATUA_STOCK_DOCUMENT_TRIGGERS === "1") {
+    const migration = fs.readFileSync(
+      path.join(
+        root,
+        "prisma/migrations/20261030030000_internal_service_documents/migration.sql",
+      ),
+      "utf8",
+    );
+    await db.exec(migration.slice(migration.indexOf("CREATE SEQUENCE")));
+  }
+  socket = nativeBin
+    ? { start: async () => {}, stop: async () => {} }
+    : new PGLiteSocketServer({ db, port: 54329, host: "127.0.0.1" });
   await socket.start();
   const child = spawn(
     process.execPath,
@@ -48,8 +68,7 @@ try {
         NODE_ENV: "test",
         LOG_LEVEL: "silent",
         JWT_SECRET: "collector-local-test-only-secret-at-least32",
-        DATABASE_URL:
-          "postgresql://postgres:postgres@127.0.0.1:54329/postgres?connection_limit=1",
+        DATABASE_URL: `postgresql://postgres:postgres@127.0.0.1:54329/postgres?connection_limit=${nativeBin ? 4 : 1}`,
       },
       stdio: "inherit",
     },
