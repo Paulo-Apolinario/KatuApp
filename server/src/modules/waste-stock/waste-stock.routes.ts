@@ -45,7 +45,8 @@ export async function wasteStockRoutes(
    * - PF, informando cooperativeId;
    * - GENERATOR_SMALL;
    * - GENERATOR_LARGE;
-   * - COOPERATIVE.
+   * - COOPERATIVE;
+   * - COLLECTOR ativo, somente da cooperativa vinculada.
    *
    * Retorna somente materiais ativos e não expõe lotes ou saldos.
    */

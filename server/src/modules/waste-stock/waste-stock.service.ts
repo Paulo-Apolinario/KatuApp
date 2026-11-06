@@ -203,12 +203,13 @@ export class WasteStockService {
    * ============================================================
    *
    * Diferente das rotas administrativas, a consulta do catálogo
-   * também pode ser realizada por geradores e pessoa física.
+   * também pode ser realizada por catadores, geradores e pessoa física.
    *
    * Regras:
    * - COOPERATIVE: usa a própria cooperativa autenticada;
    * - GENERATOR_SMALL / GENERATOR_LARGE: usa a cooperativa
    *   vinculada ao cadastro do gerador;
+   * - COLLECTOR: usa a cooperativa do catador ativo autenticado;
    * - PF: deve informar cooperativeId na consulta;
    * - demais perfis não possuem acesso ao catálogo por esta rota.
    */
@@ -262,6 +263,24 @@ export class WasteStockService {
       }
 
       return generator.cooperativeId;
+    }
+
+    if (role === UserRole.COLLECTOR) {
+      const collector = await prisma.collector.findUnique({
+        where: { userId },
+        select: { cooperativeId: true, status: true },
+      });
+      if (!collector?.cooperativeId) {
+        throw new Error("O catador não está vinculado a uma cooperativa.");
+      }
+      if (collector.status === "INACTIVE") {
+        throw new Error("Catador inativo, sem permissão para consultar o catálogo de resíduos.");
+      }
+      const requestedId = normalizeText(requestedCooperativeId);
+      if (requestedId && requestedId !== collector.cooperativeId) {
+        throw new Error("Catador sem permissão para consultar o catálogo de outra cooperativa.");
+      }
+      return collector.cooperativeId;
     }
 
     if (role === UserRole.PF) {

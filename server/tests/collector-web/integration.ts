@@ -113,6 +113,136 @@ async function main() {
     };
     const ok = (r: any, status: number) =>
       assert.equal(r.status, status, JSON.stringify(r.body));
+    await prisma.wasteStockItem.createMany({
+      data: [
+        {
+          id: "foreign-catalog",
+          cooperativeId: "other",
+          name: "Material de outra cooperativa",
+          category: "Papel",
+          unit: "KG",
+          defaultUnit: "KG",
+        },
+        {
+          id: "inactive-catalog",
+          cooperativeId: "coop",
+          name: "Material inativo",
+          category: "Papel",
+          unit: "KG",
+          defaultUnit: "KG",
+          status: "INACTIVE",
+        },
+        {
+          id: "hidden-catalog",
+          cooperativeId: "coop",
+          name: "Material desativado",
+          category: "Papel",
+          unit: "KG",
+          defaultUnit: "KG",
+          isActive: false,
+        },
+      ],
+    });
+    await test("catálogo: catador autenticado consulta apenas materiais ativos da própria cooperativa", async () => {
+      const r = await call("GET", "/waste-stock/catalog");
+      ok(r, 200);
+      assert.deepEqual(
+        r.body.items.map((m: any) => m.id),
+        ["item"],
+      );
+    });
+    await test("catálogo: indicar outra cooperativa é bloqueado; indicar a própria funciona", async () => {
+      ok(await call("GET", "/waste-stock/catalog?cooperativeId=other"), 403);
+      ok(await call("GET", "/waste-stock/catalog?cooperativeId=coop"), 200);
+    });
+    await test("catálogo: pesquisa não encontra materiais de outras cooperativas", async () => {
+      const r = await call("GET", "/waste-stock/catalog?search=outra");
+      ok(r, 200);
+      assert.equal(r.body.items.length, 0);
+    });
+    await test("catálogo: não expõe lotes, saldos ou quantidades de estoque", async () => {
+      const r = await call("GET", "/waste-stock/catalog");
+      ok(r, 200);
+      for (const m of r.body.items)
+        for (const key of [
+          "lots",
+          "totalQuantity",
+          "availableQuantity",
+          "quantityKg",
+          "movements",
+        ])
+          assert.equal(key in m, false);
+    });
+    await test("catálogo: leitura não libera endpoints administrativos ao catador", async () => {
+      for (const url of [
+        "/waste-stock/items",
+        "/waste-stock/items/item",
+        "/waste-stock/items/item/lots",
+      ])
+        ok(await call("GET", url), 403);
+      ok(
+        await call("POST", "/waste-stock/items", {
+          name: "Material indevido",
+          category: "Papel",
+          unit: "KG",
+          defaultUnit: "KG",
+        }),
+        403,
+      );
+      assert.equal(
+        await prisma.wasteStockItem.count({
+          where: { name: "Material indevido" },
+        }),
+        0,
+      );
+    });
+    await test("catálogo: JWT ausente ou inválido continua bloqueado", async () => {
+      ok(await call("GET", "/waste-stock/catalog", undefined, ""), 401);
+      ok(await call("GET", "/waste-stock/catalog", undefined, "invalid"), 401);
+    });
+    await test("catálogo: catador sem vínculo e catador inativo continuam bloqueados", async () => {
+      await prisma.collector.update({
+        where: { id: "collector" },
+        data: { cooperativeId: null },
+      });
+      try {
+        ok(await call("GET", "/waste-stock/catalog"), 403);
+      } finally {
+        await prisma.collector.update({
+          where: { id: "collector" },
+          data: { cooperativeId: "coop" },
+        });
+      }
+      await prisma.collector.update({
+        where: { id: "collector" },
+        data: { status: "INACTIVE" },
+      });
+      try {
+        ok(await call("GET", "/waste-stock/catalog"), 403);
+      } finally {
+        await prisma.collector.update({
+          where: { id: "collector" },
+          data: { status: "AVAILABLE" },
+        });
+      }
+    });
+    await test("catálogo: motorista não ganha acesso e cooperativa mantém sua consulta", async () => {
+      ok(
+        await call(
+          "GET",
+          "/waste-stock/catalog",
+          undefined,
+          token("DRIVER", "driver-user"),
+        ),
+        403,
+      );
+      const r = await call("GET", "/waste-stock/catalog", undefined, manager);
+      ok(r, 200);
+      assert.deepEqual(
+        r.body.items.map((m: any) => m.id),
+        ["item"],
+      );
+    });
     const payload: any = {
       mode: "COLLECTED",
       originType: "GENERATOR",
