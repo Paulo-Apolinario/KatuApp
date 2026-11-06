@@ -206,7 +206,10 @@ export default function ExtraOrderAddress({
       setError("Toque no mapa para selecionar o local da retirada.");
       return;
     }
-    if (value.pickupAddress.trim().length < 5) {
+    if (
+      (value.generatorId || value.pickupAddress.trim()) &&
+      value.pickupAddress.trim().length < 5
+    ) {
       setError("Informe o endereço da retirada antes de confirmar o ponto.");
       return;
     }
@@ -218,14 +221,24 @@ export default function ExtraOrderAddress({
   return (
     <>
       <Field
-        label="Endereço da retirada"
+        label={
+          value.generatorId
+            ? "Endereço da retirada"
+            : "Endereço da retirada (opcional)"
+        }
         value={value.pickupAddress}
         onChangeText={address}
         maxLength={500}
         editable={!disabled}
         multiline
       />
-      <Notice text="CEP e localização são opcionais. Digite o endereço da retirada para continuar." />
+      <Notice
+        text={
+          value.generatorId
+            ? "CEP e localização são opcionais."
+            : "Endereço, CEP e localização são opcionais para pessoa ou local sem cadastro."
+        }
+      />
       {(loading || open) && (
         <Action
           secondary
@@ -343,7 +356,7 @@ export default function ExtraOrderAddress({
               : "Toque no mapa para selecionar o local."}
           </Text>
           <Notice
-            text={`Endereço a confirmar: ${value.pickupAddress || "Preencha o endereço acima."}`}
+            text={`Endereço a confirmar: ${value.pickupAddress || "Não informado (opcional para origem sem cadastro)."}`}
           />
           <Action
             label="Confirmar endereço e ponto"

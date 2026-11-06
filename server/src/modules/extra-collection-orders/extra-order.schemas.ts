@@ -35,7 +35,7 @@ export const extraOrderPayload = z
     originType: z.enum(["PF", "GENERATOR"]),
     originName: text(2, 180),
     contactPhone: text(0, 40).optional(),
-    pickupAddress: text(5, 500),
+    pickupAddress: text(0, 500).default(""),
     latitude: z.number().min(-90).max(90).optional(),
     longitude: z.number().min(-180).max(180).optional(),
     accuracyMeters: z.number().nonnegative().max(100000).optional(),
@@ -60,6 +60,11 @@ export const extraOrderPayload = z
   .superRefine((p, ctx) => {
     const issue = (message: string, path: string) =>
       ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: [path] });
+    if ((p.generatorId || p.pickupAddress) && p.pickupAddress.length < 5)
+      issue(
+        "Informe um endereço com pelo menos cinco caracteres. Para origem sem cadastro, o campo pode ficar em branco.",
+        "pickupAddress",
+      );
     if ((p.latitude == null) !== (p.longitude == null))
       issue("Informe latitude e longitude juntas.", "latitude");
     if (p.generatorId && p.originType !== "GENERATOR")
@@ -160,7 +165,11 @@ export const reviewExtraOrder = z
   })
   .superRefine((v, c) => {
     if (v.decision !== "ACCEPT" && v.notes.length < 5)
-      c.addIssue({ code: z.ZodIssueCode.custom, message: "Explique a recusa ou o pedido de complementação.", path: ["notes"] });
+      c.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Explique a recusa ou o pedido de complementação.",
+        path: ["notes"],
+      });
     if (v.decision === "REJECT" && (!v.custody || !v.custodyNotes))
       c.addIssue({
         code: z.ZodIssueCode.custom,

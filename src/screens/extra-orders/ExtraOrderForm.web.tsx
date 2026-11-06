@@ -270,11 +270,12 @@ function CollectorExtraOrderForm({
     }
     if (
       p.originName.trim().length < 2 ||
-      p.pickupAddress.trim().length < 5 ||
+      ((p.generatorId || p.pickupAddress.trim()) &&
+        p.pickupAddress.trim().length < 5) ||
       (p.custody === "OTHER" && p.custodyNotes.trim().length < 5)
     ) {
       setError(
-        "Confira o nome e o endereço. Se o material estiver em outro local, informe o responsável.",
+        "Confira o nome e os dados informados. O endereço é opcional para origem sem cadastro. Se o material estiver em outro local, informe o responsável.",
       );
       return;
     }
@@ -745,7 +746,7 @@ function CollectorExtraOrderForm({
               {p.mode === "COLLECTED" ? "Coleta realizada" : "Pedido de coleta"}
             </Text>
             <Text style={{ fontWeight: "700" }}>{p.originName}</Text>
-            <Text>{p.pickupAddress}</Text>
+            <Text>{p.pickupAddress || "Endereço não informado"}</Text>
             {!!p.contactPhone && <Text>Telefone: {p.contactPhone}</Text>}
             {lines.map((l) => (
               <Text key={l.id}>

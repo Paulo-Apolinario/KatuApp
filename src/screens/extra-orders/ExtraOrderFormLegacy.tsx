@@ -247,12 +247,13 @@ export default function ExtraOrderForm({
     }
     if (
       p.originName.trim().length < 2 ||
-      p.pickupAddress.trim().length < 5 ||
+      ((p.generatorId || p.pickupAddress.trim()) &&
+        p.pickupAddress.trim().length < 5) ||
       p.reasonNotes.trim().length < 5 ||
       p.custodyNotes.trim().length < 5
     ) {
       setError(
-        "Preencha origem, endereço, motivo e informação sobre a guarda do material.",
+        "Confira a origem, o motivo e a guarda do material. O endereço é opcional para pessoa ou local sem cadastro.",
       );
       return;
     }

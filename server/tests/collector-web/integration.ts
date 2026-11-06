@@ -500,6 +500,27 @@ async function main() {
       );
       ok(diverged, 400);
     });
+    await test("endereço vazio é permitido só para origem sem cadastro e nome continua obrigatório", () => {
+      const manual={...payload,originType:"PF",generatorId:undefined,pickupAddress:""};
+      assert.equal(extraOrderPayload.parse(manual).pickupAddress,"");
+      assert.equal(extraOrderPayload.parse({...manual,pickupAddress:undefined}).pickupAddress,"");
+      assert.equal(originError(manual),"");
+      assert(!extraOrderPayload.safeParse({...manual,originName:""}).success);
+      assert(!extraOrderPayload.safeParse({...manual,pickupAddress:"abc"}).success);
+      assert(!extraOrderPayload.safeParse({...payload,pickupAddress:""}).success);
+      assert(originError({...payload,pickupAddress:""}));
+    });
+    await test("API registra e aprova solicitação e coleta realizada sem endereço de origem não cadastrada", async () => {
+      for (const mode of ["REQUESTED","COLLECTED"]) {
+        const id=randomUUID();
+        const manual={...payload,mode,originType:"PF",generatorId:undefined,pickupAddress:"",custody:mode==="REQUESTED"?"ORIGIN":"COLLECTOR",occurredAt:mode==="COLLECTED"?payload.occurredAt:undefined};
+        const created=await call("POST","/extra-collection-orders",{id,cooperativeId:"coop",payload:manual});ok(created,201);
+        assert.equal(created.body.order.payload.pickupAddress,"");
+        const approved=await call("POST",`/extra-collection-orders/${id}/review`,{operationId:randomUUID(),expectedRevision:1,decision:"ACCEPT"},manager);ok(approved,200);
+        const collection=await prisma.collection.findUniqueOrThrow({where:{id:approved.body.order.collectionId},include:{schedule:true}});
+        assert.equal(collection.schedule!.pickupAddress,"");
+      }
+    });
     await dispatchTests(call, manager, collector, token("COOPERATIVE", "other-user"), test);
     console.log(`${count} testes de integração aprovados`);
   } finally {

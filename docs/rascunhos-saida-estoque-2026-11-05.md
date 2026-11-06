@@ -4,7 +4,7 @@
 
 - O App oferece exclusão confirmada apenas de rascunhos locais ainda não enviados. A conta proprietária e a fila são conferidas novamente antes da exclusão. Um registro mínimo de exclusão impede que salvamentos atrasados restaurem o conteúdo; não inclui endereço, fotos ou materiais.
 - Escritas de rascunho, exclusão e envio são serializadas por conta/protocolo. No navegador, Web Locks também coordena abas. Um autosave não pode substituir uma ordem já enviada.
-- Endereço manual fica visível antes da ajuda de CEP. CEP e coordenadas são opcionais. Editar o endereço cancela a busca pendente e impede que uma resposta antiga o sobrescreva. Nome e endereço da retirada continuam necessários.
+- Endereço manual fica visível antes da ajuda de CEP. CEP e coordenadas são opcionais. Editar o endereço cancela a busca pendente e impede que uma resposta antiga o sobrescreva. Nome continua necessário. Atualização de 06/11/2026: para pessoa ou local sem cadastro, o endereço da retirada também é opcional. Se preenchido, deve ter pelo menos cinco caracteres; para um gerador vinculado, continua obrigatório. A API aceita a ausência do campo e normaliza para texto vazio, sem inventar endereço ou coordenadas.
 - Observações são opcionais ao aceitar ou receber uma O.C. A confirmação do gestor continua obrigatória. Recusa e pedido de complementação exigem explicação; regras de guarda e justificativas de divergência de quantidade continuam vigentes.
 
 ## Destinação por quantidade
@@ -22,9 +22,9 @@ Resposta de rede incerta mantém o protocolo e payload na sessão do navegador. 
 ## Validação
 
 - TypeScript do App/backend, build do backend, exportação Web/PWA e validação Prisma.
-- 30 casos de integração Fastify/Prisma em banco descartável, incluindo gatilhos de documentos existentes, isolamento, autenticação, FIFO, reserva, unidade, precisão decimal, concorrência de protocolos, prévia obsoleta, rollback e observações opcionais.
+- 32 casos de integração Fastify/Prisma em banco descartável, incluindo gatilhos de documentos existentes, isolamento, autenticação, FIFO, reserva, unidade, precisão decimal, concorrência de protocolos, prévia obsoleta, rollback e observações opcionais.
 - 10 verificações de armazenamento/fila offline; exclusão, troca de conta, tombstone, pendência de envio e falha de armazenamento.
-- 15 casos de navegador do App Web, incluindo exclusão confirmada, endereço sem CEP e cancelamento de resposta CEP atrasada.
+- 16 casos de navegador do App Web, incluindo exclusão confirmada, endereço sem CEP e cancelamento de resposta CEP atrasada e envio completo sem endereço.
 - CI `stock-dispatch-validation.yml`: PostgreSQL 16 descartável com quatro conexões para validar contenção real, sem credenciais ou acesso de produção.
 
 Execução local: `KATUA_STOCK_DOCUMENT_TRIGGERS=1 KATUA_VALIDATION_TOOLS=/caminho/ferramentas node server/tests/collector-web/run.mjs`. Sem `KATUA_NATIVE_POSTGRES_BIN`, usa PGlite com uma conexão; essa execução não substitui a cobertura de concorrência nativa da CI.

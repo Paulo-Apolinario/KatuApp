@@ -411,7 +411,7 @@ try {
       .getByLabel("Nome da pessoa ou estabelecimento", { exact: true })
       .fill("Dona Ana");
     await page
-      .getByLabel("Endereço da retirada", { exact: true })
+      .getByLabel("Endereço da retirada (opcional)", { exact: true })
       .fill("Rua das Coletas, 50, Centro, Fortaleza");
     await click("Continuar");
     await click("Adicionar Papel");
@@ -439,6 +439,17 @@ try {
     assert(p.preferredDate);
     assert.equal(p.generatorId, undefined);
   });
+  await test("origem sem cadastro pode avançar e enviar sem endereço, CEP ou GPS", async () => {
+    await newOrder(); await click("Continuar");
+    await page.getByLabel("Nome da pessoa ou estabelecimento",{exact:true}).fill("Pessoa sem endereço QA");
+    await page.getByLabel("Endereço da retirada (opcional)",{exact:true}).waitFor();
+    await click("Continuar"); await click("Adicionar Papel"); await click("Continuar");
+    await page.getByText("Endereço não informado",{exact:true}).waitFor();
+    await click("Enviar registro de coleta");
+    await page.getByText("Aguardando análise",{exact:true}).first().waitFor();
+    const sent=submissions.at(-1).payload;
+    assert.equal(sent.pickupAddress,"");assert.equal(sent.generatorId,undefined);assert.equal(sent.latitude,undefined);assert.equal(sent.longitude,undefined);
+  });
   await test("excluir rascunho exige confirmação e mantém ordens já enviadas", async () => {
     await newOrder();
     await page.getByRole("button", { name: "Voltar", exact: true }).click();
@@ -463,10 +474,10 @@ try {
     const waiting = new Promise(r => { release = r; });
     await page.route("https://viacep.com.br/**", async route => { await waiting; await route.fulfill({json:{logradouro:"Endereço antigo",localidade:"Fortaleza",uf:"CE"}}).catch(()=>{}); });
     await click("Buscar endereço pelo CEP");
-    await page.getByLabel("Endereço da retirada",{exact:true}).fill("Rua manual, 50, Centro");
+    await page.getByLabel("Endereço da retirada (opcional)",{exact:true}).fill("Rua manual, 50, Centro");
     release();
     await page.waitForTimeout(100);
-    assert.equal(await page.getByLabel("Endereço da retirada",{exact:true}).inputValue(),"Rua manual, 50, Centro");
+    assert.equal(await page.getByLabel("Endereço da retirada (opcional)",{exact:true}).inputValue(),"Rua manual, 50, Centro");
     await click("Continuar");
     await page.getByText("Quais materiais?",{exact:true}).waitFor();
     await page.unroute("https://viacep.com.br/**");

@@ -66,7 +66,12 @@ export function clearOrigin(
 export function originError(p: ExtraOrderPayload) {
   if (p.originName.trim().length < 2)
     return "Informe o nome da pessoa ou escolha um gerador.";
-  if (p.pickupAddress.trim().length < 5)
-    return "Informe o endereço da retirada.";
+  if (
+    (p.generatorId || p.pickupAddress.trim()) &&
+    p.pickupAddress.trim().length < 5
+  )
+    return p.generatorId
+      ? "Informe o endereço da retirada."
+      : "Informe um endereço com pelo menos cinco caracteres ou deixe o campo em branco.";
   return "";
 }
