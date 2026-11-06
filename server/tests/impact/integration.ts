@@ -130,6 +130,18 @@ async function main() {
     c2 = await col(gen2.id, pp, 70);
   await col(gen.id, oil, 80);
   await col(gen.id, pp, 10, false);
+  r = await api("GET", "/environmental-impact?year=2026");
+  assert.equal(r.statusCode, 200, r.body);
+  const automatic = r.json().data;
+  assert.equal(automatic.calculationMode, "REFERENCE");
+  assert(Math.abs(automatic.co2Kg - (110 * 0.81 * 1000) / 907.18474) < 1e-8);
+  assert.equal(automatic.referenceProvisionalMassKg, 10);
+  assert.equal(automatic.waterLiters, null);
+  assert.equal(automatic.factorDiagnostics.NON_MASS_UNIT.LITER, 80);
+  assert.equal(automatic.referenceFactors.length, 12);
+  pass(
+    "Base automática funciona sem cadastrar fatores ou falsificar conferências",
+  );
   const method = {
     approved: true,
     approvedBy: "Técnico QA",
@@ -293,7 +305,7 @@ async function main() {
   pass("Destinações e saldo respeitam origem do gerador");
   r = await api("GET", url);
   d = r.json().data;
-  const ctx = (await api("GET", "/reports/context")).json().data;
+  let ctx = (await api("GET", "/reports/context")).json().data;
   assert.equal(
     await p.reportConfigurationRevision.count({
       where: { cooperativeId: coop.id },
@@ -301,6 +313,24 @@ async function main() {
     1,
   );
   pass("Metodologia preservada em revisão imutável");
+  r = await api("PUT", "/reports/config", {
+    ...ctx.settings,
+    methodology: {
+      ...ctx.settings.methodology,
+      calculationMode: "REFERENCE",
+      approved: false,
+    },
+  });
+  assert.equal(r.statusCode, 200, r.body);
+  r = await api("GET", url);
+  d = r.json().data;
+  assert.equal(d.calculationMode, "REFERENCE");
+  assert(d.co2Kg > 0);
+  assert.equal(d.methodologyStatus, "AUTOMATIC_REFERENCE");
+  pass(
+    "Modo automático explícito preserva configuração própria sem usá-la silenciosamente",
+  );
+  ctx = (await api("GET", "/reports/context")).json().data;
   if (process.env.KATUA_IMPACT_FIXTURE)
     writeFileSync(
       process.env.KATUA_IMPACT_FIXTURE,

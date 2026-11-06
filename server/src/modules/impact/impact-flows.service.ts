@@ -1,3 +1,4 @@
+import { referenceMatch, snapshotMaterialKnown } from "./reference-factors";
 import { profileFor } from "./impact-analysis.model";
 // Read physical events, never count internal STOCK/TRIAGE transfers as external destinations.
 export async function physicalFlows(
@@ -16,10 +17,26 @@ export async function physicalFlows(
   let total = 0;
   const matches = (cm: any, itemId: string | null) => {
     const profile = profileFor(cm || { wasteTypeId: itemId }, catalog).profile;
+    const item = catalog.get(cm?.wasteTypeId || itemId);
+    const reference = referenceMatch({
+      ...cm,
+      name: cm?.nameSnapshot || item?.name,
+      category: cm?.categorySnapshot || item?.category,
+      referenceLabel: !snapshotMaterialKnown(cm)
+        ? item?.subcategory
+        : undefined,
+      referenceMaterialCode: !snapshotMaterialKnown(cm)
+        ? item?.technicalProfile?.materialCode
+        : undefined,
+      referenceWasteClass: item?.wasteClass,
+      profile,
+    }).factor;
     return (
       (!input.materialId || (cm?.wasteTypeId || itemId) === input.materialId) &&
       (!input.materialCode ||
-        (profile.materialCode || "UNKNOWN") === input.materialCode)
+        (profile.materialCode && profile.materialCode !== "UNKNOWN"
+          ? profile.materialCode
+          : reference?.materialCode || "UNKNOWN") === input.materialCode)
     );
   };
   const add = (map: Record<string, number>, q: any, u: string) => {

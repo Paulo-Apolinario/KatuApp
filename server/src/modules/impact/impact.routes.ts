@@ -22,7 +22,7 @@ export async function impactRoutes(app: FastifyInstance) {
             ...data,
             origins: data.generators,
             reference: {
-              label: "Metodologia por material",
+              label: data.methodology.label || "Metodologia por material",
               version: data.methodology.version || "Pendente",
             },
           },

@@ -1,3 +1,8 @@
+import {
+  calculationMode,
+  referenceMatch,
+  snapshotMaterialKnown,
+} from "./reference-factors";
 import { eligibleImpactFactor } from "./impact-factor";
 import { impactMaterials } from "./impact.model";
 export const metricFactors = {
@@ -36,11 +41,33 @@ export function selectedAnalysisMaterials(
   return impactMaterials(c).filter((m: any) => {
     const source = c.collectionMaterials?.find((x: any) => x.id === m.id) || m;
     const { profile, basis } = profileFor(source, catalog);
-    Object.assign(m, { profile, identificationBasis: basis });
+    Object.assign(m, {
+      profile,
+      identificationBasis: basis,
+      referenceWasteClass: catalog.get(m.materialId)?.wasteClass,
+      referenceMaterialCode: !snapshotMaterialKnown(source)
+        ? catalog.get(m.materialId)?.technicalProfile?.materialCode
+        : undefined,
+      referenceLabel: [
+        source.subcategorySnapshot,
+        !snapshotMaterialKnown(source)
+          ? catalog.get(m.materialId)?.subcategory
+          : undefined,
+        !snapshotMaterialKnown(source)
+          ? catalog.get(m.materialId)?.category
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    });
+    m.referenceFactor = referenceMatch(m).factor;
     return (
       (!filter.materialId || m.materialId === filter.materialId) &&
       (!filter.materialCode ||
-        (profile.materialCode || "UNKNOWN") === filter.materialCode)
+        (profile.materialCode && profile.materialCode !== "UNKNOWN"
+          ? profile.materialCode
+          : m.referenceFactor?.materialCode || "UNKNOWN") ===
+          filter.materialCode)
     );
   });
 }
@@ -53,6 +80,9 @@ export function newImpactTotals() {
     units: {} as Record<string, number>,
     unknownUnits: {} as Record<string, number>,
     currentMappingUnits: {} as Record<string, number>,
+    factorDiagnostics: {} as Record<string, Record<string, number>>,
+    referenceMassKg: 0,
+    referenceProvisionalMassKg: 0,
     metrics: Object.fromEntries(
       Object.keys(metricFactors).map((k) => [
         k,
@@ -80,16 +110,41 @@ export function addImpact(
     if (m.identificationBasis === "CURRENT_CATALOG")
       total.currentMappingUnits[unit] =
         (total.currentMappingUnits[unit] || 0) + quantity;
-    if (unit !== "KG") continue;
+    const diagnostic = (reason: string) => {
+      const units = total.factorDiagnostics[reason] || {};
+      units[unit] = (units[unit] || 0) + quantity;
+      total.factorDiagnostics[reason] = units;
+    };
+    if (quantity === 0 && !confirmed) {
+      diagnostic("MISSING_QUANTITY");
+      continue;
+    }
+    if (unit !== "KG") {
+      diagnostic("NON_MASS_UNIT");
+      continue;
+    }
     total.totalMassKg += quantity;
     total[confirmed ? "confirmedMassKg" : "provisionalMassKg"] += quantity;
     const factor = eligibleImpactFactor(c, m, methodology);
-    if (!factor) continue;
+    if (!factor) {
+      diagnostic(
+        calculationMode(methodology) === "REFERENCE"
+          ? referenceMatch(m).reason || "NO_COMPATIBLE_FACTOR"
+          : calculationMode(methodology) === "DISABLED"
+            ? "DISABLED"
+            : "CUSTOM_REQUIREMENTS",
+      );
+      continue;
+    }
+    if (factor.calculationBasis === "REFERENCE") {
+      total.referenceMassKg += quantity;
+      if (!confirmed) total.referenceProvisionalMassKg += quantity;
+    }
     for (const [key, field] of Object.entries(metricFactors)) {
       // Tree equivalents are only allowed for documented paper/cellulosic scenarios.
       if (
         key === "treesEquivalent" &&
-        !["PAPER", "CARDBOARD"].includes(m.profile.materialCode)
+        !["PAPER", "CARDBOARD"].includes(m.profile?.materialCode)
       )
         continue;
       const value = factor[field];

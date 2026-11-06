@@ -4,7 +4,7 @@ import {
   newImpactTotals,
   finishImpact,
 } from "../../src/modules/impact/impact-analysis.model";
-test("Sem metodologia não há estimativa genérica por kg", () => {
+test("Sem material ou fator compatível não há estimativa genérica por kg", () => {
   const totals = newImpactTotals();
   totals.totalMassKg = 100;
   const result = finishImpact(totals);

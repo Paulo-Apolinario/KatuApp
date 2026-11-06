@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../../services/api";
 type Impact = {
+  calculationMode?: string;
   collections: number;
   requests: number;
   pendingRequests: number;
@@ -122,19 +123,19 @@ export default function GeneratorImpact({
             ).map(([label, key, unit, icon]) => (
               <View style={s.metric} key={key}>
                 <Ionicons name={icon} size={22} color="#047857" />
-                <Text style={s.text}>{label}</Text>
+                <Text style={s.text}>{data.calculationMode === "REFERENCE" && key === "energyKwh" ? "Energia equivalente" : label}</Text>
                 <Text style={s.value}>
                   {data[key] == null
                     ? "Sem estimativa"
-                    : `${num(data[key])} ${unit}`.trim()}
+                    : `${num(data[key])} ${data.calculationMode === "REFERENCE" && key === "energyKwh" ? "kWh eq." : unit}`.trim()}
                 </Text>
               </View>
             ))}
           </View>
           <Text style={s.small}>
-            Estimativas dependem de quantidade e identificação conferidas e de
-            metodologia validada. Solicitações pendentes não geram benefício
-            realizado.
+            {data.calculationMode === "REFERENCE"
+              ? "Referência automática EPA WARM v16 (EUA), aplicada ao material e à quantidade registrados. Valores provisórios podem mudar após conferência; não é uma medição local."
+              : "Estimativas da metodologia própria dependem de quantidade e identificação conferidas e de metodologia validada."}
           </Text>
           <Text style={s.small}>
             Indicadores aproximados; não representam comprovação de reciclagem

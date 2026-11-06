@@ -1,3 +1,9 @@
+import { eligibleImpactFactor } from "./impact-factor";
+import {
+  calculationMode,
+  referenceMethodology,
+  referenceFactors,
+} from "./reference-factors";
 import { physicalFlows } from "./impact-flows.service";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -89,7 +95,14 @@ export async function analyzeImpact(
         );
       const items = await tx.wasteStockItem.findMany({
         where: { cooperativeId: coop },
-        select: { id: true, name: true, technicalProfile: true },
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          subcategory: true,
+          wasteClass: true,
+          technicalProfile: true,
+        },
       });
       if (input.materialId && !items.some((i) => i.id === input.materialId))
         throw new ImpactAccessError(
@@ -169,6 +182,7 @@ export async function analyzeImpact(
                 wasteTypeId: true,
                 nameSnapshot: true,
                 categorySnapshot: true,
+                subcategorySnapshot: true,
                 unit: true,
                 quantity: true,
                 updatedAt: true,
@@ -203,13 +217,18 @@ export async function analyzeImpact(
           addImpact(monthTotal, c, ms, methodology);
           months.set(month, monthTotal);
           for (const m of ms) {
-            const key = `${m.materialId || m.name}|${m.unit}|${m.profile?.materialCode || "UNKNOWN"}|${m.identificationBasis}`;
+            const appliedFactor = eligibleImpactFactor(c, m, methodology);
+            const key = `${appliedFactor?.id || "custom"}|${m.materialId || m.name}|${m.unit}|${m.profile?.materialCode || "UNKNOWN"}|${m.identificationBasis}`;
             const group = materials.get(key) || {
               id: key,
               materialId: m.materialId,
               name: m.name,
               materialCode: m.profile?.materialCode || "UNKNOWN",
               identificationBasis: m.identificationBasis,
+              factorReference:
+                appliedFactor?.calculationBasis === "REFERENCE"
+                  ? appliedFactor
+                  : null,
               totals: newImpactTotals(),
             };
             addImpact(group.totals, c, [m], methodology);
@@ -329,11 +348,19 @@ export async function analyzeImpact(
           "Data da coleta em Fortaleza (UTC−03); registros legados usam recebimento, conclusão ou criação, nesta ordem.",
         description:
           "Potencial ambiental estimado, sem comprovação de reciclagem ou crédito de carbono. Coletas e suas frações não devem ser somadas novamente como novos benefícios. Litros, unidades e m³ não são convertidos em kg.",
-        methodology,
+        methodology:
+          calculationMode(methodology) === "REFERENCE"
+            ? referenceMethodology()
+            : methodology,
+        calculationMode: calculationMode(methodology),
+        referenceFactors,
         methodologyRevision: cfg?.version || 0,
-        methodologyStatus: methodology.approved
-          ? "DECLARED_APPROVED"
-          : "PENDING_VALIDATION",
+        methodologyStatus:
+          calculationMode(methodology) === "REFERENCE"
+            ? "AUTOMATIC_REFERENCE"
+            : methodology.approved
+              ? "DECLARED_APPROVED"
+              : "PENDING_VALIDATION",
         materials: [...materials.values()].map((g) => ({
           ...g,
           ...finishImpact(g.totals),

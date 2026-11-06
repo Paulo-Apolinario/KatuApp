@@ -103,6 +103,7 @@ export const configSchema = z
       .strict(),
     methodology: z
       .object({
+        calculationMode: z.enum(["REFERENCE", "CUSTOM", "DISABLED"]).optional(),
         approved: z.boolean().default(false),
         approvedBy: z.string().trim().max(200).default(""),
         region: z.string().trim().max(200).default(""),

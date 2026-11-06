@@ -1,3 +1,4 @@
+import { calculationMode, referenceMethodology } from "../impact/reference-factors";
 import { eligibleImpactFactor } from "../impact/impact-factor";
 import { creditedMaterials } from "../collector-teams/team.model";
 export const EXECUTED = new Set([
@@ -66,6 +67,7 @@ export function materials(c: any) {
       materialId: m.wasteTypeId,
       name: m.nameSnapshot,
       category: m.categorySnapshot,
+      subcategory: m.subcategorySnapshot,
       unit: m.unit,
       quantity: amount(m.quantity),
       entry: m.wasteEntry,
@@ -235,9 +237,10 @@ export function buildCharts(collections: any[], q: any, config: any) {
       co2Kg: coveredMass > 0 ? co2 : null,
       coveredMassKg: coveredMass,
       totalMassKg: summarize(collections, q).massKg,
-      methodology: config.methodology,
+      methodology: calculationMode(config.methodology)==="REFERENCE" ? referenceMethodology() : config.methodology,
+      calculationMode: calculationMode(config.methodology),
       description:
-        "Potencial estimado dos materiais conferidos, com identificação conferida e metodologia validada; não comprova reciclagem ou crédito ambiental.",
+        "Potencial estimado por material; a referência automática é um cenário internacional, e a metodologia própria exige conferência e validação; não comprova reciclagem ou crédito ambiental.",
     },
   };
 }

@@ -42,6 +42,7 @@ function collection(
   };
 }
 const method = {
+  calculationMode: "CUSTOM",
   approved: true,
   approvedBy: "Técnico QA",
   source: "Fonte demonstrativa de teste",
