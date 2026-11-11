@@ -8,6 +8,7 @@ datasource db {
 }
 
 model User {
+  analyticsUsage AnalyticsUsageDaily[]
   agentRuns AgentRun[]
   agentConversations AgentConversation[]
   agentAudits AgentAuditEvent[]
@@ -58,6 +59,7 @@ model User {
 }
 
 model Cooperative {
+  analyticsUsage AnalyticsUsageDaily[]
   reportConfigurationRevisions ReportConfigurationRevision[]
   agentEvents AgentEvent[]
   agentConfigs AgentConfig[]
@@ -1990,4 +1992,23 @@ model ReportConfigurationRevision {
   createdAt DateTime @default(now())
   cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
   @@id([cooperativeId, version])
+}
+
+// Daily active-use estimates. One row per user/day, not an event log.
+model AnalyticsUsageDaily {
+  id String @id
+  userId String
+  cooperativeId String?
+  day String @db.VarChar(10)
+  seconds Int @default(0)
+  lastSlot DateTime
+  lastSlotSeconds Int
+  lastSeenAt DateTime
+  webUsed Boolean @default(false)
+  appUsed Boolean @default(false)
+  roleSnapshot String
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  cooperative Cooperative? @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
+  @@unique([userId,day])
+  @@index([cooperativeId,day])
 }
