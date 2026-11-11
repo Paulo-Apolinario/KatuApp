@@ -21,7 +21,12 @@ const missing = (s: Prisma.Sql) =>
 
 // One collection is one operation. Materials are tested with EXISTS, never joined
 // into the population. All relations are independently restricted to the tenant.
-function relations(coop: string, q: ParticipationQuery, now: Date) {
+export function relations(
+  coop: string,
+  q: ParticipationQuery,
+  now: Date,
+  generatorsOnly = false,
+) {
   const p = bounds(q, now);
   const reference = new Date(p.end.getTime() - 1);
   return Prisma.sql`
@@ -44,6 +49,8 @@ function relations(coop: string, q: ParticipationQuery, now: Date) {
           WHEN g.id IS NOT NULL THEN 'GENERATOR'
           WHEN u.role='PF' THEN 'PF' ELSE 'UNATTRIBUTED' END AS bucket,
         g.id AS gen_id, g.type::text AS gen_type, u.id AS author_id,
+        CASE WHEN b.id IS NOT NULL THEN b.latitude ELSE g.latitude END AS latitude,
+        CASE WHEN b.id IS NOT NULL THEN b.longitude ELSE g.longitude END AS longitude,
         coalesce(nullif(g."companyName",''),g.name,u."displayName") AS display_name,
         CASE WHEN b.id IS NOT NULL THEN b.city ELSE g.city END AS city_label,
         CASE WHEN b.id IS NOT NULL THEN b.state ELSE g.state END AS state_label,
@@ -75,7 +82,7 @@ function relations(coop: string, q: ParticipationQuery, now: Date) {
       SELECT * FROM confirmed WHERE received_at>=${p.start}
         ${geo(q)}
     ), selected AS (
-      SELECT * FROM geo_period WHERE party_key IS NOT NULL ${profile(q)}
+      SELECT * FROM geo_period WHERE party_key IS NOT NULL ${profile(q)} ${generatorsOnly ? Prisma.sql`AND bucket='GENERATOR'` : Prisma.empty}
     ), raw_requests AS (
       SELECT s.id, s."createdAt" AS created_at, s.status::text AS status, s."scheduledDate" AS scheduled_at,
         CASE WHEN EXISTS (SELECT 1 FROM operations o WHERE o.schedule_id=s.id AND o.party_key IS NULL) THEN NULL
@@ -93,7 +100,7 @@ function relations(coop: string, q: ParticipationQuery, now: Date) {
       WHERE s."cooperativeId"=${coop} AND s."createdAt"<=${now}
     ), requests AS (
       SELECT * FROM raw_requests WHERE created_at>=${p.start} AND created_at<${p.end}
-        AND party_key IS NOT NULL ${geo(q)} ${profile(q)}
+        AND party_key IS NOT NULL ${geo(q)} ${profile(q)} ${generatorsOnly ? Prisma.sql`AND profile IN ('SMALL','LARGE')` : Prisma.empty}
     ), active_origins AS (
       SELECT party_key, max(display_name) AS name, max(profile) AS profile,
         max(city_label) AS city, max(state_label) AS state, max(neighborhood_label) AS neighborhood,
@@ -176,7 +183,7 @@ export async function participationContext(userId: string) {
     locations,
     definitionVersion: "participation-v1",
     neighborhoodSource: "Cadastro atual",
-    digitalActivityAvailable: false,
+    digitalActivityAvailable: true,
   };
 }
 
@@ -327,6 +334,31 @@ export async function participationCoverage(
         totalPages: Math.ceil(total.total / q.pageSize),
         scope:
           "Todos os perfis; mesmo período e seleção geográfica do quadro de cobertura.",
+      };
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+      timeout: 20000,
+    },
+  );
+}
+
+export async function generatorsOverview(
+  userId: string,
+  q: ParticipationQuery,
+  now = new Date(),
+) {
+  const coop = await reportScope(userId),
+    cte = relations(coop.id, q, now, true);
+  return prisma.$transaction(
+    async (db) => {
+      const [summary] = await db.$queryRaw<Record<string, unknown>[]>(
+        Prisma.sql`${cte} SELECT count(*)::float8 AS generators,count(*) FILTER(WHERE period_count>0)::float8 AS active,coalesce(sum(period_count),0)::float8 AS receipts,coalesce(sum(open_requests),0)::float8 AS open_requests FROM people`,
+      );
+      return {
+        meta: meta(q, now),
+        summary,
+        ...(await pagedPeople(db, cte, q)),
       };
     },
     {
