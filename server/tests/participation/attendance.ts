@@ -136,9 +136,43 @@ export async function testAttendance(app: FastifyInstance) {
         createdAt: stamp("2026-10-25"),
       },
     });
+  await prisma.schedule.create({
+    data: {
+      id: "att-closed-unreceived",
+      cooperativeId: coop.id,
+      requestedByUserId: "a",
+      status: "COMPLETED",
+      createdAt: stamp("2026-10-10"),
+    },
+  });
+  await prisma.schedule.create({
+    data: {
+      id: "att-missing-date",
+      cooperativeId: coop.id,
+      requestedByUserId: "a",
+      status: "COMPLETED",
+      createdAt: stamp("2026-10-10"),
+    },
+  });
+  await prisma.collection.create({
+    data: {
+      cooperativeId: coop.id,
+      scheduleId: "att-missing-date",
+      status: "RECEIVED",
+      createdAt: stamp("2026-10-10"),
+    },
+  });
   const result = await participationAttendance("attendance-owner", q, now);
+  assert.deepEqual(result.reconciliation, {
+    total: 8,
+    received: 2,
+    pending: 3,
+    cancelled: 1,
+    closed_without_receipt: 1,
+    needs_check: 1,
+  });
   const schedule = result.channels.find((row) => row.channel === "SCHEDULE")!;
-  assert.equal(schedule.total, 6);
+  assert.equal(schedule.total, 8);
   assert.equal(schedule.received, 2);
   assert.equal(schedule.pending, 3);
   assert.equal(schedule.pending_under7, 1);
