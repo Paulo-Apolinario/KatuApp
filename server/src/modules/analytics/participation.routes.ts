@@ -14,6 +14,14 @@ import { ReportError } from "../reports/reports.service";
 import { participationAttendance } from "./attendance.service";
 import { territoryOverview, collectorsOverview } from "./dimensions.service";
 import { recordUsage, usageOverview } from "./usage.service";
+import {
+  requestDrilldown,
+  qualityDrilldown,
+  comparisonOverview,
+  executiveOverview,
+  requestOutcomes,
+  qualityIssues,
+} from "./insights.service";
 
 export async function participationAnalyticsRoutes(app: FastifyInstance) {
   const auth = { preHandler: [app.authenticate] };
@@ -38,6 +46,52 @@ export async function participationAnalyticsRoutes(app: FastifyInstance) {
         });
       }
     };
+  app.get(
+    "/analytics/participation/requests/:outcome",
+    auth,
+    handle((r) => {
+      const q = z
+        .object({
+          start: z.string(),
+          end: z.string(),
+          page: z.coerce.number().int().min(1).max(100000).default(1),
+          pageSize: z.coerce.number().int().min(5).max(50).default(20),
+          search: z.string().max(120).default(""),
+        })
+        .strict()
+        .parse(r.query);
+      return requestDrilldown(
+        r.user.sub,
+        participationQuery.parse(q),
+        z.enum(requestOutcomes).parse(r.params.outcome),
+      );
+    }),
+  );
+  app.get(
+    "/analytics/participation/quality/:issue",
+    auth,
+    handle((r) =>
+      qualityDrilldown(
+        r.user.sub,
+        participationQuery.parse(r.query),
+        z.enum(qualityIssues).parse(r.params.issue),
+      ),
+    ),
+  );
+  app.get(
+    "/analytics/participation/comparison",
+    auth,
+    handle((r) =>
+      comparisonOverview(r.user.sub, participationQuery.parse(r.query)),
+    ),
+  );
+  app.get(
+    "/analytics/participation/executive",
+    auth,
+    handle((r) =>
+      executiveOverview(r.user.sub, participationQuery.parse(r.query)),
+    ),
+  );
   app.post(
     "/analytics/usage/heartbeat",
     auth,
@@ -71,9 +125,18 @@ export async function participationAnalyticsRoutes(app: FastifyInstance) {
   app.get(
     "/analytics/participation/territory",
     auth,
-    handle((r) =>
-      territoryOverview(r.user.sub, participationQuery.parse(r.query)),
-    ),
+    handle((r) => {
+      const { materialKey = "", ...query } = z
+        .object({ materialKey: z.string().max(600).optional() })
+        .passthrough()
+        .parse(r.query);
+      return territoryOverview(
+        r.user.sub,
+        participationQuery.parse(query),
+        new Date(),
+        materialKey,
+      );
+    }),
   );
   app.get(
     "/analytics/participation/usage",
