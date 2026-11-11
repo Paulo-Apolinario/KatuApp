@@ -53,7 +53,7 @@ export async function participationAttendance(
     WHERE p."cooperativeId"=${coop.id} AND p."createdAt">=${period.start} AND p."createdAt"<${period.end}
   ), records AS (
     SELECT 'SCHEDULE' AS channel,id,created_at,status,
-      (status IN ('REQUESTED','SCHEDULED','IN_PROGRESS') AND received_at IS NULL) AS pending,
+      (status IN ('REQUESTED','SCHEDULED','IN_PROGRESS') AND received_at IS NULL AND NOT invalid_link AND NOT coalesce(invalid_receipt,false)) AS pending,
       received_at,linked,coalesce(invalid_receipt,false) AS invalid_receipt,invalid_link FROM schedules
     UNION ALL SELECT 'EXTRA',id,created_at,status,status IN ('PENDING_REVIEW','NEEDS_INFO'),received_at,linked,coalesce(invalid_receipt,false),invalid_link FROM extras
     UNION ALL SELECT 'PEV',id,created_at,status,status IN ('OPEN','ASSIGNED'),NULL::timestamp,linked,false,invalid_link FROM pevs
@@ -83,6 +83,18 @@ export async function participationAttendance(
       >(
         Prisma.sql`${cte} SELECT channel,status,count(*)::float8 AS count FROM records GROUP BY channel,status ORDER BY channel,status`,
       );
+      const [reconciliation] = await db.$queryRaw<
+        Record<string, unknown>[]
+      >(Prisma.sql`${cte}, classified AS (
+        SELECT CASE WHEN invalid_link OR invalid_receipt THEN 'CHECK'
+          WHEN received_at IS NOT NULL THEN 'RECEIVED'
+          WHEN status='CANCELLED' THEN 'CANCELLED'
+          WHEN status='COMPLETED' THEN 'CLOSED_WITHOUT_RECEIPT'
+          WHEN pending THEN 'PENDING' ELSE 'CHECK' END AS outcome FROM records WHERE channel='SCHEDULE'
+      ) SELECT count(*)::float8 AS total,count(*) FILTER(WHERE outcome='RECEIVED')::float8 AS received,
+        count(*) FILTER(WHERE outcome='PENDING')::float8 AS pending,count(*) FILTER(WHERE outcome='CANCELLED')::float8 AS cancelled,
+        count(*) FILTER(WHERE outcome='CLOSED_WITHOUT_RECEIPT')::float8 AS closed_without_receipt,
+        count(*) FILTER(WHERE outcome='CHECK')::float8 AS needs_check FROM classified`);
       return {
         meta: {
           definitionVersion: "attendance-v1",
@@ -94,6 +106,7 @@ export async function participationAttendance(
           readMode: "CURRENT_STATE_BY_CREATION_DATE",
           filtersApplied: ["start", "end"],
         },
+        reconciliation,
         channels: ["SCHEDULE", "EXTRA", "PEV"].map((channel) => ({
           channel,
           total: 0,
