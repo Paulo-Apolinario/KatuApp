@@ -8,9 +8,12 @@ import {
   participationDetail,
   participationCoverage,
   coverageBuckets,
+  generatorsOverview,
 } from "./participation.service";
 import { ReportError } from "../reports/reports.service";
 import { participationAttendance } from "./attendance.service";
+import { territoryOverview, collectorsOverview } from "./dimensions.service";
+import { recordUsage, usageOverview } from "./usage.service";
 
 export async function participationAnalyticsRoutes(app: FastifyInstance) {
   const auth = { preHandler: [app.authenticate] };
@@ -35,6 +38,63 @@ export async function participationAnalyticsRoutes(app: FastifyInstance) {
         });
       }
     };
+  app.post(
+    "/analytics/usage/heartbeat",
+    auth,
+    handle((r) =>
+      recordUsage(
+        r.user.sub,
+        z
+          .object({
+            activeSeconds: z.number().int().min(0).max(30),
+            platform: z.enum(["WEB", "APP"]),
+          })
+          .strict()
+          .parse(r.body),
+      ),
+    ),
+  );
+  app.get(
+    "/analytics/participation/generators",
+    auth,
+    handle((r) =>
+      generatorsOverview(r.user.sub, participationQuery.parse(r.query)),
+    ),
+  );
+  app.get(
+    "/analytics/participation/collectors",
+    auth,
+    handle((r) =>
+      collectorsOverview(r.user.sub, participationQuery.parse(r.query)),
+    ),
+  );
+  app.get(
+    "/analytics/participation/territory",
+    auth,
+    handle((r) =>
+      territoryOverview(r.user.sub, participationQuery.parse(r.query)),
+    ),
+  );
+  app.get(
+    "/analytics/participation/usage",
+    auth,
+    handle((r) =>
+      usageOverview(
+        r.user.sub,
+        participationQuery.parse(
+          z
+            .object({
+              start: z.string(),
+              end: z.string(),
+              page: z.coerce.number().int().min(1).max(100000).default(1),
+              pageSize: z.coerce.number().int().min(5).max(50).default(20),
+            })
+            .strict()
+            .parse(r.query),
+        ),
+      ),
+    ),
+  );
   app.get(
     "/analytics/participation/coverage/:bucket",
     auth,
