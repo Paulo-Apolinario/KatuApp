@@ -10,6 +10,7 @@ import { participationQuery } from "../../src/modules/analytics/participation.sc
 import { testAttendance } from "./attendance";
 import { testCoverage } from "./coverage";
 import { testDimensions } from "./dimensions";
+import { testInsights } from "./insights";
 
 async function main() {
   const url = new URL(process.env.DATABASE_URL || "");
@@ -264,6 +265,7 @@ async function main() {
     const coverage = await testCoverage(app);
     const attendance = await testAttendance(app);
     const dimensions = await testDimensions(app);
+    const insights = await testInsights(app);
     if (process.env.KATUA_ANALYTICS_FIXTURE) {
       const context = await call("context");
       writeFileSync(
@@ -276,6 +278,7 @@ async function main() {
           attendance,
           coverage,
           dimensions,
+          insights,
         }),
       );
     }
