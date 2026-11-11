@@ -1,3 +1,4 @@
+import { analyticsGet } from "./access";
 import assert from "node:assert/strict";
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../../src/lib/prisma";
@@ -218,11 +219,7 @@ export async function testAttendance(app: FastifyInstance) {
   const path =
     "/analytics/participation/attendance?start=2026-10-01&end=2026-10-31";
   const call = (suffix = "", auth = token) =>
-    app.inject({
-      method: "GET",
-      url: path + suffix,
-      headers: auth ? { authorization: "Bearer " + auth } : {},
-    });
+    analyticsGet(app, path + suffix, auth);
   const response = await call();
   assert.equal(response.statusCode, 200, response.body);
   assert.equal(response.headers["cache-control"], "private, no-store");
