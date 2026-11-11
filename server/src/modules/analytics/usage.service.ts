@@ -62,34 +62,46 @@ export async function recordUsage(
   return { recorded: true };
 }
 
+export function usageRelations(cooperativeId: string, q: ParticipationQuery) {
+  return Prisma.sql`WITH members AS (
+    SELECT u.id,u."displayName" AS name,u.role::text AS role FROM "User" u WHERE
+      (u.role='COOPERATIVE' AND EXISTS(SELECT 1 FROM "Cooperative" c WHERE c.id=${cooperativeId} AND c."userId"=u.id)) OR
+      (u.role='COLLECTOR' AND EXISTS(SELECT 1 FROM "Collector" c WHERE c."cooperativeId"=${cooperativeId} AND c."userId"=u.id)) OR
+      (u.role='DRIVER' AND EXISTS(SELECT 1 FROM "Driver" c WHERE c."cooperativeId"=${cooperativeId} AND c."userId"=u.id)) OR
+      (u.role IN ('GENERATOR_SMALL','GENERATOR_LARGE') AND EXISTS(SELECT 1 FROM "Generator" c WHERE c."cooperativeId"=${cooperativeId} AND c."userId"=u.id))
+  ), rows AS (
+    SELECT m.id,m.name,m.role,coalesce(sum(d.seconds),0)::float8 AS seconds,count(d.id)::float8 AS days,
+      max(d."lastSeenAt") AS last_seen,bool_or(d."webUsed") AS web_used,bool_or(d."appUsed") AS app_used
+    FROM members m LEFT JOIN "AnalyticsUsageDaily" d ON d."userId"=m.id AND d."cooperativeId"=${cooperativeId} AND d.day>=${q.start} AND d.day<=${q.end}
+    GROUP BY m.id,m.name,m.role
+  )`;
+}
+
 export async function usageOverview(
   userId: string,
   q: ParticipationQuery,
   now = new Date(),
 ) {
   const coop = await reportScope(userId);
-  const cte = Prisma.sql`WITH members AS (
-    SELECT u.id,u."displayName" AS name,u.role::text AS role FROM "User" u WHERE
-      (u.role='COOPERATIVE' AND EXISTS(SELECT 1 FROM "Cooperative" c WHERE c.id=${coop.id} AND c."userId"=u.id)) OR
-      (u.role='COLLECTOR' AND EXISTS(SELECT 1 FROM "Collector" c WHERE c."cooperativeId"=${coop.id} AND c."userId"=u.id)) OR
-      (u.role='DRIVER' AND EXISTS(SELECT 1 FROM "Driver" c WHERE c."cooperativeId"=${coop.id} AND c."userId"=u.id)) OR
-      (u.role IN ('GENERATOR_SMALL','GENERATOR_LARGE') AND EXISTS(SELECT 1 FROM "Generator" c WHERE c."cooperativeId"=${coop.id} AND c."userId"=u.id))
-  ), rows AS (
-    SELECT m.id,m.name,m.role,coalesce(sum(d.seconds),0)::float8 AS seconds,count(d.id)::float8 AS days,
-      max(d."lastSeenAt") AS last_seen,bool_or(d."webUsed") AS web_used,bool_or(d."appUsed") AS app_used
-    FROM members m LEFT JOIN "AnalyticsUsageDaily" d ON d."userId"=m.id AND d."cooperativeId"=${coop.id} AND d.day>=${q.start} AND d.day<=${q.end}
-    GROUP BY m.id,m.name,m.role
-  )`;
+  const cte = usageRelations(coop.id, q);
   return prisma.$transaction(
     async (db) => {
       const [summary] = await db.$queryRaw<Record<string, unknown>[]>(
-        Prisma.sql`${cte} SELECT count(*)::float8 AS accounts,count(*) FILTER(WHERE days>0)::float8 AS measured_accounts,coalesce(sum(seconds),0)::float8 AS seconds FROM rows`,
+        Prisma.sql`${cte} SELECT count(*)::float8 AS accounts,count(*) FILTER(WHERE days>0)::float8 AS measured_accounts,coalesce(sum(seconds),0)::float8 AS seconds,count(*) FILTER(WHERE web_used)::float8 AS web_accounts,count(*) FILTER(WHERE app_used)::float8 AS app_accounts FROM rows`,
       );
       const items = await db.$queryRaw<Record<string, unknown>[]>(
         Prisma.sql`${cte} SELECT * FROM rows ORDER BY seconds DESC,name,id LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
       );
+      const coverageByRole = await db.$queryRaw<Record<string, unknown>[]>(
+        Prisma.sql`${cte} SELECT role,count(*)::float8 AS accounts,count(*) FILTER(WHERE days>0)::float8 AS measured FROM rows GROUP BY role ORDER BY role`,
+      );
+      const [first] = await db.$queryRaw<{ first_day: string | null }[]>(
+        Prisma.sql`${cte} SELECT min(d.day) AS first_day FROM "AnalyticsUsageDaily" d JOIN members m ON m.id=d."userId" WHERE d."cooperativeId"=${coop.id}`,
+      );
       return {
         summary,
+        coverageByRole,
+        firstObservedDay: first.first_day,
         items,
         page: q.page,
         pageSize: q.pageSize,
