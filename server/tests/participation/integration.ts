@@ -7,6 +7,7 @@ import {
   participationDetail,
 } from "../../src/modules/analytics/participation.service";
 import { participationQuery } from "../../src/modules/analytics/participation.schemas";
+import { testAttendance } from "./attendance";
 
 async function main() {
   const url = new URL(process.env.DATABASE_URL || "");
@@ -258,6 +259,7 @@ async function main() {
       (await call(`participants?${query}&search=%25`)).json().data.total,
       0,
     );
+    const attendance = await testAttendance(app);
     if (process.env.KATUA_ANALYTICS_FIXTURE) {
       const context = await call("context");
       writeFileSync(
@@ -267,6 +269,7 @@ async function main() {
           context: context.json().data,
           detail: await participationDetail("a", q, "GENERATOR", "old"),
           participants: response.json().data.participants,
+          attendance,
         }),
       );
     }
