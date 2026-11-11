@@ -26,8 +26,10 @@ export function relations(
   q: ParticipationQuery,
   now: Date,
   generatorsOnly = false,
+  cutoff?: Date,
 ) {
   const p = bounds(q, now);
+  if (cutoff && cutoff < p.end) p.end = cutoff;
   const reference = new Date(p.end.getTime() - 1);
   return Prisma.sql`
     WITH raw_collections AS (
@@ -233,6 +235,7 @@ export async function participationOverview(
       (SELECT count(*)::float8 FROM geo_period WHERE NOT has_quantity AND coalesce(legacy_kg,0)<=0) AS unweighed,
       (SELECT count(*)::float8 FROM geo_period WHERE NOT has_quantity AND legacy_kg>0) AS legacy_weight,
       (SELECT count(*)::float8 FROM geo_period WHERE neighborhood_key='__unknown__') AS missing_neighborhood,
+      (SELECT count(*)::float8 FROM geo_period WHERE bucket='UNATTRIBUTED') AS unattributed_receipts,
       (SELECT count(*)::float8 FROM raw_requests WHERE created_at>=${p.start} AND created_at<${p.end} AND party_key IS NULL) AS unattributed_requests,
       (SELECT count(*)::float8 FROM raw_requests WHERE created_at>=${p.start} AND created_at<${p.end} AND has_received AND status IN ('REQUESTED','SCHEDULED','IN_PROGRESS')) AS request_status_mismatch
       FROM operations`);
@@ -353,7 +356,7 @@ export async function generatorsOverview(
   return prisma.$transaction(
     async (db) => {
       const [summary] = await db.$queryRaw<Record<string, unknown>[]>(
-        Prisma.sql`${cte} SELECT count(*)::float8 AS generators,count(*) FILTER(WHERE period_count>0)::float8 AS active,coalesce(sum(period_count),0)::float8 AS receipts,coalesce(sum(open_requests),0)::float8 AS open_requests FROM people`,
+        Prisma.sql`${cte} SELECT count(*)::float8 AS generators,count(*) FILTER(WHERE period_count>0)::float8 AS active,coalesce(sum(period_count),0)::float8 AS receipts,coalesce(sum(open_requests),0)::float8 AS open_requests, count(*) FILTER(WHERE period_count>0 AND first_at>=${bounds(q, now).start})::float8 AS first_registered, count(*) FILTER(WHERE period_count>0 AND first_at<${bounds(q, now).start})::float8 AS returning, count(*) FILTER(WHERE period_count>=2)::float8 AS repeated FROM people`,
       );
       return {
         meta: meta(q, now),
@@ -430,10 +433,18 @@ export async function participationDetail(
         FROM raw_requests r WHERE party_key=${key} AND created_at<${bounds(q, now).end}
         AND NOT EXISTS(SELECT 1 FROM operations o WHERE o.schedule_id=r.id)
     ) SELECT * FROM timeline ORDER BY date DESC,id ASC LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`);
+      const materialSummary =
+        kind === "GENERATOR"
+          ? await db.$queryRaw<Record<string, unknown>[]>(Prisma.sql`${cte}
+        SELECT min(m."nameSnapshot") AS name,m.unit::text AS unit,sum(m.quantity)::text AS quantity,count(DISTINCT o.id)::float8 AS receipts
+        FROM selected o JOIN "CollectionMaterial" m ON m."collectionId"=o.id WHERE o.party_key=${key}
+        GROUP BY coalesce(m."wasteTypeId",lower(btrim(m."nameSnapshot"))),m.unit ORDER BY name,m.unit`)
+          : [];
       return {
         meta: meta(q, now),
         person,
         regularity,
+        materialSummary,
         timeline,
         pagination: { page: q.page, pageSize: q.pageSize, total: total.count },
       };
