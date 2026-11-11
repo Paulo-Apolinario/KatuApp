@@ -3,17 +3,25 @@ import { prisma } from "../../lib/prisma";
 import { reportScope } from "../reports/reports.service";
 import { relations } from "./participation.service";
 import type { ParticipationQuery } from "./participation.schemas";
+const materialKey = Prisma.sql`CASE WHEN m."wasteTypeId" IS NOT NULL THEN 'C:'||m."wasteTypeId" ELSE 'N:'||lower(btrim(m."nameSnapshot")) END||':'||m.unit::text`;
 
 export async function territoryOverview(
   userId: string,
   q: ParticipationQuery,
   now = new Date(),
+  selectedMaterial = "",
 ) {
   const coop = await reportScope(userId),
     cte = relations(coop.id, q, now);
-  const items = await prisma.$queryRaw<
-    Record<string, unknown>[]
-  >(Prisma.sql`${cte}
+  return prisma.$transaction(
+    async (db) => {
+      const materialOptions = await db.$queryRaw<Record<string, unknown>[]>(
+        Prisma.sql`${cte} SELECT ${materialKey} AS key,min(m."nameSnapshot") AS name,m.unit::text AS unit,count(DISTINCT o.id)::float8 AS receipts FROM geo_period o JOIN "CollectionMaterial" m ON m."collectionId"=o.id GROUP BY ${materialKey},m.unit ORDER BY name,m.unit`,
+      );
+      const basis = Prisma.sql`${cte}, amounts AS (SELECT m."collectionId" AS id,sum(m.quantity) AS quantity,min(m.unit::text) AS unit FROM "CollectionMaterial" m JOIN geo_period o ON o.id=m."collectionId" WHERE ${materialKey}=${selectedMaterial} GROUP BY m."collectionId"), territory_basis AS (SELECT o.*,a.quantity,a.unit FROM geo_period o LEFT JOIN amounts a ON a.id=o.id ${selectedMaterial ? Prisma.sql`WHERE a.id IS NOT NULL` : Prisma.empty})`;
+      const items = await db.$queryRaw<
+        Record<string, unknown>[]
+      >(Prisma.sql`${basis}
     SELECT city_key,state_key,neighborhood_key,coalesce(nullif(min(city_label),''),'Município não informado') AS city,
       coalesce(min(state_label),'') AS state,coalesce(nullif(min(neighborhood_label),''),'Bairro não informado') AS neighborhood,
       count(*)::float8 AS receipts,count(*) FILTER(WHERE party_key IS NOT NULL)::float8 AS identified_receipts,
@@ -21,15 +29,24 @@ export async function territoryOverview(
       count(*) FILTER(WHERE bucket<>'CONFLICT' AND latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180 AND NOT(latitude=0 AND longitude=0))::float8 AS located,
       avg(latitude) FILTER(WHERE bucket<>'CONFLICT' AND latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180 AND NOT(latitude=0 AND longitude=0)) AS latitude,
       avg(longitude) FILTER(WHERE bucket<>'CONFLICT' AND latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180 AND NOT(latitude=0 AND longitude=0)) AS longitude
-    FROM geo_period GROUP BY city_key,state_key,neighborhood_key ORDER BY receipts DESC,city_key,state_key,neighborhood_key`);
-  return {
-    items,
-    meta: { generatedAt: now, start: q.start, end: q.end },
-    scope:
-      "Recebimentos por bairro do cadastro atual, em todos os perfis. O filtro geográfico e o período se aplicam; perfil não se aplica. PEV indica o bairro do ponto, não a residência de seus usuários.",
-    mapMethod:
-      "Intensidade por bairro com posição média dos pontos cadastrados que têm coordenadas válidas. Os círculos não representam limites oficiais dos bairros. Registros sem coordenadas ou bairro permanecem na lista.",
-  };
+      ,sum(quantity)::text AS quantity,min(unit) AS unit
+    FROM territory_basis GROUP BY city_key,state_key,neighborhood_key ORDER BY receipts DESC,city_key,state_key,neighborhood_key`);
+      return {
+        items,
+        materialOptions,
+        selectedMaterial,
+        meta: { generatedAt: now, start: q.start, end: q.end },
+        scope:
+          "Recebimentos por bairro do cadastro atual, em todos os perfis. O filtro geográfico e o período se aplicam; perfil não se aplica. PEV indica o bairro do ponto, não a residência de seus usuários.",
+        mapMethod:
+          "Intensidade por bairro com posição média dos pontos cadastrados que têm coordenadas válidas. Os círculos não representam limites oficiais dos bairros. Registros sem coordenadas ou bairro permanecem na lista.",
+      };
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+      timeout: 20000,
+    },
+  );
 }
 
 export async function collectorsOverview(
