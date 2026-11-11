@@ -4,6 +4,15 @@ import { reportScope, ReportError } from "../reports/reports.service";
 import { bounds, type ParticipationQuery } from "./participation.schemas";
 
 type Db = Prisma.TransactionClient;
+export const coverageBuckets = [
+  "GENERATOR",
+  "PF",
+  "PEV",
+  "DELIVERER",
+  "UNATTRIBUTED",
+  "CONFLICT",
+] as const;
+type CoverageBucket = (typeof coverageBuckets)[number];
 const accepted = Prisma.sql`('RECEIVED','SORTING','COMPLETED')`;
 const fold = (s: Prisma.Sql) =>
   Prisma.sql`translate(lower(regexp_replace(btrim(coalesce(${s},'')), '[[:space:]]+', ' ', 'g')), 'áàâãäéèêëíìîïóòôõöúùûüç', 'aaaaaeeeeiiiiooooouuuuc')`;
@@ -243,6 +252,81 @@ export async function participationOverview(
           "Todos os perfis, no período e na seleção geográfica; o filtro de perfil afeta os indicadores principais.",
         qualityScope:
           "Datas ausentes/futuras e relações conflitantes: histórico da cooperativa. Pesagem e bairro: recebimentos do período na seleção geográfica. Demandas sem origem e situação divergente: criadas no período, toda a cooperativa.",
+      };
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+      timeout: 20000,
+    },
+  );
+}
+
+export async function participationCoverage(
+  userId: string,
+  q: ParticipationQuery,
+  bucket: CoverageBucket,
+  id?: string,
+  now = new Date(),
+) {
+  const coop = await reportScope(userId);
+  const cte = Prisma.sql`${relations(coop.id, q, now)}, coverage_rows AS (
+    SELECT o.*,CASE WHEN o.bucket IN ('GENERATOR','PF') THEN coalesce(o.display_name,'Nome não informado')
+      WHEN o.bucket='PEV' THEN coalesce(nullif(b.name,''),b."binId",'PEV')
+      WHEN o.bucket='DELIVERER' THEN coalesce(d.name,'Entregador avulso')
+      WHEN o.bucket='CONFLICT' THEN 'Vínculos a conferir'
+      ELSE coalesce(nullif(e.payload->>'originName',''),'Origem não identificada') END AS origin,
+      e.id AS extra_order_id,
+      (SELECT count(*)::float8 FROM "CollectionMaterial" m WHERE m."collectionId"=o.id) AS material_count
+    FROM geo_period o
+    JOIN "Collection" c ON c.id=o.id AND c."cooperativeId"=${coop.id}
+    LEFT JOIN "Bin" b ON b.id=c."binId" AND b."cooperativeId"=${coop.id}
+    LEFT JOIN "IntakeDeliverer" d ON d.id=c."intakeDelivererId" AND d."cooperativeId"=${coop.id}
+    LEFT JOIN "ExtraCollectionOrder" e ON e."collectionId"=c.id AND e."cooperativeId"=${coop.id}
+    WHERE o.bucket=${bucket}
+  )`;
+  return prisma.$transaction(
+    async (db) => {
+      if (id) {
+        // Resolve against the filtered, tenant-scoped coverage BEFORE reading materials.
+        const [item] = await db.$queryRaw<
+          Record<string, unknown>[]
+        >(Prisma.sql`${cte}
+        SELECT id,bucket,origin,status,received_at,collected_at,requested_at,created_at,city_label,state_label,neighborhood_label,
+          material_count,has_quantity,legacy_kg,extra_order_id FROM coverage_rows WHERE id=${id}`);
+        if (!item)
+          throw new ReportError(
+            "Recebimento não encontrado nesta categoria e seleção.",
+            404,
+          );
+        const materials = await db.collectionMaterial.findMany({
+          where: { collectionId: id, collection: { cooperativeId: coop.id } },
+          select: { id: true, nameSnapshot: true, quantity: true, unit: true },
+          orderBy: [{ nameSnapshot: "asc" }, { id: "asc" }],
+        });
+        return { meta: meta(q, now), bucket, item, materials };
+      }
+      const search = q.search.replace(/[\\%_]/g, "\\$&");
+      const where = search
+        ? Prisma.sql`WHERE (origin ILIKE ${"%" + search + "%"} OR id ILIKE ${"%" + search + "%"})`
+        : Prisma.empty;
+      const [total] = await db.$queryRaw<{ total: number }[]>(
+        Prisma.sql`${cte} SELECT count(*)::float8 AS total FROM coverage_rows ${where}`,
+      );
+      const items = await db.$queryRaw<
+        Record<string, unknown>[]
+      >(Prisma.sql`${cte}
+      SELECT id,bucket,origin,status,received_at,collected_at,city_label,state_label,neighborhood_label,material_count,extra_order_id
+      FROM coverage_rows ${where} ORDER BY received_at DESC,id ASC LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`);
+      return {
+        meta: meta(q, now),
+        bucket,
+        items,
+        page: q.page,
+        pageSize: q.pageSize,
+        total: total.total,
+        totalPages: Math.ceil(total.total / q.pageSize),
+        scope:
+          "Todos os perfis; mesmo período e seleção geográfica do quadro de cobertura.",
       };
     },
     {
