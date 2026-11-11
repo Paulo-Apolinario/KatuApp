@@ -1,0 +1,94 @@
+{
+  "date": "2026-11-11",
+  "phase": "code_inventory_and_specification",
+  "databaseInspected": false,
+  "productionDataMeasured": false,
+  "operationalCodeChanged": false,
+  "definitionVersion": "participation-v1",
+  "repositories": [
+    {
+      "repository": "Paulo-Apolinario/KatuApp",
+      "branch": "main",
+      "commit": "a4365a34a7399bb715bc07e439f0f0296ffbb306",
+      "files": [
+        {
+          "path": "server/prisma/schema.prisma",
+          "match": true,
+          "remoteBlob": "72028c9b4b0e7456c62470b25e8d34b400e31dad"
+        },
+        {
+          "path": "server/src/modules/collections/collection.service.ts",
+          "match": true,
+          "remoteBlob": "2a51f5fc15160a63907b3cb65a2c9c159bf3402b"
+        },
+        {
+          "path": "server/src/modules/extra-collection-orders/extra-order.service.ts",
+          "match": true,
+          "remoteBlob": "959b7da39d8f2601781714055a1fb70f9355f648"
+        },
+        {
+          "path": "server/src/modules/intake-deliverers/intake-deliverers.routes.ts",
+          "match": true,
+          "remoteBlob": "2bd7416026e03363d3a1cd5b1ece9ee407eab3a9"
+        },
+        {
+          "path": "server/src/modules/material-intakes/material-intakes.routes.ts",
+          "match": true,
+          "remoteBlob": "40faf4d05376aad90d3a308c4b18df323701673a"
+        },
+        {
+          "path": "server/src/modules/reports/reports.model.ts",
+          "match": true,
+          "remoteBlob": "f3a7182d7ea37b67300bf1f4fc82f5f723b1c195"
+        },
+        {
+          "path": "server/src/modules/reports/reports.routes.ts",
+          "match": true,
+          "remoteBlob": "89481e4c59ffe88ccd06a17d308924b59e4c9955"
+        },
+        {
+          "path": "server/src/modules/reports/reports.schemas.ts",
+          "match": true,
+          "remoteBlob": "41b638a6d2f5d44e04e026a83b2da4bb6c8bcdd4"
+        },
+        {
+          "path": "server/src/modules/reports/reports.service.ts",
+          "match": true,
+          "remoteBlob": "8e05c84d34e8078e9b79e4555480c7b32d8c405d"
+        },
+        {
+          "path": "server/src/modules/residential/residential.routes.ts",
+          "match": true,
+          "remoteBlob": "30f9bed6631e4214331765198e9827a1118b44d8"
+        },
+        {
+          "path": "server/src/modules/schedules/schedule.service.ts",
+          "match": true,
+          "remoteBlob": "6eea63497520263a9f06221f6e82c3d241c708cb"
+        }
+      ]
+    },
+    {
+      "repository": "Paulo-Apolinario/Katua_Web",
+      "branch": "main",
+      "commit": "657636083a26a3e192424fdf65b46010a20f99d7",
+      "files": [
+        {
+          "path": "frontend/src/components/Sidebar.jsx",
+          "match": true,
+          "remoteBlob": "1c065d70ace44d3fc43537fe12a5a0c1462dcb08"
+        },
+        {
+          "path": "frontend/src/pages/reports/AnalyticsDashboard.jsx",
+          "match": true,
+          "remoteBlob": "50a778980cecd7d23974643a9eab70ef60f7243c"
+        },
+        {
+          "path": "frontend/src/routes/index.jsx",
+          "match": true,
+          "remoteBlob": "99011c980a899323373b67953f2483ba71fc04a8"
+        }
+      ]
+    }
+  ]
+}
