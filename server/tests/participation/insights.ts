@@ -1,3 +1,4 @@
+import { analyticsGet } from "./access";
 import assert from "node:assert/strict";
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../../src/lib/prisma";
@@ -123,11 +124,7 @@ export async function testInsights(app: FastifyInstance) {
   const token = (id: string, role: string) =>
     app.jwt.sign({ sub: id, role, authVersion: 0 });
   const call = (path: string, auth = token("a", "COOPERATIVE")) =>
-    app.inject({
-      method: "GET",
-      url: "/analytics/participation/" + path,
-      headers: { authorization: "Bearer " + auth },
-    });
+    analyticsGet(app, "/analytics/participation/" + path, auth);
   const qs = "start=2026-10-01&end=2026-10-31";
   for (const path of [
     `comparison?${qs}`,
