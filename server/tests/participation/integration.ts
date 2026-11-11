@@ -8,6 +8,7 @@ import {
 } from "../../src/modules/analytics/participation.service";
 import { participationQuery } from "../../src/modules/analytics/participation.schemas";
 import { testAttendance } from "./attendance";
+import { testCoverage } from "./coverage";
 
 async function main() {
   const url = new URL(process.env.DATABASE_URL || "");
@@ -259,6 +260,7 @@ async function main() {
       (await call(`participants?${query}&search=%25`)).json().data.total,
       0,
     );
+    const coverage = await testCoverage(app);
     const attendance = await testAttendance(app);
     if (process.env.KATUA_ANALYTICS_FIXTURE) {
       const context = await call("context");
@@ -270,6 +272,7 @@ async function main() {
           detail: await participationDetail("a", q, "GENERATOR", "old"),
           participants: response.json().data.participants,
           attendance,
+          coverage,
         }),
       );
     }
@@ -306,6 +309,11 @@ async function main() {
     const full = await participationOverview("a", q, now);
     assert.equal(full.summary.participations, 506);
     assert.equal(full.summary.active, 3);
+    const coveragePage = await call(
+      `coverage/GENERATOR?${query}&pageSize=5&page=2`,
+    );
+    assert.equal(coveragePage.json().data.total, 505);
+    assert.equal(coveragePage.json().data.items.length, 5);
     console.log(
       "PASS: full aggregate totals remain independent of page size, request-only identities and 501 additional receipts",
     );
