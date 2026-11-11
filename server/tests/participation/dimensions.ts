@@ -1,3 +1,4 @@
+import { analyticsGet } from "./access";
 import assert from "node:assert/strict";
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../../src/lib/prisma";
@@ -153,12 +154,7 @@ export async function testDimensions(app: FastifyInstance) {
   const token = (id: string, role: string) =>
     app.jwt.sign({ sub: id, role, authVersion: 0 });
   const call = (path: string, auth = token("a", "COOPERATIVE")) =>
-    app.inject({
-      method: "GET",
-      url:
-        "/analytics/participation/" + path + "?start=2026-10-01&end=2026-10-31",
-      headers: { authorization: "Bearer " + auth },
-    });
+    analyticsGet(app, "/analytics/participation/" + path + "?start=2026-10-01&end=2026-10-31", auth);
   for (const name of ["generators", "collectors", "territory", "usage"]) {
     assert.equal((await call(name)).statusCode, 200);
     assert.equal((await call(name, token("pf", "PF"))).statusCode, 403);
