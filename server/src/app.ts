@@ -1,4 +1,5 @@
 import { agentsRoutes } from "./modules/agents/agents.routes";
+import { participationAnalyticsRoutes } from "./modules/analytics/participation.routes";
 import {intakeDelivererRoutes} from "./modules/intake-deliverers/intake-deliverers.routes";
 import {privacyRoutes} from "./modules/privacy/privacy.routes";
 import {materialIntakeRoutes} from "./modules/material-intakes/material-intakes.routes";
@@ -245,6 +246,7 @@ export async function buildApp() {
   await app.register(impactRoutes);
   await app.register(environmentalRoutes);
   await app.register(reportsRoutes);
+  await app.register(participationAnalyticsRoutes);
   await app.register(settingsRoutes);
   await app.register(dashboardRoutes);
   await app.register(wasteWorkspaceRoutes);
