@@ -6,14 +6,14 @@ import { bounds, type ParticipationQuery } from "./participation.schemas";
 // These are three independent record populations, NOT an additive funnel.
 // An accepted extra order can refer to the same schedule/collection shown in
 // the first population. A PEV report is a service notice, never a donation.
-export async function participationAttendance(
-  userId: string,
+export function attendanceRelations(
+  cooperativeId: string,
   query: ParticipationQuery,
-  now = new Date(),
+  now: Date,
 ) {
-  const coop = await reportScope(userId),
+  const coop = { id: cooperativeId },
     period = bounds(query, now);
-  const cte = Prisma.sql`WITH extra_links AS (
+  return Prisma.sql`WITH extra_links AS (
     SELECT e."sourceScheduleId" AS schedule_id FROM "ExtraCollectionOrder" e
       WHERE e."cooperativeId"=${coop.id} AND e."createdAt"<=${now} AND e."sourceScheduleId" IS NOT NULL
     UNION SELECT c."scheduleId" FROM "ExtraCollectionOrder" e
@@ -58,6 +58,26 @@ export async function participationAttendance(
     UNION ALL SELECT 'EXTRA',id,created_at,status,status IN ('PENDING_REVIEW','NEEDS_INFO'),received_at,linked,coalesce(invalid_receipt,false),invalid_link FROM extras
     UNION ALL SELECT 'PEV',id,created_at,status,status IN ('OPEN','ASSIGNED'),NULL::timestamp,linked,false,invalid_link FROM pevs
   )`;
+}
+
+export function classifiedRequests(cte: Prisma.Sql) {
+  return Prisma.sql`${cte}, classified AS (
+        SELECT *,CASE WHEN invalid_link OR invalid_receipt THEN 'CHECK'
+          WHEN received_at IS NOT NULL THEN 'RECEIVED'
+          WHEN status='CANCELLED' THEN 'CANCELLED'
+          WHEN status='COMPLETED' THEN 'CLOSED_WITHOUT_RECEIPT'
+          WHEN pending THEN 'PENDING' ELSE 'CHECK' END AS outcome FROM records WHERE channel='SCHEDULE'
+      )`;
+}
+
+export async function participationAttendance(
+  userId: string,
+  query: ParticipationQuery,
+  now = new Date(),
+) {
+  const coop = await reportScope(userId),
+    cte = attendanceRelations(coop.id, query, now),
+    period = bounds(query, now);
   return prisma.$transaction(
     async (db) => {
       const channels = await db.$queryRaw<
@@ -85,13 +105,7 @@ export async function participationAttendance(
       );
       const [reconciliation] = await db.$queryRaw<
         Record<string, unknown>[]
-      >(Prisma.sql`${cte}, classified AS (
-        SELECT CASE WHEN invalid_link OR invalid_receipt THEN 'CHECK'
-          WHEN received_at IS NOT NULL THEN 'RECEIVED'
-          WHEN status='CANCELLED' THEN 'CANCELLED'
-          WHEN status='COMPLETED' THEN 'CLOSED_WITHOUT_RECEIPT'
-          WHEN pending THEN 'PENDING' ELSE 'CHECK' END AS outcome FROM records WHERE channel='SCHEDULE'
-      ) SELECT count(*)::float8 AS total,count(*) FILTER(WHERE outcome='RECEIVED')::float8 AS received,
+      >(Prisma.sql`${classifiedRequests(cte)} SELECT count(*)::float8 AS total,count(*) FILTER(WHERE outcome='RECEIVED')::float8 AS received,
         count(*) FILTER(WHERE outcome='PENDING')::float8 AS pending,count(*) FILTER(WHERE outcome='CANCELLED')::float8 AS cancelled,
         count(*) FILTER(WHERE outcome='CLOSED_WITHOUT_RECEIPT')::float8 AS closed_without_receipt,
         count(*) FILTER(WHERE outcome='CHECK')::float8 AS needs_check FROM classified`);
