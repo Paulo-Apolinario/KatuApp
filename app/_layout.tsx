@@ -1,4 +1,5 @@
 import DriverLocationPrompt from "../src/components/DriverLocationPrompt";
+import UsageBoundary from '../src/components/UsageBoundary';
 import PrivacyGate from "../src/components/PrivacyGate";
 import BrowserOfflineStatus from "../src/components/BrowserOfflineStatus";
 import "../src/services/driverTrackingTask";
@@ -140,10 +141,12 @@ export default function RootLayout() {
         <NotificationProvider>
           <AuthProvider>
             <InboxProvider>
+              <UsageBoundary>
               <BrowserOfflineStatus />
               <PrivacyGate />
               <DriverLocationPrompt />
               <Stack screenOptions={{ headerShown: false }} />
+              </UsageBoundary>
             </InboxProvider>
           </AuthProvider>
         </NotificationProvider>
