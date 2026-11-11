@@ -8,6 +8,7 @@ import {
   participationDetail,
 } from "./participation.service";
 import { ReportError } from "../reports/reports.service";
+import { participationAttendance } from "./attendance.service";
 
 export async function participationAnalyticsRoutes(app: FastifyInstance) {
   const auth = { preHandler: [app.authenticate] };
@@ -27,13 +28,25 @@ export async function participationAnalyticsRoutes(app: FastifyInstance) {
           { code: (error as { code?: string }).code },
           "Falha no Analytics de participação",
         );
-        return reply
-          .code(500)
-          .send({
-            error: "Não foi possível consultar o Analytics. Tente novamente.",
-          });
+        return reply.code(500).send({
+          error: "Não foi possível consultar o Analytics. Tente novamente.",
+        });
       }
     };
+  app.get(
+    "/analytics/participation/attendance",
+    auth,
+    handle((r) => {
+      const period = z
+        .object({ start: z.string(), end: z.string() })
+        .strict()
+        .parse(r.query);
+      return participationAttendance(
+        r.user.sub,
+        participationQuery.parse(period),
+      );
+    }),
+  );
   app.get(
     "/analytics/participation/context",
     auth,
