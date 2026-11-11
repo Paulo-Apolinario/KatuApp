@@ -10,7 +10,8 @@ import {
   coverageBuckets,
   generatorsOverview,
 } from "./participation.service";
-import { ReportError } from "../reports/reports.service";
+import { AnalyticsAccess, AnalyticsAccessError } from "./access.service";
+import { reportScope, ReportError } from "../reports/reports.service";
 import { participationAttendance } from "./attendance.service";
 import { territoryOverview, collectorsOverview } from "./dimensions.service";
 import { recordUsage, usageOverview } from "./usage.service";
@@ -24,13 +25,39 @@ import {
 } from "./insights.service";
 
 export async function participationAnalyticsRoutes(app: FastifyInstance) {
-  const auth = { preHandler: [app.authenticate] };
+  const access = new AnalyticsAccess();
+  const authenticated = { preHandler: [app.authenticate] };
+  const auth = {
+    preHandler: [
+      app.authenticate,
+      async (r: any, reply: any) => {
+        reply.header("Cache-Control", "private, no-store");
+        try {
+          access.require(
+            r.user.sub,
+            r.headers.authorization || "",
+            r.headers["x-analytics-access"],
+          );
+        } catch (error) {
+          if (error instanceof AnalyticsAccessError)
+            return reply
+              .code(error.statusCode)
+              .send({ error: error.message, code: error.code });
+          throw error;
+        }
+      },
+    ],
+  };
   const handle =
     (fn: (r: any) => Promise<unknown>) => async (r: any, reply: any) => {
       reply.header("Cache-Control", "private, no-store");
       try {
         return { data: await fn(r) };
       } catch (error: unknown) {
+        if (error instanceof AnalyticsAccessError)
+          return reply
+            .code(error.statusCode)
+            .send({ error: error.message, code: error.code });
         if (error instanceof ZodError)
           return reply
             .code(400)
@@ -46,6 +73,41 @@ export async function participationAnalyticsRoutes(app: FastifyInstance) {
         });
       }
     };
+  app.post(
+    "/analytics/access/unlock",
+    authenticated,
+    handle(async (r) => {
+      await reportScope(r.user.sub);
+      const { password } = z
+        .object({ password: z.string().min(1).max(128) })
+        .strict()
+        .parse(r.body);
+      return access.unlock(r.user.sub, r.headers.authorization || "", password);
+    }),
+  );
+  app.post(
+    "/analytics/access/lock",
+    authenticated,
+    handle(async (r) =>
+      access.lock(
+        r.user.sub,
+        r.headers.authorization || "",
+        r.headers["x-analytics-access"],
+      ),
+    ),
+  );
+  app.get(
+    "/analytics/access/status",
+    auth,
+    handle(async (r) => {
+      await reportScope(r.user.sub);
+      return access.require(
+        r.user.sub,
+        r.headers.authorization || "",
+        r.headers["x-analytics-access"],
+      );
+    }),
+  );
   app.get(
     "/analytics/participation/requests/:outcome",
     auth,
@@ -94,7 +156,7 @@ export async function participationAnalyticsRoutes(app: FastifyInstance) {
   );
   app.post(
     "/analytics/usage/heartbeat",
-    auth,
+    authenticated,
     handle((r) =>
       recordUsage(
         r.user.sub,
