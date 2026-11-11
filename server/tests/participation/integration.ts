@@ -1,3 +1,4 @@
+import { analyticsGet, testAccess } from "./access";
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
 import { prisma } from "../../src/lib/prisma";
@@ -216,14 +217,11 @@ async function main() {
     console.log(
       "PASS: whole-history recurrence, 7-day inclusive window, regularity threshold, normalized filters and empty data",
     );
+    await testAccess(app);
     const token = (id: string, role: string) =>
       app.jwt.sign({ sub: id, role, authVersion: 0 });
     const call = (path: string, auth = token("a", "COOPERATIVE")) =>
-      app.inject({
-        method: "GET",
-        url: `/analytics/participation/${path}`,
-        headers: auth ? { authorization: `Bearer ${auth}` } : {},
-      });
+      analyticsGet(app, `/analytics/participation/${path}`, auth);
     const query = new URLSearchParams({
       start: q.start,
       end: q.end,
