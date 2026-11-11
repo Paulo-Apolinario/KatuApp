@@ -6,6 +6,8 @@ import {
   participationOverview,
   participationPeople,
   participationDetail,
+  participationCoverage,
+  coverageBuckets,
 } from "./participation.service";
 import { ReportError } from "../reports/reports.service";
 import { participationAttendance } from "./attendance.service";
@@ -33,6 +35,29 @@ export async function participationAnalyticsRoutes(app: FastifyInstance) {
         });
       }
     };
+  app.get(
+    "/analytics/participation/coverage/:bucket",
+    auth,
+    handle((r) =>
+      participationCoverage(
+        r.user.sub,
+        participationQuery.parse(r.query),
+        z.enum(coverageBuckets).parse(r.params.bucket),
+      ),
+    ),
+  );
+  app.get(
+    "/analytics/participation/coverage/:bucket/:id",
+    auth,
+    handle((r) =>
+      participationCoverage(
+        r.user.sub,
+        participationQuery.parse(r.query),
+        z.enum(coverageBuckets).parse(r.params.bucket),
+        z.string().min(1).max(100).parse(r.params.id),
+      ),
+    ),
+  );
   app.get(
     "/analytics/participation/attendance",
     auth,
