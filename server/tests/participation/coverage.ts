@@ -1,3 +1,4 @@
+import { analyticsGet } from "./access";
 import assert from "node:assert/strict";
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../../src/lib/prisma";
@@ -7,11 +8,7 @@ export async function testCoverage(app: FastifyInstance) {
   const token = (sub: string, role: string) =>
     app.jwt.sign({ sub, role, authVersion: 0 });
   const call = (path: string, auth = token("a", "COOPERATIVE")) =>
-    app.inject({
-      method: "GET",
-      url: "/analytics/participation/coverage/" + path,
-      headers: auth ? { authorization: "Bearer " + auth } : {},
-    });
+    analyticsGet(app, "/analytics/participation/coverage/" + path, auth);
   const lists: Record<string, unknown> = {};
   for (const [bucket, count] of [
     ["GENERATOR", 4],
