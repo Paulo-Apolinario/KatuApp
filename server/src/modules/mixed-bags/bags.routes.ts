@@ -1,3 +1,4 @@
+import { bagReport } from "./bags.report";
 import type { FastifyInstance } from "fastify";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -53,6 +54,11 @@ export async function mixedBagRoutes(app: FastifyInstance) {
       }
     };
   const auth = { preHandler: [app.authenticate] };
+  app.get(
+    "/mixed-bags/report",
+    auth,
+    handle(async (ctx, r) => bagReport(ctx, r.query)),
+  );
   app.get(
     "/mixed-bags/context",
     auth,
