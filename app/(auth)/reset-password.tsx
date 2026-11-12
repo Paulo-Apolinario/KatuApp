@@ -63,7 +63,7 @@ export default function ResetPasswordScreen() {
     const normalizedToken = token.trim();
     const normalizedTemporaryPassword = temporaryPassword.trim();
 
-    if (!normalizedEmail || !normalizedToken) {
+    if (!normalizedToken) {
       notifyError({
         message: "Link inválido",
         title:
@@ -257,11 +257,11 @@ export default function ResetPasswordScreen() {
                 fontSize: 14,
               }}
             >
-              E-mail
+              Conta de acesso
             </Text>
 
             <TextInput
-              value={email}
+              value={email || "Conta identificada pelo link"}
               editable={false}
               style={{
                 borderWidth: 1,
