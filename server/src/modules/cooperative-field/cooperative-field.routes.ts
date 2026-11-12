@@ -1,3 +1,4 @@
+import { withRegistration } from "../registrations/registration-summary";
 import type { FastifyInstance } from 'fastify';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -16,11 +17,15 @@ const person = {
   email: true,
   status: true
 } as const;
+const collectorPerson = {...person, cpf:true, address:true, recoveryEmail:true, userId:true, user:{select:{credentialsReady:true}}} as const;
 const generator = {
   id: true,
   name: true,
   phone: true,
   email: true,
+  recoveryEmail: true,
+  userId: true,
+  user: {select:{credentialsReady:true}},
   companyName: true,
   type: true,
   documentNumber: true,
@@ -137,7 +142,7 @@ async function entity(cooperativeId: string, kind: string, id: string) {
       id,
       cooperativeId
     },
-    select: person
+    select: collectorPerson
   });
   if (kind === 'drivers') return prisma.driver.findFirst({
     where: {
@@ -249,7 +254,7 @@ export async function cooperativeFieldRoutes(app: FastifyInstance) {
       };
       [items, total] = await prisma.$transaction([prisma.collector.findMany({
         where,
-        select: person,
+        select: collectorPerson,
         orderBy: [{
           name: 'asc'
         }, {
@@ -334,7 +339,7 @@ export async function cooperativeFieldRoutes(app: FastifyInstance) {
       })]);
     }
     return {
-      items,
+      items: (kind === "generators" || kind === "collectors") ? items.map(item => withRegistration(kind === "generators" ? "GENERATOR" : "COLLECTOR",item)) : items,
       pagination: {
         page: q.page,
         total,
@@ -437,7 +442,7 @@ export async function cooperativeFieldRoutes(app: FastifyInstance) {
       }
     })]);
     return {
-      item,
+      item: (kind === "generators" || kind === "collectors") ? withRegistration(kind === "generators" ? "GENERATOR" : "COLLECTOR",item) : item,
       collections,
       requests,
       summary: {
