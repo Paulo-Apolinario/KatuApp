@@ -1,3 +1,4 @@
+import { withRegistration } from "../registrations/registration-summary";
 import { documentType, withGeneratorDocument } from "./generator-document";
 import {
   Prisma,
@@ -85,6 +86,7 @@ async function geocodeAddress(data: CreateGeneratorInput) {
         "User-Agent": "KATU/1.0 (geocoding generators)",
         Accept: "application/json",
       },
+      signal: AbortSignal.timeout(5000),
     }
   );
 
@@ -128,22 +130,16 @@ export class GeneratorService {
     if (data.type === "LARGE" && documentType(data.documentNumber) === "CPF") {
       throw Object.assign(new Error("Para grande gerador, informe um CNPJ."), { statusCode: 400 });
     }
-    const email = normalizeEmail(data.email);
+    const email = data.email ? normalizeEmail(data.email) : null;
 
-    const existingUser = await database.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      throw new Error("Já existe um usuário com este e-mail.");
-    }
-
-    const existingGenerator = await database.generator.findUnique({
-      where: { email },
-    });
-
-    if (existingGenerator) {
-      throw new Error("Já existe um gerador com este e-mail.");
+    if (email) {
+      const [existingUser, existingGenerator, existingCollector] = await Promise.all([
+        database.user.findUnique({ where: { email } }),
+        database.generator.findUnique({ where: { email } }),
+        database.collector.findUnique({ where: { email } }),
+      ]);
+      if (existingUser || existingGenerator || existingCollector)
+        throw new Error("Já existe um cadastro com este e-mail.");
     }
 
     const fullAddress = buildFullAddress(data);
@@ -155,7 +151,7 @@ export class GeneratorService {
       const geocoded = await geocodeAddress({
         ...data,
         address: fullAddress ?? data.address,
-      });
+      }).catch(() => ({ latitude: null, longitude: null }));
 
       latitude = geocoded.latitude;
       longitude = geocoded.longitude;
@@ -169,7 +165,7 @@ export class GeneratorService {
         companyName: normalizeText(data.companyName),
         email,
         phone: normalizeText(data.phone),
-        documentNumber: data.documentNumber,
+        documentNumber: data.documentNumber || null,
 
         zipCode: normalizeText(data.zipCode),
         street: normalizeText(data.street),
@@ -189,7 +185,7 @@ export class GeneratorService {
       },
     });
 
-    return withGeneratorDocument(generator);
+    return withRegistration("GENERATOR", withGeneratorDocument(generator));
   }
 
   async listByAuthenticatedCooperative(cooperativeUserId: string) {
@@ -210,7 +206,7 @@ export class GeneratorService {
       },
     });
 
-    return generators.map(withGeneratorDocument);
+    return generators.map(value => withRegistration("GENERATOR", withGeneratorDocument(value)));
   }
 
   async update(cooperativeUserId: string, generatorId: string, data: UpdateGeneratorInput) {
@@ -223,8 +219,17 @@ export class GeneratorService {
       if ((data.type || current.type) === "LARGE" && documentType(data.documentNumber ?? current.documentNumber) === "CPF") {
         throw Object.assign(new Error("Para grande gerador, informe um CNPJ."), { statusCode: 400 });
       }
+      if (data.email && data.email !== current.email) {
+        if (current.userId) throw Object.assign(new Error("Este gerador já tem acesso ativo. O e-mail de login não pode ser alterado nesta tela."), { statusCode: 400 });
+        const [generator, collector, user] = await Promise.all([
+          tx.generator.findFirst({ where: { email: data.email, id: { not: current.id } } }),
+          tx.collector.findUnique({ where: { email: data.email } }),
+          tx.user.findUnique({ where: { email: data.email } }),
+        ]);
+        if (generator || collector || user) throw Object.assign(new Error("Já existe um cadastro com este e-mail."), { statusCode: 409 });
+      }
       const result = await tx.generator.update({ where: { id: current.id }, data });
-      return withGeneratorDocument(result);
+      return withRegistration("GENERATOR", withGeneratorDocument(result));
     });
   }
 
@@ -248,6 +253,6 @@ export class GeneratorService {
       throw new Error("Gerador não encontrado.");
     }
 
-    return withGeneratorDocument(generator);
+    return withRegistration("GENERATOR", withGeneratorDocument(generator));
   }
 }
