@@ -1,3 +1,9 @@
+import {
+  dailyView,
+  dailyAction,
+  reverseWeighing,
+  stalledBags,
+} from "./bags.controls";
 import { bagReport } from "./bags.report";
 import type { FastifyInstance } from "fastify";
 import { Prisma } from "@prisma/client";
@@ -58,6 +64,36 @@ export async function mixedBagRoutes(app: FastifyInstance) {
     "/mixed-bags/report",
     auth,
     handle(async (ctx, r) => bagReport(ctx, r.query)),
+  );
+  app.get(
+    "/mixed-bags/alerts",
+    auth,
+    handle(async (ctx, r) => stalledBags(ctx, r.query)),
+  );
+  app.get(
+    "/mixed-bags/day",
+    auth,
+    handle(async (ctx, r) => dailyView(ctx, r.query)),
+  );
+  for (const [path, kind] of [
+    ["close", "CLOSE"],
+    ["reopen", "REOPEN"],
+  ] as const)
+    app.post(
+      `/mixed-bags/day/:day/${path}`,
+      auth,
+      handle(async (ctx, r, p) => {
+        const result = await dailyAction(ctx, r.params.day, kind, r.body);
+        return p.code(result.replayed ? 200 : 201).send(result);
+      }),
+    );
+  app.post(
+    "/mixed-bags/:id/reverse",
+    auth,
+    handle(async (ctx, r, p) => {
+      const result = await reverseWeighing(ctx, String(r.params.id), r.body);
+      return p.code(result.replayed ? 200 : 201).send(result);
+    }),
   );
   app.get(
     "/mixed-bags/context",
@@ -193,7 +229,7 @@ export async function mixedBagRoutes(app: FastifyInstance) {
       });
       if (!lot) fail("Lote não encontrado.", 404);
       const outputs = await prisma.mixedBagOutput.findMany({
-        where: { lotId: lot.id },
+        where: { lotId: lot.id, event: { reversedAt: null } },
         include: {
           bag: {
             select: {
