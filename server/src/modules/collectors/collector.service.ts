@@ -1,3 +1,4 @@
+import { recoveryContactChanged } from "../registrations/recovery-contact";
 import { withRegistration } from "../registrations/registration-summary";
 import {
   CollectorGender,
@@ -148,6 +149,7 @@ function normalizeDocuments(
 }
 
 const collectorInclude = {
+  user: {select:{credentialsReady:true}},
   documents: {
     orderBy: {
       createdAt: "desc",
@@ -234,6 +236,7 @@ export class CollectorService {
           socialName: normalizeOptionalText(data.socialName),
 
           email,
+          recoveryEmail: data.recoveryEmail ?? null,
           phone: normalizeOptionalText(data.phone),
 
           cpf,
@@ -283,6 +286,7 @@ export class CollectorService {
         include: collectorInclude,
       });
 
+      await recoveryContactChanged(transaction,{cooperativeId:cooperative.id,actorUserId:cooperativeUserId,recordKind:"collectors",recordId:collector.id,after:collector.recoveryEmail});
       return withRegistration("COLLECTOR", collector);
     });
   }
@@ -344,6 +348,7 @@ export class CollectorService {
         if (await tx.generator.findUnique({ where: { email }, select: { id: true } })) throw new Error("Este e-mail já está em uso por outro cadastro.");
         if (otherCollector || otherUser) throw new Error("Este e-mail já está em uso por outro cadastro.");
         changes.email = email;
+        if(email!==current.email&&!current.recoveryEmail) await recoveryContactChanged(tx,{cooperativeId:cooperative.id,actorUserId:cooperativeUserId,recordKind:"collectors",recordId:current.id,userId:current.userId,before:current.email,after:email});
       }
       if (provided("cpf")) {
         const cpf = normalizeCpf(data.cpf);
@@ -366,6 +371,10 @@ export class CollectorService {
           ...(provided("name") ? { displayName: changes.name as string } : {}),
           ...(provided("phone") ? { phone: normalizeOptionalText(data.phone) } : {}),
         } });
+      }
+      if (provided("recoveryEmail")) {
+        changes.recoveryEmail = data.recoveryEmail ?? null;
+        await recoveryContactChanged(tx,{cooperativeId:cooperative.id,actorUserId:cooperativeUserId,recordKind:"collectors",recordId:current.id,userId:current.userId,before:current.recoveryEmail,after:data.recoveryEmail});
       }
       return withRegistration("COLLECTOR", await tx.collector.update({ where: { id: current.id }, data: changes, include: collectorInclude }));
     });
