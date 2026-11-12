@@ -1,3 +1,4 @@
+import { recoveryContactChanged } from "../registrations/recovery-contact";
 import { withRegistration } from "../registrations/registration-summary";
 import { documentType, withGeneratorDocument } from "./generator-document";
 import {
@@ -147,7 +148,7 @@ export class GeneratorService {
     let latitude = normalizeCoordinate(data.latitude);
     let longitude = normalizeCoordinate(data.longitude);
 
-    if (latitude === null || longitude === null) {
+    if ((latitude === null || longitude === null) && data.street?.trim() && data.number?.trim() && data.city?.trim()) {
       const geocoded = await geocodeAddress({
         ...data,
         address: fullAddress ?? data.address,
@@ -164,6 +165,7 @@ export class GeneratorService {
         name: data.name.trim(),
         companyName: normalizeText(data.companyName),
         email,
+        recoveryEmail: data.recoveryEmail ?? null,
         phone: normalizeText(data.phone),
         documentNumber: data.documentNumber || null,
 
@@ -183,8 +185,10 @@ export class GeneratorService {
         accessStatus: GeneratorAccessStatus.PENDING_ACTIVATION,
         totalKg: 0,
       },
+      include: { user: {select:{credentialsReady:true}} },
     });
 
+    await recoveryContactChanged(database,{cooperativeId:cooperative.id,actorUserId:cooperativeUserId,recordKind:"generators",recordId:generator.id,after:generator.recoveryEmail});
     return withRegistration("GENERATOR", withGeneratorDocument(generator));
   }
 
@@ -198,6 +202,7 @@ export class GeneratorService {
     }
 
     const generators = await prisma.generator.findMany({
+      include: {user:{select:{credentialsReady:true}}},
       where: {
         cooperativeId: cooperative.id,
       },
@@ -214,21 +219,24 @@ export class GeneratorService {
     if (!cooperative) return null;
     return prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Generator" WHERE id=${generatorId} AND "cooperativeId"=${cooperative.id} FOR UPDATE`;
-      const current = await tx.generator.findFirst({ where: { id: generatorId, cooperativeId: cooperative.id } });
+      const current = await tx.generator.findFirst({ where: { id: generatorId, cooperativeId: cooperative.id }, include:{user:{select:{credentialsReady:true}}} });
       if (!current) return null;
       if ((data.type || current.type) === "LARGE" && documentType(data.documentNumber ?? current.documentNumber) === "CPF") {
         throw Object.assign(new Error("Para grande gerador, informe um CNPJ."), { statusCode: 400 });
       }
       if (data.email && data.email !== current.email) {
-        if (current.userId) throw Object.assign(new Error("Este gerador já tem acesso ativo. O e-mail de login não pode ser alterado nesta tela."), { statusCode: 400 });
+        if (current.userId && current.user?.credentialsReady !== false) throw Object.assign(new Error("Este gerador já tem acesso ativo. O e-mail de login não pode ser alterado nesta tela."), { statusCode: 400 });
         const [generator, collector, user] = await Promise.all([
           tx.generator.findFirst({ where: { email: data.email, id: { not: current.id } } }),
           tx.collector.findUnique({ where: { email: data.email } }),
-          tx.user.findUnique({ where: { email: data.email } }),
+          tx.user.findFirst({ where: { email: data.email, ...(current.userId ? {id:{not:current.userId}} : {}) } }),
         ]);
         if (generator || collector || user) throw Object.assign(new Error("Já existe um cadastro com este e-mail."), { statusCode: 409 });
       }
-      const result = await tx.generator.update({ where: { id: current.id }, data });
+      if (current.userId && (data.email || data.name || data.phone)) await tx.user.update({where:{id:current.userId},data:{...(data.email?{email:data.email}:{}),...(data.name?{displayName:data.name}:{}),...(data.phone?{phone:data.phone}:{})}});
+      if (data.email && data.email!==current.email && !current.recoveryEmail) await recoveryContactChanged(tx,{cooperativeId:cooperative.id,actorUserId:cooperativeUserId,recordKind:"generators",recordId:current.id,userId:current.userId,before:current.email,after:data.email});
+      if (data.recoveryEmail !== undefined) await recoveryContactChanged(tx,{cooperativeId:cooperative.id,actorUserId:cooperativeUserId,recordKind:"generators",recordId:current.id,userId:current.userId,before:current.recoveryEmail,after:data.recoveryEmail});
+      const result = await tx.generator.update({ where: { id: current.id }, data, include:{user:{select:{credentialsReady:true}}} });
       return withRegistration("GENERATOR", withGeneratorDocument(result));
     });
   }
@@ -243,6 +251,7 @@ export class GeneratorService {
     }
 
     const generator = await prisma.generator.findFirst({
+      include:{user:{select:{credentialsReady:true}}},
       where: {
         id: generatorId,
         cooperativeId: cooperative.id,
