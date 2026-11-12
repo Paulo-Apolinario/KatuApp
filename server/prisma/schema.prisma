@@ -13,7 +13,8 @@ model User {
   agentConversations AgentConversation[]
   agentAudits AgentAuditEvent[]
   id                     String        @id @default(cuid())
-  email                  String        @unique
+  email                  String?       @unique
+  credentialsReady       Boolean       @default(true)
   passwordHash           String
   avatarFile             String?
   displayName            String
@@ -172,6 +173,7 @@ model Generator {
   name          String
   companyName   String?
   email         String?        @unique
+  recoveryEmail String?
   phone         String?
   documentNumber String?
 
@@ -340,6 +342,7 @@ model Collector {
   name       String
   socialName String?
   email      String?           @unique
+  recoveryEmail String?
   phone      String?
   cpf        String?
   rg         String?
@@ -2011,4 +2014,16 @@ model AnalyticsUsageDaily {
   cooperative Cooperative? @relation(fields:[cooperativeId],references:[id],onDelete:Cascade)
   @@unique([userId,day])
   @@index([cooperativeId,day])
+}
+
+// Cooperative-assisted access and recovery contact changes, without secrets.
+model RegistrationAccessEvent {
+  id String @id @default(cuid())
+  cooperativeId String
+  actorUserId String
+  recordKind String
+  recordId String
+  action String
+  createdAt DateTime @default(now())
+  @@index([cooperativeId, createdAt])
 }
