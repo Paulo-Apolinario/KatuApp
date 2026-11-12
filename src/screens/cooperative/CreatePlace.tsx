@@ -13,6 +13,7 @@ import { FieldPage, FieldButton, FieldInput, ui } from '@/src/components/coopera
 const initial = {
     name: '',
     email: '',
+    recoveryEmail: '',
     phone: '',
     companyName: '',
     documentNumber: '',
@@ -43,7 +44,7 @@ function CreatePlaceForm({ pev, operationId }: { pev: boolean; operationId: stri
         longitude: number;
     } | null>(null), [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [lookup, setLookup] = useState(false), [error, setError] = useState('');
     const guard = useRef(false), lookupGuard = useRef(false), revision = useRef(0), latest = useRef(form), autoCep=useRef(''), resolvedCep=useRef(''), autoAddress=useRef('');
-    const draft = useDurableDraft('create:' + operationId, pev ? 'Novo PEV' : 'Novo gerador', { form, type, point, confirmed, pev, resolvedCep: resolvedCep.current }, v => { latest.current = v.form; resolvedCep.current = typeof v.resolvedCep === 'string' ? v.resolvedCep : v.point && v.confirmed ? v.form.zipCode.replace(/\D/g, '') : '';  autoCep.current = resolvedCep.current; autoAddress.current = [v.form.street, v.form.number, v.form.neighborhood, v.form.city, v.form.state, v.form.zipCode].filter(Boolean).join(', '); setForm(v.form); setType(v.type); setPoint(v.point); setConfirmed(v.confirmed); }, JSON.stringify(form) !== JSON.stringify(initial) || point !== null);
+    const draft = useDurableDraft('create:' + operationId, pev ? 'Novo PEV' : 'Novo gerador', { form, type, point, confirmed, pev, resolvedCep: resolvedCep.current }, v => { latest.current = {...initial,...v.form}; resolvedCep.current = typeof v.resolvedCep === 'string' ? v.resolvedCep : v.point && v.confirmed ? v.form.zipCode.replace(/\D/g, '') : '';  autoCep.current = resolvedCep.current; autoAddress.current = [v.form.street, v.form.number, v.form.neighborhood, v.form.city, v.form.state, v.form.zipCode].filter(Boolean).join(', '); setForm({...initial,...v.form}); setType(v.type); setPoint(v.point); setConfirmed(v.confirmed); }, JSON.stringify(form) !== JSON.stringify(initial) || point !== null);
     latest.current=form;
     const address = [form.street, form.number, form.neighborhood, form.city, form.state, form.zipCode].filter(Boolean).join(', ');
     useEffect(()=>{const zip=form.zipCode.replace(/\D/g,'');if((typeof navigator!=='undefined'&&navigator.onLine===false)||(point&&confirmed)||!draft.ready||lookup||zip.length!==8||autoCep.current===zip)return;const timer=setTimeout(()=>{autoCep.current=zip;void cep();},500);return()=>clearTimeout(timer);},[form.zipCode,lookup,draft.ready]);
@@ -156,16 +157,16 @@ function CreatePlaceForm({ pev, operationId }: { pev: boolean; operationId: stri
         if (guard.current)
             return;
         setError('');
-        if (!form.name.trim() || !pev && !form.email.trim()) {
-            setError(pev ? 'Informe o nome do PEV.' : 'Preencha nome e e-mail do gerador.');
+        if (!form.name.trim()) {
+            setError(pev ? 'Informe o nome do PEV.' : 'Informe o nome do gerador.');
             return;
         }
         const documentNumber = form.documentNumber.toUpperCase().replace(/[^0-9A-Z]/g, '');
-        if (!pev && type === 'SMALL' && ![11, 14].includes(documentNumber.length)) {
+        if (!pev && documentNumber && ![11, 14].includes(documentNumber.length)) {
             setError('Informe CPF ou CNPJ completo. O documento define a classificação do pequeno gerador.');
             return;
         }
-        if (!form.street.trim() || !form.city.trim() || !point || !confirmed) {
+        if (pev && (!form.street.trim() || !form.city.trim() || !point || !confirmed)) {
             setError('Preencha o endereço e confirme a localização no mapa.');
             return;
         }
@@ -180,10 +181,10 @@ function CreatePlaceForm({ pev, operationId }: { pev: boolean; operationId: stri
                 neighborhood: form.neighborhood.trim() || undefined,
                 city: form.city.trim(),
                 state: form.state.toUpperCase().trim(),
-                latitude: point.latitude,
-                longitude: point.longitude
+                latitude: confirmed ? point?.latitude : undefined,
+                longitude: confirmed ? point?.longitude : undefined
             };
-            const data = pev ? { ...common, bin_id: 'PEV-' + operationId.slice(0, 8).toUpperCase(), location: address, notes: form.notes.trim() || undefined, status: 'active', publicAccess: false, acceptedMaterials: form.acceptedMaterials.split(',').map(x => x.trim()).filter(Boolean) } : { ...common, type, email: form.email.trim(), phone: form.phone.trim() || undefined, companyName: form.companyName.trim() || undefined, documentNumber: documentNumber || undefined, address };
+            const data = pev ? { ...common, bin_id: 'PEV-' + operationId.slice(0, 8).toUpperCase(), location: address, notes: form.notes.trim() || undefined, status: 'active', publicAccess: false, acceptedMaterials: form.acceptedMaterials.split(',').map(x => x.trim()).filter(Boolean) } : { ...common, type, email: form.email.trim() || undefined, recoveryEmail: form.recoveryEmail.trim() || undefined, phone: form.phone.trim() || undefined, companyName: form.companyName.trim() || undefined, documentNumber: documentNumber || undefined, address };
             await queueCooperativeCreate(operationId, pev ? 'PEV_CREATE' : 'GENERATOR_CREATE', data, user!.id);
             await draft.clear();
             router.replace({ pathname: '/(cooperativa)/cadastro-pendente' as any, params: { id: operationId } });
@@ -197,18 +198,18 @@ function CreatePlaceForm({ pev, operationId }: { pev: boolean; operationId: stri
         }
     }
     const input = (key: keyof typeof initial, label: string, options: Record<string, unknown> = {}) => <FieldInput key={key} label={label} value={form[key]} onChangeText={v => update(key, v)} editable={!busy && draft.ready} {...options}/>;
-    return <FieldPage title={pev ? 'Adicionar PEV' : 'Adicionar gerador'} subtitle={pev ? 'Cadastre um ponto de coleta da cooperativa.' : 'CPF identifica gerador residencial cadastrado; CNPJ identifica pequeno gerador.'}>{!pev && <View style={ui.row}><FieldButton secondary={type !== 'SMALL'} label="Pequeno / residencial cadastrado" disabled={busy} onPress={() => setType('SMALL')}/><FieldButton secondary={type !== 'LARGE'} label="Grande gerador" disabled={busy} onPress={() => setType('LARGE')}/></View>}<View style={ui.card}>{input('name', pev ? 'Nome do PEV *' : 'Nome / responsável *')}{!pev && <>{input('documentNumber', 'CPF/CNPJ *', {
+    return <FieldPage title={pev ? 'Adicionar PEV' : 'Adicionar gerador'} subtitle={pev ? 'Cadastre um ponto de coleta da cooperativa.' : 'Informe o que já sabe. Documento, e-mail e localização podem ser completados depois.'}>{!pev && <View style={ui.row}><FieldButton secondary={type !== 'SMALL'} label="Pequeno / residencial cadastrado" disabled={busy} onPress={() => setType('SMALL')}/><FieldButton secondary={type !== 'LARGE'} label="Grande gerador" disabled={busy} onPress={() => setType('LARGE')}/></View>}<View style={ui.card}>{input('name', pev ? 'Nome do PEV *' : 'Nome / responsável *')}{!pev && <>{input('documentNumber', 'CPF/CNPJ (opcional)', {
                 maxLength: 18,
                 autoCapitalize: 'characters'
-            })}{input('companyName', 'Empresa / razão social')}{input('email', 'E-mail *', {
+            })}{input('companyName', 'Empresa / razão social')}{input('email', 'E-mail pessoal (opcional)', {
                 keyboardType: 'email-address',
                 autoCapitalize: 'none'
-            })}{input('phone', 'Telefone', {
+            })}{input('recoveryEmail', 'E-mail de recuperação (opcional)', {keyboardType:'email-address',autoCapitalize:'none'})}{input('phone', 'Telefone', {
                 keyboardType: 'phone-pad'
             })}</>}</View><View style={ui.card}><Text style={ui.heading}>Endereço</Text>{input('zipCode', 'CEP', {
             keyboardType: 'number-pad',
             maxLength: 9
-        })}<FieldButton secondary label="Buscar CEP" disabled={busy || lookup} onPress={() => void cep()}/>{input('street', 'Rua *')}{input('number', 'Número')}{input('neighborhood', 'Bairro')}{input('city', 'Cidade *')}{input('state', 'UF *', {
+        })}<FieldButton secondary label="Buscar CEP" disabled={busy || lookup} onPress={() => void cep()}/>{input('street', pev ? 'Rua *' : 'Rua (opcional)')}{input('number', 'Número')}{input('neighborhood', 'Bairro')}{input('city', pev ? 'Cidade *' : 'Cidade (opcional)')}{input('state', pev ? 'UF *' : 'UF (opcional)', {
             maxLength: 2,
             autoCapitalize: 'characters'
         })}<FieldButton secondary label="Buscar endereço no mapa" busy={lookup} disabled={busy} onPress={() => void locate()}/><FieldButton secondary label="Usar minha localização" disabled={lookup || busy} onPress={() => void locate(true)}/></View><View style={ui.card}><Text style={ui.heading}>Confirmar localização</Text><Text style={ui.muted}>O CEP preenche a rua e o número aciona a busca do endereço completo. A posição depende da base de mapas: confira o ponto e corrija no mapa antes de confirmar.</Text><View style={{
