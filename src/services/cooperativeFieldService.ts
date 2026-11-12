@@ -5,6 +5,11 @@ export type FieldItem = {
   name?: string | null;
   email?: string | null;
   phone?: string | null;
+  recoveryEmail?: string | null;
+  registrationStatus?: string;
+  missingRegistrationFields?: string[];
+  accessActivationPending?: boolean;
+  hasOnlineAccess?: boolean;
   status?: string;
   accessStatus?: string;
   type?: string;
