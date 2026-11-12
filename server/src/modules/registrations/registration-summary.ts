@@ -9,6 +9,7 @@ type Registration = {
   documentNumber?: string | null;
   cpf?: string | null;
   userId?: string | null;
+  user?: { credentialsReady: boolean } | null;
 };
 // Completeness helps follow-up; it never blocks an operational registration.
 export function withRegistration<T extends Registration>(
@@ -30,6 +31,7 @@ export function withRegistration<T extends Registration>(
     ...record,
     registrationStatus: missing.length ? "TO_COMPLETE" : "COMPLETE",
     missingRegistrationFields: missing,
-    hasOnlineAccess: Boolean(record.userId),
+    hasOnlineAccess: Boolean(record.userId && record.user?.credentialsReady !== false),
+    accessActivationPending: Boolean(record.userId && record.user?.credentialsReady === false),
   };
 }
