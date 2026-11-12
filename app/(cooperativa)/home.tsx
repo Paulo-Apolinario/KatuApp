@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { NotificationBell } from '@/src/components/NotificationBell';
 import { FieldPage, FieldButton, ui, green } from '@/src/components/cooperative/FieldUI';
-const actions = [['Catadores', 'Trabalhos, equipe e pendências', 'people-outline', 'catadores'], ['Motoristas', 'Trabalhos e localização ao vivo', 'car-outline', 'motoristas'], ['Geradores', 'Locais, solicitações e coletas', 'business-outline', 'geradores'], ['Adicionar gerador', 'Cadastrar pequeno ou grande gerador', 'person-add-outline', 'geradores/novo'], ['PEVs', 'Localizar, cadastrar e consultar no mapa', 'location-outline', 'pevs'], ['Relatórios e análises', 'Escolher indicadores e período', 'bar-chart-outline', 'relatorios']] as const;
+const actions = [['Triagem e bags', 'Pesar bags e registrar materiais separados', 'layers-outline', 'triagem-bags'], ['Catadores', 'Trabalhos, equipe e pendências', 'people-outline', 'catadores'], ['Motoristas', 'Trabalhos e localização ao vivo', 'car-outline', 'motoristas'], ['Geradores', 'Locais, solicitações e coletas', 'business-outline', 'geradores'], ['Adicionar gerador', 'Cadastrar pequeno ou grande gerador', 'person-add-outline', 'geradores/novo'], ['PEVs', 'Localizar, cadastrar e consultar no mapa', 'location-outline', 'pevs'], ['Relatórios e análises', 'Escolher indicadores e período', 'bar-chart-outline', 'relatorios']] as const;
 export default function CooperativeHome() {
   const {
     user,
