@@ -1,3 +1,4 @@
+import { lookupAccount } from "./account-lookup";
 import {
   AccountStatus,
   DriverStatus,
@@ -213,24 +214,13 @@ export class AuthService {
   }
 
   async login(data: LoginInput) {
-    const email = normalizeEmail(data.email);
-
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: {
-        personProfile: true,
-        generator: true,
-        collector: true,
-        cooperative: true,
-        driver: true,
-      },
-    });
+    const user = await lookupAccount(data.identifier);
 
     if (!user) {
-      throw new Error("E-mail ou senha inválidos.");
+      throw new Error("E-mail, celular ou senha inválidos.");
     }
 
-    if (!user.isActive || user.accountStatus !== AccountStatus.ACTIVE) {
+    if (!user.credentialsReady || !user.isActive || user.accountStatus !== AccountStatus.ACTIVE) {
       throw new Error("Conta inativa ou bloqueada.");
     }
 
@@ -240,7 +230,7 @@ export class AuthService {
     );
 
     if (!passwordMatches) {
-      throw new Error("E-mail ou senha inválidos.");
+      throw new Error("E-mail, celular ou senha inválidos.");
     }
 
     return user;
@@ -450,6 +440,7 @@ export class AuthService {
     });
 
     if (generator) {
+      if (generator.recoveryEmail) throw new Error("Solicite à cooperativa o link para definir seu acesso.");
       if (
         generator.accessReleased ||
         generator.accessStatus === GeneratorAccessStatus.ACTIVE
@@ -510,6 +501,7 @@ export class AuthService {
     });
 
     if (collector) {
+      if (collector.recoveryEmail) throw new Error("Solicite à cooperativa o link para definir seu acesso.");
       if (collector.userId) {
         throw new Error("Este catador já possui acesso ativo.");
       }
@@ -634,25 +626,13 @@ export class AuthService {
   }
 
   async resetPassword(data: ResetPasswordInput) {
-    const email = normalizeEmail(data.email);
     const token = data.token.trim();
-
-    const temporaryPassword =
-      data.temporaryPassword || data.temporary_password || "";
-
+    const temporaryPassword = data.temporaryPassword || data.temporary_password || "";
     const newPassword = data.newPassword || data.password || "";
-
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user) {
-      throw new Error("Usuário não encontrado.");
-    }
-
-    const emailToken = await prisma.authEmailToken.findUnique({
-      where: { tokenHash: tokenHash(token) },
-    });
+    const emailToken = await prisma.authEmailToken.findUnique({where:{tokenHash:tokenHash(token)}});
+    const user = emailToken ? await prisma.user.findUnique({where:{id:emailToken.userId}})
+      : data.email ? await prisma.user.findUnique({where:{email:normalizeEmail(data.email)}}) : null;
+    if (!user || (data.email && user.email?.toLowerCase() !== normalizeEmail(data.email))) throw new Error("Link inválido, expirado ou já utilizado.");
     if (emailToken) {
       if (
         emailToken.userId !== user.id ||
@@ -665,6 +645,8 @@ export class AuthService {
       ) {
         throw new Error("Link inválido, expirado ou já utilizado.");
       }
+      const attempt = await prisma.authEmailToken.updateMany({where:{id:emailToken.id, consumedAt:null, expiresAt:{gt:new Date()}, attempts:{lt:5}},data:{attempts:{increment:1}}});
+      if (attempt.count !== 1) throw new Error("Link inválido, expirado ou já utilizado.");
       if (
         !(await comparePassword(
           temporaryPassword,
@@ -688,11 +670,14 @@ export class AuthService {
           where: { id: user.id },
           data: {
             passwordHash,
+            credentialsReady: true,
             authVersion: { increment: 1 },
             resetPasswordToken: null,
             resetPasswordExpiresAt: null,
           },
         });
+        if (user.role === "GENERATOR_SMALL" || user.role === "GENERATOR_LARGE")
+          await tx.generator.updateMany({where:{userId:user.id},data:{accessReleased:true,accessStatus:"ACTIVE",activatedAt:new Date()}});
         await tx.authEmailToken.updateMany({
           where: { userId: user.id, consumedAt: null },
           data: { consumedAt: new Date() },
