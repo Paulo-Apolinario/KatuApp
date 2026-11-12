@@ -1,3 +1,4 @@
+import { rejectBagLegacyEdit } from "../mixed-bags/legacy-guard";
 import { FastifyInstance } from "fastify";
 import { z, ZodError } from "zod";
 import {
@@ -11,6 +12,7 @@ import { CollectionService } from "../collections/collection.service";
 const collections = new CollectionService();
 export async function collectorTeamRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
+  app.addHook("preHandler", rejectBagLegacyEdit);
   const safe =
     (fn: (r: any, coop: string) => Promise<any>) =>
     async (r: any, reply: any) => {
