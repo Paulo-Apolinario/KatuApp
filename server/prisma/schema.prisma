@@ -60,6 +60,7 @@ model User {
 }
 
 model Cooperative {
+  mixedBags MixedBag[]
   analyticsUsage AnalyticsUsageDaily[]
   reportConfigurationRevisions ReportConfigurationRevision[]
   agentEvents AgentEvent[]
@@ -408,6 +409,7 @@ model CollectorDocument {
 }
 
 model Collection {
+  mixedBags MixedBag[]
   attendanceOutcome String?
   intakeDelivererId String?
   intakeDeliverer IntakeDeliverer? @relation(fields:[intakeDelivererId], references:[id], onDelete:SetNull)
@@ -534,6 +536,7 @@ model Collection {
 }
 
 model CollectionMaterial {
+  bagOutput MixedBagOutput?
   identificationSnapshot Json?
   id           String  @id @default(cuid())
   collectionId String
@@ -627,6 +630,7 @@ model CollectionWasteEntry {
 }
 
 model CollectionWasteDestination {
+  bagOutput MixedBagOutput?
   operationId String? @unique
   operationHash String?
   version Int @default(1)
@@ -864,6 +868,7 @@ model WasteStockItem {
 }
 
 model WasteStockLot {
+  bagOutputs MixedBagOutput[]
   version Int @default(1)
   movements WasteStockMovement[]
   id            String @id @default(cuid())
@@ -2026,4 +2031,77 @@ model RegistrationAccessEvent {
   action String
   createdAt DateTime @default(now())
   @@index([cooperativeId, createdAt])
+}
+
+// Physical mixed receipt. Its collection is the single accounting receipt.
+model MixedBag {
+  id String @id
+  cooperativeId String
+  collectionId String
+  code String
+  externalTag String?
+  grossKg Decimal @db.Decimal(18,3)
+  tareKg Decimal @db.Decimal(18,3)
+  netKg Decimal @db.Decimal(18,3)
+  sortedKg Decimal @default(0) @db.Decimal(18,3)
+  rejectedKg Decimal @default(0) @db.Decimal(18,3)
+  status String @default("WAITING")
+  version Int @default(1)
+  originLabel String
+  originSnapshot Json
+  storageLocation String?
+  notes String?
+  receivedAt DateTime @default(now())
+  createdByUserId String
+  createdByName String
+  closedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Restrict)
+  collection Collection @relation(fields:[collectionId],references:[id],onDelete:Restrict)
+  events MixedBagEvent[]
+  outputs MixedBagOutput[]
+  @@unique([cooperativeId,code])
+  @@index([cooperativeId,externalTag,status])
+  @@index([collectionId])
+  @@index([cooperativeId,status,receivedAt])
+}
+model MixedBagEvent {
+  id String @id @default(cuid())
+  bagId String
+  cooperativeId String
+  operationId String
+  operationHash String
+  kind String
+  actorUserId String
+  actorName String
+  participantSnapshot Json
+  rejectedKg Decimal @default(0) @db.Decimal(18,3)
+  notes String?
+  before Json
+  after Json
+  createdAt DateTime @default(now())
+  bag MixedBag @relation(fields:[bagId],references:[id],onDelete:Restrict)
+  outputs MixedBagOutput[]
+  @@unique([cooperativeId,operationId])
+  @@index([bagId,createdAt])
+}
+model MixedBagOutput {
+  id String @id @default(cuid())
+  bagId String
+  eventId String
+  lotId String
+  materialId String @unique
+  destinationId String @unique
+  itemId String
+  materialName String
+  quantityKg Decimal @db.Decimal(18,3)
+  lotCode String
+  createdAt DateTime @default(now())
+  bag MixedBag @relation(fields:[bagId],references:[id],onDelete:Restrict)
+  event MixedBagEvent @relation(fields:[eventId],references:[id],onDelete:Restrict)
+  lot WasteStockLot @relation(fields:[lotId],references:[id],onDelete:Restrict)
+  material CollectionMaterial @relation(fields:[materialId],references:[id],onDelete:Restrict)
+  destination CollectionWasteDestination @relation(fields:[destinationId],references:[id],onDelete:Restrict)
+  @@index([lotId,createdAt])
 }
