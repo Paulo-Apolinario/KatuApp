@@ -66,7 +66,7 @@ export default function LoginScreen() {
 
     if (!normalizedEmail || (!quickAccess && !password.trim())) {
       notifyWarning(
-        quickAccess ? "Informe seu e-mail." : "Preencha e-mail e senha.",
+        quickAccess ? "Informe seu e-mail." : "Preencha e-mail ou celular e senha.",
       );
       return;
     }
@@ -173,13 +173,13 @@ export default function LoginScreen() {
         ))}
       </View>
       <Field
-        label="E-mail"
+        label={quickAccess ? "E-mail" : "E-mail ou celular"}
         value={email}
         onChangeText={setEmail}
-        placeholder="seu@email.com"
+        placeholder={quickAccess ? "seu@email.com" : "E-mail ou celular com DDD"}
         autoCapitalize="none"
-        autoComplete="email"
-        keyboardType="email-address"
+        autoComplete="username"
+        keyboardType={quickAccess ? "email-address" : "default"}
         editable={!loading}
       />
       {quickAccess ? (
