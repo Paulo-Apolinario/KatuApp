@@ -154,7 +154,7 @@ async function resolveSenderIdentity(userId: string): Promise<SenderIdentity> {
   if (user.generator) {
     return {
       senderName: user.generator.companyName || user.generator.name || user.displayName,
-      senderEmail: user.generator.email || user.email,
+      senderEmail: user.generator.email || user.email || "",
       senderType: "GENERATOR",
     };
   }
@@ -162,7 +162,7 @@ async function resolveSenderIdentity(userId: string): Promise<SenderIdentity> {
   if (user.collector) {
     return {
       senderName: user.collector.name || user.displayName,
-      senderEmail: user.collector.email || user.email,
+      senderEmail: user.collector.email || user.email || "",
       senderType: "COLLECTOR",
     };
   }
@@ -170,7 +170,7 @@ async function resolveSenderIdentity(userId: string): Promise<SenderIdentity> {
   if (user.driver) {
     return {
       senderName: user.driver.name || user.displayName,
-      senderEmail: user.driver.email || user.email,
+      senderEmail: user.driver.email || user.email || "",
       senderType: "DRIVER",
     };
   }
@@ -178,14 +178,14 @@ async function resolveSenderIdentity(userId: string): Promise<SenderIdentity> {
   if (user.cooperative) {
     return {
       senderName: user.cooperative.name || user.displayName,
-      senderEmail: user.cooperative.email || user.email,
+      senderEmail: user.cooperative.email || user.email || "",
       senderType: "COOPERATIVE",
     };
   }
 
   return {
     senderName: user.displayName,
-    senderEmail: user.email,
+    senderEmail: user.email || "",
     senderType: "PF",
   };
 }
@@ -313,7 +313,7 @@ async function sendFeedbackEmail(params: {
     from,
     to: params.to,
     bcc,
-    replyTo: params.senderEmail,
+    replyTo: params.senderEmail || undefined,
     subject,
     html,
   });
