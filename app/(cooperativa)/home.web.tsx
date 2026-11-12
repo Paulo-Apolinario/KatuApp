@@ -36,15 +36,9 @@ const actions = [
   ],
   [
     "Geradores",
-    "Locais, solicitações e coletas",
+    "Cadastros, solicitações e coletas",
     "business-outline",
     "geradores",
-  ],
-  [
-    "Adicionar gerador",
-    "Cadastrar pequeno ou grande gerador",
-    "person-add-outline",
-    "geradores/novo",
   ],
   [
     "PEVs",
