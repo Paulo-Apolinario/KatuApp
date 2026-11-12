@@ -1,3 +1,4 @@
+import { registrationAccessRoutes } from "./modules/registrations/access.routes";
 import { agentsRoutes } from "./modules/agents/agents.routes";
 import { participationAnalyticsRoutes } from "./modules/analytics/participation.routes";
 import {intakeDelivererRoutes} from "./modules/intake-deliverers/intake-deliverers.routes";
@@ -170,10 +171,12 @@ export async function buildApp() {
           isActive: true,
           accountStatus: true,
           authVersion: true,
+          credentialsReady: true,
         },
       });
       if (
         !user ||
+        !user.credentialsReady ||
         !user.isActive ||
         user.accountStatus !== "ACTIVE" ||
         user.role !== request.user.role ||
@@ -247,6 +250,7 @@ export async function buildApp() {
   await app.register(environmentalRoutes);
   await app.register(reportsRoutes);
   await app.register(participationAnalyticsRoutes);
+  await app.register(registrationAccessRoutes);
   await app.register(settingsRoutes);
   await app.register(dashboardRoutes);
   await app.register(wasteWorkspaceRoutes);
