@@ -32,7 +32,7 @@ export default function CooperativaLoginScreen() {
 
   async function handleLogin() {
     if (!email.trim() || !password.trim()) {
-      notifyWarning("Preencha e-mail e senha.");
+      notifyWarning("Preencha e-mail ou celular e senha.");
       return;
     }
 
@@ -246,7 +246,7 @@ export default function CooperativaLoginScreen() {
                   fontWeight: "500",
                 }}
               >
-                E-mail
+                E-mail ou celular
               </Text>
             </View>
 
@@ -255,7 +255,7 @@ export default function CooperativaLoginScreen() {
               onChangeText={setEmail}
               placeholder="cooperativa@email.com"
               placeholderTextColor="#9CA3AF"
-              keyboardType="email-address"
+              keyboardType="default"
               autoCapitalize="none"
               style={{
                 borderWidth: 1,
