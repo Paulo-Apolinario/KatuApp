@@ -306,7 +306,8 @@ export async function stockDispatchRoutes(app: FastifyInstance) {
                 after: state(updated),
               },
             });
-            allocations.push({ ...a, movementId: movement.id });
+            const composition=await tx.mixedBagOutput.findMany({where:{lotId:lot.id},select:{quantityKg:true,bag:{select:{id:true,code:true,originLabel:true,originSnapshot:true}}},orderBy:[{createdAt:"asc"},{id:"asc"}]});
+            allocations.push({ ...a, movementId: movement.id,bagComposition:composition.map(o=>({bagId:o.bag.id,bagCode:o.bag.code,origin:o.bag.originLabel,origins:o.bag.originSnapshot,inputQuantityKg:o.quantityKg.toFixed(3)})) });
           }
           const cooperative = await tx.cooperative.findUniqueOrThrow({
             where: { id: cooperativeId },
