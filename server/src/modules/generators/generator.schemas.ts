@@ -11,11 +11,13 @@ export const createGeneratorSchema = z.object({
   type: z.enum(["SMALL", "LARGE"]),
   name: z.string().trim().min(2, "Nome inválido"),
   companyName: optionalTrimmedString,
-  email: z.string().trim().email("E-mail inválido"),
+  email: z.preprocess(value => (typeof value === "string" && !value.trim()) || value === null ? undefined : value,
+    z.string().trim().toLowerCase().email("E-mail inválido").max(255).optional()),
   phone: optionalTrimmedString,
   documentNumber: z.string().trim().max(30, "CPF/CNPJ inválido.")
     .transform(normalizeDocument)
-    .refine(validDocument, "Informe um CPF ou CNPJ válido, incluindo os dígitos verificadores.")
+    .refine(value => !value || validDocument(value), "Informe um CPF ou CNPJ válido, incluindo os dígitos verificadores.")
+    .transform(value => value || undefined)
     .optional(),
 
   zipCode: optionalTrimmedString,
@@ -41,7 +43,7 @@ export type CreateGeneratorInput = z.infer<typeof createGeneratorSchema>;
 export type GeneratorIdParams = z.infer<typeof generatorIdParamsSchema>;
 
 export const updateGeneratorSchema = createGeneratorSchema
-  .omit({ email: true, status: true })
+  .omit({ status: true })
   .partial()
   .extend({
     latitude: z.number().finite().min(-90).max(90).optional(),
