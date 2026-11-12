@@ -15,7 +15,7 @@ const { PGLiteSocketServer } = require("@electric-sql/pglite-socket");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "katua-quick-registration-"));
 let prior = fs.readFileSync("prisma/schema.prisma", "utf8");
 prior = prior.replace(/\n\/\/ Physical mixed receipt[\s\S]*$/, "\n");
-prior = prior.replace(/^  (mixedBags|bagOutputs|bagOutput) [^\n]+\n/gm, "");
+prior = prior.replace(/^  (mixedBags|bagOutputs|bagOutput|triageDays) [^\n]+\n/gm, "");
 fs.writeFileSync(path.join(tmp, "before.prisma"), prior);
 const ddl = spawnSync(
   process.execPath,
@@ -52,6 +52,7 @@ try {
       "utf8",
     ),
   );
+  await db.exec(fs.readFileSync('prisma/migrations/20261113000000_triage_controls/migration.sql','utf8'));
   const rows = await db.query(
     `SELECT email,"totalKg",status FROM "Collector" WHERE id='legacy-col'`,
   );
