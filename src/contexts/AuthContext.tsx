@@ -41,7 +41,7 @@ interface AuthContextData {
     email: string,
     password: string,
   ) => Promise<AuthActionResult>;
-  forgotPassword: (email: string) => Promise<AuthActionResult>;
+  forgotPassword: (email: string, identifierType?: "EMAIL" | "PHONE" | "CPF") => Promise<AuthActionResult>;
   resetPassword: (data: ResetPasswordInput) => Promise<AuthActionResult>;
   refreshUser: () => Promise<void>;
 }
@@ -345,9 +345,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const forgotPassword = async (email: string): Promise<AuthActionResult> => {
+  const forgotPassword = async (email: string, identifierType?: "EMAIL" | "PHONE" | "CPF"): Promise<AuthActionResult> => {
     try {
-      const result = await authService.forgotPassword(email);
+      const result = await authService.forgotPassword(email, identifierType);
 
       if (result.success === false) {
         return {
