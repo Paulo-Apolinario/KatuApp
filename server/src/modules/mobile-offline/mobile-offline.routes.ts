@@ -23,7 +23,7 @@ export async function mobileOfflineRoutes(app: FastifyInstance) {
     app.post('/mobile-offline/operations', async (r: any, p) => { try {
         const cooperativeId = await wasteCooperativeScope(r.user.sub), v = input.parse(r.body);
         const data = v.kind === 'GENERATOR_CREATE' ? createGeneratorSchema.strict().parse(v.data) : createBinSchema.parse(v.data);
-        if (data.latitude == null || data.longitude == null || !Number.isFinite(data.latitude) || !Number.isFinite(data.longitude) || Math.abs(data.latitude) > 90 || Math.abs(data.longitude) > 180)
+        if ((v.kind === "PEV_CREATE" || data.latitude != null || data.longitude != null) && (data.latitude == null || data.longitude == null || !Number.isFinite(data.latitude) || !Number.isFinite(data.longitude) || Math.abs(data.latitude) > 90 || Math.abs(data.longitude) > 180))
             return p.code(400).send({ error: 'Confirme a localização antes de enviar o cadastro.' });
         const requestHash = createHash('sha256').update(canonical({ kind: v.kind, data })).digest('hex');
         const result = await prisma.$transaction(async (tx) => { await tx.$queryRaw `SELECT id FROM "Cooperative" WHERE id=${cooperativeId} FOR UPDATE`; const old = await tx.mobileOfflineOperation.findUnique({ where: { id: v.operationId } }); if (old) {
