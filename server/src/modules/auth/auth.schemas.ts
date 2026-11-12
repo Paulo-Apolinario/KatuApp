@@ -32,22 +32,26 @@ export const registerCooperativeSchema = z.object({
   longitude: z.coerce.number().optional(),
 });
 
-export const loginSchema = z.object({
-  email: z.string().email("E-mail inválido"),
-  password: z.string().min(6, "Senha inválida"),
-});
-
+const identifierFields = {
+  identifier: z.string().trim().min(3).max(255).optional(),
+  email: z.string().trim().min(3).max(255).optional(), // Existing app versions.
+};
+export const loginSchema = z.object({ ...identifierFields, password: z.string().min(6, "Senha inválida").max(256) })
+  .refine(data => Boolean(data.identifier || data.email), "Informe e-mail ou celular.")
+  .transform(data => ({ identifier: data.identifier || data.email!, password: data.password }));
 export const activateGeneratorAccessSchema = z.object({
   email: z.string().email("E-mail inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
 });
-
 export const forgotPasswordSchema = z.object({
-  email: z.string().email("E-mail inválido"),
+  ...identifierFields,
+  identifierType: z.enum(["EMAIL", "PHONE", "CPF"]).optional(),
   audience: z.enum(["APP", "PANEL"]).default("APP"),
-});
-
-export const requestLoginLinkSchema = forgotPasswordSchema.extend({
+}).refine(data => Boolean(data.identifier || data.email), "Informe CPF, celular ou e-mail.")
+  .transform(data => ({ ...data, identifier: data.identifier || data.email! }));
+export const requestLoginLinkSchema = z.object({
+  email: z.string().trim().email("E-mail inválido"),
+  audience: z.enum(["APP", "PANEL"]).default("APP"),
   profile: z.enum(["pf", "comercial", "grande", "cooperativa", "catador", "motorista"]).optional(),
 });
 export const consumeLoginLinkSchema = z.object({
@@ -57,7 +61,7 @@ export const consumeLoginLinkSchema = z.object({
 
 export const resetPasswordSchema = z
   .object({
-    email: z.string().email("E-mail inválido"),
+    email: z.preprocess(value => value === "" ? undefined : value, z.string().email("E-mail inválido").optional()),
     token: z.string().min(1, "Token inválido"),
 
     temporaryPassword: z.string().optional(),
