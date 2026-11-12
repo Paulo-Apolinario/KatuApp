@@ -284,7 +284,7 @@ class AuthService {
   async login(email: string, password: string): Promise<AuthResult> {
     try {
       const response = await api.post<LoginResponse>("/auth/login", {
-        email: normalizeEmail(email),
+        identifier: email.trim().toLowerCase(),
         password,
       });
 
@@ -365,12 +365,14 @@ class AuthService {
     }
   }
 
-  async forgotPassword(email: string): Promise<AuthResult> {
+  async forgotPassword(email: string, identifierType?: "EMAIL" | "PHONE" | "CPF"): Promise<AuthResult> {
     try {
       const response = await api.post<ForgotPasswordResponse>(
         "/auth/forgot-password",
         {
-          email: normalizeEmail(email),
+          identifier: email.trim().toLowerCase(),
+          identifierType,
+          audience: "APP",
         },
       );
 
@@ -396,7 +398,7 @@ class AuthService {
       const response = await api.post<ResetPasswordResponse>(
         "/auth/reset-password",
         {
-          email: normalizeEmail(data.email),
+          email: data.email ? normalizeEmail(data.email) : undefined,
           token: data.token.trim(),
 
           temporaryPassword: data.temporaryPassword,
