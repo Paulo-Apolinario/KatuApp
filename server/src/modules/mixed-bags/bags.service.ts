@@ -1,3 +1,4 @@
+import { civilDay, assertDayOpen } from "./bags.calendar";
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -298,6 +299,11 @@ export async function mutate(
     );
   return prisma.$transaction(
     async (tx) => {
+      const replay = await previous(tx, ctx, input.operationId, hash, bagId);
+      if (replay) return replay;
+      const operationAt = new Date();
+      if (kind === "SORT")
+        await assertDayOpen(tx, ctx.cooperativeId, civilDay(operationAt));
       const head = await tx.mixedBag.findFirst({
         where: { id: bagId, cooperativeId: ctx.cooperativeId },
       });
@@ -430,6 +436,7 @@ export async function mutate(
           operationId: input.operationId,
           operationHash: hash,
           kind,
+          createdAt: operationAt,
           actorUserId: ctx.userId,
           actorName: ctx.name,
           participantSnapshot: participants,
