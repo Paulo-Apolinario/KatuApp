@@ -13,6 +13,8 @@ export const createGeneratorSchema = z.object({
   companyName: optionalTrimmedString,
   email: z.preprocess(value => (typeof value === "string" && !value.trim()) || value === null ? undefined : value,
     z.string().trim().toLowerCase().email("E-mail inválido").max(255).optional()),
+  recoveryEmail: z.preprocess(value => value === "" ? null : value,
+    z.string().trim().toLowerCase().email("E-mail de recuperação inválido.").max(255).nullable().optional()),
   phone: optionalTrimmedString,
   documentNumber: z.string().trim().max(30, "CPF/CNPJ inválido.")
     .transform(normalizeDocument)
