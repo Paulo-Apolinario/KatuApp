@@ -1,3 +1,4 @@
+import { runControls } from "./controls.integration";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
@@ -560,10 +561,19 @@ async function main() {
     console.log(
       "PASS: triage reporting separates current receipt-cohort balances from dated production; Fortaleza midnight boundaries; shared participation without double-counting totals; drilldowns, pagination, empty data, dates, roles and tenant isolation",
     );
+    const controls = await runControls({
+      call,
+      received,
+      sort,
+      get,
+      close,
+      usedBag: bag,
+    });
     if (process.env.KATUA_BAG_FIXTURE)
       writeFileSync(
         process.env.KATUA_BAG_FIXTURE,
         JSON.stringify({
+          controls,
           report,
           context: (await call("GET", "/mixed-bags/context")).json(),
           catalog: (await call("GET", "/mixed-bags/catalog")).json(),
