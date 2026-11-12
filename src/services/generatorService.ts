@@ -15,7 +15,8 @@ export interface Generator {
   type: GeneratorType;
   name: string;
   companyName?: string | null;
-  email: string;
+  email: string | null;
+  recoveryEmail?: string | null;
   phone?: string | null;
 
   zipCode?: string | null;
@@ -42,7 +43,8 @@ export interface CreateGeneratorDTO {
   type: GeneratorType;
   name: string;
   companyName?: string;
-  email: string;
+  email?: string;
+  recoveryEmail?: string;
   phone?: string;
 
   zipCode?: string;
@@ -80,7 +82,8 @@ function sanitizeCreatePayload(data: CreateGeneratorDTO): CreateGeneratorDTO {
     type: data.type,
     name: data.name.trim(),
     companyName: data.companyName?.trim() || undefined,
-    email: data.email.trim().toLowerCase(),
+    email: data.email?.trim().toLowerCase() || undefined,
+    recoveryEmail: data.recoveryEmail?.trim().toLowerCase() || undefined,
     phone: data.phone?.trim() || undefined,
 
     zipCode: data.zipCode?.trim() || undefined,
