@@ -450,10 +450,121 @@ async function main() {
     });
     assert.equal(Number(afterDispatch.availableQuantity), 50);
     assert.equal(Number(afterDispatch.quantity), 60);
+    // Report dates are civil Fortaleza days. Production and receipt cohorts differ.
+    const reportBag = await received(100, 0);
+    const reportSort = await sort(reportBag, 40, "paper", {
+      rejectedKg: 10,
+      notes: "Rejeitos pesados para o relatório",
+    });
+    assert.equal(reportSort.statusCode, 201, reportSort.body);
+    const firstReportEvent = reportSort.json().event.id;
+    const laterSort = await sort(await get(reportBag.id), 20);
+    assert.equal(laterSort.statusCode, 201, laterSort.body);
+    await prisma.mixedBag.update({
+      where: { id: reportBag.id },
+      data: { receivedAt: new Date("2026-01-01T03:00:00Z") },
+    });
+    await prisma.mixedBagEvent.update({
+      where: { id: firstReportEvent },
+      data: { createdAt: new Date("2026-01-02T02:59:59.999Z") },
+    });
+    await prisma.mixedBagEvent.update({
+      where: { id: laterSort.json().event.id },
+      data: { createdAt: new Date("2026-01-02T03:00:00Z") },
+    });
+    const oldBag = await received(50, 0);
+    const oldSort = await sort(oldBag, 10, "glass");
+    assert.equal(oldSort.statusCode, 201, oldSort.body);
+    await prisma.mixedBag.update({
+      where: { id: oldBag.id },
+      data: { receivedAt: new Date("2025-12-31T03:00:00Z") },
+    });
+    await prisma.mixedBagEvent.update({
+      where: { id: oldSort.json().event.id },
+      data: { createdAt: new Date("2026-01-01T03:00:00Z") },
+    });
+    const reportUrl = "/mixed-bags/report?start=2026-01-01&end=2026-01-01";
+    const response = await call("GET", reportUrl);
+    assert.equal(response.statusCode, 200, response.body);
+    const report = response.json();
+    assert.equal(report.cohort.bags, 1);
+    assert.equal(report.cohort.receivedKg, "100.000");
+    assert.equal(report.cohort.sortedKg, "60.000");
+    assert.equal(report.cohort.pendingKg, "30.000");
+    assert.equal(report.cohort.recoveredPercent, 60);
+    assert.equal(report.cohort.rejectedPercent, 10);
+    assert.equal(report.production.sortedKg, "50.000");
+    assert.equal(report.production.rejectedKg, "10.000");
+    assert.equal(report.production.operations, 2);
+    assert.equal(
+      report.materials.find((m: any) => m.itemId === "paper").quantityKg,
+      "40.000",
+    );
+    assert.equal(report.series[0].sortedKg, "50.000");
+    assert.equal(report.participants.length, 2);
+    assert.equal(
+      report.participants.reduce(
+        (n: number, p: any) => n + Number(p.collectiveKg),
+        0,
+      ),
+      100,
+    );
+    assert.equal(report.production.sortedKg, "50.000");
+    const personReport = await call("GET", reportUrl + "&participantId=col-c2");
+    assert.equal(personReport.statusCode, 200, personReport.body);
+    assert.equal(personReport.json().cohort.bags, 1);
+    const materialReport = (
+      await call("GET", reportUrl + "&itemId=glass")
+    ).json();
+    assert.equal(materialReport.events.items.length, 1);
+    assert.equal(materialReport.production.sortedKg, "50.000");
+    assert.equal(
+      (await call("GET", reportUrl + "&bucket=COMPLETED")).json().bags.items
+        .length,
+      0,
+    );
+    assert.equal(
+      (await call("GET", reportUrl + "&page=2")).json().bags.items.length,
+      0,
+    );
+    const other = (await call("GET", reportUrl, undefined, "b")).json();
+    assert.equal(other.cohort.bags, 0);
+    assert.equal(other.cohort.recoveredPercent, null);
+    assert.equal(other.production.operations, 0);
+    assert.equal(
+      (await call("GET", reportUrl + "&participantId=col-cb")).statusCode,
+      404,
+    );
+    assert.equal(
+      (await call("GET", reportUrl, undefined, "c1")).statusCode,
+      200,
+    );
+    assert.equal(
+      (await call("GET", reportUrl, undefined, "pf")).statusCode,
+      403,
+    );
+    assert.equal((await call("GET", reportUrl, undefined, "")).statusCode, 401);
+    for (const suffix of [
+      "start=2026-02-30&end=2026-03-01",
+      "start=2024-01-01&end=2026-01-01",
+      "start=2026-01-02&end=2026-01-01",
+      "end=2099-01-01",
+      "unexpected=yes",
+    ]) {
+      assert.equal(
+        (await call("GET", "/mixed-bags/report?" + suffix)).statusCode,
+        400,
+        suffix,
+      );
+    }
+    console.log(
+      "PASS: triage reporting separates current receipt-cohort balances from dated production; Fortaleza midnight boundaries; shared participation without double-counting totals; drilldowns, pagination, empty data, dates, roles and tenant isolation",
+    );
     if (process.env.KATUA_BAG_FIXTURE)
       writeFileSync(
         process.env.KATUA_BAG_FIXTURE,
         JSON.stringify({
+          report,
           context: (await call("GET", "/mixed-bags/context")).json(),
           catalog: (await call("GET", "/mixed-bags/catalog")).json(),
           list: (await call("GET", "/mixed-bags")).json(),
