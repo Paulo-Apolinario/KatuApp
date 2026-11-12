@@ -17,6 +17,7 @@ const actions: {
   icon: keyof typeof Ionicons.glyphMap;
   path: Href;
 }[] = [
+  { title: "Triagem e lotes", icon: "layers-outline", path: "/(catador)/triagem-lotes" as Href },
   {
     title: "Coleta extra",
     icon: "add-circle-outline",
