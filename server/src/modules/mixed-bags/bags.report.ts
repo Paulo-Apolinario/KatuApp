@@ -54,6 +54,7 @@ export async function bagReport(ctx: BagContext, input: unknown) {
   const eventScope: Prisma.MixedBagEventWhereInput = {
     cooperativeId: ctx.cooperativeId,
     kind: "SORT",
+    reversedAt: null,
     createdAt: { gte: from, lt: until },
     ...(q.participantId
       ? { participantSnapshot: { array_contains: [{ id: q.participantId }] } }
