@@ -793,9 +793,11 @@ export class CollectionWasteDestinationsService {
       status: string;
       receivedAt: Date | null;
       quantityReviewVersion?: number;
+      intakeKind?: string | null;
     },
     type?: string,
   ) {
+    if(collection.intakeKind === "MIXED_BAG") throw new WasteDestinationDomainError("Materiais de bags são movimentados por Triagem e lotes e pelas saídas do estoque.",{statusCode:409,code:"MIXED_BAG_LEDGER"});
     if (["COMPLETED", "CANCELLED"].includes(collection.status))
       throw new WasteDestinationDomainError(
         "Coleta encerrada: as destinações estão preservadas para consulta.",
@@ -844,6 +846,7 @@ export class CollectionWasteDestinationsService {
                 status: true,
                 receivedAt: true,
                 quantityReviewVersion: true,
+                intakeKind: true,
               },
             },
             collectionMaterial: { select: { id: true } },
