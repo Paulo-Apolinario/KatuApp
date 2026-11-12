@@ -1,5 +1,6 @@
+import BagProgress from "./BagProgress";
 import { useCallback, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { Text, View, Platform } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Crypto from "expo-crypto";
 import { api } from "../../services/api";
@@ -647,7 +648,7 @@ function Detail({
 }
 export default function MixedBags() {
   const { user, signOut } = useAuth();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; view?: string }>();
   const id = typeof params.id === "string" ? params.id : "";
   const collector = user?.role === "COLLECTOR",
     base = collector
@@ -704,131 +705,164 @@ export default function MixedBags() {
           onPress={() => void signOut()}
         />
       </View>
-      <LoadState resource={context} />
-      <LoadState resource={resource} />
-      {context.data &&
-        (id ? (
-          <>
-            {resource.data?.bag && (
-              <Detail
-                bag={resource.data.bag}
-                context={context.data}
-                owner={user.id}
-                refresh={resource.refresh}
-              />
-            )}
-            <FieldButton
-              secondary
-              label="Lista de bags"
-              onPress={() => router.replace(base as any)}
-            />
-          </>
-        ) : (
-          <>
-            <FieldButton
-              label={
-                receive ? "Voltar à lista de bags" : "Receber bag misturada"
-              }
-              onPress={() => setReceive((v) => !v)}
-            />
-            {receive ? (
-              <Receive
-                key={user.id}
-                context={context.data}
-                owner={user.id}
-                saved={go}
-              />
+      {!id && Platform.OS === "web" && (
+        <View style={ui.row}>
+          <FieldButton
+            label="Recebimento e triagem"
+            secondary={params.view === "progress"}
+            onPress={() => router.replace(base as any)}
+          />
+          <FieldButton
+            label="Acompanhamento da triagem"
+            secondary={params.view !== "progress"}
+            onPress={() =>
+              router.replace({
+                pathname: base as any,
+                params: { view: "progress" },
+              })
+            }
+          />
+        </View>
+      )}
+      {params.view === "progress" && !id && Platform.OS === "web" ? (
+        <>
+          {context.data && (
+            <BagProgress key={user.id} context={context.data} openBag={go} />
+          )}
+          <LoadState resource={context} />
+        </>
+      ) : (
+        <>
+          <LoadState resource={context} />
+          <LoadState resource={resource} />
+          {context.data &&
+            (id ? (
+              <>
+                {resource.data?.bag && (
+                  <Detail
+                    bag={resource.data.bag}
+                    context={context.data}
+                    owner={user.id}
+                    refresh={resource.refresh}
+                  />
+                )}
+                <FieldButton
+                  secondary
+                  label="Lista de bags"
+                  onPress={() => router.replace(base as any)}
+                />
+              </>
             ) : (
               <>
-                <FieldInput
-                  label="Buscar bag por código ou origem"
-                  value={search}
-                  onChangeText={setSearch}
-                />
                 <FieldButton
-                  secondary
-                  label="Buscar bags"
-                  onPress={() => {
-                    setPage(1);
-                    setQuery(search);
-                  }}
+                  label={
+                    receive ? "Voltar à lista de bags" : "Receber bag misturada"
+                  }
+                  onPress={() => setReceive((v) => !v)}
                 />
-                <View style={ui.row}>
-                  {Object.entries({
-                    ALL: "Todas",
-                    WAITING: "Aguardando",
-                    SORTING: "Em triagem",
-                    COMPLETED: "Concluídas",
-                  }).map(([value, label]) => (
+                {receive ? (
+                  <Receive
+                    key={user.id}
+                    context={context.data}
+                    owner={user.id}
+                    saved={go}
+                  />
+                ) : (
+                  <>
+                    <FieldInput
+                      label="Buscar bag por código ou origem"
+                      value={search}
+                      onChangeText={setSearch}
+                    />
                     <FieldButton
-                      key={value}
-                      label={label}
-                      secondary={status !== value}
+                      secondary
+                      label="Buscar bags"
                       onPress={() => {
-                        setStatus(value);
                         setPage(1);
+                        setQuery(search);
                       }}
                     />
-                  ))}
-                </View>
-                <FieldButton
-                  secondary
-                  label="Atualizar bags"
-                  onPress={resource.refresh}
-                />
-                {resource.data?.summary && (
-                  <View style={ui.card}>
-                    <Text style={ui.body}>
-                      Recebido: {kg(resource.data.summary.receivedKg)}
-                    </Text>
-                    <Text style={ui.body}>
-                      Separado: {kg(resource.data.summary.sortedKg)}
-                    </Text>
-                    <Text style={ui.body}>
-                      Rejeitos: {kg(resource.data.summary.rejectedKg)}
-                    </Text>
-                    <Text style={ui.heading}>
-                      Por triar: {kg(resource.data.summary.pendingKg)}
-                    </Text>
-                  </View>
-                )}
-                {resource.data?.items.map((b: any) => (
-                  <View key={b.id} style={ui.card}>
-                    <Text style={ui.heading}>{b.code}</Text>
-                    <Text style={ui.badge}>{labels[b.status]}</Text>
-                    <Text style={ui.body}>{b.originLabel}</Text>
-                    <Text style={ui.muted}>
-                      Líquido {kg(b.netKg)} · por triar {kg(b.remainingKg)}
-                    </Text>
-                    <FieldButton label="Abrir bag" onPress={() => go(b.id)} />
-                  </View>
-                ))}
-                {resource.data?.items.length === 0 && (
-                  <Text style={ui.body}>Nenhuma bag nesta seleção.</Text>
-                )}
-                {resource.data?.pagination && (
-                  <View style={ui.row}>
+                    <View style={ui.row}>
+                      {Object.entries({
+                        ALL: "Todas",
+                        WAITING: "Aguardando",
+                        SORTING: "Em triagem",
+                        COMPLETED: "Concluídas",
+                      }).map(([value, label]) => (
+                        <FieldButton
+                          key={value}
+                          label={label}
+                          secondary={status !== value}
+                          onPress={() => {
+                            setStatus(value);
+                            setPage(1);
+                          }}
+                        />
+                      ))}
+                    </View>
                     <FieldButton
                       secondary
-                      label="Anterior"
-                      disabled={page === 1}
-                      onPress={() => setPage((v) => v - 1)}
+                      label="Atualizar bags"
+                      onPress={resource.refresh}
                     />
-                    <Text style={ui.muted}>
-                      {page} / {resource.data.pagination.totalPages}
-                    </Text>
-                    <FieldButton
-                      secondary
-                      label="Próxima"
-                      disabled={page >= resource.data.pagination.totalPages}
-                      onPress={() => setPage((v) => v + 1)}
-                    />
-                  </View>
+                    {resource.data?.summary && (
+                      <View style={ui.card}>
+                        <Text style={ui.body}>
+                          Recebido: {kg(resource.data.summary.receivedKg)}
+                        </Text>
+                        <Text style={ui.body}>
+                          Separado: {kg(resource.data.summary.sortedKg)}
+                        </Text>
+                        <Text style={ui.body}>
+                          Rejeitos: {kg(resource.data.summary.rejectedKg)}
+                        </Text>
+                        <Text style={ui.heading}>
+                          Por triar: {kg(resource.data.summary.pendingKg)}
+                        </Text>
+                      </View>
+                    )}
+                    {resource.data?.items.map((b: any) => (
+                      <View key={b.id} style={ui.card}>
+                        <Text style={ui.heading}>{b.code}</Text>
+                        <Text style={ui.badge}>{labels[b.status]}</Text>
+                        <Text style={ui.body}>{b.originLabel}</Text>
+                        <Text style={ui.muted}>
+                          Líquido {kg(b.netKg)} · por triar {kg(b.remainingKg)}
+                        </Text>
+                        <FieldButton
+                          label="Abrir bag"
+                          onPress={() => go(b.id)}
+                        />
+                      </View>
+                    ))}
+                    {resource.data?.items.length === 0 && (
+                      <Text style={ui.body}>Nenhuma bag nesta seleção.</Text>
+                    )}
+                    {resource.data?.pagination && (
+                      <View style={ui.row}>
+                        <FieldButton
+                          secondary
+                          label="Anterior"
+                          disabled={page === 1}
+                          onPress={() => setPage((v) => v - 1)}
+                        />
+                        <Text style={ui.muted}>
+                          {page} / {resource.data.pagination.totalPages}
+                        </Text>
+                        <FieldButton
+                          secondary
+                          label="Próxima"
+                          disabled={page >= resource.data.pagination.totalPages}
+                          onPress={() => setPage((v) => v + 1)}
+                        />
+                      </View>
+                    )}
+                  </>
                 )}
               </>
-            )}
-          </>
-        ))}
+            ))}
+        </>
+      )}
     </FieldPage>
   );
 }
