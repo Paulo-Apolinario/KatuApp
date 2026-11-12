@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 import { FastifyInstance } from "fastify";
 import { AuthController } from "./auth.controller";
@@ -7,7 +8,7 @@ const authController = new AuthController();
 export async function authRoutes(app: FastifyInstance) {
   app.post("/register/pf", authController.registerPf);
   app.post("/register/cooperative", authController.registerCooperative);
-  app.post("/login", authController.login);
+
   app.post(
     "/activate-generator-access",
     authController.activateGeneratorAccess,
@@ -29,7 +30,13 @@ export async function authRoutes(app: FastifyInstance) {
         .at(-1)
         ?.trim() || "";
     const localProxy = ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(peer);
-    const key = localProxy && isIP(forwarded) ? forwarded : peer;
+    const origin = localProxy && isIP(forwarded) ? forwarded : peer;
+    const body = request.body as {identifier?:unknown;email?:unknown}|undefined;
+    const raw = String(body?.identifier || body?.email || "").trim().toLowerCase();
+    const identity = raw.includes("@") ? raw : raw.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+    // Shared cooperative Wi-Fi must not combine different staff logins into one limit.
+    const key = request.routeOptions.url?.endsWith("/login")
+      ? origin + ":login:" + createHash("sha256").update(identity).digest("hex") : origin;
     const bucket = buckets.get(key) || { count: 0, until: now + 15 * 60000 };
     if (bucket.count >= 20 || (!buckets.has(key) && buckets.size >= 10000)) {
       reply.header("Retry-After", "900");
@@ -43,6 +50,7 @@ export async function authRoutes(app: FastifyInstance) {
     bucket.count++;
     buckets.set(key, bucket);
   };
+  app.post("/login", { preHandler: emailLimit }, authController.login);
   app.post(
     "/login-link",
     { preHandler: emailLimit },
@@ -58,7 +66,7 @@ export async function authRoutes(app: FastifyInstance) {
     { preHandler: emailLimit },
     authController.forgotPassword,
   );
-  app.post("/reset-password", authController.resetPassword);
+  app.post("/reset-password", { preHandler: emailLimit }, authController.resetPassword);
 
   app.get(
     "/me",
