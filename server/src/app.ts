@@ -1,3 +1,4 @@
+import { mixedBagRoutes } from "./modules/mixed-bags/bags.routes";
 import { registrationAccessRoutes } from "./modules/registrations/access.routes";
 import { agentsRoutes } from "./modules/agents/agents.routes";
 import { participationAnalyticsRoutes } from "./modules/analytics/participation.routes";
@@ -251,6 +252,7 @@ export async function buildApp() {
   await app.register(reportsRoutes);
   await app.register(participationAnalyticsRoutes);
   await app.register(registrationAccessRoutes);
+  await app.register(mixedBagRoutes);
   await app.register(settingsRoutes);
   await app.register(dashboardRoutes);
   await app.register(wasteWorkspaceRoutes);
