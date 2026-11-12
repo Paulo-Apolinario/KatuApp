@@ -1,3 +1,4 @@
+import { rejectBagLegacyEdit } from "../mixed-bags/legacy-guard";
 import { FastifyInstance } from "fastify";
 
 import { CollectionController } from "./collection.controller";
@@ -6,6 +7,7 @@ const collectionController = new CollectionController();
 
 export async function collectionRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
+  app.addHook("preHandler", rejectBagLegacyEdit);
 
   app.post("/:id/report-incident", (request, reply) =>
     collectionController.reportIncident(request, reply),
