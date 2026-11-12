@@ -25,6 +25,7 @@ export default function ForgotScreen() {
   const { notifyWarning, notifyError, notifySuccess } = useNotification();
 
   const [email, setEmail] = useState("");
+  const [identifierType, setIdentifierType] = useState<"EMAIL" | "PHONE" | "CPF">("EMAIL");
   const [loading, setLoading] = useState(false);
 
   const profileLabel = useMemo(() => {
@@ -48,14 +49,14 @@ export default function ForgotScreen() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail) {
-      notifyWarning("Informe seu e-mail.");
+      notifyWarning("Informe CPF, celular ou e-mail cadastrado.");
       return;
     }
 
     try {
       setLoading(true);
 
-      const result = await forgotPassword(normalizedEmail);
+      const result = await forgotPassword(normalizedEmail, identifierType);
 
       if (!result.success) {
         notifyError(result.error || "Não foi possível iniciar a recuperação.");
@@ -65,7 +66,7 @@ export default function ForgotScreen() {
       notifySuccess({
         message:
           result.message ||
-          "Se o e-mail estiver habilitado, enviaremos as instruções.",
+          "Se os dados identificarem uma conta, enviaremos as instruções ao e-mail de recuperação cadastrado, que pode ser o da cooperativa.",
         title: "Solicitação enviada",
       });
     } catch (error: any) {
@@ -160,7 +161,7 @@ export default function ForgotScreen() {
                 lineHeight: 20,
               }}
             >
-              Informe o e-mail da sua conta para iniciar a redefinição de senha.
+              Informe CPF, celular ou e-mail de acesso. As instruções irão para o e-mail de recuperação cadastrado, que pode ser o da cooperativa.
             </Text>
 
             <View
@@ -193,15 +194,16 @@ export default function ForgotScreen() {
                 fontSize: 14,
               }}
             >
-              E-mail *
+              {identifierType === "CPF" ? "CPF *" : identifierType === "PHONE" ? "Celular com DDD *" : "E-mail de acesso *"}
             </Text>
 
+            <View style={{flexDirection:"row",flexWrap:"wrap",gap:8,marginBottom:12}}>{(["EMAIL","PHONE","CPF"] as const).map(type=><TouchableOpacity key={type} accessibilityRole="button" accessibilityState={{selected:identifierType===type}} onPress={()=>{setIdentifierType(type);setEmail("");}} disabled={loading} style={{padding:10,borderWidth:1,borderColor:identifierType===type?"#047857":"#cbd5e1",borderRadius:10}}><Text>{type==="EMAIL"?"E-mail":type==="PHONE"?"Celular":"CPF"}</Text></TouchableOpacity>)}</View>
             <TextInput
               value={email}
               onChangeText={setEmail}
-              keyboardType="email-address"
+              keyboardType={identifierType === "EMAIL" ? "email-address" : "number-pad"}
               autoCapitalize="none"
-              placeholder="seu@email.com"
+              placeholder={identifierType === "EMAIL" ? "seu@email.com" : identifierType === "CPF" ? "Seu CPF" : "Celular com DDD"}
               placeholderTextColor="#9CA3AF"
               editable={!loading}
               style={{
@@ -218,6 +220,8 @@ export default function ForgotScreen() {
 
           <TouchableOpacity
             activeOpacity={0.9}
+            accessibilityRole="button"
+            accessibilityLabel="Enviar recuperação"
             onPress={handleForgotPassword}
             disabled={loading}
           >
