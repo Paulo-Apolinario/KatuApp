@@ -23,7 +23,7 @@ export interface GeneratorProfile {
   type: "SMALL" | "LARGE";
   name: string;
   companyName?: string | null;
-  email: string;
+  email: string | null;
   phone?: string | null;
   address?: string | null;
   status?: string | null;
@@ -38,7 +38,7 @@ export interface CollectorProfile {
   cooperativeId?: string | null;
   userId?: string | null;
   name: string;
-  email: string;
+  email: string | null;
   phone?: string | null;
   rg?: string | null;
   birthDate?: string | null;
@@ -77,7 +77,7 @@ export interface DriverProfile {
 
 export interface UserDoc {
   id: string;
-  email: string;
+  email: string | null;
   displayName: string;
   role: UserRole;
   accountStatus: string;
