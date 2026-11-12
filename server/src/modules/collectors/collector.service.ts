@@ -1,3 +1,4 @@
+import { withRegistration } from "../registrations/registration-summary";
 import {
   CollectorGender,
   CollectorSex,
@@ -177,33 +178,16 @@ export class CollectorService {
   }
 
   private async validateCollectorUniqueness(
-    email: string,
+    email: string | null,
     cpf?: string | null
   ) {
-    const existingUser = await prisma.user.findUnique({
-      where: {
-        email,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (existingUser) {
-      throw new Error("Já existe um usuário com este e-mail.");
-    }
-
-    const existingCollectorByEmail = await prisma.collector.findUnique({
-      where: {
-        email,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (existingCollectorByEmail) {
-      throw new Error("Já existe um catador com este e-mail.");
+    if (email) {
+      const [user, collector, generator] = await Promise.all([
+        prisma.user.findUnique({ where: { email }, select: { id: true } }),
+        prisma.collector.findUnique({ where: { email }, select: { id: true } }),
+        prisma.generator.findUnique({ where: { email }, select: { id: true } }),
+      ]);
+      if (user || collector || generator) throw new Error("Já existe um cadastro com este e-mail.");
     }
 
     if (cpf) {
@@ -230,7 +214,7 @@ export class CollectorService {
     const cooperative =
       await this.findAuthenticatedCooperative(cooperativeUserId);
 
-    const email = normalizeEmail(data.email);
+    const email = data.email ? normalizeEmail(data.email) : null;
     const cpf = normalizeCpf(data.cpf);
     const normalizedDocuments = normalizeDocuments(documents);
 
@@ -299,7 +283,7 @@ export class CollectorService {
         include: collectorInclude,
       });
 
-      return collector;
+      return withRegistration("COLLECTOR", collector);
     });
   }
 
@@ -307,7 +291,7 @@ export class CollectorService {
     const cooperative =
       await this.findAuthenticatedCooperative(cooperativeUserId);
 
-    return prisma.collector.findMany({
+    const collectors = await prisma.collector.findMany({
       where: {
         cooperativeId: cooperative.id,
       },
@@ -316,6 +300,7 @@ export class CollectorService {
         createdAt: "desc",
       },
     });
+    return collectors.map(value => withRegistration("COLLECTOR", value));
   }
 
   async findById(
@@ -337,7 +322,7 @@ export class CollectorService {
       throw new Error("Catador não encontrado.");
     }
 
-    return collector;
+    return withRegistration("COLLECTOR", collector);
   }
 
   async update(cooperativeUserId: string, collectorId: string, data: UpdateCollectorInput) {
@@ -348,13 +333,15 @@ export class CollectorService {
       if (!current) throw new Error("Catador não encontrado.");
       const changes: Prisma.CollectorUpdateInput = {};
       const provided = (key: keyof UpdateCollectorInput) => Object.prototype.hasOwnProperty.call(data, key);
+      const emailProvided = provided("email") && data.email !== undefined;
       if (provided("name")) changes.name = data.name!.trim();
-      if (provided("email")) {
+      if (emailProvided) {
         const email = normalizeEmail(data.email!);
         const [otherCollector, otherUser] = await Promise.all([
           tx.collector.findFirst({ where: { email, id: { not: current.id } }, select: { id: true } }),
           tx.user.findFirst({ where: { email, ...(current.userId ? { id: { not: current.userId } } : {}) }, select: { id: true } }),
         ]);
+        if (await tx.generator.findUnique({ where: { email }, select: { id: true } })) throw new Error("Este e-mail já está em uso por outro cadastro.");
         if (otherCollector || otherUser) throw new Error("Este e-mail já está em uso por outro cadastro.");
         changes.email = email;
       }
@@ -373,14 +360,14 @@ export class CollectorService {
       if (provided("isAutonomous")) changes.isAutonomous = data.isAutonomous ?? false;
       // Ativo também abrange um catador que já esteja em rota: editar o cadastro não encerra sua operação.
       if (provided("status")) changes.status = data.status === "AVAILABLE" && current.status === "ON_ROUTE" ? "ON_ROUTE" : normalizeCollectorStatus(data.status);
-      if (current.userId && (provided("email") || provided("name") || provided("phone"))) {
+      if (current.userId && (emailProvided || provided("name") || provided("phone"))) {
         await tx.user.update({ where: { id: current.userId }, data: {
-          ...(provided("email") ? { email: changes.email as string } : {}),
+          ...(emailProvided ? { email: changes.email as string } : {}),
           ...(provided("name") ? { displayName: changes.name as string } : {}),
           ...(provided("phone") ? { phone: normalizeOptionalText(data.phone) } : {}),
         } });
       }
-      return tx.collector.update({ where: { id: current.id }, data: changes, include: collectorInclude });
+      return withRegistration("COLLECTOR", await tx.collector.update({ where: { id: current.id }, data: changes, include: collectorInclude }));
     });
   }
 
