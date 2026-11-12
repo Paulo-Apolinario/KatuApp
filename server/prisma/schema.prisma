@@ -171,7 +171,7 @@ model Generator {
   type          GeneratorType
   name          String
   companyName   String?
-  email         String        @unique
+  email         String?        @unique
   phone         String?
   documentNumber String?
 
@@ -339,7 +339,7 @@ model Collector {
 
   name       String
   socialName String?
-  email      String           @unique
+  email      String?           @unique
   phone      String?
   cpf        String?
   rg         String?
