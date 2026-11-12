@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validDocument } from "../generators/generator-document";
 
 /**
  * Status operacional do catador.
@@ -231,6 +232,7 @@ const optionalCpfSchema = z.preprocess(
       11,
       "O CPF deve possuir 11 dígitos."
     )
+    .refine(validDocument, "Informe um CPF válido, incluindo os dígitos verificadores.")
     .optional()
 );
 
@@ -359,20 +361,8 @@ export const createCollectorSchema = z.object({
 
   socialName: optionalTrimmedString(150),
 
-  email: z
-    .string({
-      required_error:
-        "O e-mail do catador é obrigatório.",
-      invalid_type_error:
-        "O e-mail deve ser um texto.",
-    })
-    .trim()
-    .toLowerCase()
-    .email("Informe um e-mail válido.")
-    .max(
-      255,
-      "O e-mail deve possuir no máximo 255 caracteres."
-    ),
+  email: z.preprocess(value => typeof value === "string" && !value.trim() || value === null ? undefined : value,
+    z.string().trim().toLowerCase().email("Informe um e-mail válido.").max(255).optional()),
 
   phone: optionalPhoneSchema,
 
