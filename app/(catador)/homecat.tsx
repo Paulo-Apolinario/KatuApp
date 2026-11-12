@@ -967,6 +967,7 @@ export default function HomeCatScreen() {
           />
 
           <View style={sectionCard}>
+            <QuickAction icon="layers-outline" title="Triagem e lotes" subtitle="Pesar bags e registrar materiais separados" onPress={() => router.push("/(catador)/triagem-lotes" as any)} />
             <QuickAction icon="people-outline" title="Minha produção em equipe" subtitle="Consultar materiais e parcelas confirmadas" onPress={() => router.push("/(catador)/producao-equipe")}/>
             <QuickAction icon="trash-outline" title="Solicitações de PEV" subtitle="Relatar situação, fotografar e abrir retirada" onPress={()=>router.push("/(catador)/pev-atendimento")}/>
             <QuickAction
