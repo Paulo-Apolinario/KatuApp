@@ -11,13 +11,13 @@ declare module "@fastify/jwt" {
     payload: {
       sub: string;
       role: string;
-      email: string;
+      email: string | null;
       authVersion?: number;
     };
     user: {
       sub: string;
       role: string;
-      email: string;
+      email: string | null;
       authVersion?: number;
     };
   }
