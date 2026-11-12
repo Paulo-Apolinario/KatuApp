@@ -6,7 +6,7 @@ export type CollectorStatus = "AVAILABLE" | "ON_ROUTE" | "INACTIVE";
 export interface Collector {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   phone?: string | null;
   document?: string | null;
   address?: string | null;
@@ -21,7 +21,7 @@ export interface Collector {
 type BackendCollector = {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   phone?: string | null;
   document?: string | null;
   address?: string | null;
@@ -47,7 +47,8 @@ type UpdateCollectorStatusResponse = {
 
 export interface CreateCollectorPayload {
   name: string;
-  email: string;
+  email?: string;
+  recoveryEmail?: string;
   phone?: string;
   document?: string;
   address?: string;
@@ -228,7 +229,8 @@ export const collectorService = {
       "/collectors",
       {
         name: payload.name.trim(),
-        email: payload.email.trim().toLowerCase(),
+        email: payload.email?.trim().toLowerCase() || undefined,
+        recoveryEmail: payload.recoveryEmail?.trim().toLowerCase() || undefined,
         phone: payload.phone?.trim() || undefined,
         document: payload.document?.replace(/\D/g, "") || undefined,
         address: payload.address?.trim() || undefined,
