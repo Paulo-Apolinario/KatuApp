@@ -1,3 +1,4 @@
+import BagOperations, { ReverseWeighing } from "./BagOperations";
 import BagProgress from "./BagProgress";
 import { useCallback, useRef, useState } from "react";
 import { Text, View, Platform } from "react-native";
@@ -29,6 +30,7 @@ const labels: Record<string, string> = {
   CLOSE: "Triagem concluída",
   ADJUST: "Ajuste de pesagem",
   CANCEL: "Cancelamento",
+  REVERSAL: "Estorno de pesagem",
 };
 const read = (path: string) => api.get<any>(path, true);
 function Weight({
@@ -344,7 +346,6 @@ function Sorting({
       lots.refresh();
     } catch (e: any) {
       setError(e.message);
-      saved();
       lots.refresh();
     } finally {
       guard.current = false;
@@ -507,6 +508,13 @@ function Sorting({
       )}
       {!!draft.error && <Text accessibilityRole="alert">{draft.error}</Text>}
       {!!error && <Text accessibilityRole="alert">{error}</Text>}
+      {!!error && (
+        <FieldButton
+          secondary
+          label="Atualizar bag e conferir histórico"
+          onPress={saved}
+        />
+      )}
       <FieldButton
         label="Confirmar pesagem da triagem"
         busy={busy}
@@ -614,11 +622,20 @@ function Detail({
         </Text>
       )}
       <View style={ui.card}>
+        {Platform.OS === "web" && (
+          <ReverseWeighing
+            bag={bag}
+            manager={context.manager}
+            onSaved={refresh}
+          />
+        )}
         <Text style={ui.heading}>Histórico da bag</Text>
         {bag.events.map((e: any) => (
           <View key={e.id} style={{ gap: 5, paddingVertical: 10 }}>
             <Text style={ui.badge}>
-              {labels[e.kind] || e.kind} · {e.actorName}
+              {labels[e.kind] || e.kind}
+              {e.reversedAt ? " — Estornada (fora dos totais)" : ""} ·{" "}
+              {e.actorName}
             </Text>
             <Text style={ui.small}>
               {new Date(e.createdAt).toLocaleString("pt-BR", {
@@ -637,6 +654,12 @@ function Detail({
               <Text style={ui.muted}>
                 Equipe:{" "}
                 {e.participantSnapshot.map((p: any) => p.name).join(", ")}
+              </Text>
+            )}
+            {e.kind === "REVERSAL" && (
+              <Text style={ui.muted}>
+                Devolvido ao saldo: {kg(e.after.reversedSortedKg)} de materiais
+                e {kg(e.after.reversedRejectedKg)} de rejeitos.
               </Text>
             )}
             {!!e.notes && <Text style={ui.muted}>{e.notes}</Text>}
@@ -709,7 +732,7 @@ export default function MixedBags() {
         <View style={ui.row}>
           <FieldButton
             label="Recebimento e triagem"
-            secondary={params.view === "progress"}
+            secondary={params.view === "progress" || params.view === "controls"}
             onPress={() => router.replace(base as any)}
           />
           <FieldButton
@@ -724,7 +747,21 @@ export default function MixedBags() {
           />
         </View>
       )}
-      {params.view === "progress" && !id && Platform.OS === "web" ? (
+      {!id && Platform.OS === "web" && (
+        <FieldButton
+          secondary={params.view !== "controls"}
+          label="Fechamento e alertas"
+          onPress={() =>
+            router.replace({
+              pathname: base as any,
+              params: { view: "controls" },
+            })
+          }
+        />
+      )}
+      {params.view === "controls" && !id && Platform.OS === "web" ? (
+        <BagOperations openBag={go} />
+      ) : params.view === "progress" && !id && Platform.OS === "web" ? (
         <>
           {context.data && (
             <BagProgress key={user.id} context={context.data} openBag={go} />
