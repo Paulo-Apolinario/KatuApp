@@ -60,6 +60,7 @@ model User {
 }
 
 model Cooperative {
+  triageDays TriageDay[]
   mixedBags MixedBag[]
   analyticsUsage AnalyticsUsageDaily[]
   reportConfigurationRevisions ReportConfigurationRevision[]
@@ -2067,6 +2068,10 @@ model MixedBag {
   @@index([cooperativeId,status,receivedAt])
 }
 model MixedBagEvent {
+  reversedAt DateTime?
+  reversalOfId String? @unique
+  reversalOf MixedBagEvent? @relation("BagReversal",fields:[reversalOfId],references:[id],onDelete:Restrict)
+  reversedBy MixedBagEvent? @relation("BagReversal")
   id String @id @default(cuid())
   bagId String
   cooperativeId String
@@ -2085,6 +2090,7 @@ model MixedBagEvent {
   outputs MixedBagOutput[]
   @@unique([cooperativeId,operationId])
   @@index([bagId,createdAt])
+  @@index([cooperativeId,kind,createdAt])
 }
 model MixedBagOutput {
   id String @id @default(cuid())
@@ -2104,4 +2110,33 @@ model MixedBagOutput {
   material CollectionMaterial @relation(fields:[materialId],references:[id],onDelete:Restrict)
   destination CollectionWasteDestination @relation(fields:[destinationId],references:[id],onDelete:Restrict)
   @@index([lotId,createdAt])
+}
+
+model TriageDay {
+ id String @id @default(cuid())
+ cooperativeId String
+ day String
+ status String @default("OPEN")
+ version Int @default(0)
+ snapshot Json
+ updatedAt DateTime @updatedAt
+ cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Restrict)
+ actions TriageDayAction[]
+ @@unique([cooperativeId,day])
+}
+model TriageDayAction {
+ id String @id @default(cuid())
+ dayId String
+ cooperativeId String
+ operationId String
+ operationHash String
+ kind String
+ actorUserId String
+ actorName String
+ notes String
+ snapshot Json
+ createdAt DateTime @default(now())
+ day TriageDay @relation(fields:[dayId],references:[id],onDelete:Restrict)
+ @@unique([cooperativeId,operationId])
+ @@index([dayId,createdAt])
 }
