@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {validCreatePoint,recoveredCreateDraft} from '../src/offline/cooperativeCreateDraft';
+const data={name:'Gerador QA',type:'LARGE',email:'personal@qa.invalid',recoveryEmail:'coop@qa.invalid',phone:'85999991111',documentNumber:'52998224725',street:'Rua QA',city:'Fortaleza',state:'CE'};
+const noGps=recoveredCreateDraft(data,false);
+assert.equal(noGps.form.recoveryEmail,data.recoveryEmail);assert.equal(noGps.form.email,data.email);assert.equal(noGps.form.phone,data.phone);assert.equal(noGps.form.documentNumber,data.documentNumber);assert.equal(noGps.type,'LARGE');assert.equal(noGps.point,null);assert.equal(noGps.confirmed,false);
+for(const value of [null,{}, {latitude:undefined,longitude:undefined},{latitude:null,longitude:null},{latitude:'-3.7',longitude:'-38.5'},{latitude:NaN,longitude:0},{latitude:0,longitude:Infinity},{latitude:91,longitude:0},{latitude:0,longitude:181}])assert.equal(validCreatePoint(value),null);
+assert.deepEqual(validCreatePoint({latitude:0,longitude:0}),{latitude:0,longitude:0});
+const pev=recoveredCreateDraft({...data,latitude:-3.7319,longitude:-38.5267,acceptedMaterials:['Papel','Vidro']},true);assert.equal(pev.confirmed,true);assert.equal(pev.pev,true);assert.equal(pev.form.acceptedMaterials,'Papel, Vidro');assert.deepEqual(pev.point,{latitude:-3.7319,longitude:-38.5267});
+assert.equal(recoveredCreateDraft({...data,recoveryEmail:null},false).form.recoveryEmail,'');
+console.log('PASS: rejected registrations preserve recovery/contact fields; absent or invalid GPS stays unconfirmed; valid PEV coordinates and zero coordinates survive recovery');
