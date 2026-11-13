@@ -1,3 +1,4 @@
+import {recoveredCreateDraft} from './cooperativeCreateDraft';
 import * as Crypto from 'expo-crypto';
 import { api } from '../services/api';
 import { sessionService } from '../services/sessionService';
@@ -32,7 +33,7 @@ export async function recoverCooperativeCreate(id: string) {
         state: string;
     }>(`/mobile-offline/operations/${encodeURIComponent(id)}`, true); if (status.state !== 'NOT_RECORDED')
         throw Error('Esta operação já foi confirmada no servidor. Tente sincronizar os mesmos dados e confira o cadastro antes de alterar.'); const user = await sessionService.getUser() as any; if (user?.id !== q.payload.__ownerId)
-        throw Error('A conta mudou.'); const payload = q.payload.data, operationId = newCreateOperation(), pev = q.payload.kind === 'PEV_CREATE'; const form = { name: payload.name || '', email: payload.email || '', phone: payload.phone || '', companyName: payload.companyName || '', documentNumber: payload.documentNumber || '', zipCode: payload.zipCode || '', street: payload.street || '', number: payload.number || '', neighborhood: payload.neighborhood || '', city: payload.city || '', state: payload.state || 'CE', notes: payload.notes || '', acceptedMaterials: (payload.acceptedMaterials || []).join(', ') }; await durablePut('draft:' + user.id + ':create:' + operationId, { ownerId: user.id, name: 'create:' + operationId, title: pev ? 'Corrigir PEV' : 'Corrigir gerador', value: { form, type: payload.type || 'SMALL', point: { latitude: payload.latitude, longitude: payload.longitude }, confirmed: true, pev }, savedAt: new Date().toISOString() }); await removeOwnedSyncItem(q.id); return { operationId, pev }; };
+        throw Error('A conta mudou.'); const payload = q.payload.data, operationId = newCreateOperation(), pev = q.payload.kind === 'PEV_CREATE'; const value=recoveredCreateDraft(payload,pev); await durablePut('draft:' + user.id + ':create:' + operationId, { ownerId: user.id, name: 'create:' + operationId, title: pev ? 'Corrigir PEV' : 'Corrigir gerador', value, savedAt: new Date().toISOString() }); await removeOwnedSyncItem(q.id); return { operationId, pev }; };
     if (typeof navigator !== 'undefined' && navigator.locks)
         return navigator.locks.request('katua-offline-sync', { ifAvailable: true }, async (lock) => { if (!lock)
             throw Error('Aguarde a outra aba terminar a sincronização.'); return work(); });
