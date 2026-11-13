@@ -109,10 +109,10 @@ async function main() {
         .credentialsReady,
       true,
     );
-    const offlineBody={operationId:"00000000-0000-4000-8000-000000000123",kind:"GENERATOR_CREATE",data:{type:"SMALL",name:"Gerador mínimo pela fila",state:"CE"}};
+    const offlineBody={operationId:"00000000-0000-4000-8000-000000000123",kind:"GENERATOR_CREATE",data:{type:"SMALL",name:"Gerador mínimo pela fila",state:"CE",street:"",city:"",address:"",phone:"85999991009",recoveryEmail:"queue@recovery.qa.invalid"}};
     const offline=await call("POST","/mobile-offline/operations",offlineBody);
     assert.equal(offline.statusCode,201,offline.body);
-    assert.equal(offline.json().entity.email,null);assert.equal(offline.json().entity.latitude,null);
+    assert.equal(offline.json().entity.email,null);assert.equal(offline.json().entity.latitude,null);assert.equal(offline.json().entity.recoveryEmail,"queue@recovery.qa.invalid");
     const replay=await call("POST","/mobile-offline/operations",offlineBody);
     assert.equal(replay.statusCode,200,replay.body);assert.equal(replay.json().entity.id,offline.json().entity.id);
     const g = await call("POST", "/generators", {
