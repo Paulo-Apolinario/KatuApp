@@ -131,6 +131,16 @@ async function setup(app, logged = true) {
         message:
           "Solicitação de acesso recebida. Confira o e-mail de recuperação cadastrado.",
       });
+    if(url.pathname.startsWith('/mobile-offline/operations/')&&req.method()==='GET')return send({state:'NOT_RECORDED'});
+    if(url.pathname==='/mobile-offline/operations'&&req.method()==='POST'){
+      if(failCreate==='review')return send({error:'Revisão sintética do cadastro.'},400);
+      if(failCreate)return send({error:'Falha de teste. Rascunho preservado.'},503);
+      const id='queued-'+body.operationId;
+      let record=records.generators.find(r=>r.id===id);
+      const replayed=!!record;
+      if(!record){record={...body.data,id,cooperativeId:'coop-a',userId:null,email:body.data.email||null,recoveryEmail:body.data.recoveryEmail||null,registrationStatus:'TO_COMPLETE',missingRegistrationFields:['email'],hasOnlineAccess:false,accessActivationPending:false,totalKg:0};records.generators.push(record);}
+      return send({kind:body.kind,entity:record,replayed},replayed?200:201);
+    }
     const direct = url.pathname.match(
       /^\/(generators|collectors)(?:\/([^/]+))?$/,
     );
@@ -262,48 +272,29 @@ try {
     a = await ca.newPage();
   a.on("pageerror", (e) => errors.push(e.message));
   await a.goto("http://127.0.0.1:5191/(cooperativa)/geradores");
-  await a.getByRole("button", { name: "Cadastro rápido", exact: true }).click();
-  await a
-    .getByLabel("Nome da pessoa ou estabelecimento *", { exact: true })
-    .fill("Gerador rápido no tablet");
-  await a
-    .getByLabel("Celular com DDD (opcional)", { exact: true })
-    .fill("85999995555");
-  await a
-    .getByRole("button", {
-      name: "Adicionar documento, e-mail ou recuperação",
-      exact: true,
-    })
-    .click();
-  await a
-    .getByRole("button", { name: "Usar e-mail da cooperativa", exact: true })
-    .click();
-  failCreate = true;
-  await a
-    .getByRole("button", { name: "Salvar cadastro rápido", exact: true })
-    .click();
-  await a
-    .getByText("Falha de teste. Rascunho preservado.", { exact: true })
-    .waitFor();
+  assert.equal(await a.getByRole('button',{name:'Cadastro rápido',exact:true}).count(),0);
+  await a.getByRole('button',{name:'Adicionar gerador',exact:true}).click();
+  await a.getByLabel('Nome / responsável *',{exact:true}).fill('Gerador rápido no tablet');
+  await a.getByLabel('Telefone',{exact:true}).fill('85999995555');
+  await a.getByLabel('E-mail de recuperação (opcional)',{exact:true}).fill(f.user.email);
+  await a.getByText('Rascunho salvo neste aparelho.',{exact:true}).waitFor();
   await a.reload();
-  await a.waitForFunction(() =>
-    [...document.querySelectorAll("input")].some(
-      (e) => e.value === "Gerador rápido no tablet",
-    ),
-  );
-  failCreate = false;
-  await a
-    .getByRole("button", { name: "Salvar cadastro rápido", exact: true })
-    .click();
-  await a
-    .getByRole("button", { name: "Completar cadastro e acesso", exact: true })
-    .waitFor();
-  const created = requests.findLast(
-    (r) => r.app && r.path === "/generators" && r.method === "POST",
-  );
-  assert.equal(created.body.recoveryEmail, f.user.email);
-  assert.equal(created.body.email, undefined);
-  assert.equal(created.body.documentNumber, undefined);
+  await a.waitForFunction(()=>[...document.querySelectorAll('input')].some(e=>e.value==='Gerador rápido no tablet'));
+  failCreate=true;
+  await a.getByRole('button',{name:'Salvar gerador',exact:true}).click();
+  await a.getByText('Cadastro salvo no aparelho',{exact:true}).waitFor();
+  await a.getByText('Falha de teste. Rascunho preservado.',{exact:true}).first().waitFor();
+  await a.reload();
+  await a.getByRole('button',{name:'Tentar enviar agora',exact:true}).waitFor();
+  failCreate=false;
+  await a.getByRole('button',{name:'Tentar enviar agora',exact:true}).click();
+  await a.getByRole('button',{name:'Abrir cadastro',exact:true}).waitFor();
+  await a.getByRole('button',{name:'Abrir cadastro',exact:true}).click();
+  await a.getByRole('button',{name:'Completar cadastro e acesso',exact:true}).waitFor();
+  const created=requests.findLast(r=>r.app&&r.path==='/mobile-offline/operations'&&r.method==='POST');
+  assert.equal(created.body.data.recoveryEmail,f.user.email);
+  assert.equal(created.body.data.email,undefined);
+  assert.equal(created.body.data.documentNumber,undefined);
   await a
     .getByRole("button", { name: "Completar cadastro e acesso", exact: true })
     .click();
@@ -323,6 +314,22 @@ try {
     path: path.join(out, "app-generator-access-mobile.png"),
     fullPage: true,
   });
+  await a.goto('http://127.0.0.1:5191/(cooperativa)/geradores');
+  await a.getByRole('button',{name:'Adicionar gerador',exact:true}).click();
+  await a.getByLabel('Nome / responsável *',{exact:true}).fill('Gerador em revisão sem GPS');
+  await a.getByLabel('Telefone',{exact:true}).fill('85999995556');
+  await a.getByLabel('E-mail de recuperação (opcional)',{exact:true}).fill('revisao@qa.invalid');
+  failCreate='review';
+  await a.getByRole('button',{name:'Salvar gerador',exact:true}).click();
+  await a.getByRole('button',{name:'Corrigir cadastro',exact:true}).waitFor();
+  failCreate=false;
+  await a.getByRole('button',{name:'Corrigir cadastro',exact:true}).click();
+  try { await a.getByLabel('E-mail de recuperação (opcional)',{exact:true}).waitFor(); } catch(error) { console.log('REVIEW_PAGE_ERRORS',JSON.stringify(errors)); await a.screenshot({path:path.join(out,'review-failure-before-fix.png'),fullPage:true});throw error; }
+
+  await a.waitForFunction(()=>document.querySelector('input[aria-label="E-mail de recuperação (opcional)"]')?.value==='revisao@qa.invalid');
+  assert.equal(await a.getByLabel('E-mail de recuperação (opcional)',{exact:true}).inputValue(),'revisao@qa.invalid');
+  await a.getByRole('button',{name:'Salvar gerador',exact:true}).click();
+  await a.getByRole('button',{name:'Abrir cadastro',exact:true}).waitFor();
   await a.goto("http://127.0.0.1:5191/(cooperativa)/catadores");
   await a.getByRole("button", { name: "Cadastro rápido", exact: true }).click();
   await a
@@ -378,7 +385,7 @@ try {
   await publicApp.close();
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: panel phone login/CPF recovery, shared-recipient shortcut, app quick registration, durable draft across failure/reload, saved-recipient access instructions, mobile/tablet layouts",
+    "PASS: panel phone login/CPF recovery, shared-recipient shortcut, app quick registration, durable draft across failure/reload, saved-recipient access instructions, rejected no-GPS registration recovery with email preserved, mobile/tablet layouts",
   );
 } finally {
   await browser?.close();
