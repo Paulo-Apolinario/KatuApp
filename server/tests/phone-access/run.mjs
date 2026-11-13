@@ -22,7 +22,7 @@ prior =
   prior.slice(start, end).replace(/(\n  email\s+)String\?/, "$1String") +
   prior.slice(end);
 prior = prior.replace(/\n  recoveryEmail String\?/g, "");
-prior = prior.replace(/\n\/\/ Cooperative-assisted access[\s\S]*$/, "\n");
+prior = prior.replace(/\n\/\/ Cooperative-assisted access[^\n]*\nmodel RegistrationAccessEvent \{[\s\S]*?\n\}/, "\n");
 fs.writeFileSync(path.join(tmp, "before.prisma"), prior);
 const ddl = spawnSync(
   process.execPath,
