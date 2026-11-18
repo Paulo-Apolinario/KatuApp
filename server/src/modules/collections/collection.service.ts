@@ -386,6 +386,15 @@ export class CollectionService {
         origin={...origin,name:generator.name,document:generator.documentNumber||undefined,phone:generator.phone||undefined,
           address:input.origin.address||generator.address||[generator.street,generator.number,generator.neighborhood,generator.city,generator.state].filter(Boolean).join(', ')};
       }
+      if(input.catalogMaterialIds?.length){
+        const catalog=await tx.wasteStockItem.findMany({where:{id:{in:input.catalogMaterialIds},cooperativeId:ctx.cooperativeId,isActive:true,status:"ACTIVE"},select:{id:true,name:true,category:true,defaultUnit:true}});
+        if(catalog.length!==input.catalogMaterialIds.length)throw new CollectionDomainError("Um dos materiais não está disponível no catálogo desta cooperativa. Revise a seleção ou informe somente a descrição.",{statusCode:400,code:"INTAKE_CATALOG_UNAVAILABLE"});
+        // Identification from the field is a snapshot, never a confirmed weight or stock entry.
+        origin={...origin,catalogMaterials:input.catalogMaterialIds.map((id:string)=>{
+          const item=catalog.find(v=>v.id===id)!;
+          return {wasteTypeId:item.id,name:item.name,category:item.category,unit:item.defaultUnit};
+        })};
+      }
       if(input.performedByCooperative)origin={...origin,performedBy:"COOPERATIVE",registeredByUserId:userId};
       if(input.delivererId){const person=await tx.intakeDeliverer.findFirst({where:{id:input.delivererId,cooperativeId:ctx.cooperativeId}});if(!person)throw new CollectionDomainError("Entregador não encontrado nesta cooperativa.",{statusCode:404,code:"DELIVERER_NOT_FOUND"});if(input.delivererVersion!==undefined&&person.version!==input.delivererVersion)throw new CollectionDomainError("O cadastro do entregador mudou. Selecione novamente antes de registrar a entrega.",{statusCode:409,code:"DELIVERER_VERSION"});origin={...origin,name:person.name,document:person.cpf||undefined,phone:person.phone||undefined};}
       let route:any=null;

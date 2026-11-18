@@ -6,7 +6,9 @@ import { api, ApiHttpError } from "@/src/services/api";
 import { fieldService, FieldItem, fieldAddress, fieldDate, fieldLabels } from "@/src/services/cooperativeFieldService";
 import { FieldPage, FieldInput, FieldButton, Pager, ui } from "@/src/components/cooperative/FieldUI";
 
-type Intake = { id: string; status: string; generatorId?: string; intakeKind: string; createdAt: string; intakeOrigin?: { name?: string; performedBy?: string } };
+type CatalogMaterial = { id: string; name: string; category: string; defaultUnit: string };
+type CatalogPage = { items: CatalogMaterial[]; pagination: { page: number; total: number; totalPages: number } };
+type Intake = { id: string; status: string; generatorId?: string; intakeKind: string; createdAt: string; intakeOrigin?: { name?: string; performedBy?: string; description?: string; catalogMaterials?: { wasteTypeId: string; name: string }[] } };
 export default function CooperativePickup() {
   const { user } = useAuth();
   return user?.id ? <PickupForm key={user.id} owner={user.id} /> : null;
@@ -20,6 +22,14 @@ function PickupForm({ owner }: { owner: string }) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [description, setDescription] = useState("");
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [catalogPage, setCatalogPage] = useState(1);
+  const [catalog, setCatalog] = useState<CatalogPage | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogRevision, setCatalogRevision] = useState(0);
+  const [materials, setMaterials] = useState<CatalogMaterial[]>([]);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [searchError, setSearchError] = useState("");
@@ -43,6 +53,18 @@ function PickupForm({ owner }: { owner: string }) {
     }, 250);
     return () => { alive = false; clearTimeout(timer); };
   }, [mode, q, page]);
+  useEffect(() => {
+    let alive = true;
+    if (!catalogOpen) return;
+    setCatalogLoading(true);
+    const timer = setTimeout(() => {
+      api.get<CatalogPage>("/waste-workspace/catalog?" + new URLSearchParams({ q: catalogQuery, page: String(catalogPage), limit: "20" }), true)
+        .then(data => { if (alive) { setCatalog(data); setCatalogError(""); } })
+        .catch(e => { if (alive) { setCatalogError(e.message); setCatalog(null); } })
+        .finally(() => { if (alive) setCatalogLoading(false); });
+    }, 250);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [catalogOpen, catalogQuery, catalogPage, catalogRevision]);
   async function history() {
     try {
       const data = await api.get<{ items: Intake[] }>("/material-intakes", true);
@@ -60,6 +82,7 @@ function PickupForm({ owner }: { owner: string }) {
       operationId: Crypto.randomUUID(), kind: "PICKUP", performedByCooperative: true,
       ...(mode === "GENERATOR" && selected ? { generatorId: selected.id } : {}),
       origin: { name: mode === "GENERATOR" ? selected?.name || "" : name.trim(), address: address.trim(), description: description.trim() },
+      ...(materials.length ? { catalogMaterialIds: materials.map(m => m.id) } : {}),
       notes: notes.trim(),
     };
     try {
@@ -84,7 +107,7 @@ function PickupForm({ owner }: { owner: string }) {
         <Text accessibilityRole="alert" style={ui.heading}>Coleta registrada pela cooperativa</Text>
         <Text>Protocolo: {confirmed.id}</Text>
         <Text>Situação: aguardando recebimento na cooperativa.</Text>
-        <FieldButton label="Registrar outra coleta" onPress={() => { setConfirmed(null); setSelected(null); setAddress(""); setName(""); setDescription(""); setNotes(""); }} />
+        <FieldButton label="Registrar outra coleta" onPress={() => { setConfirmed(null); setSelected(null); setAddress(""); setName(""); setDescription(""); setNotes(""); setMaterials([]); setCatalogOpen(false); setCatalogQuery(""); setCatalogPage(1); }} />
       </> : <>
         <Text style={ui.heading}>De onde veio o material?</Text>
         <View style={ui.row}>
@@ -101,6 +124,29 @@ function PickupForm({ owner }: { owner: string }) {
           {editable && !loading && !searchError && <Pager pagination={directory?.pagination} onPage={setPage} />}
         </> : <FieldInput label="Pessoa ou local (opcional)" value={name} maxLength={150} editable={editable} onChangeText={setName} />}
         <FieldInput label="Endereço onde a coleta foi efetuada *" value={address} maxLength={500} editable={editable} onChangeText={setAddress} />
+        <Text style={ui.heading}>Materiais da coleta (opcional)</Text>
+        <Text style={ui.muted}>Selecione materiais do catálogo, escreva uma breve descrição ou use as duas opções. As quantidades serão conferidas na cooperativa.</Text>
+        {materials.map(m => <View key={m.id} style={ui.card}>
+          <Text style={ui.heading}>{m.name}</Text>
+          <Text style={ui.muted}>{m.category}</Text>
+          <FieldButton secondary label={`Remover ${m.name}`} disabled={!editable} onPress={() => setMaterials(items => items.filter(item => item.id !== m.id))} />
+        </View>)}
+        <FieldButton secondary label={catalogOpen ? "Fechar catálogo da cooperativa" : "Selecionar materiais do catálogo"} disabled={!editable} onPress={() => setCatalogOpen(v => !v)} />
+        {catalogOpen && <View style={ui.card}>
+          <FieldInput label="Buscar material no catálogo" value={catalogQuery} maxLength={150} editable={editable} onChangeText={value => { setCatalogQuery(value); setCatalogPage(1); }} />
+          {catalogLoading && <Text>Carregando catálogo...</Text>}
+          {!!catalogError && <>
+            <Text accessibilityRole="alert">{catalogError} Você pode continuar usando a descrição dos materiais.</Text>
+            <FieldButton secondary label="Tentar carregar catálogo novamente" disabled={!editable || catalogLoading} onPress={() => setCatalogRevision(v => v + 1)} />
+          </>}
+          {!catalogLoading && !catalogError && catalog?.items.length === 0 && <Text>Nenhum material encontrado. Você pode usar a descrição abaixo.</Text>}
+          {!catalogLoading && !catalogError && catalog?.items.map(m => <View key={m.id}>
+            <Text style={ui.muted}>{m.category}</Text>
+            <FieldButton label={`${materials.some(item => item.id === m.id) ? "Selecionado" : "Adicionar"}: ${m.name}`} secondary disabled={!editable || materials.some(item => item.id === m.id) || materials.length >= 100} onPress={() => setMaterials(items => items.some(item => item.id === m.id) ? items : [...items, m])} />
+          </View>)}
+          {materials.length >= 100 && <Text>Limite de 100 materiais por registro.</Text>}
+          {editable && !catalogLoading && !catalogError && <Pager pagination={catalog ? { ...catalog.pagination, totalPages: Math.max(1, catalog.pagination.totalPages) } : undefined} onPage={setCatalogPage} />}
+        </View>}
         <FieldInput label="Descrição dos materiais (opcional)" value={description} maxLength={1500} editable={editable} onChangeText={setDescription} multiline />
         <FieldInput label="Observações (opcional)" value={notes} maxLength={3000} editable={editable} onChangeText={setNotes} multiline />
         {!!error && <Text accessibilityRole="alert">{error}</Text>}
@@ -115,6 +161,8 @@ function PickupForm({ owner }: { owner: string }) {
         <Text style={ui.heading}>{c.intakeOrigin?.name || "Origem não identificada"}</Text>
         <Text>{c.intakeOrigin?.performedBy === "COOPERATIVE" ? "Coleta efetuada pela cooperativa" : c.intakeKind === "DIRECT" ? "Entrega direta na cooperativa" : "Coleta em endereço avulso"}</Text>
         <Text>{fieldLabels[c.status] || c.status} · {fieldDate(c.createdAt)}</Text>
+        {!!c.intakeOrigin?.catalogMaterials?.length && <Text>Materiais informados: {c.intakeOrigin.catalogMaterials.map(m => m.name).join(", ")}</Text>}
+        {!!c.intakeOrigin?.description && <Text>Descrição: {c.intakeOrigin.description}</Text>}
         <Text style={ui.muted}>Protocolo: {c.id}</Text>
       </View>)}
       {!historyError && recent.length === 0 && <Text>Nenhum registro recente.</Text>}

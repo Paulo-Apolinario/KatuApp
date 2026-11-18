@@ -61,6 +61,33 @@ async function main() {
     assert.equal(Number((await prisma.collector.findUniqueOrThrow({ where: { id: "collector" } })).totalKg), 0);
     assert.equal((await call("GET", "/cooperative-field/generators/gen-a")).collections.filter((v: any) => [c.id, pickup.id].includes(v.id)).length, 2);
     assert.equal((await call("GET", "/material-intakes", undefined, 200, "b")).pagination.total, 0);
+    await prisma.wasteStockItem.create({ data: { id: "foreign", cooperativeId: "coop-b", name: "Material estrangeiro", category: "Teste", unit: "KG", defaultUnit: "KG" } });
+    await prisma.wasteStockItem.create({ data: { id: "inactive", cooperativeId: "coop-a", name: "Inativo", category: "Teste", unit: "KG", defaultUnit: "KG", isActive: false } });
+    const catalog = await call("GET", "/waste-workspace/catalog?limit=20");
+    assert(catalog.items.some((v: any) => v.id === "paper"));
+    assert(!catalog.items.some((v: any) => ["foreign", "inactive"].includes(v.id)));
+    const withCatalog = { operationId: randomUUID(), kind: "PICKUP", performedByCooperative: true, catalogMaterialIds: ["paper", "oil"], origin: { address: "Rua dos materiais, 100", description: "Dois sacos misturados e uma bombona de óleo." } };
+    const informed = (await call("POST", "/material-intakes", withCatalog, 201)).collection;
+    assert.deepEqual(informed.intakeOrigin.catalogMaterials, [{ wasteTypeId: "paper", name: "Papelão", category: "Papel", unit: "KG" }, { wasteTypeId: "oil", name: "Óleo", category: "Óleo", unit: "LITER" }]);
+    assert.equal(informed.intakeOrigin.description, withCatalog.origin.description);
+    assert.equal(Number(informed.totalWeightKg), 0);
+    assert.equal(await prisma.collectionMaterial.count({ where: { collectionId: informed.id } }), 0);
+    assert.equal(await prisma.collectionWasteEntry.count({ where: { collectionId: informed.id } }), 0);
+    assert.equal((await call("POST", "/material-intakes", withCatalog, 201)).collection.id, informed.id);
+    await call("POST", "/material-intakes", { ...withCatalog, catalogMaterialIds: ["paper"] }, 409);
+    for (const ids of [["foreign"], ["inactive"], ["missing"], ["paper", "paper"], Array.from({length:101}, (_,i)=>"material-"+i)])
+      await call("POST", "/material-intakes", { ...withCatalog, operationId: randomUUID(), catalogMaterialIds: ids }, 400);
+    await prisma.wasteStockItem.update({ where: { id: "paper" }, data: { name: "Papelão atualizado", isActive: false } });
+    // Replays preserve the recorded snapshot even after the catalog changes.
+    assert.equal((await call("POST", "/material-intakes", withCatalog, 201)).collection.intakeOrigin.catalogMaterials[0].name, "Papelão");
+    const registered = (await call("GET", "/material-intakes")).items.find((v: any) => v.id === informed.id);
+    assert.equal(registered.intakeOrigin.catalogMaterials[0].name, "Papelão");
+    const descriptionOnly = (await call("POST", "/material-intakes", { ...withCatalog, operationId: randomUUID(), catalogMaterialIds: [] }, 201)).collection;
+    assert.equal(descriptionOnly.intakeOrigin.description, withCatalog.origin.description);
+    assert.equal(descriptionOnly.intakeOrigin.catalogMaterials, undefined);
+    const neither = (await call("POST", "/material-intakes", { operationId: randomUUID(), kind: "PICKUP", performedByCooperative: true, origin: { address: "Rua sem identificação, 5" } }, 201)).collection;
+    assert.equal(neither.intakeOrigin.description, "");
+    console.log("PASS: optional own-cooperative catalog, description only or neither, immutable snapshots, replay safety, unavailable/foreign material rejection and no premature weight/stock");
     const now = new Date(), q = participationQuery.parse({ start: civilDay(now), end: civilDay(now) });
     const buckets = await prisma.$queryRaw<any[]>(Prisma.sql`${relations("coop-a", q, now)} SELECT id,bucket FROM operations WHERE id IN (${c.id},${pickup.id},${avulso.id},${anonymous.id})`);
     assert.equal(buckets.find(v => v.id === c.id)?.bucket, "GENERATOR"); assert.equal(buckets.find(v => v.id === pickup.id)?.bucket, "GENERATOR"); assert.equal(buckets.find(v => v.id === avulso.id)?.bucket, "DELIVERER"); assert.equal(buckets.find(v => v.id === anonymous.id)?.bucket, "UNATTRIBUTED");
