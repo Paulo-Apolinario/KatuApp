@@ -42,13 +42,13 @@ export function relations(
           OR (c."binId" IS NOT NULL AND b.id IS NULL)
           OR (c."intakeDelivererId" IS NOT NULL AND d.id IS NULL)
           OR (c."binId" IS NOT NULL AND (c."generatorId" IS NOT NULL OR c."intakeKind"='DIRECT'))
-          OR (c."intakeKind"='DIRECT' AND c."generatorId" IS NOT NULL)
+          OR (c."intakeDelivererId" IS NOT NULL AND c."generatorId" IS NOT NULL)
           OR (d.id IS NOT NULL AND coalesce(c."intakeKind",'')<>'DIRECT')
           OR (s."generatorId" IS NOT NULL AND (g.id IS NULL OR s."generatorId"<>g.id))
           THEN 'CONFLICT'
           WHEN b.id IS NOT NULL THEN 'PEV'
-          WHEN c."intakeKind"='DIRECT' THEN CASE WHEN d.id IS NOT NULL THEN 'DELIVERER' ELSE 'UNATTRIBUTED' END
           WHEN g.id IS NOT NULL THEN 'GENERATOR'
+          WHEN c."intakeKind"='DIRECT' THEN CASE WHEN d.id IS NOT NULL THEN 'DELIVERER' ELSE 'UNATTRIBUTED' END
           WHEN u.role='PF' THEN 'PF' ELSE 'UNATTRIBUTED' END AS bucket,
         g.id AS gen_id, g.type::text AS gen_type, u.id AS author_id,
         CASE WHEN b.id IS NOT NULL THEN b.latitude ELSE g.latitude END AS latitude,

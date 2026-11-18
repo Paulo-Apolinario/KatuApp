@@ -11,6 +11,12 @@ import {
 } from "@/src/components/cooperative/FieldUI";
 const actions = [
   [
+    "Coleta pela cooperativa",
+    "Registrar uma coleta já efetuada pela cooperativa",
+    "checkmark-circle-outline",
+    "coleta-cooperativa",
+  ],
+  [
     "Recebimento de materiais",
     "Continuar recebimento, pesagem e encaminhamento no painel",
     "cube-outline",

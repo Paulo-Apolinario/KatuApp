@@ -13,6 +13,7 @@ export default function ReceivingAccess() {
       title="Recebimento de materiais"
       subtitle="Continue o atendimento no painel da cooperativa."
     >
+      <FieldButton label="Registrar coleta efetuada pela cooperativa" onPress={() => router.push("/(cooperativa)/coleta-cooperativa")} />
       <View style={ui.card}>
         <Text style={ui.heading}>
           Um atendimento, do recebimento à conclusão
