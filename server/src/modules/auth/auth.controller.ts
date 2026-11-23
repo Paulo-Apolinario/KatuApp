@@ -10,7 +10,6 @@ import {
   activateGeneratorAccessSchema,
   forgotPasswordSchema,
   loginSchema,
-  registerCooperativeSchema,
   registerPfSchema,
   resetPasswordSchema,
 } from "./auth.schemas";
@@ -114,34 +113,6 @@ export class AuthController {
       return reply.status(400).send({
         success: false,
         error: error.message || "Erro ao registrar gerador residencial.",
-      });
-    }
-  }
-
-  async registerCooperative(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const body = registerCooperativeSchema.parse(request.body);
-
-      const result = await authService.registerCooperative(body);
-
-      const token = await reply.jwtSign({
-        sub: result.user.id,
-        authVersion: result.user.authVersion,
-        role: result.user.role,
-        email: result.user.email,
-      });
-      await recordSuccessfulLogin(result.user.id);
-
-      return reply.status(201).send({
-        success: true,
-        token,
-        user: serializeUser(result.user),
-        cooperative: result.cooperative,
-      });
-    } catch (error: any) {
-      return reply.status(400).send({
-        success: false,
-        error: error.message || "Erro ao registrar cooperativa.",
       });
     }
   }

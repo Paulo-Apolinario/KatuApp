@@ -62,7 +62,7 @@ export default function CooperativaLoginScreen() {
 
   function handleSolicitarAcesso() {
     notifyInfo(
-      "Entre em contato com a administração da cooperativa para solicitar seu acesso.",
+      "O cadastro de cooperativas é realizado exclusivamente pela administração do KATUÁ. Solicite seu acesso à administração da plataforma.",
     );
   }
 

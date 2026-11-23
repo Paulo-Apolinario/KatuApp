@@ -105,7 +105,7 @@ export default function RegisterScreen() {
   const [loadingCep, setLoadingCep] = useState(false);
 
   const isSupportedPublicProfile = useMemo(() => {
-    return profile === "pf" || profile === "cooperativa";
+    return profile === "pf";
   }, [profile]);
 
   useEffect(() => {
@@ -317,6 +317,8 @@ export default function RegisterScreen() {
 
   const getUnsupportedMessage = () => {
     switch (profile) {
+      case "cooperativa":
+        return "O cadastro de cooperativas é realizado exclusivamente pela administração do KATUÁ. Solicite seu acesso à administração da plataforma.";
       case "comercial":
       case "grande":
         return "O cadastro de geradores agora é feito pela cooperativa dentro do painel interno.";
@@ -392,24 +394,8 @@ export default function RegisterScreen() {
           address: address.trim() || undefined,
         });
       } else {
-        result = await authService.registerCooperative({
-          displayName: name.trim(),
-          email: normalizedEmail,
-          password,
-          phone: phone.trim(),
-          rememberMe,
-          cooperativeName: cooperativeName.trim(),
-          registrationNumber: sanitizeDigits(registrationNumber),
-          address: address.trim() || undefined,
-          zipCode: sanitizeDigits(zipCode) || undefined,
-          street: street.trim() || undefined,
-          number: number.trim() || undefined,
-          neighborhood: neighborhood.trim() || undefined,
-          city: city.trim() || undefined,
-          state: stateName.trim() || undefined,
-          latitude: parsePoint(latitude, longitude)?.latitude,
-          longitude: parsePoint(latitude, longitude)?.longitude,
-        });
+        setErrorMessage(getUnsupportedMessage());
+        return;
       }
 
       if (!result) {

@@ -57,25 +57,6 @@ type RegisterPfPayload = {
   rememberMe?: boolean;
 };
 
-type RegisterCooperativePayload = {
-  displayName: string;
-  email: string;
-  password: string;
-  phone: string;
-  cooperativeName: string;
-  registrationNumber: string;
-  address?: string;
-  rememberMe?: boolean;
-  zipCode?: string;
-  street?: string;
-  number?: string;
-  neighborhood?: string;
-  city?: string;
-  state?: string;
-  latitude?: number;
-  longitude?: number;
-};
-
 type ResetPasswordPayload = {
   email: string;
   token: string;
@@ -195,56 +176,6 @@ class AuthService {
           error instanceof Error
             ? error.message
             : "Erro ao registrar gerador residencial.",
-      };
-    }
-  }
-
-  async registerCooperative(
-    data: RegisterCooperativePayload,
-  ): Promise<AuthResult> {
-    try {
-      const payload = {
-        ...data,
-        email: normalizeEmail(data.email),
-      };
-
-      const response = await api.post<LoginResponse>(
-        "/auth/register/cooperative",
-        payload,
-      );
-
-      if (!response.user) {
-        return {
-          success: false,
-          error: "Usuário não retornado no cadastro da cooperativa.",
-        };
-      }
-
-      if (!response.token) {
-        return {
-          success: false,
-          error: "Token não retornado no cadastro da cooperativa.",
-        };
-      }
-
-      await this.saveSession(response.token, response.user);
-
-      return {
-        success: true,
-        user: response.user,
-        token: response.token,
-        requiresActivation: response.requiresActivation,
-        firstAccess: response.firstAccess,
-        mustChangePassword: response.mustChangePassword,
-        message: response.message,
-      };
-    } catch (error: unknown) {
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao registrar cooperativa.",
       };
     }
   }

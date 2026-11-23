@@ -7,7 +7,12 @@ const authController = new AuthController();
 
 export async function authRoutes(app: FastifyInstance) {
   app.post("/register/pf", authController.registerPf);
-  app.post("/register/cooperative", authController.registerCooperative);
+  // Kept as an explicit refusal for older app versions and bookmarked links.
+  app.post("/register/cooperative", async (_request, reply) => reply.code(403).send({
+    success: false,
+    code: "COOPERATIVE_REGISTRATION_ADMIN_ONLY",
+    error: "O cadastro de cooperativas é realizado exclusivamente pela administração do KATUÁ.",
+  }));
 
   app.post(
     "/activate-generator-access",

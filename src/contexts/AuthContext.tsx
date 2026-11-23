@@ -269,16 +269,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         userData.userType === "COOPERATIVE" ||
         userData.userType === "cooperativa"
       ) {
-        result = await authService.registerCooperative({
-          displayName: userData.displayName,
-          email,
-          password,
-          phone: userData.phone,
-          cooperativeName: userData.cooperativeName,
-          registrationNumber: userData.registrationNumber,
-          address: userData.address,
-          rememberMe: userData.rememberMe,
-        });
+        return {
+          success: false,
+          error: "O cadastro de cooperativas é realizado exclusivamente pela administração do KATUÁ.",
+        };
       } else {
         return {
           success: false,

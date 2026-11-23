@@ -17,3 +17,11 @@ O acesso da cooperativa começa habilitado, mas seu primeiro login permanece des
 ## Validação
 
 Testes locais em `server/tests/analytics-monitoring`: provisionamento com hash, recusa de alteração de conta operacional, login ADMIN, Analytics global, cadastro com auditoria, impedimento de elevação de privilégio pelo payload, bloqueio a cooperativas comuns, duplicidade e revogação de sessão após redefinição administrativa. UI em desktop/mobile: formulário, limpeza de senha, listagem e navegação para Analytics, além das regressões de filtros/exportação. Sem banco da VPS, serviços fiscais ou envio de e-mails.
+
+## Cadastro exclusivo da administração
+
+O topo da área administrativa tem um atalho destacado “Adicionar cooperativa”, que abre diretamente o formulário (`/admin/cooperatives?new=1`). A listagem permanece em Cooperativas.
+
+O app web não oferece criar cooperativa no login. Links antigos de registro com profile=cooperativa mostram orientação para procurar a administração; cadastro residencial PF permanece disponível. O cliente não possui mais o método que transmitia registro público de cooperativa. A rota legada POST /auth/register/cooperative responde 403 COOPERATIVE_REGISTRATION_ADMIN_ONLY, inclusive para clientes antigos e mesmo quando há token. Apenas POST /platform/cooperatives, com ADMIN ativo, pode cadastrar. O serviço exige o administrador e reconfirma seu perfil antes de criar a organização, mantendo auditoria.
+
+Validação adicional: cadastro administrativo e atalhos no painel; recusa da rota pública sem sessão, com cooperativa e com ADMIN; nenhuma conta criada pelo endpoint legado. App web em 390px/1280px: login/recuperação de cooperativa preservados, ausência de criação pública, links antigos bloqueados e cadastro PF acessível. Não requer nova migração ou alteração de contas existentes. Atualizar API, painel e app web; não foi gerado APK.

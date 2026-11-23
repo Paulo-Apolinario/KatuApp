@@ -76,10 +76,12 @@ async function main(){
     const consumed=await app.inject({method:"POST",url:"/auth/login-link/consume",payload:{token:link,audience:"APP"}});assert.equal(consumed.statusCode,200,consumed.body);
     assert((await prisma.user.findUniqueOrThrow({where:{id:"cat"}})).lastLoginAt);
     const again=await app.inject({method:"POST",url:"/auth/login-link/consume",payload:{token:link,audience:"APP"}});assert.equal(again.statusCode,400);
-    const registered=await app.inject({method:"POST",url:"/auth/register/cooperative",payload:{email:"new-coop@qa.invalid",password:"NewMonitoring2026!",displayName:"Responsável QA",phone:"85999991234",cooperativeName:"Nova cooperativa QA",registrationNumber:"11222333000181"}});
-    assert.equal(registered.statusCode,201,registered.body);
-    const newAccount=await prisma.user.findUniqueOrThrow({where:{email:"new-coop@qa.invalid"}});
-    assert(newAccount.accessEnabledAt&&newAccount.firstLoginAt&&newAccount.lastLoginAt);
+    const publicPayload={email:"public-coop@qa.invalid",password:"NewMonitoring2026!",displayName:"Responsável QA",phone:"85999991234",cooperativeName:"Cooperativa pública recusada",registrationNumber:"11222333000181"};
+    const registered=await app.inject({method:"POST",url:"/auth/register/cooperative",payload:publicPayload});
+    assert.equal(registered.statusCode,403,registered.body);assert.equal(registered.json().code,"COOPERATIVE_REGISTRATION_ADMIN_ONLY");assert.equal(registered.json().token,undefined);
+    assert.equal(await prisma.user.count({where:{email:publicPayload.email}}),0);
+    await call("a","POST","/auth/register/cooperative",publicPayload,403);
+    await call("admin","POST","/auth/register/cooperative",publicPayload,403);
     const before=await monitoringReport("a",monitoringQuery.parse(query));assert(before.items[0].last_login);
     // A failed or blocked account does not gain a login timestamp.
     const blocked=await app.inject({method:"POST",url:"/auth/login",payload:{identifier:"blocked@qa.invalid",password}});assert.equal(blocked.statusCode,400);assert.equal((await prisma.user.findUniqueOrThrow({where:{id:"blocked"}})).lastLoginAt,null);
@@ -101,7 +103,7 @@ async function main(){
     const created=await app.inject({method:"POST",url:"/platform/cooperatives",headers:adminHeaders,payload:newCoop});
     assert.equal(created.statusCode,201,created.body);assert.equal(created.json().account.role,"COOPERATIVE");
     assert(!created.body.includes("passwordHash"));assert(!created.body.includes(newCoop.password));assert.equal(created.json().token,undefined);
-    const managed=await prisma.user.findUniqueOrThrow({where:{email:newCoop.email}});assert.equal(managed.firstLoginAt,null);
+    const managed=await prisma.user.findUniqueOrThrow({where:{email:newCoop.email}});assert.equal(managed.firstLoginAt,null);assert(managed.accessEnabledAt);
     const audit=await prisma.registrationAccessEvent.findFirstOrThrow({where:{recordId:created.json().cooperative.id,action:"COOPERATIVE_CREATED"}});assert.equal(audit.actorUserId,root.id);
     const duplicate=await app.inject({method:"POST",url:"/platform/cooperatives",headers:adminHeaders,payload:newCoop});assert.equal(duplicate.statusCode,409,duplicate.body);assert.equal(await prisma.cooperative.count({where:{email:newCoop.email}}),1);
     const listing=await app.inject({method:"GET",url:"/platform/cooperatives?q=gerenciada",headers:adminHeaders});assert.equal(listing.statusCode,200,listing.body);assert.equal(listing.json().pagination.total,1);assert(!listing.body.includes("passwordHash"));

@@ -107,7 +107,7 @@ export class AuthService {
     return user;
   }
 
-  async registerCooperative(data: RegisterCooperativeInput, adminActorId?: string) {
+  async registerCooperative(data: RegisterCooperativeInput, adminActorId: string) {
     const email = normalizeEmail(data.email);
     const registrationNumber = sanitizeDocument(data.registrationNumber);
 
@@ -149,6 +149,8 @@ export class AuthService {
     });
 
     const result = await prisma.$transaction(async (tx) => {
+      const admin = await tx.user.findUnique({ where: { id: adminActorId }, select: { role: true, isActive: true, credentialsReady: true, accountStatus: true } });
+      if (!admin || admin.role !== "ADMIN" || !admin.isActive || !admin.credentialsReady || admin.accountStatus !== "ACTIVE") throw new Error("Cadastro restrito à administração do KATUÁ.");
       const user = await tx.user.create({
         data: {
         accessEnabledAt: new Date(),
@@ -191,7 +193,7 @@ export class AuthService {
         },
       });
 
-      if (adminActorId) await tx.registrationAccessEvent.create({ data: { cooperativeId: cooperative.id, actorUserId: adminActorId, recordKind: "COOPERATIVE", recordId: cooperative.id, action: "COOPERATIVE_CREATED" } });
+      await tx.registrationAccessEvent.create({ data: { cooperativeId: cooperative.id, actorUserId: adminActorId, recordKind: "COOPERATIVE", recordId: cooperative.id, action: "COOPERATIVE_CREATED" } });
 
       const hydratedUser = await tx.user.findUnique({
         where: { id: user.id },

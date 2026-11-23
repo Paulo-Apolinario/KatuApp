@@ -264,8 +264,8 @@ export default function LoginScreen() {
         busy={loading}
         onPress={() => void handleLogin()}
       />
-      <AccessLink label="Criar uma conta" onPress={handleGoToRegister} />
-      <Notice text="Se a cooperativa já cadastrou você, utilize a opção de liberar acesso na tela inicial." />
+      {profile === "pf" && <AccessLink label="Criar uma conta" onPress={handleGoToRegister} />}
+      <Notice text={profile === "cooperativa" ? "O cadastro de cooperativas é realizado exclusivamente pela administração do KATUÁ. Entre com o acesso fornecido pela administração." : "Se a cooperativa já cadastrou você, utilize a opção de liberar acesso na tela inicial."} />
     </AccessShell>
   );
 }
