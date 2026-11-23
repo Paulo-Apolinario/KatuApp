@@ -1,3 +1,5 @@
+import { provisionPlatformAdministrator } from "../../src/modules/platform-admin/platform-admin.service";
+import { comparePassword } from "../../src/utils/hash";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
@@ -81,6 +83,33 @@ async function main(){
     const before=await monitoringReport("a",monitoringQuery.parse(query));assert(before.items[0].last_login);
     // A failed or blocked account does not gain a login timestamp.
     const blocked=await app.inject({method:"POST",url:"/auth/login",payload:{identifier:"blocked@qa.invalid",password}});assert.equal(blocked.statusCode,400);assert.equal((await prisma.user.findUniqueOrThrow({where:{id:"blocked"}})).lastLoginAt,null);
+    const root=await provisionPlatformAdministrator("root-qa@test.invalid","LocalRootAccess2026!","Admin QA");
+    assert.equal(root.role,"ADMIN");assert.equal((root as any).passwordHash,undefined);
+    await assert.rejects(()=>provisionPlatformAdministrator("a@qa.invalid","OtherLocal2026!","Admin"),/outro perfil|vínculo/);
+    assert.equal((await prisma.user.findUniqueOrThrow({where:{id:"a"}})).role,"COOPERATIVE");
+    assert(await comparePassword(password,(await prisma.user.findUniqueOrThrow({where:{id:"a"}})).passwordHash));
+    const adminLogin=await app.inject({method:"POST",url:"/auth/login",payload:{identifier:"root-qa@test.invalid",password:"LocalRootAccess2026!"}});
+    assert.equal(adminLogin.statusCode,200,adminLogin.body);
+    const adminToken=adminLogin.json().token;
+    const adminHeaders={authorization:"Bearer "+adminToken};
+    assert.equal((await app.inject({method:"GET",url:endpoint,headers:adminHeaders})).statusCode,200);
+    await call("a","GET","/platform/cooperatives",undefined,403);
+    const newCoop={email:"managed-coop@qa.invalid",password:"CoopInitial2026!",confirmPassword:"CoopInitial2026!",displayName:"Responsável gerenciado",phone:"85999995555",cooperativeName:"Cooperativa gerenciada QA",registrationNumber:"99888777000166",city:"Fortaleza",state:"CE"};
+    await call("a","POST","/platform/cooperatives",newCoop,403);
+    assert.equal((await app.inject({method:"POST",url:"/platform/cooperatives",headers:adminHeaders,payload:{...newCoop,role:"ADMIN"}})).statusCode,400);
+    assert.equal((await app.inject({method:"POST",url:"/platform/cooperatives",headers:adminHeaders,payload:{...newCoop,confirmPassword:"WrongConfirm2026!"}})).statusCode,400);
+    const created=await app.inject({method:"POST",url:"/platform/cooperatives",headers:adminHeaders,payload:newCoop});
+    assert.equal(created.statusCode,201,created.body);assert.equal(created.json().account.role,"COOPERATIVE");
+    assert(!created.body.includes("passwordHash"));assert(!created.body.includes(newCoop.password));assert.equal(created.json().token,undefined);
+    const managed=await prisma.user.findUniqueOrThrow({where:{email:newCoop.email}});assert.equal(managed.firstLoginAt,null);
+    const audit=await prisma.registrationAccessEvent.findFirstOrThrow({where:{recordId:created.json().cooperative.id,action:"COOPERATIVE_CREATED"}});assert.equal(audit.actorUserId,root.id);
+    const duplicate=await app.inject({method:"POST",url:"/platform/cooperatives",headers:adminHeaders,payload:newCoop});assert.equal(duplicate.statusCode,409,duplicate.body);assert.equal(await prisma.cooperative.count({where:{email:newCoop.email}}),1);
+    const listing=await app.inject({method:"GET",url:"/platform/cooperatives?q=gerenciada",headers:adminHeaders});assert.equal(listing.statusCode,200,listing.body);assert.equal(listing.json().pagination.total,1);assert(!listing.body.includes("passwordHash"));
+    await provisionPlatformAdministrator("root-qa@test.invalid","NewLocalRoot2026!","Admin QA");
+    assert.equal((await app.inject({method:"GET",url:"/platform/cooperatives",headers:adminHeaders})).statusCode,401);
+    assert.equal((await app.inject({method:"POST",url:"/auth/login",payload:{identifier:"root-qa@test.invalid",password:"LocalRootAccess2026!"}})).statusCode,400);
+    assert.equal((await app.inject({method:"POST",url:"/auth/login",payload:{identifier:"root-qa@test.invalid",password:"NewLocalRoot2026!"}})).statusCode,200);
+    console.log("PASS: provisionamento administrativo com hash, proteção de contas operacionais, login/global Analytics, cadastro de cooperativas com auditoria, prevenção de duplicidade e revogação de sessão antiga");
     console.log("PASS: escopo próprio/ADMIN, bloqueio por senha, isolamento em detalhes/exportação, filtros, dias sem duplicidade, paginação e exportação completa");
     console.log("PASS: login real separado de atividade, senha incorreta/conta bloqueada não alteram datas, link de uso único e datas legadas preservadas");
   }finally{await app.close();await prisma.$disconnect();}

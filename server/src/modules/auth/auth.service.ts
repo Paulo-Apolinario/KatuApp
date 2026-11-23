@@ -107,7 +107,7 @@ export class AuthService {
     return user;
   }
 
-  async registerCooperative(data: RegisterCooperativeInput) {
+  async registerCooperative(data: RegisterCooperativeInput, adminActorId?: string) {
     const email = normalizeEmail(data.email);
     const registrationNumber = sanitizeDocument(data.registrationNumber);
 
@@ -190,6 +190,8 @@ export class AuthService {
               : null,
         },
       });
+
+      if (adminActorId) await tx.registrationAccessEvent.create({ data: { cooperativeId: cooperative.id, actorUserId: adminActorId, recordKind: "COOPERATIVE", recordId: cooperative.id, action: "COOPERATIVE_CREATED" } });
 
       const hydratedUser = await tx.user.findUnique({
         where: { id: user.id },

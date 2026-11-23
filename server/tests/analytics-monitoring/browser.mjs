@@ -17,12 +17,15 @@ const account=i=>({id:'account-'+i,name:'Conta '+i,role:i===21?'COLLECTOR':'COOP
 try{for(const role of ['ADMIN','COOPERATIVE']){
 const c=await browser.newContext({viewport:role==='COOPERATIVE'?{width:390,height:844}:{width:1440,height:960},serviceWorkers:'block',acceptDownloads:true});
 await c.addInitScript(({role})=>{localStorage.setItem('auth_token','local-monitoring-token');localStorage.setItem('auth_user',JSON.stringify({id:'local-owner',role,displayName:'Gestor QA'}));},{role});
-let fail=false,failExport=false;const requests=[];
+let fail=false,failExport=false;const requests=[],cooperatives=[],creationBodies=[];
 await c.route('**/*',async r=>{const req=r.request(),u=new URL(req.url()),p=u.pathname;
 if(['document','script','stylesheet','font','image'].includes(req.resourceType()))return u.hostname==='127.0.0.1'?r.continue():r.abort();
 const send=(body,status=200)=>r.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
 if(p==='/auth/me')return send({user:{id:'local-owner',role,displayName:'Gestor QA'}});
 if(p==='/analytics/access/unlock')return send({data:{token:'a'.repeat(64),expiresAt:new Date(Date.now()+1800000).toISOString()}});
+if(p==='/platform/cooperatives'){
+if(req.method()==='POST'){const b=req.postDataJSON();creationBodies.push(b);const cooperative={id:'coop-managed',name:b.cooperativeName,email:b.email,registrationNumber:b.registrationNumber,phone:b.phone,city:b.city,state:b.state,user:{displayName:b.displayName,isActive:true,accountStatus:'ACTIVE',credentialsReady:true}};cooperatives.push(cooperative);return send({cooperative,account:{id:'managed-user',email:b.email,role:'COOPERATIVE'}},201);}
+return send({items:cooperatives,pagination:{page:1,total:cooperatives.length,totalPages:1}});}
 if(p.startsWith('/analytics/monitoring')){
 requests.push(u);if(fail)return send({error:'Consulta indisponível'},503);if(failExport&&p.endsWith('/export'))return send({error:'Exportação indisponível'},503);
 const detail=!!u.searchParams.get('cooperativeId'),page=Number(u.searchParams.get('page')||1),none=u.searchParams.get('search')==='Nenhum';
@@ -44,6 +47,12 @@ await page.getByRole('button',{name:'Voltar às cooperativas',exact:true}).click
 await page.getByLabel('Buscar cooperativa',{exact:true}).fill('');await page.getByRole('button',{name:'Aplicar filtros',exact:true}).click();await page.getByRole('rowheader',{name:/Cooperativa Alfa/}).waitFor();
 fail=true;await page.getByRole('button',{name:'Atualizar',exact:true}).click();await page.getByText('Consulta indisponível',{exact:false}).waitFor();assert.equal(await page.getByRole('rowheader',{name:/Cooperativa Alfa/}).count(),0);fail=false;await page.getByRole('button',{name:'Tentar novamente',exact:true}).click();await page.getByRole('rowheader',{name:/Cooperativa Alfa/}).waitFor();
 if(role==='COOPERATIVE'){const region=page.getByRole('region',{name:'Tabela de acompanhamento com rolagem horizontal'});assert(await region.evaluate(e=>e.scrollWidth>e.clientWidth));}
-if(role==='ADMIN'){await page.getByRole('button',{name:'Sair da conta',exact:true}).click();await page.waitForURL(/login/);assert.equal(await page.evaluate(()=>localStorage.getItem('auth_token')),null);}
+if(role==='ADMIN'){
+await page.getByRole('link',{name:'Cooperativas',exact:true}).click();await page.getByRole('button',{name:'Adicionar cooperativa',exact:true}).click();
+for(const [label,value] of [['Nome da cooperativa *','Cooperativa Nova QA'],['Documento / CNPJ *','99888777000166'],['Nome do responsável *','Gestor Nova QA'],['E-mail de acesso da cooperativa *','managed@qa.invalid'],['Telefone *','85999995555'],['Município (opcional)','Fortaleza'],['Senha inicial da cooperativa *','LocalCoopPassword2026!'],['Confirmar senha inicial *','LocalCoopPassword2026!']])await page.getByLabel(label,{exact:true}).fill(value);
+await page.getByRole('button',{name:'Cadastrar cooperativa',exact:true}).click();await page.getByRole('rowheader',{name:/Cooperativa Nova QA/}).waitFor();assert.equal(creationBodies.length,1);assert.equal(creationBodies[0].role,undefined);assert.equal(await page.locator('input[type=password]').count(),0);
+await page.getByRole('link',{name:'Ver Analytics detalhado',exact:true}).click();await page.waitForURL(/cooperativeId=coop-managed/);await page.getByRole('heading',{name:'Uso e adesão',exact:true}).waitFor();
+console.log('PASS UI ADMIN: cadastro da cooperativa, limpeza de senha e navegação para Analytics');
+await page.getByRole('button',{name:'Sair da conta',exact:true}).click();await page.waitForURL(/login/);assert.equal(await page.evaluate(()=>localStorage.getItem('auth_token')),null);}
 console.log('PASS UI '+role+': acesso, tabela/detalhes, paginação, ausência de sinal, filtros, recuperação de falha e exportação integral Excel/PDF');await c.close();
 }assert.deepEqual(errors,[]);console.log('EVIDENCE '+out);}finally{await browser.close();await new Promise(r=>server.close(r));}
