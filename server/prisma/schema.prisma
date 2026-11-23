@@ -8,6 +8,9 @@ datasource db {
 }
 
 model User {
+  accessEnabledAt DateTime?
+  firstLoginAt DateTime?
+  lastLoginAt DateTime?
   analyticsUsage AnalyticsUsageDaily[]
   agentRuns AgentRun[]
   agentConversations AgentConversation[]

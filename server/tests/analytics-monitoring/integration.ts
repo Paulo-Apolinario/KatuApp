@@ -1,0 +1,88 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import nodemailer from "nodemailer";
+import { buildApp } from "../../src/app";
+import { prisma } from "../../src/lib/prisma";
+import { hashPassword } from "../../src/utils/hash";
+import { civilDay } from "../../src/modules/analytics/participation.schemas";
+import { monitoringQuery, monitoringReport } from "../../src/modules/analytics/monitoring.service";
+import { recordSuccessfulLogin } from "../../src/modules/auth/login-observation";
+import { tokenHash } from "../../src/modules/auth/auth-email.service";
+(nodemailer as any).createTransport=()=>({sendMail:async()=>{throw Error("Não enviar e-mail em teste");},close(){}});
+async function main(){
+  const url=new URL(process.env.DATABASE_URL||"");
+  if(url.hostname!=="127.0.0.1"||url.port!=="54349"||process.env.KATUA_MONITORING_TEST!=="1")throw Error("Somente banco descartável.");
+  const app=await buildApp(),now=new Date(),password="LocalMonitoring2026!",passwordHash=await hashPassword(password);
+  const ago=(days:number)=>new Date(now.getTime()-days*86400000),query={start:civilDay(ago(29)),end:civilDay(now)};
+  try{
+    for(const [id,role] of [["admin","ADMIN"],["a","COOPERATIVE"],["b","COOPERATIVE"],["pending","COOPERATIVE"],["blocked","COOPERATIVE"],["cat","COLLECTOR"],["pending-cat","COLLECTOR"],["pf","PF"],["municipal","MUNICIPAL_MANAGER"]] as const)
+      await prisma.user.create({data:{id,email:`${id}@qa.invalid`,passwordHash,displayName:id,role,credentialsReady:!id.startsWith("pending"),isActive:id!=="blocked"}});
+    for(const id of ["a","b","pending","blocked"])await prisma.cooperative.create({data:{id:"coop-"+id,userId:id,name:"Cooperativa "+id,city:id==="a"?"Fortaleza":"Sobral"}});
+    for(const id of ["cat","pending-cat"])await prisma.collector.create({data:{id:"col-"+id,userId:id,cooperativeId:"coop-a",name:id}});
+    const tokens=new Map<string,string>();
+    const call=async(who:string,method:"GET"|"POST",path:string,payload?:any,status=200,key?:string)=>{
+      const user=await prisma.user.findUniqueOrThrow({where:{id:who}});
+      if(!tokens.has(who))tokens.set(who,app.jwt.sign({sub:who,role:user.role,authVersion:user.authVersion}));
+      const res=await app.inject({method,url:path,payload,headers:{authorization:"Bearer "+tokens.get(who),...(key?{"x-analytics-access":key}:{})}});
+      assert.equal(res.statusCode,status,res.body);return res.json();
+    };
+    const endpoint="/analytics/monitoring?"+new URLSearchParams(query);
+    await call("a","GET",endpoint,undefined,403);
+    const key=(await call("a","POST","/analytics/access/unlock",{password:"Katua@2026Br"})).data.token;
+    await call("cat","GET",endpoint,undefined,403);
+    await call("pf","GET",endpoint,undefined,403);
+    await call("municipal","GET",endpoint,undefined,403);
+    await call("a","GET",endpoint+"&cooperativeId=coop-b",undefined,404,key);
+    await call("a","GET",endpoint.replace("monitoring?","monitoring/export?")+"&cooperativeId=coop-b",undefined,404,key);
+    for(const [userId,coop,days,seconds] of [["a","coop-a",1,60],["cat","coop-a",1,90],["b","coop-b",45,900]] as const){
+      const at=ago(days);
+      await prisma.analyticsUsageDaily.create({data:{id:randomUUID(),userId,cooperativeId:coop,day:civilDay(at),seconds,lastSlot:at,lastSlotSeconds:30,lastSeenAt:at,webUsed:userId!=="cat",appUsed:userId==="cat",roleSnapshot:userId==="cat"?"COLLECTOR":"COOPERATIVE"}});
+    }
+    const item=await prisma.wasteStockItem.create({data:{cooperativeId:"coop-a",name:"Papelão",category:"Papel"}});
+    const lot=await prisma.wasteStockLot.create({data:{cooperativeId:"coop-a",stockItemId:item.id,quantity:50,availableQuantity:20}});
+    await prisma.internalDocument.create({data:{cooperativeId:"coop-a",number:"SAI-QA-1",kind:"STOCK_DISPATCH",eventKey:"STOCK-DISPATCH:qa",snapshot:{internalOnly:true}}});
+    for(const op of ["bulk:qa:1","bulk:qa:2","individual-qa"])await prisma.wasteStockMovement.create({data:{cooperativeId:"coop-a",lotId:lot.id,operationId:op,operationHash:"qa",kind:"SALE",quantity:10,unit:"KG",actorUserId:"a",before:{},after:{}}});
+    await prisma.collection.create({data:{cooperativeId:"coop-a",status:"RECEIVED",intakeKind:"DIRECT",receivedAt:ago(1)}});
+    await prisma.collection.create({data:{cooperativeId:"coop-a",status:"RECEIVED",intakeKind:"MIXED_BAG",receivedAt:ago(1)}});
+    const own=(await call("a","GET",endpoint,undefined,200,key)).data;
+    assert.equal(own.scope,"OWN");assert.equal(own.items.length,1);assert.equal(own.items[0].id,"coop-a");assert.equal(own.items[0].seconds,150);assert.equal(own.items[0].days,1);assert.equal(own.items[0].accounts,3);assert.equal(own.items[0].enabled_at,null);assert.equal(own.items[0].last_login,null);assert.equal(own.items[0].collections,1);assert.equal(own.items[0].receipts,2);assert.equal(own.items[0].dispatches,2);
+    const global=(await call("admin","GET",endpoint)).data;
+    assert.equal(global.scope,"ALL");assert.equal(global.summary.cooperatives,5);assert.equal(global.summary.measured,1);
+    assert.equal(global.items.find((x:any)=>x.id==="coop-pending").access_status,"PENDING");assert.equal(global.items.find((x:any)=>x.id==="coop-blocked").access_status,"BLOCKED");
+    const stale=(await call("admin","GET",endpoint+"&inactiveDays=30")).data;
+    assert.deepEqual(stale.items.map((x:any)=>x.id),["coop-b"]);
+    const unknown=(await call("admin","GET",endpoint+"&activity=NO_SIGNAL")).data;
+    assert(!unknown.items.some((x:any)=>x.id==="coop-a"));assert.equal(unknown.summary.cooperatives,4);
+    assert.equal((await call("admin","GET",endpoint+"&city=fortaleza")).data.items[0].id,"coop-a");
+    assert.equal((await call("admin","GET",endpoint+"&search=not-found")).data.pagination.total,0);
+    assert.equal((await call("admin","GET",endpoint+"&status=PENDING")).data.items[0].id,"coop-pending");
+    const page=(await call("a","GET",endpoint+"&cooperativeId=coop-a&pageSize=1&page=2",undefined,200,key)).data;
+    assert.equal(page.items[0].id,"coop-a");assert.equal(page.accounts.length,1);assert.equal(page.accountPagination.total,3);
+    const exported=(await call("a","GET",endpoint.replace("monitoring?","monitoring/export?")+"&cooperativeId=coop-a&pageSize=1&page=2",undefined,200,key)).data;
+    assert.equal(exported.accounts.length,3);assert(exported.accounts.some((x:any)=>x.id==="pending-cat"&&x.access_status==="PENDING"));
+    await call("admin","GET",endpoint+"&bogus=1",undefined,400);
+    await call("admin","GET",endpoint.replace(query.start,"2025-01-01"),undefined,400);
+    await call("a","GET","/auth/me");
+    assert.equal((await prisma.user.findUniqueOrThrow({where:{id:"a"}})).lastLoginAt,null);
+    const fail=await app.inject({method:"POST",url:"/auth/login",payload:{identifier:"a@qa.invalid",password:"wrong-password"}});assert.equal(fail.statusCode,400);
+    assert.equal((await prisma.user.findUniqueOrThrow({where:{id:"a"}})).lastLoginAt,null);
+    const success=await app.inject({method:"POST",url:"/auth/login",payload:{identifier:"a@qa.invalid",password}});assert.equal(success.statusCode,200,success.body);
+    const logged=await prisma.user.findUniqueOrThrow({where:{id:"a"}});assert(logged.firstLoginAt&&logged.lastLoginAt);assert.equal(logged.accessEnabledAt,null);
+    await recordSuccessfulLogin("a",ago(2));
+    assert.equal((await prisma.user.findUniqueOrThrow({where:{id:"a"}})).lastLoginAt!.getTime(),logged.lastLoginAt!.getTime());
+    const link="abcdef0123456789".repeat(4);await prisma.authEmailToken.create({data:{userId:"cat",tokenHash:tokenHash(link),purpose:"LOGIN",audience:"APP",expiresAt:new Date(now.getTime()+600000)}});
+    const consumed=await app.inject({method:"POST",url:"/auth/login-link/consume",payload:{token:link,audience:"APP"}});assert.equal(consumed.statusCode,200,consumed.body);
+    assert((await prisma.user.findUniqueOrThrow({where:{id:"cat"}})).lastLoginAt);
+    const again=await app.inject({method:"POST",url:"/auth/login-link/consume",payload:{token:link,audience:"APP"}});assert.equal(again.statusCode,400);
+    const registered=await app.inject({method:"POST",url:"/auth/register/cooperative",payload:{email:"new-coop@qa.invalid",password:"NewMonitoring2026!",displayName:"Responsável QA",phone:"85999991234",cooperativeName:"Nova cooperativa QA",registrationNumber:"11222333000181"}});
+    assert.equal(registered.statusCode,201,registered.body);
+    const newAccount=await prisma.user.findUniqueOrThrow({where:{email:"new-coop@qa.invalid"}});
+    assert(newAccount.accessEnabledAt&&newAccount.firstLoginAt&&newAccount.lastLoginAt);
+    const before=await monitoringReport("a",monitoringQuery.parse(query));assert(before.items[0].last_login);
+    // A failed or blocked account does not gain a login timestamp.
+    const blocked=await app.inject({method:"POST",url:"/auth/login",payload:{identifier:"blocked@qa.invalid",password}});assert.equal(blocked.statusCode,400);assert.equal((await prisma.user.findUniqueOrThrow({where:{id:"blocked"}})).lastLoginAt,null);
+    console.log("PASS: escopo próprio/ADMIN, bloqueio por senha, isolamento em detalhes/exportação, filtros, dias sem duplicidade, paginação e exportação completa");
+    console.log("PASS: login real separado de atividade, senha incorreta/conta bloqueada não alteram datas, link de uso único e datas legadas preservadas");
+  }finally{await app.close();await prisma.$disconnect();}
+}
+main().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1,3 +1,4 @@
+import { recordSuccessfulLogin } from "./login-observation";
 import { createReadStream } from "node:fs";
 import { avatarPath, discardAvatar, profileInput } from "./profile-avatar";
 import { requestAuthEmail, consumeLoginLink } from "./auth-email.service";
@@ -77,6 +78,7 @@ export class AuthController {
         email: user.email,
         authVersion: user.authVersion,
       });
+      await recordSuccessfulLogin(user.id);
       return reply.send({ success: true, token, user: serializeUser(user) });
     } catch {
       return reply
@@ -101,6 +103,7 @@ export class AuthController {
         role: user.role,
         email: user.email,
       });
+      await recordSuccessfulLogin(user.id);
 
       return reply.status(201).send({
         success: true,
@@ -127,6 +130,7 @@ export class AuthController {
         role: result.user.role,
         email: result.user.email,
       });
+      await recordSuccessfulLogin(result.user.id);
 
       return reply.status(201).send({
         success: true,
@@ -154,6 +158,7 @@ export class AuthController {
         role: user.role,
         email: user.email,
       });
+      await recordSuccessfulLogin(user.id);
 
       return reply.send({
         success: true,
@@ -317,6 +322,7 @@ export class AuthController {
         role: result.user.role,
         email: result.user.email,
       });
+      await recordSuccessfulLogin(result.user.id);
 
       return reply.status(201).send({
         success: true,

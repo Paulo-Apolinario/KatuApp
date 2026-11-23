@@ -77,6 +77,7 @@ export class AuthService {
 
     const user = await prisma.user.create({
       data: {
+        accessEnabledAt: new Date(),
         email,
         passwordHash,
         displayName: data.displayName.trim(),
@@ -150,6 +151,7 @@ export class AuthService {
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
+        accessEnabledAt: new Date(),
           email,
           passwordHash,
           displayName: data.displayName.trim(),
@@ -458,6 +460,7 @@ export class AuthService {
       const result = await prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
+        accessEnabledAt: new Date(),
             email,
             passwordHash,
             displayName: generator.name,
@@ -511,6 +514,7 @@ export class AuthService {
       const result = await prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
+        accessEnabledAt: new Date(),
             email,
             passwordHash,
             displayName: collector.name,
@@ -566,6 +570,7 @@ export class AuthService {
       const result = await prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
+        accessEnabledAt: new Date(),
             email,
             passwordHash,
             displayName: driver.name,
@@ -671,6 +676,7 @@ export class AuthService {
           data: {
             passwordHash,
             credentialsReady: true,
+            ...(!user.credentialsReady ? { accessEnabledAt: new Date() } : {}),
             authVersion: { increment: 1 },
             resetPasswordToken: null,
             resetPasswordExpiresAt: null,

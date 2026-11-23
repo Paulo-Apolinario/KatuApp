@@ -66,7 +66,7 @@ export async function requestAuthEmail(data: {email?:string;identifier?:string;i
   const transport=emailTransport(); transport.close();
   await prisma.authEmailToken.deleteMany({where:{expiresAt:{lt:new Date(Date.now()-24*60*60000)}}});
   const user=await lookupAccount(data.identifier || data.email || "",purpose==="LOGIN"?"EMAIL":data.identifierType);
-  if(!user || !user.isActive || user.accountStatus!==AccountStatus.ACTIVE || (data.audience==="PANEL"&&!["COOPERATIVE","MUNICIPAL_MANAGER"].includes(user.role)) || (data.profile&&roles[data.profile]!==user.role)) return {message:genericMessage};
+  if(!user || !user.isActive || user.accountStatus!==AccountStatus.ACTIVE || (data.audience==="PANEL"&&!["COOPERATIVE","MUNICIPAL_MANAGER","ADMIN"].includes(user.role)) || (data.profile&&roles[data.profile]!==user.role)) return {message:genericMessage};
   return sendAccountInstructions(user.id,data.audience,purpose);
 }
 
@@ -76,7 +76,7 @@ export async function consumeLoginLink(data: { token: string; audience: Audience
     const record = await tx.authEmailToken.findUnique({ where: { tokenHash: tokenHash(data.token) }, include: { user: true } });
     if (!record || record.purpose !== "LOGIN" || record.audience !== data.audience || record.consumedAt || record.expiresAt <= new Date()) throw invalid();
     const user = record.user;
-    if (!user.credentialsReady || !user.isActive || user.accountStatus !== AccountStatus.ACTIVE || (data.audience === "PANEL" && !["COOPERATIVE", "MUNICIPAL_MANAGER"].includes(user.role))) throw invalid();
+    if (!user.credentialsReady || !user.isActive || user.accountStatus !== AccountStatus.ACTIVE || (data.audience === "PANEL" && !["COOPERATIVE", "MUNICIPAL_MANAGER", "ADMIN"].includes(user.role))) throw invalid();
     const claim = await tx.authEmailToken.updateMany({ where: { id: record.id, consumedAt: null, expiresAt: { gt: new Date() } }, data: { consumedAt: new Date() } });
     if (claim.count !== 1) throw invalid();
     const hydrated = await tx.user.findUniqueOrThrow({ where: { id: user.id }, include: { personProfile: true, generator: true, collector: true, cooperative: true, driver: true } });

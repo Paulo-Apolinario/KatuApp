@@ -1,3 +1,4 @@
+import { monitoringQuery, monitoringReport, monitoringScope } from "./monitoring.service";
 import type { FastifyInstance } from "fastify";
 import { z, ZodError } from "zod";
 import { participationQuery } from "./participation.schemas";
@@ -73,6 +74,13 @@ export async function participationAnalyticsRoutes(app: FastifyInstance) {
         });
       }
     };
+  for (const exporting of [false, true]) {
+    app.get(exporting ? "/analytics/monitoring/export" : "/analytics/monitoring", authenticated, handle(async r => {
+      const scope = await monitoringScope(r.user.sub);
+      if (!scope.all) access.require(r.user.sub, r.headers.authorization || "", r.headers["x-analytics-access"]);
+      return monitoringReport(r.user.sub, monitoringQuery.parse(r.query), exporting);
+    }));
+  }
   app.post(
     "/analytics/access/unlock",
     authenticated,
