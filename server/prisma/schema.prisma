@@ -63,6 +63,7 @@ model User {
 }
 
 model Cooperative {
+  simulationWorkspace SimulationWorkspace?
   triageDays TriageDay[]
   mixedBags MixedBag[]
   analyticsUsage AnalyticsUsageDaily[]
@@ -2142,4 +2143,30 @@ model TriageDayAction {
  day TriageDay @relation(fields:[dayId],references:[id],onDelete:Restrict)
  @@unique([cooperativeId,operationId])
  @@index([dayId,createdAt])
+}
+
+// Isolated demonstration ledger: never a source for operational stock, tax or environmental reports.
+model SimulationWorkspace {
+  id String @id @default(cuid())
+  cooperativeId String @unique
+  cooperative Cooperative @relation(fields:[cooperativeId],references:[id],onDelete:Restrict)
+  enabled Boolean @default(false)
+  version Int @default(1)
+  state Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  events SimulationEvent[]
+}
+model SimulationEvent {
+  id String @id @default(cuid())
+  workspaceId String
+  workspace SimulationWorkspace @relation(fields:[workspaceId],references:[id],onDelete:Restrict)
+  operationId String
+  operationHash String
+  actorUserId String
+  kind String
+  result Json
+  createdAt DateTime @default(now())
+  @@unique([workspaceId,operationId])
+  @@index([workspaceId,createdAt])
 }

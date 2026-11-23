@@ -15,7 +15,7 @@ export async function platformAdminRoutes(app: FastifyInstance) {
     if (!parsed.success) return p.code(400).send({ error: "Filtros inválidos." });
     const { q, page } = parsed.data;
     const where = q ? { OR: [{ name: { contains: q, mode: "insensitive" as const } }, { email: { contains: q, mode: "insensitive" as const } }, { registrationNumber: { contains: q } }] } : {};
-    const [items, total] = await prisma.$transaction([prisma.cooperative.findMany({ where, orderBy: [{ name: "asc" }, { id: "asc" }], skip: (page - 1) * 20, take: 20, select: { id: true, name: true, registrationNumber: true, email: true, phone: true, city: true, state: true, createdAt: true, user: { select: { displayName: true, isActive: true, accountStatus: true, credentialsReady: true } } } }), prisma.cooperative.count({ where })]);
+    const [items, total] = await prisma.$transaction([prisma.cooperative.findMany({ where, orderBy: [{ name: "asc" }, { id: "asc" }], skip: (page - 1) * 20, take: 20, select: { id: true, name: true, registrationNumber: true, email: true, phone: true, city: true, state: true, createdAt: true, simulationWorkspace: { select: { enabled: true } }, user: { select: { displayName: true, isActive: true, accountStatus: true, credentialsReady: true } } } }), prisma.cooperative.count({ where })]);
     return { items, pagination: { page, total, totalPages: Math.max(1, Math.ceil(total / 20)) } };
   });
   app.post("/platform/cooperatives", guard, async (r: any, p) => {

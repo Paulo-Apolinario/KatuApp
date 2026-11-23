@@ -1,3 +1,4 @@
+import { simulationRoutes } from "./modules/simulation/simulation.routes";
 import { platformAdminRoutes } from "./modules/platform-admin/platform-admin.routes";
 import { mixedBagRoutes } from "./modules/mixed-bags/bags.routes";
 import { registrationAccessRoutes } from "./modules/registrations/access.routes";
@@ -253,6 +254,7 @@ export async function buildApp() {
   await app.register(reportsRoutes);
   await app.register(participationAnalyticsRoutes);
   await app.register(platformAdminRoutes);
+  await app.register(simulationRoutes);
   await app.register(registrationAccessRoutes);
   await app.register(mixedBagRoutes);
   await app.register(settingsRoutes);
