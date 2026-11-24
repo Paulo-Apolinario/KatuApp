@@ -64,6 +64,22 @@ async function main(){
  data=await call("admin","POST",path+"/enable",{enabled:true});assert.equal(data.workspace.state.lots[2].available,"100.000");
  assert.equal(await real(),before);assert.equal(externalCalls,0);
  for(const s of data.workspace.state.sales)for(const d of s.documents){assert(d.id.startsWith("SIM-"));assert(!/^\d{44}$/.test(d.id));}
+ const oldState=JSON.parse(JSON.stringify(data.workspace.state));
+ const resetBody={operationId:randomUUID(),expectedVersion:data.workspace.version,action:"RESET",confirm:true};
+ await call("b","POST",path+"/actions",resetBody,404);await call("cat","POST",path+"/actions",resetBody,403);
+ await call("a","POST",path+"/actions",{...resetBody,confirm:false},400);
+ await call("a","POST",path+"/actions",{...resetBody,expectedVersion:data.workspace.version-1},409);
+ data=await call("a","POST",path+"/actions",resetBody);
+ assert.equal(data.workspace.state.sales.length,0);assert.equal(data.workspace.state.buyers.length,1);assert.equal(data.workspace.state.generation,2);
+ assert.equal(data.workspace.state.lots.filter((l:any)=>l.materialId==="paper").reduce((n:number,l:any)=>n+Number(l.available),0),500);
+ assert.equal(data.workspace.enabled,true);assert(!JSON.stringify(data).includes('archivedState'));
+ const archive=await prisma.simulationEvent.findUniqueOrThrow({where:{workspaceId_operationId:{workspaceId:data.workspace.id,operationId:resetBody.operationId}}});assert.deepEqual((archive.result as any).archivedState,oldState);
+ assert.deepEqual((await call("a","GET",path)).workspace.state,data.workspace.state);
+ assert.equal((await call("b","GET","/simulation/context")).workspace,null);
+ const fresh=(await act({action:"CREATE_SALE",sale:baseSale})).result.result.saleId;assert.equal(fresh,"SIM-VENDA-2-1");
+ const repeat=await call("a","POST",path+"/actions",resetBody);assert(repeat.replayed);assert.equal(repeat.workspace.state.sales.length,1);assert.equal(repeat.workspace.state.generation,2);assert(!JSON.stringify(repeat).includes('archivedState'));
+ await call("admin","POST",path+"/actions",resetBody,409);assert.equal(await real(),before);assert.equal(externalCalls,0);
+ console.log("PASS: reinício com confirmação, versão, segregação e arquivo técnico; replay não apaga novo cenário; estoque real intacto");
  console.log("PASS: habilitação ADMIN, isolamento entre cooperativas, estoque/vendas/compradores demonstrativos separados, cálculo parcial por lote e dinheiro decimal");
  console.log("PASS: rejeição, consulta após resposta perdida sem duplicar, concorrência, rollback por falta de saldo, recebimento divergente, CDF, pagamento parcial e cancelamento sem devolver estoque");
  console.log("PASS: estoque/documentos/coletas reais preservados, kg e litros separados, desabilitação sem apagar histórico e zero chamadas externas");

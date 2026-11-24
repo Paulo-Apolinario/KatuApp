@@ -5,6 +5,7 @@ import { initialSimulation, latestDocument, simulationPlan, SIMULATION_NOTICE, t
 import type { SimulationAction } from "./simulation.schemas";
 import { saleInput } from "./simulation.schemas";
 export class SimulationError extends Error { constructor(message:string,public statusCode=409){super(message);} }
+const publicResult=(value:Prisma.JsonValue)=>{const result=value as Prisma.JsonObject;return {message:result.message,...(typeof result.saleId==="string"?{saleId:result.saleId}:{})};};
 const json=(value:unknown)=>JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 export async function simulationScope(userId:string,cooperativeId?:string){
   const user=await prisma.user.findUnique({where:{id:userId},select:{role:true,isActive:true,credentialsReady:true,accountStatus:true,cooperative:{select:{id:true,name:true}}}});
@@ -18,7 +19,10 @@ export async function simulationScope(userId:string,cooperativeId?:string){
 }
 export async function simulationWorkspace(userId:string,cooperativeId?:string){
   const scope=await simulationScope(userId,cooperativeId);
-  const workspace=await prisma.simulationWorkspace.findUnique({where:{cooperativeId:scope.cooperative.id},include:{events:{orderBy:[{createdAt:"desc"},{id:"desc"}],take:30,select:{id:true,kind:true,actorUserId:true,createdAt:true,result:true}}}});
+  const found=await prisma.simulationWorkspace.findUnique({where:{cooperativeId:scope.cooperative.id}});
+  // Keep archived scenarios out of list responses, including at the database boundary.
+  const events=found?await prisma.$queryRaw`SELECT id,kind,"actorUserId","createdAt",result - 'archivedState' AS result FROM "SimulationEvent" WHERE "workspaceId"=${found.id} ORDER BY "createdAt" DESC,id DESC LIMIT 30`:[];
+  const workspace=found?{...found,events}:null;
   return {notice:SIMULATION_NOTICE,cooperative:scope.cooperative,canEnable:scope.admin,workspace};
 }
 export async function enableSimulation(userId:string,cooperativeId:string,enabled:boolean){
@@ -59,16 +63,21 @@ export async function actSimulation(userId:string,cooperativeId:string,input:Sim
     const workspace=await tx.simulationWorkspace.findUnique({where:{cooperativeId}});
     if(!workspace?.enabled)throw new SimulationError("Simulação não habilitada pela administração.",403);
     const old=await tx.simulationEvent.findUnique({where:{workspaceId_operationId:{workspaceId:workspace.id,operationId:input.operationId}}});
-    if(old){if(old.operationHash!==hash||old.actorUserId!==userId)throw new SimulationError("Protocolo já usado com outros dados.");return {replayed:true,result:old.result};}
+    if(old){if(old.operationHash!==hash||old.actorUserId!==userId)throw new SimulationError("Protocolo já usado com outros dados.");return {replayed:true,result:publicResult(old.result)};}
     if(workspace.version!==input.expectedVersion)throw new SimulationError("A simulação mudou. Atualize os dados e confira a operação antes de confirmar.");
-    const state=workspace.state as unknown as SimState,at=new Date().toISOString();
+    let state=workspace.state as unknown as SimState;const at=new Date().toISOString();
+    let archivedState:Prisma.InputJsonValue|undefined;
     let message="",saleId:string|undefined;
-    if(input.action==="ADD_BUYER"){
+    if(input.action==="RESET"){
+      archivedState=json(state);
+      state={...initialSimulation(),generation:(state.generation||1)+1};
+      message="Simulação reiniciada. Saldos iniciais restaurados; vendas, documentos, preços e pagamentos do cenário anterior foram arquivados. Dados reais preservados.";
+    }else if(input.action==="ADD_BUYER"){
       if(state.buyers.length>=50)throw new SimulationError("Limite de 50 compradores demonstrativos atingido.",400);
       state.buyers.push({id:randomUUID(),...input.buyer});message="Comprador demonstrativo cadastrado.";
     }else if(input.action==="CREATE_SALE"){
       if(state.sales.length>=20)throw new SimulationError("Limite de 20 vendas demonstrativas atingido.",400);
-      const prepared=saleLines(state,input.sale);saleId="SIM-VENDA-"+(state.sales.length+1);
+      const prepared=saleLines(state,input.sale);saleId="SIM-VENDA-"+((state.generation||1)>1?state.generation+"-":"")+(state.sales.length+1);
       state.sales.push({id:saleId,...prepared,createdAt:at,stage:"DRAFT",allocations:[],documents:[],payments:[]});message="Venda simulada salva em rascunho. Nenhum saldo foi reduzido.";
     }else{
       saleId=input.saleId;const sale=state.sales.find(s=>s.id===saleId);
@@ -123,7 +132,7 @@ export async function actSimulation(userId:string,cooperativeId:string,input:Sim
     const encoded=json(state);if(JSON.stringify(encoded).length>2*1024*1024)throw new SimulationError("O ambiente demonstrativo atingiu o limite de dados.",400);
     await tx.simulationWorkspace.update({where:{id:workspace.id},data:{state:encoded,version:{increment:1}}});
     const eventResult={message,...(saleId?{saleId}:{})};
-    await tx.simulationEvent.create({data:{workspaceId:workspace.id,operationId:input.operationId,operationHash:hash,actorUserId:userId,kind:input.action,result:eventResult}});
+    await tx.simulationEvent.create({data:{workspaceId:workspace.id,operationId:input.operationId,operationHash:hash,actorUserId:userId,kind:input.action,result:{...eventResult,...(archivedState?{archivedState}:{})}}});
     return {replayed:false,result:eventResult};
   },{timeout:20000});
   return {...await simulationWorkspace(userId,cooperativeId),...result};

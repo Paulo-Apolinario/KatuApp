@@ -31,7 +31,7 @@ Somente SimulationWorkspace e SimulationEvent são escritos. A alocação FIFO r
 
 Operações possuem UUID, hash, ator e versão. Repetir a mesma operação retorna o resultado sem nova baixa/emissão. Corpo diferente ou outro ator com mesmo UUID gera conflito. Lock de linha e checagem de versão protegem contra edição concorrente. Falta de saldo desfaz a transação inteira. A interface mantém o mesmo UUID ao reenviar uma ação com resposta perdida; 409 exige conferir dados atualizados.
 
-Limites por ambiente: 20 vendas, 50 compradores, 12 tentativas documentais por venda, 20 pagamentos por venda e JSON até 2 MiB. Sem exclusão/reset na interface nesta fase. Histórico da tela exibe as últimas 30 ações; eventos anteriores continuam no banco. Não cadastrar informações sensíveis para demonstração.
+Limites por ambiente: 20 vendas, 50 compradores, 12 tentativas documentais por venda, 20 pagamentos por venda e JSON até 2 MiB. O botão Reiniciar simulação restaura os saldos, o comprador padrão e os rascunhos da interface. Exige confirmação, workspace habilitado e versão atual. O cenário anterior é arquivado em SimulationEvent.result.archivedState, sem exposição na API da tela; não há exclusão do histórico técnico nem alteração de dados reais. A geração dos identificadores aumenta para distinguir novas vendas e documentos dos testes anteriores. Repetir o mesmo protocolo de reinício não reinicia novamente um cenário já retomado. Histórico da tela exibe as últimas 30 ações; eventos anteriores continuam no banco. Não cadastrar informações sensíveis para demonstração.
 
 ## Validação reproduzível
 

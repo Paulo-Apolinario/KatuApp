@@ -8,7 +8,7 @@ export type SimAllocation = ReturnType<typeof allocateDispatch>[number] & { mate
 export type SimLine = { materialId: string; name: string; unit: WasteUnit; quantity: string; unitPrice: string; total: string };
 export type SimDocument = { id: string; type: "NFE" | "MTR" | "CDF"; status: "APPROVED" | "REJECTED" | "UNCERTAIN" | "CANCELLED"; createdAt: string; message: string; saleSnapshot: { buyer: SimBuyer; lines: SimLine[]; total: string }; linkedDocumentIds: string[] };
 export type SimSale = { id: string; buyer: SimBuyer; lines: SimLine[]; total: string; createdAt: string; stage: "DRAFT" | "EXPEDITED" | "RECEIVED"; preview: SimAllocation[]; allocations: SimAllocation[]; documents: SimDocument[]; payments: { amount: string; method: string; createdAt: string }[]; receipt?: { quantities: { materialId: string; quantity: string }[]; notes: string; receivedAt: string }; transport: { driver: string; vehicle: string }; };
-export type SimState = { materials: SimMaterial[]; lots: SimLot[]; buyers: SimBuyer[]; sales: SimSale[] };
+export type SimState = { generation?: number; materials: SimMaterial[]; lots: SimLot[]; buyers: SimBuyer[]; sales: SimSale[] };
 export function initialSimulation(): SimState {
   const at = "2026-01-01T12:00:00.000Z";
   return { materials: [{ id:"paper",name:"Papelão",unit:"KG" },{id:"pet",name:"PET",unit:"KG"},{id:"oil",name:"Óleo",unit:"LITER"}],

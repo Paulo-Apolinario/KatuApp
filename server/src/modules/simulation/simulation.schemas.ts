@@ -6,6 +6,7 @@ export const saleInput=z.object({buyerId:z.string().min(1).max(100),lines:z.arra
 const base=z.object({operationId:z.string().uuid(),expectedVersion:z.number().int().positive()});
 const saleId=z.string().min(1).max(100);
 export const simulationAction=z.discriminatedUnion("action",[
+  base.extend({action:z.literal("RESET"),confirm:z.literal(true)}).strict(),
   base.extend({action:z.literal("ADD_BUYER"),buyer:z.object({name:z.string().trim().min(2).max(150),document:z.string().trim().max(30).default(""),address:z.string().trim().max(300).default("")}).strict()}).strict(),
   base.extend({action:z.literal("CREATE_SALE"),sale:saleInput}).strict(),
   base.extend({action:z.literal("PREPARE_NOTE"),saleId,prices:z.array(z.object({materialId:z.string().min(1).max(100),unitPrice:z.number().positive().max(1e9).refine(v=>new Prisma.Decimal(v).decimalPlaces()<=4,"Use até quatro casas no preço.")}).strict()).min(1).max(20)}).strict(),
