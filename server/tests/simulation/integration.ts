@@ -54,6 +54,11 @@ async function main(){
  await act({action:"CREATE_SALE",sale:{...baseSale,lines:[{materialId:"pet",unit:"KG",quantity:3,unitPrice:.3333},{materialId:"oil",unit:"LITER",quantity:5,unitPrice:2} ]}});assert.equal(data.workspace.state.sales.at(-1).total,"11.00");assert.equal(data.workspace.state.sales.at(-1).preview.at(-1).unit,"LITER");
  await act({action:"CREATE_SALE",sale:{...baseSale,lines:[{...baseSale.lines[0],unit:"TON",quantity:1}]}},400);
  await act({action:"CREATE_SALE",sale:{...baseSale,lines:[{...baseSale.lines[0],quantity:.0001}]}},400);
+ const withoutPrice=(await act({action:"CREATE_SALE",sale:{...baseSale,lines:[{...baseSale.lines[0],quantity:10,unitPrice:0}]}})).result.result.saleId;
+ await act({action:"ISSUE_DOCUMENT",saleId:withoutPrice,type:"NFE",outcome:"APPROVED"},400);
+ await act({action:"PREPARE_NOTE",saleId:withoutPrice,prices:[{materialId:"paper",unitPrice:.85}]});assert.equal(data.workspace.state.sales.at(-1).total,"8.50");
+ await act({action:"ISSUE_DOCUMENT",saleId:withoutPrice,type:"NFE",outcome:"APPROVED"});
+ await act({action:"PREPARE_NOTE",saleId:withoutPrice,prices:[{materialId:"paper",unitPrice:.9}]},409);
  assert.equal((await call("b","GET","/simulation/context")).workspace,null);
  data=await call("admin","POST",path+"/enable",{enabled:false});assert(!data.workspace.enabled);await act({action:"ADD_BUYER",buyer:{name:"Bloqueado"}},403);
  data=await call("admin","POST",path+"/enable",{enabled:true});assert.equal(data.workspace.state.lots[2].available,"100.000");

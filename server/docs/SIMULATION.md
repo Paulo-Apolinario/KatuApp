@@ -1,6 +1,6 @@
 # Simulação isolada de venda e documentos
 
-Primeira entrega de validação do fluxo comercial e ambiental. Não é integração oficial nem ambiente de homologação SEFAZ/SINIR. Nenhuma regra tributária é calculada. Os PDFs são demonstrativos genéricos, sem chave, assinatura, protocolo ou validade oficial.
+Primeira entrega de validação do fluxo comercial e ambiental. Não é integração oficial nem ambiente de homologação SEFAZ/SINIR. Nenhuma regra tributária é calculada. O PDF de NF-e usa a estrutura visual DANFE de teste; MTR/CDF usam documentos demonstrativos próprios. Todos são demonstrativos, sem chave, assinatura, protocolo ou validade oficial.
 
 ## Habilitação
 
@@ -15,9 +15,9 @@ Não há ativação automática pelo nome, troca de perfil, senha embutida ou al
 
 São criados materiais, compradores e lotes fictícios no JSON de SimulationWorkspace, separados do catálogo e estoque operacionais. Papelão: três lotes de 200, 170 e 130 kg; PET: 120 kg; óleo: 80 L. A versão inicial já oferece comprador demonstrativo, motorista e veículo de teste.
 
-1. Prévia de 400 kg de papelão a R$ 0,80: total R$ 320; retiradas de 200, 170 e 30 kg; saldo 100 kg.
+1. Prévia de 400 kg de papelão: retiradas de 200, 170 e 30 kg; saldo previsto 100 kg. O rascunho não exige preço.
 2. Salvar rascunho: não reserva nem baixa materiais.
-3. Gerar NF-e simulada. Opções: confirmação, rejeição ou resposta perdida.
+3. Preparar nota e informar os preços: R$ 0,80/kg resulta em R$ 320. Depois gerar NF-e simulada. Opções: confirmação, rejeição ou resposta perdida.
 4. Em resposta perdida, consultar o MESMO identificador, sem emitir outro.
 5. Gerar MTR simulado, confirmar saída demonstrativa, registrar recebimento e gerar CDF simulado.
 6. Registrar pagamento parcial ou total independentemente da etapa física.

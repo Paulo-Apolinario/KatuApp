@@ -73,7 +73,15 @@ export async function actSimulation(userId:string,cooperativeId:string,input:Sim
     }else{
       saleId=input.saleId;const sale=state.sales.find(s=>s.id===saleId);
       if(!sale)throw new SimulationError("Venda simulada não encontrada.",404);
-      if(input.action==="ISSUE_DOCUMENT"){
+      if(input.action==="PREPARE_NOTE"){
+        if(sale.stage!=="DRAFT"||["APPROVED","UNCERTAIN"].includes(latestDocument(sale,"NFE")?.status||""))throw new SimulationError("Os valores só podem mudar antes da confirmação da nota simulada.");
+        if(input.prices.length!==sale.lines.length||new Set(input.prices.map(p=>p.materialId)).size!==sale.lines.length||input.prices.some(p=>!sale.lines.some(l=>l.materialId===p.materialId)))throw new SimulationError("Informe um preço para cada material da venda.",400);
+        for(const line of sale.lines){line.unitPrice=new Prisma.Decimal(input.prices.find(p=>p.materialId===line.materialId)!.unitPrice).toFixed(4);line.total=new Prisma.Decimal(line.unitPrice).mul(line.quantity).toFixed(2);}
+        sale.total=sale.lines.reduce((n,l)=>n.add(l.total),new Prisma.Decimal(0)).toFixed(2);
+        if(new Prisma.Decimal(sale.total).lte(0))throw new SimulationError("Total deve ser de pelo menos R$ 0,01.",400);
+        message="Valores definidos na preparação da nota simulada. Nenhum saldo foi alterado.";
+      }else if(input.action==="ISSUE_DOCUMENT"){
+        if(input.type==="NFE"&&sale.lines.some(l=>new Prisma.Decimal(l.unitPrice).lte(0)))throw new SimulationError("Informe os preços na preparação da nota antes de gerar o documento.",400);
         if(sale.documents.length>=12)throw new SimulationError("Limite de 12 tentativas documentais por venda.",400);
         const oldDoc=latestDocument(sale,input.type);
         if(oldDoc&&["APPROVED","UNCERTAIN"].includes(oldDoc.status))throw new SimulationError("Documento já confirmado ou com resultado pendente. Consulte o resultado existente.");

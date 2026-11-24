@@ -10,7 +10,7 @@ const { PGlite } = require("@electric-sql/pglite");
 const { PGLiteSocketServer } = require("@electric-sql/pglite-socket");
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "katua-simulation-"));
-fs.writeFileSync(path.join(tmp,"before.prisma"), fs.readFileSync(path.join(root,"prisma/schema.prisma"),"utf8").replace(/\n\/\/ Isolated demonstration ledger[\s\S]*$/, "\n").replace(/^  simulationWorkspace SimulationWorkspace\?\n/gm,""));
+fs.writeFileSync(path.join(tmp,"before.prisma"), fs.readFileSync(path.join(root,"prisma/schema.prisma"),"utf8").replace(/\nmodel SimulationWorkspace \{[^}]*\}/g,"\n").replace(/\nmodel SimulationEvent \{[^}]*\}/g,"\n").replace(/^  simulationWorkspace SimulationWorkspace\?\n/gm,""));
 const ddl = spawnSync(process.execPath, ["node_modules/prisma/build/index.js", "migrate", "diff", "--from-empty", "--to-schema-datamodel", path.join(tmp,"before.prisma"), "--script"], {
   cwd: root, encoding: "utf8", env: { ...process.env, DATABASE_URL: "postgresql://127.0.0.1/disposable" },
 });

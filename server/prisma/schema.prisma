@@ -63,6 +63,7 @@ model User {
 }
 
 model Cooperative {
+  salePreparations SaleNotePreparation[]
   simulationWorkspace SimulationWorkspace?
   triageDays TriageDay[]
   mixedBags MixedBag[]
@@ -2169,4 +2170,34 @@ model SimulationEvent {
   createdAt DateTime @default(now())
   @@unique([workspaceId,operationId])
   @@index([workspaceId,createdAt])
+}
+
+// Commercial preparation only. Official fiscal issuance remains unavailable.
+model SaleNotePreparation {
+  id String @id @default(cuid())
+  cooperativeId String
+  sourceKey String
+  version Int @default(1)
+  unitPrice Decimal @db.Decimal(18, 4)
+  total Decimal @db.Decimal(24, 2)
+  notes String
+  snapshot Json
+  updatedBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Restrict)
+  revisions SaleNoteRevision[]
+  @@unique([cooperativeId, sourceKey])
+}
+model SaleNoteRevision {
+  id String @id @default(cuid())
+  preparationId String
+  operationId String
+  operationHash String
+  actorUserId String
+  snapshot Json
+  createdAt DateTime @default(now())
+  preparation SaleNotePreparation @relation(fields: [preparationId], references: [id], onDelete: Restrict)
+  @@unique([preparationId, operationId])
+  @@index([preparationId, createdAt])
 }
